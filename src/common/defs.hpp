@@ -4,6 +4,7 @@
 #include <string_view>
 #include <vector>
 #include <unordered_map>
+#include <memory>
 
 using i8  = int8_t;
 using i16 = int16_t;
@@ -31,6 +32,9 @@ using StdStringView = std::string_view;
 
 template<typename Key, typename Value, typename Hash = std::hash<Key>, typename KeyEq = std::equal_to<Key>>
 using StdUnorderedMap = std::pmr::unordered_map<Key, Value, Hash, KeyEq>;
+
+template<typename T>
+using StdSharedPtr = std::shared_ptr<T>;
 
 #define DECLARE_ENUM_FLAGS(enumType) \
 	enumType operator|(enumType e0, enumType e1);\
