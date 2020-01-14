@@ -4,12 +4,13 @@
 
 namespace Noctis
 {
+	struct Span;
 
 	class ErrorSystem
 	{
 	public:
 
-
+		// Line and column
 		void Error(u64 line, u64 column, StdStringView text);
 		template<typename ...Args>
 		void Error(u64 line, u64 column, StdStringView format, Args&... args)
@@ -17,21 +18,14 @@ namespace Noctis
 			StdString text = Format(format, args...);
 			Error(line, column, text);
 		}
-		
-		void Error(u64 line, u64 column, const StdString& format);
+
+		// Span
+		void Error(const Span& span, StdStringView text);
 		template<typename ...Args>
-		void Error(u64 line, u64 column, const StdString& format, Args&... args)
+		void Error(const Span& span, StdStringView format, Args&... args)
 		{
 			StdString text = Format(format, args...);
-			Error(line, column, text);
-		}
-		
-		void Error(u64 line, u64 column, const char* format);
-		template<typename ...Args>
-		void Error(u64 line, u64 column, const char* format, Args&... args)
-		{
-			StdString text = Format(format, args...);
-			Error(line, column, text);
+			Error(span, text);
 		}
 
 		void SetCurrentFile(const StdString& file);

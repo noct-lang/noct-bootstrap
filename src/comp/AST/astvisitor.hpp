@@ -1,17 +1,20 @@
 #pragma once
 #include "common/defs.hpp"
+#include "ast.hpp"
 
 namespace Noctis
 {
 
 	// AST node forward decls
 	struct AstModuleDecl;
+	struct AstIdentifier;
 	struct AstParam;
 	struct AstArg;
 
 	struct AstStructDecl;
 	struct AstUnionDecl;
 	struct AstValueEnumDecl;
+	struct AstValueEnumStructMember;
 	struct AstAdtEnumDecl;
 	struct AstMarkerInterfaceDecl;
 	struct AstWeakInterfaceDecl;
@@ -21,6 +24,7 @@ namespace Noctis
 	struct AstVarDecl;
 	struct AstFuncDecl;
 	struct AstMethodDecl;
+	struct AstEmptyMethodDecl;
 	struct AstImplDecl;
 
 	struct AstImportStmt;
@@ -43,7 +47,6 @@ namespace Noctis
 	struct AstStackDeferStmt;
 	struct AstUnsafeStmt;
 	struct AstCompIfStmt;
-	struct AstCompForStmt;
 	struct AstCompCondStmt;
 	struct AstCompDebugStmt;
 
@@ -69,6 +72,7 @@ namespace Noctis
 	struct AstBracketExpr;
 	struct AstBlockExpr;
 	struct AstUnsafeExpr;
+	struct AstCommaExpr;
 	struct AstVoidExpr;
 	struct AstClosureExpr;
 	struct AstCompRunExpr;
@@ -122,12 +126,14 @@ namespace Noctis
 		virtual bool ShouldVisit(AstNodeKind type);
 		
 		virtual void Visit(AstModuleDecl& node, AstVisitLoc loc);
+		virtual void Visit(AstIdentifier& node, AstVisitLoc loc);
 		virtual void Visit(AstParam& node, AstVisitLoc loc);
 		virtual void Visit(AstArg& node, AstVisitLoc loc);
 
 		virtual void Visit(AstStructDecl& node, AstVisitLoc loc);
 		virtual void Visit(AstUnionDecl& node, AstVisitLoc loc);
 		virtual void Visit(AstValueEnumDecl& node, AstVisitLoc loc);
+		virtual void Visit(AstAdtEnumStructMember& node, AstVisitLoc loc);
 		virtual void Visit(AstAdtEnumDecl& node, AstVisitLoc loc);
 		virtual void Visit(AstMarkerInterfaceDecl& node, AstVisitLoc loc);
 		virtual void Visit(AstWeakInterfaceDecl& node, AstVisitLoc loc);
@@ -137,6 +143,7 @@ namespace Noctis
 		virtual void Visit(AstVarDecl& node, AstVisitLoc loc);
 		virtual void Visit(AstFuncDecl& node, AstVisitLoc loc);
 		virtual void Visit(AstMethodDecl& node, AstVisitLoc loc);
+		virtual void Visit(AstEmptyMethodDecl& node, AstVisitLoc loc);
 		virtual void Visit(AstImplDecl& node, AstVisitLoc loc);
 
 		virtual void Visit(AstImportStmt& node, AstVisitLoc loc);
@@ -159,7 +166,6 @@ namespace Noctis
 		virtual void Visit(AstStackDeferStmt& node, AstVisitLoc loc);
 		virtual void Visit(AstUnsafeStmt& node, AstVisitLoc loc);
 		virtual void Visit(AstCompIfStmt& node, AstVisitLoc loc);
-		virtual void Visit(AstCompForStmt& node, AstVisitLoc loc);
 		virtual void Visit(AstCompCondStmt& node, AstVisitLoc loc);
 		virtual void Visit(AstCompDebugStmt& node, AstVisitLoc loc);
 
@@ -185,6 +191,7 @@ namespace Noctis
 		virtual void Visit(AstBracketExpr& node, AstVisitLoc loc);
 		virtual void Visit(AstBlockExpr& node, AstVisitLoc loc);
 		virtual void Visit(AstUnsafeExpr& node, AstVisitLoc loc);
+		virtual void Visit(AstCommaExpr& node, AstVisitLoc loc);
 		virtual void Visit(AstVoidExpr& node, AstVisitLoc loc);
 		virtual void Visit(AstClosureExpr& node, AstVisitLoc loc);
 		virtual void Visit(AstCompRunExpr& node, AstVisitLoc loc);

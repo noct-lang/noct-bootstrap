@@ -19,6 +19,10 @@ namespace Noctis
 	{
 	}
 
+	void AstVisitor::Visit(AstIdentifier& node, AstVisitLoc loc)
+	{
+	}
+
 	void AstVisitor::Visit(AstParam& node, AstVisitLoc loc)
 	{
 	}
@@ -36,6 +40,10 @@ namespace Noctis
 	}
 
 	void AstVisitor::Visit(AstValueEnumDecl& node, AstVisitLoc loc)
+	{
+	}
+
+	void AstVisitor::Visit(AstAdtEnumStructMember& node, AstVisitLoc loc)
 	{
 	}
 
@@ -72,6 +80,10 @@ namespace Noctis
 	}
 
 	void AstVisitor::Visit(AstMethodDecl& node, AstVisitLoc loc)
+	{
+	}
+
+	void AstVisitor::Visit(AstEmptyMethodDecl& node, AstVisitLoc loc)
 	{
 	}
 
@@ -156,10 +168,6 @@ namespace Noctis
 	}
 
 	void AstVisitor::Visit(AstCompIfStmt& node, AstVisitLoc loc)
-	{
-	}
-
-	void AstVisitor::Visit(AstCompForStmt& node, AstVisitLoc loc)
 	{
 	}
 
@@ -256,6 +264,10 @@ namespace Noctis
 	}
 
 	void AstVisitor::Visit(AstUnsafeExpr& node, AstVisitLoc loc)
+	{
+	}
+
+	void AstVisitor::Visit(AstCommaExpr& node, AstVisitLoc loc)
 	{
 	}
 

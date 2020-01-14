@@ -18,6 +18,7 @@ namespace Noctis
 		UnittestDecl, // TODO
 		BenchmarkDecl, // TODO
 
+		Identifier,
 		Param,
 		Arg,
 
@@ -25,6 +26,7 @@ namespace Noctis
 		StructDecl = DeclStartMarker,
 		UnionDecl,
 		ValueEnumDecl,
+		AdtEnumStructMember,
 		AdtEnumDecl,
 		MarkerInterfaceDecl,
 		WeakInterfaceDecl,
@@ -34,6 +36,7 @@ namespace Noctis
 		VarDecl,
 		FuncDecl,
 		MethodDecl,
+		EmptyMethodDecl,
 		ImplDecl,
 		DeclEndMarker = ImplDecl,
 
@@ -110,7 +113,7 @@ namespace Noctis
 		UserAttribute,
 		VisibilityAttribute,
 		SimpleAttribute,
-		AttributeEndMaprker = SimpleAttribute,
+		AttributeEndMarker = SimpleAttribute,
 
 		GenericsStartMarker,
 		GenericsDecl,
@@ -133,7 +136,7 @@ namespace Noctis
 		ProcMacro,
 		RulesProcMacro,
 		MacroInst,
-		MacroEndMarker,
+		MacroEndMarker = MacroInst,
 		
 	};
 	
@@ -141,10 +144,16 @@ namespace Noctis
 	{
 		AstNode(AstNodeKind nodeKind, u64 startTokIdx, u64 endTokIdx);
 		virtual ~AstNode();
+
+		bool IsDeclaration() const;
+		bool IsStatement() const;
+		bool IsExpression() const;
+		bool IsType() const;
+		bool IsAttribute() const;
+		bool IsGeneric() const;
+		bool IsMacro() const;
 		
 		virtual void Visit(AstVisitor& visitor);
-
-		
 		
 		AstNodeKind nodeKind;
 		u64 startTokIdx;
@@ -164,13 +173,22 @@ namespace Noctis
 		StdVector<StdString> moduleIdens;
 	};
 
-	struct AstParam : public AstNode
+	struct AstIdentifier : public AstNode
 	{
-		AstParam(u64 startTokIdx, StdVector<StdString>&& idens, AstNodeSPtr type, bool isVariadic, u64 endTokIdx);
+		AstIdentifier(u64 idenIdx, StdString&& iden);
 
 		void Visit(AstVisitor& visitor) override;
 
-		StdVector<StdString> idens;
+		StdString iden;
+	};
+
+	struct AstParam : public AstNode
+	{
+		AstParam(u64 startTokIdx, StdVector<std::pair<AstNodeSPtr, StdString>>&& idens, AstNodeSPtr type, bool isVariadic, u64 endTokIdx);
+
+		void Visit(AstVisitor& visitor) override;
+
+		StdVector<std::pair<AstNodeSPtr, StdString>> idens;
 		AstNodeSPtr type;
 		bool isVariadic;
 	};
@@ -217,7 +235,17 @@ namespace Noctis
 
 		AstNodeSPtr attribs;
 		StdString iden;
+		AstNodeSPtr type;
 		StdVector<std::pair<StdString, AstNodeSPtr>> members;
+	};
+
+	struct AstAdtEnumStructMember : public AstNode
+	{
+		AstAdtEnumStructMember(u64 lBraceTokIdx, StdVector<std::pair<StdVector<StdString>, AstNodeSPtr>>&& members, u64 rBraceTokIdx);
+
+		void Visit(AstVisitor& visitor) override;
+		
+		StdVector<std::pair<StdVector<StdString>, AstNodeSPtr>> members;
 	};
 	
 	struct AstAdtEnumDecl : public AstNode
@@ -303,14 +331,14 @@ namespace Noctis
 
 	struct AstFuncDecl : public AstNode
 	{
-		AstFuncDecl(AstNodeSPtr attribs, u64 funcTokIdx, StdString&& identifier, AstNodeSPtr generics, StdVector<AstNodeSPtr>&& args, AstNodeSPtr ret, AstNodeSPtr whereClause, StdVector<AstNodeSPtr>&& statements, u64 rBraceTokIdx);
+		AstFuncDecl(AstNodeSPtr attribs, u64 funcTokIdx, StdString&& identifier, AstNodeSPtr generics, StdVector<AstNodeSPtr>&& params, AstNodeSPtr ret, AstNodeSPtr whereClause, StdVector<AstNodeSPtr>&& statements, u64 rBraceTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
 
 		AstNodeSPtr attribs;
 		StdString iden;
 		AstNodeSPtr generics;
-		StdVector<AstNodeSPtr> args;
+		StdVector<AstNodeSPtr> params;
 		AstNodeSPtr ret;
 		AstNodeSPtr whereClause;
 		StdVector<AstNodeSPtr> statements;
@@ -326,7 +354,7 @@ namespace Noctis
 	
 	struct AstMethodDecl : public AstNode
 	{
-		AstMethodDecl(AstNodeSPtr attribs, u64 funcTokIdx, AstMethodReceiverKind rec, StdString&& identifier, AstNodeSPtr generics, StdVector<AstNodeSPtr>&& params, AstNodeSPtr ret, AstNodeSPtr whereClause, StdVector<AstNodeSPtr>&& statements, u64 rBraceTokIdx, bool hasBody);
+		AstMethodDecl(AstNodeSPtr attribs, u64 funcTokIdx, AstMethodReceiverKind rec, StdString&& identifier, AstNodeSPtr generics, StdVector<AstNodeSPtr>&& params, AstNodeSPtr ret, AstNodeSPtr whereClause, StdVector<AstNodeSPtr>&& statements, u64 rBraceTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
 
@@ -338,16 +366,32 @@ namespace Noctis
 		AstNodeSPtr ret;
 		AstNodeSPtr whereClause;
 		StdVector<AstNodeSPtr> statements;
-		bool hasBody;
 	};
 
-	struct AstImplDecl : public AstNode
+	struct AstEmptyMethodDecl : public AstNode
 	{
-		AstImplDecl(AstNodeSPtr attribs, u64 implTokIdx, AstNodeSPtr type, StdVector<AstNodeSPtr>&& interfaces, StdVector<AstNodeSPtr>&& statements, u64 rBraceTokIdx);
+		AstEmptyMethodDecl(AstNodeSPtr attribs, u64 funcTokIdx, AstMethodReceiverKind rec, StdString&& identifier, AstNodeSPtr generics, StdVector<AstNodeSPtr>&& params, AstNodeSPtr ret, AstNodeSPtr whereClause, StdVector<AstNodeSPtr>&& statements, u64 rBraceTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
 
 		AstNodeSPtr attribs;
+		AstMethodReceiverKind rec;
+		StdString iden;
+		AstNodeSPtr generics;
+		StdVector<AstNodeSPtr> params;
+		AstNodeSPtr ret;
+		AstNodeSPtr whereClause;
+		StdVector<AstNodeSPtr> statements;
+	};
+
+	struct AstImplDecl : public AstNode
+	{
+		AstImplDecl(AstNodeSPtr attribs, u64 implTokIdx, AstNodeSPtr generics, AstNodeSPtr type, StdVector<AstNodeSPtr>&& interfaces, StdVector<AstNodeSPtr>&& statements, u64 rBraceTokIdx);
+
+		void Visit(AstVisitor& visitor) override;
+
+		AstNodeSPtr attribs;
+		AstNodeSPtr generics;
 		AstNodeSPtr type;
 		StdVector<AstNodeSPtr> interfaces;
 		StdVector<AstNodeSPtr> statements;
@@ -355,10 +399,11 @@ namespace Noctis
 
 	struct AstImportStmt : public AstNode
 	{
-		AstImportStmt(u64 moduleTokIds, StdVector<StdString>&& moduleIdens, StdVector<std::pair<StdVector<StdString>, StdString>>&& symbols, u64 semicolonTokIdx);
+		AstImportStmt(AstNodeSPtr attribs, u64 importTokIdx, StdVector<StdString>&& moduleIdens, StdVector<std::pair<StdVector<StdString>, StdString>>&& symbols, u64 semicolonTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
 
+		AstNodeSPtr attribs;
 		StdVector<StdString> moduleIdens;
 		StdVector<std::pair<StdVector<StdString>, StdString>> symbols;
 	};
@@ -386,39 +431,43 @@ namespace Noctis
 
 	struct AstLoopStmt : public AstNode
 	{
-		AstLoopStmt(u64 loopTokIdx, AstNodeSPtr body);
+		AstLoopStmt(AstNodeSPtr label, u64 loopTokIdx, AstNodeSPtr body);
 
 		void Visit(AstVisitor& visitor) override;
 
+		AstNodeSPtr label;
 		AstNodeSPtr body;
 	};
 
 	struct AstWhileStmt : public AstNode
 	{
-		AstWhileStmt(u64 whileTokIdx, AstNodeSPtr cond, AstNodeSPtr body);
+		AstWhileStmt(AstNodeSPtr label, u64 whileTokIdx, AstNodeSPtr cond, AstNodeSPtr body);
 
 		void Visit(AstVisitor& visitor) override;
 
+		AstNodeSPtr label;
 		AstNodeSPtr cond;
 		AstNodeSPtr body;
 	};
 
 	struct AstDoWhileStmt : public AstNode
 	{
-		AstDoWhileStmt(u64 whileTokIdx, AstNodeSPtr body, AstNodeSPtr cond);
+		AstDoWhileStmt(AstNodeSPtr label, u64 doTokIdx, AstNodeSPtr body, AstNodeSPtr cond, u64 endIdx);
 
 		void Visit(AstVisitor& visitor) override;
 
+		AstNodeSPtr label;
 		AstNodeSPtr body;
 		AstNodeSPtr cond;
 	};
 
 	struct AstForStmt : public AstNode
 	{
-		AstForStmt(u64 forTokIdx, AstNodeSPtr init, AstNodeSPtr cond, AstNodeSPtr inc, AstNodeSPtr body);
+		AstForStmt(AstNodeSPtr label, u64 forTokIdx, AstNodeSPtr init, AstNodeSPtr cond, AstNodeSPtr inc, AstNodeSPtr body);
 
 		void Visit(AstVisitor& visitor) override;
 
+		AstNodeSPtr label;
 		AstNodeSPtr init;
 		AstNodeSPtr cond;
 		AstNodeSPtr inc;
@@ -427,16 +476,17 @@ namespace Noctis
 
 	struct AstForRangeStmt : public AstNode
 	{
-		AstForRangeStmt(u64 forTokIdx, StdVector<StdString>&& idens, AstNodeSPtr range, AstNodeSPtr body);
+		AstForRangeStmt(AstNodeSPtr label, u64 forTokIdx, StdVector<StdString>&& idens, AstNodeSPtr range, AstNodeSPtr body);
 
 		void Visit(AstVisitor& visitor) override;
 
+		AstNodeSPtr label;
 		StdVector<StdString> idens;
 		AstNodeSPtr range;
 		AstNodeSPtr body;
 	};
 
-	struct AStSwitchCase
+	struct AstSwitchCase
 	{
 		AstNodeSPtr staticExpr;
 		AstNodeSPtr dynamicExpr;
@@ -445,11 +495,12 @@ namespace Noctis
 
 	struct AstSwitchStmt : public AstNode
 	{
-		AstSwitchStmt(u64 switchTokIdx, StdVector<AStSwitchCase>&& cases, u64 rBraceTokIdx);
+		AstSwitchStmt(AstNodeSPtr label, u64 switchTokIdx, StdVector<AstSwitchCase>&& cases, u64 rBraceTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
 
-		StdVector<AStSwitchCase> cases;
+		AstNodeSPtr label;
+		StdVector<AstSwitchCase> cases;
 	};
 
 	struct AstLabelStmt : public AstNode
@@ -497,11 +548,11 @@ namespace Noctis
 
 	struct AstReturnStmt : public AstNode
 	{
-		AstReturnStmt(u64 returnTokIdx, StdVector<AstNodeSPtr>&& exprs, u64 semicolonTokIdx);
+		AstReturnStmt(u64 returnTokIdx, AstNodeSPtr expr, u64 semicolonTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
 
-		StdVector<AstNodeSPtr> exprs;
+		AstNodeSPtr expr;
 	};
 
 	struct AstExprStmt : public AstNode
@@ -515,20 +566,20 @@ namespace Noctis
 
 	struct AstDeferStmt : public AstNode
 	{
-		AstDeferStmt(u64 deferTokIdx, AstNodeSPtr stmt);
+		AstDeferStmt(u64 deferTokIdx, AstNodeSPtr stmt, u64 semicolonTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
 
-		AstNodeSPtr stmt;
+		AstNodeSPtr expr;
 	};
 
 	struct AstStackDeferStmt : public AstNode
 	{
-		AstStackDeferStmt(u64 deferTokIdx, AstNodeSPtr stmt);
+		AstStackDeferStmt(u64 deferTokIdx, AstNodeSPtr stmt, u64 semicolonTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
 
-		AstNodeSPtr stmt;
+		AstNodeSPtr expr;
 	};
 
 	struct AstUnsafeStmt : public AstNode
@@ -552,36 +603,24 @@ namespace Noctis
 		AstNodeSPtr elseBody;
 	};
 
-	struct AstCompForStmt : public AstNode
-	{
-		AstCompForStmt(u64 hashTokIdx, AstNodeSPtr init, AstNodeSPtr cond, AstNodeSPtr inc, AstNodeSPtr body);
-
-		void Visit(AstVisitor& visitor) override;
-
-		AstNodeSPtr init;
-		AstNodeSPtr cond;
-		AstNodeSPtr inc;
-		AstNodeSPtr body;
-	};
-
 	struct AstCompCondStmt : public AstNode
 	{
-		AstCompCondStmt(u64 hashTokIdx, AstNodeSPtr cond, AstNodeSPtr body, AstNodeSPtr elseBody);
+		AstCompCondStmt(u64 hashTokIdx, Token cond, AstNodeSPtr body, AstNodeSPtr elseBody);
 
 		void Visit(AstVisitor& visitor) override;
 
-		AstNodeSPtr cond;
+		Token cond;
 		AstNodeSPtr body;
 		AstNodeSPtr elseBody;
 	};
 
 	struct AstCompDebugStmt : public AstNode
 	{
-		AstCompDebugStmt(u64 hashTokIdx, AstNodeSPtr cond, AstNodeSPtr body, AstNodeSPtr elseBody);
+		AstCompDebugStmt(u64 hashTokIdx, Token cond, AstNodeSPtr body, AstNodeSPtr elseBody);
 
 		void Visit(AstVisitor& visitor) override;
 
-		AstNodeSPtr cond;
+		Token cond;
 		AstNodeSPtr body;
 		AstNodeSPtr elseBody;
 	};
@@ -641,29 +680,31 @@ namespace Noctis
 
 	struct AstQualNameExpr : public AstNode
 	{
-		AstQualNameExpr(u64 startTokIdx, StdVector<StdString>&& idens, u64 endTokIdx);
+		AstQualNameExpr(u64 startTokIdx, StdVector<AstNodeSPtr>&& idens, u64 endTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
 
-		StdVector<StdString> idens;
+		StdVector<AstNodeSPtr> idens;
 	};
 
 	struct AstIndexSliceExpr : public AstNode
 	{
-		AstIndexSliceExpr(AstNodeSPtr expr, AstNodeSPtr index, u64 rBracketTokIdx);
+		AstIndexSliceExpr(AstNodeSPtr expr, bool nullCoalesce, AstNodeSPtr index, u64 rBracketTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
 
+		bool nullCoalesce;
 		AstNodeSPtr expr;
 		AstNodeSPtr index;
 	};
 
 	struct AstSliceExpr : public AstNode
 	{
-		AstSliceExpr(AstNodeSPtr expr, AstNodeSPtr begin, AstNodeSPtr end, u64 rBracketTokIdx);
+		AstSliceExpr(AstNodeSPtr expr, bool nullCoalesce, AstNodeSPtr begin, AstNodeSPtr end, u64 rBracketTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
 
+		bool nullCoalesce;
 		AstNodeSPtr expr;
 		AstNodeSPtr begin;
 		AstNodeSPtr end;
@@ -682,32 +723,35 @@ namespace Noctis
 
 	struct AstMemberAccessExpr : public AstNode
 	{
-		AstMemberAccessExpr(AstNodeSPtr caller, StdString&& iden, u64 idenTokIdx);
+		AstMemberAccessExpr(AstNodeSPtr caller, bool nullCoalesce, StdString&& iden, u64 idenTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
 
 		AstNodeSPtr caller;
+		bool nullCoalesc;
 		StdString iden;
 	};
 
 	struct AstMethodCallExpr : public AstNode
 	{
-		AstMethodCallExpr(AstNodeSPtr caller, StdString&& iden, StdVector<AstNodeSPtr>&& args, u64 rParenTokIdx);
+		AstMethodCallExpr(AstNodeSPtr caller, bool nullCoalesce, StdString&& iden, StdVector<AstNodeSPtr>&& args, u64 rParenTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
 
 		AstNodeSPtr caller;
+		bool nullCoalesc;
 		StdString iden;
 		StdVector<AstNodeSPtr> args;
 	};
 
 	struct AstTupleAccessExpr : public AstNode
 	{
-		AstTupleAccessExpr(AstNodeSPtr expr, u16 index, u64 indexTokIdx);
+		AstTupleAccessExpr(AstNodeSPtr expr, bool nullCoalesce, u16 index, u64 indexTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
 
 		AstNodeSPtr expr;
+		bool nullCoalesc;
 		u16 index;
 	};
 
@@ -723,11 +767,11 @@ namespace Noctis
 	// Can be: struct, union, ADT enum member
 	struct AstAggrInitExpr : public AstNode
 	{
-		AstAggrInitExpr(u64 startTokIdx, StdVector<StdString>&& idens, StdVector<AstNodeSPtr>&& args, u64 rBraceTokIdx);
+		AstAggrInitExpr(u64 startTokIdx, StdVector<AstNodeSPtr>&& idens, StdVector<AstNodeSPtr>&& args, u64 rBraceTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
 
-		StdVector<StdString> idens;
+		StdVector<AstNodeSPtr> idens;
 		StdVector<AstNodeSPtr> args;
 	};
 
@@ -805,11 +849,13 @@ namespace Noctis
 		AstNodeSPtr expr;
 	};
 
-	struct AstVoidExpr : public AstNode
+	struct AstCommaExpr : public AstNode
 	{
-		AstVoidExpr(u64 voidTokIdx);
+		AstCommaExpr(StdVector<AstNodeSPtr>&& exprs);
 
 		void Visit(AstVisitor& visitor) override;
+
+		StdVector<AstNodeSPtr> exprs;
 	};
 
 	struct AstClosureCapture
@@ -849,11 +895,11 @@ namespace Noctis
 
 	struct AstIdentifierType : public AstNode
 	{
-		AstIdentifierType(u64 startTokIdx, StdVector<StdString>&& idens, u64 endTokIdx);
+		AstIdentifierType(u64 startTokIdx, StdVector<AstNodeSPtr>&& idens, u64 endTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
 
-		StdVector<StdString> idens;
+		StdVector<AstNodeSPtr> idens;
 	};
 
 	struct AstPointerType : public AstNode
@@ -913,7 +959,7 @@ namespace Noctis
 
 	struct AstAttributes : public AstNode
 	{
-		AstAttributes(u64 startTokIdx, StdVector<AstNodeSPtr>&& compAttribs, StdVector<AstNodeSPtr>& userAttribs, AstNodeSPtr visibility, StdVector<AstNodeSPtr>&& simpleAttribs, u64 endTokIdx);
+		AstAttributes(u64 startTokIdx, StdVector<AstNodeSPtr>&& compAttribs, StdVector<AstNodeSPtr>&& userAttribs, AstNodeSPtr visibility, StdVector<AstNodeSPtr>&& simpleAttribs, u64 endTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
 
@@ -925,7 +971,7 @@ namespace Noctis
 
 	struct AstCompAttribute : public AstNode
 	{
-		AstCompAttribute(u64 atColonTokIdx, StdString&& iden, StdVector<AstNodeSPtr>&& args, u64 rParenTokIdx);
+		AstCompAttribute(u64 atColonTokIdx, StdString&& iden, StdVector<AstNodeSPtr>&& args, u64 endTokIdx);
 		
 		void Visit(AstVisitor& visitor) override;
 
@@ -935,7 +981,7 @@ namespace Noctis
 
 	struct AstUserAttribute : public AstNode
 	{
-		AstUserAttribute(u64 atColonTokIdx, StdString&& iden, StdVector<AstNodeSPtr>&& args, u64 rParenTokIdx);
+		AstUserAttribute(u64 atColonTokIdx, StdString&& iden, StdVector<AstNodeSPtr>&& args, u64 endTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
 
@@ -945,11 +991,11 @@ namespace Noctis
 
 	struct AstVisibilityAttribute : public AstNode
 	{
-		AstVisibilityAttribute(u64 publicTokIdx, TokenType subType, u64 endTokId);
+		AstVisibilityAttribute(u64 publicTokIdx, StdString&& kind, u64 endTokId);
 
 		void Visit(AstVisitor& visitor) override;
 
-		TokenType subType;
+		StdString kind;
 	};
 
 	struct AstSimpleAttribute : public AstNode
@@ -1003,16 +1049,17 @@ namespace Noctis
 
 	struct AstGenericInst : public AstNode
 	{
-		AstGenericInst(u64 startTokIdx, StdVector<StdString>&& idens, StdVector<AstNodeSPtr>&& args, u64 endTokIdx);
+		AstGenericInst(u64 startTokIdx, StdString&& iden, StdVector<AstNodeSPtr>&& args, u64 endTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
 
-		StdVector<StdString> idens;
+		StdString iden;
 		StdVector<AstNodeSPtr> args;
 	};
 
 	enum class AstMacroVarKind : u8
 	{
+		Unknown,
 		Stmt,
 		Expr,
 		Type,
@@ -1042,12 +1089,11 @@ namespace Noctis
 
 	struct AstMacroFragment : public AstNode
 	{
-		AstMacroFragment(StdVector<AstNodeSPtr>&& subPatterns, AstNodeSPtr sep, TokenType repType, u64 endTokIdx);
+		AstMacroFragment(u64 startIdx, AstNodeSPtr subPattern, TokenType repType, u64 endTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
 
-		StdVector<AstNodeSPtr> subPatterns;
-		AstNodeSPtr sep;
+		AstNodeSPtr subPattern;
 		TokenType repType;
 	};
 	

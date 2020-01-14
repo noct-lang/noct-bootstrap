@@ -15,6 +15,41 @@ namespace Noctis
 	{
 	}
 
+	bool AstNode::IsDeclaration() const
+	{
+		return u64(nodeKind) >= u64(AstNodeKind::DeclStartMarker) && u64(nodeKind) <= u64(AstNodeKind::DeclEndMarker);
+	}
+
+	bool AstNode::IsStatement() const
+	{
+		return u64(nodeKind) >= u64(AstNodeKind::StmtStartMarker) && u64(nodeKind) <= u64(AstNodeKind::StmtEndMarker);
+	}
+
+	bool AstNode::IsExpression() const
+	{
+		return u64(nodeKind) >= u64(AstNodeKind::ExprStartMarker) && u64(nodeKind) <= u64(AstNodeKind::ExprEndMarker);
+	}
+
+	bool AstNode::IsType() const
+	{
+		return u64(nodeKind) >= u64(AstNodeKind::TypeStartMarker) && u64(nodeKind) <= u64(AstNodeKind::TypeEndMarker);
+	}
+
+	bool AstNode::IsAttribute() const
+	{
+		return u64(nodeKind) >= u64(AstNodeKind::AttributeStartMarker) && u64(nodeKind) <= u64(AstNodeKind::AttributeEndMarker);
+	}
+
+	bool AstNode::IsGeneric() const
+	{
+		return u64(nodeKind) >= u64(AstNodeKind::GenericsStartMarker) && u64(nodeKind) <= u64(AstNodeKind::GenericsEndMarker);
+	}
+
+	bool AstNode::IsMacro() const
+	{
+		return u64(nodeKind) >= u64(AstNodeKind::MacroStartMarker) && u64(nodeKind) <= u64(AstNodeKind::MacroEndMarker);
+	}
+
 	void AstNode::Visit(AstVisitor& visitor)
 	{
 	}
@@ -34,7 +69,22 @@ namespace Noctis
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
-	AstParam::AstParam(u64 startTokIdx, StdVector<StdString>&& idens, AstNodeSPtr type, bool isVariadic, u64 endTokIdx)
+	AstIdentifier::AstIdentifier(u64 idenIdx, StdString&& iden)
+		: AstNode(AstNodeKind::IdentifierType, idenIdx, idenIdx)
+		, iden(std::move(iden))
+	{
+	}
+
+	void AstIdentifier::Visit(AstVisitor& visitor)
+	{
+		if (!visitor.ShouldVisit(nodeKind))
+			return;
+
+		visitor.Visit(*this, AstVisitLoc::Begin);
+		visitor.Visit(*this, AstVisitLoc::End);
+	}
+
+	AstParam::AstParam(u64 startTokIdx, StdVector<std::pair<AstNodeSPtr, StdString>>&& idens, AstNodeSPtr type, bool isVariadic, u64 endTokIdx)
 		: AstNode(AstNodeKind::Param, startTokIdx, endTokIdx)
 		, idens(std::move(idens))
 		, type(type)
@@ -162,8 +212,24 @@ namespace Noctis
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
+	AstAdtEnumStructMember::AstAdtEnumStructMember(u64 lBraceTokIdx,
+		StdVector<std::pair<StdVector<StdString>, AstNodeSPtr>>&& members, u64 rBraceTokIdx)
+		: AstNode(AstNodeKind::AdtEnumStructMember, lBraceTokIdx, rBraceTokIdx)
+		, members(std::move(members))
+	{
+	}
+
+	void AstAdtEnumStructMember::Visit(AstVisitor& visitor)
+	{
+		if (!visitor.ShouldVisit(nodeKind))
+			return;
+
+		visitor.Visit(*this, AstVisitLoc::Begin);
+		visitor.Visit(*this, AstVisitLoc::End);
+	}
+
 	AstAdtEnumDecl::AstAdtEnumDecl(AstNodeSPtr attribs, u64 enumTokIdx, StdString&& iden,
-		AstNodeSPtr generics, StdVector<std::pair<StdString, AstNodeSPtr>>&& members, u64 rBraceTokIdx)
+	                               AstNodeSPtr generics, StdVector<std::pair<StdString, AstNodeSPtr>>&& members, u64 rBraceTokIdx)
 		: AstNode(AstNodeKind::AdtEnumDecl, attribs ? attribs->startTokIdx : enumTokIdx, rBraceTokIdx)
 		, attribs(attribs)
 		, iden(std::move(iden))
@@ -347,13 +413,13 @@ namespace Noctis
 	}
 
 	AstFuncDecl::AstFuncDecl(AstNodeSPtr attribs, u64 funcTokIdx, StdString&& identifier, AstNodeSPtr generics,
-		StdVector<AstNodeSPtr>&& args, AstNodeSPtr ret, AstNodeSPtr whereClause, StdVector<AstNodeSPtr>&& statements,
+		StdVector<AstNodeSPtr>&& params, AstNodeSPtr ret, AstNodeSPtr whereClause, StdVector<AstNodeSPtr>&& statements,
 		u64 rBraceTokIdx)
 		: AstNode(AstNodeKind::FuncDecl, attribs ? attribs->startTokIdx : funcTokIdx, rBraceTokIdx)
 		, attribs(attribs)
 		, iden(std::move(iden))
 		, generics(generics)
-		, args(std::move(args))
+		, params(std::move(params))
 		, ret(ret)
 		, whereClause(whereClause)
 		, statements(std::move(statements))
@@ -372,7 +438,7 @@ namespace Noctis
 		if (generics)
 			generics->Visit(visitor);
 
-		for (AstNodeSPtr arg : args)
+		for (AstNodeSPtr arg : params)
 		{
 			arg->Visit(visitor);
 		}
@@ -392,8 +458,8 @@ namespace Noctis
 
 	AstMethodDecl::AstMethodDecl(AstNodeSPtr attribs, u64 funcTokIdx, AstMethodReceiverKind rec, StdString&& identifier,
 		AstNodeSPtr generics, StdVector<AstNodeSPtr>&& params, AstNodeSPtr ret, AstNodeSPtr whereClause,
-		StdVector<AstNodeSPtr>&& statements, u64 rBraceTokIdx, bool hasBody)
-		: AstNode(AstNodeKind::FuncDecl, attribs ? attribs->startTokIdx : funcTokIdx, rBraceTokIdx)
+		StdVector<AstNodeSPtr>&& statements, u64 rBraceTokIdx)
+		: AstNode(AstNodeKind::MethodDecl, attribs ? attribs->startTokIdx : funcTokIdx, rBraceTokIdx)
 		, attribs(attribs)
 		, rec(rec)
 		, iden(std::move(iden))
@@ -402,7 +468,6 @@ namespace Noctis
 		, ret(ret)
 		, whereClause(whereClause)
 		, statements(std::move(statements))
-		, hasBody(hasBody)
 	{
 	}
 
@@ -436,10 +501,56 @@ namespace Noctis
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
-	AstImplDecl::AstImplDecl(AstNodeSPtr attribs, u64 implTokIdx, AstNodeSPtr type, StdVector<AstNodeSPtr>&& interfaces,
-		StdVector<AstNodeSPtr>&& statements, u64 rBraceTokIdx)
+	AstEmptyMethodDecl::AstEmptyMethodDecl(AstNodeSPtr attribs, u64 funcTokIdx, AstMethodReceiverKind rec,
+		StdString&& identifier, AstNodeSPtr generics, StdVector<AstNodeSPtr>&& params, AstNodeSPtr ret,
+		AstNodeSPtr whereClause, StdVector<AstNodeSPtr>&& statements, u64 rBraceTokIdx)
+		: AstNode(AstNodeKind::MethodDecl, attribs ? attribs->startTokIdx : funcTokIdx, rBraceTokIdx)
+		, attribs(attribs)
+		, rec(rec)
+		, iden(std::move(iden))
+		, generics(generics)
+		, params(std::move(params))
+		, ret(ret)
+		, whereClause(whereClause)
+		, statements(std::move(statements))
+	{
+	}
+
+	void AstEmptyMethodDecl::Visit(AstVisitor& visitor)
+	{
+		if (!visitor.ShouldVisit(nodeKind))
+			return;
+
+		visitor.Visit(*this, AstVisitLoc::Begin);
+
+		if (attribs)
+			attribs->Visit(visitor);
+		if (generics)
+			generics->Visit(visitor);
+
+		for (AstNodeSPtr arg : params)
+		{
+			arg->Visit(visitor);
+		}
+
+		if (ret)
+			ret->Visit(visitor);
+		if (whereClause)
+			whereClause->Visit(visitor);
+
+		for (AstNodeSPtr statement : statements)
+		{
+			statement->Visit(visitor);
+		}
+
+		visitor.Visit(*this, AstVisitLoc::End);
+	}
+
+	AstImplDecl::AstImplDecl(AstNodeSPtr attribs, u64 implTokIdx, AstNodeSPtr generics, AstNodeSPtr type, StdVector<AstNodeSPtr>&& interfaces,
+	                         StdVector<AstNodeSPtr>&& statements, u64 rBraceTokIdx)
 		: AstNode(AstNodeKind::ImplDecl, attribs ? attribs->startTokIdx : implTokIdx, rBraceTokIdx)
 		, attribs(attribs)
+		, generics(generics)
 		, type(type)
 		, interfaces(std::move(interfaces))
 		, statements(std::move(statements))
@@ -455,6 +566,8 @@ namespace Noctis
 
 		if (attribs)
 			attribs->Visit(visitor);
+		if (generics)
+			generics->Visit(visitor);
 		if (type)
 			type->Visit(visitor);
 
@@ -471,9 +584,10 @@ namespace Noctis
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
-	AstImportStmt::AstImportStmt(u64 importTokIdx, StdVector<StdString>&& moduleIdens,
+	AstImportStmt::AstImportStmt(AstNodeSPtr attribs, u64 importTokIdx, StdVector<StdString>&& moduleIdens,
 		StdVector<std::pair<StdVector<StdString>, StdString>>&& symbols, u64 semicolonTokIdx)
-		: AstNode(AstNodeKind::ImportStmt, importTokIdx, semicolonTokIdx)
+		: AstNode(AstNodeKind::ImportStmt, attribs ? attribs->startTokIdx : importTokIdx, semicolonTokIdx)
+		, attribs(attribs)
 		, moduleIdens(std::move(moduleIdens))
 		, symbols(std::move(symbols))
 	{
@@ -485,6 +599,10 @@ namespace Noctis
 			return;
 
 		visitor.Visit(*this, AstVisitLoc::Begin);
+
+		if (attribs)
+			attribs->Visit(visitor);
+		
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
@@ -535,8 +653,9 @@ namespace Noctis
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
-	AstLoopStmt::AstLoopStmt(u64 loopTokIdx, AstNodeSPtr body)
-		: AstNode(AstNodeKind::LoopStmt, loopTokIdx, body->endTokIdx)
+	AstLoopStmt::AstLoopStmt(AstNodeSPtr label, u64 loopTokIdx, AstNodeSPtr body)
+		: AstNode(AstNodeKind::LoopStmt, label ? label->startTokIdx : loopTokIdx, body->endTokIdx)
+		, label(label)
 		, body(body)
 	{
 	}
@@ -548,13 +667,16 @@ namespace Noctis
 
 		visitor.Visit(*this, AstVisitLoc::Begin);
 
+		if (label)
+			label->Visit(visitor);
 		body->Visit(visitor);
 
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
-	AstWhileStmt::AstWhileStmt(u64 whileTokIdx, AstNodeSPtr cond, AstNodeSPtr body)
-		: AstNode(AstNodeKind::WhileStmt, whileTokIdx, body->endTokIdx)
+	AstWhileStmt::AstWhileStmt(AstNodeSPtr label, u64 whileTokIdx, AstNodeSPtr cond, AstNodeSPtr body)
+		: AstNode(AstNodeKind::WhileStmt, label ? label->startTokIdx : whileTokIdx, body->endTokIdx)
+		, label(label)
 		, cond(cond)
 		, body(body)
 	{
@@ -567,14 +689,17 @@ namespace Noctis
 
 		visitor.Visit(*this, AstVisitLoc::Begin);
 
+		if (label)
+			label->Visit(visitor);
 		cond->Visit(visitor);
 		body->Visit(visitor);
 
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
-	AstDoWhileStmt::AstDoWhileStmt(u64 whileTokIdx, AstNodeSPtr body, AstNodeSPtr cond)
-		: AstNode(AstNodeKind::WhileStmt, whileTokIdx, body->endTokIdx)
+	AstDoWhileStmt::AstDoWhileStmt(AstNodeSPtr label, u64 doTokIdx, AstNodeSPtr body, AstNodeSPtr cond, u64 endIdx)
+		: AstNode(AstNodeKind::WhileStmt, label ? label->startTokIdx : doTokIdx, endIdx)
+		, label(label)
 		, body(body)
 		, cond(cond)
 	{
@@ -587,14 +712,17 @@ namespace Noctis
 
 		visitor.Visit(*this, AstVisitLoc::Begin);
 
+		if (label)
+			label->Visit(visitor);
 		body->Visit(visitor);
 		cond->Visit(visitor);
 
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
-	AstForStmt::AstForStmt(u64 forTokIdx, AstNodeSPtr init, AstNodeSPtr cond, AstNodeSPtr inc, AstNodeSPtr body)
-		: AstNode(AstNodeKind::ForStmt, forTokIdx, body->endTokIdx)
+	AstForStmt::AstForStmt(AstNodeSPtr label, u64 forTokIdx, AstNodeSPtr init, AstNodeSPtr cond, AstNodeSPtr inc, AstNodeSPtr body)
+		: AstNode(AstNodeKind::ForStmt, label ? label->startTokIdx : forTokIdx, body->endTokIdx)
+		, label(label)
 		, init(init)
 		, cond(cond)
 		, inc(inc)
@@ -609,6 +737,8 @@ namespace Noctis
 
 		visitor.Visit(*this, AstVisitLoc::Begin);
 
+		if (label)
+			label->Visit(visitor);
 		if (init)
 			init->Visit(visitor);
 		cond->Visit(visitor);
@@ -619,8 +749,9 @@ namespace Noctis
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
-	AstForRangeStmt::AstForRangeStmt(u64 forTokIdx, StdVector<StdString>&& idens, AstNodeSPtr range, AstNodeSPtr body)
-		: AstNode(AstNodeKind::ForRangeStmt, forTokIdx, body->endTokIdx)
+	AstForRangeStmt::AstForRangeStmt(AstNodeSPtr label, u64 forTokIdx, StdVector<StdString>&& idens, AstNodeSPtr range, AstNodeSPtr body)
+		: AstNode(AstNodeKind::ForRangeStmt, label ? label->startTokIdx : forTokIdx, body->endTokIdx)
+		, label(label)
 		, idens(std::move(idens))
 		, range(range)
 		, body(body)
@@ -634,20 +765,38 @@ namespace Noctis
 
 		visitor.Visit(*this, AstVisitLoc::Begin);
 
+		if (label)
+			label->Visit(visitor);
 		range->Visit(visitor);
 		body->Visit(visitor);
 
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
-	AstSwitchStmt::AstSwitchStmt(u64 switchTokIdx, StdVector<AStSwitchCase>&& cases, u64 rBraceTokIdx)
-		: AstNode(AstNodeKind::SwitchStmt, switchTokIdx, rBraceTokIdx)
+	AstSwitchStmt::AstSwitchStmt(AstNodeSPtr label, u64 switchTokIdx, StdVector<AstSwitchCase>&& cases, u64 rBraceTokIdx)
+		: AstNode(AstNodeKind::SwitchStmt, label ? label->startTokIdx : switchTokIdx, rBraceTokIdx)
+		, label(label)
 		, cases(std::move(cases))
 	{
 	}
 
 	void AstSwitchStmt::Visit(AstVisitor& visitor)
 	{
+		if (!visitor.ShouldVisit(nodeKind))
+			return;
+
+		visitor.Visit(*this, AstVisitLoc::Begin);
+
+		if (label)
+			label->Visit(visitor);
+		for (AstSwitchCase& case_ : cases)
+		{
+			case_.staticExpr->Visit(visitor);
+			case_.dynamicExpr->Visit(visitor);
+			case_.body->Visit(visitor);
+		}
+
+		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
 	AstLabelStmt::AstLabelStmt(u64 startTokIdx, StdString&& iden, u64 endTokIdx)
@@ -724,9 +873,9 @@ namespace Noctis
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
-	AstReturnStmt::AstReturnStmt(u64 returnTokIdx, StdVector<AstNodeSPtr>&& exprs, u64 semicolonTokIdx)
+	AstReturnStmt::AstReturnStmt(u64 returnTokIdx, AstNodeSPtr expr, u64 semicolonTokIdx)
 		: AstNode(AstNodeKind::ReturnStmt, returnTokIdx, semicolonTokIdx)
-		, exprs(std::move(exprs))
+		, expr(expr)
 	{
 	}
 
@@ -737,11 +886,8 @@ namespace Noctis
 
 		visitor.Visit(*this, AstVisitLoc::Begin);
 
-		for (AstNodeSPtr expr : exprs)
-		{
-			expr->Visit(visitor);
-		}
-		
+		expr->Visit(visitor);
+
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
@@ -764,9 +910,9 @@ namespace Noctis
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
-	AstDeferStmt::AstDeferStmt(u64 deferTokIdx, AstNodeSPtr stmt)
-		: AstNode(AstNodeKind::DeferStmt, deferTokIdx, stmt->endTokIdx)
-		, stmt(stmt)
+	AstDeferStmt::AstDeferStmt(u64 deferTokIdx, AstNodeSPtr expr, u64 semicolonTokIdx)
+		: AstNode(AstNodeKind::DeferStmt, deferTokIdx, semicolonTokIdx)
+		, expr(expr)
 	{
 	}
 
@@ -777,14 +923,14 @@ namespace Noctis
 
 		visitor.Visit(*this, AstVisitLoc::Begin);
 
-		stmt->Visit(visitor);
+		expr->Visit(visitor);
 
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
-	AstStackDeferStmt::AstStackDeferStmt(u64 deferTokIdx, AstNodeSPtr stmt)
-		: AstNode(AstNodeKind::StackDeferStmt, deferTokIdx, stmt->endTokIdx)
-		, stmt(stmt)
+	AstStackDeferStmt::AstStackDeferStmt(u64 deferTokIdx, AstNodeSPtr expr, u64 semicolonTokIdx)
+		: AstNode(AstNodeKind::StackDeferStmt, deferTokIdx, semicolonTokIdx)
+		, expr(expr)
 	{
 	}
 
@@ -795,7 +941,7 @@ namespace Noctis
 
 		visitor.Visit(*this, AstVisitLoc::Begin);
 
-		stmt->Visit(visitor);
+		expr->Visit(visitor);
 		
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
@@ -848,33 +994,7 @@ namespace Noctis
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
-	AstCompForStmt::AstCompForStmt(u64 forTokIdx, AstNodeSPtr init, AstNodeSPtr cond, AstNodeSPtr inc, AstNodeSPtr body)
-		: AstNode(AstNodeKind::CompForStmt, forTokIdx, body->endTokIdx)
-		, init(init)
-		, cond(cond)
-		, inc(inc)
-		, body(body)
-	{
-	}
-
-	void AstCompForStmt::Visit(AstVisitor& visitor)
-	{
-		if (!visitor.ShouldVisit(nodeKind))
-			return;
-
-		visitor.Visit(*this, AstVisitLoc::Begin);
-
-		if (init)
-			init->Visit(visitor);
-		cond->Visit(visitor);
-		if (inc)
-			inc->Visit(visitor);
-		body->Visit(visitor);
-
-		visitor.Visit(*this, AstVisitLoc::End);
-	}
-
-	AstCompCondStmt::AstCompCondStmt(u64 hashTokIdx, AstNodeSPtr cond, AstNodeSPtr body, AstNodeSPtr elseBody)
+	AstCompCondStmt::AstCompCondStmt(u64 hashTokIdx, Token cond, AstNodeSPtr body, AstNodeSPtr elseBody)
 		: AstNode(AstNodeKind::CompForStmt, hashTokIdx, elseBody ? elseBody->endTokIdx : body->endTokIdx)
 		, cond(cond)
 		, body(body)
@@ -889,7 +1009,6 @@ namespace Noctis
 
 		visitor.Visit(*this, AstVisitLoc::Begin);
 
-		cond->Visit(visitor);
 		body->Visit(visitor);
 		if (elseBody)
 			elseBody->Visit(visitor);
@@ -897,7 +1016,7 @@ namespace Noctis
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
-	AstCompDebugStmt::AstCompDebugStmt(u64 hashTokIdx, AstNodeSPtr cond, AstNodeSPtr body, AstNodeSPtr elseBody)
+	AstCompDebugStmt::AstCompDebugStmt(u64 hashTokIdx, Token cond, AstNodeSPtr body, AstNodeSPtr elseBody)
 		: AstNode(AstNodeKind::CompForStmt, hashTokIdx, elseBody ? elseBody->endTokIdx : body->endTokIdx)
 		, cond(cond)
 		, body(body)
@@ -912,7 +1031,6 @@ namespace Noctis
 
 		visitor.Visit(*this, AstVisitLoc::Begin);
 
-		cond->Visit(visitor);
 		body->Visit(visitor);
 		if (elseBody)
 			elseBody->Visit(visitor);
@@ -1022,7 +1140,7 @@ namespace Noctis
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
-	AstQualNameExpr::AstQualNameExpr(u64 startTokIdx, StdVector<StdString>&& idens, u64 endTokIdx)
+	AstQualNameExpr::AstQualNameExpr(u64 startTokIdx, StdVector<AstNodeSPtr>&& idens, u64 endTokIdx)
 		: AstNode(AstNodeKind::QualNameExpr, startTokIdx, endTokIdx)
 		, idens(std::move(idens))
 	{
@@ -1037,9 +1155,10 @@ namespace Noctis
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
-	AstIndexSliceExpr::AstIndexSliceExpr(AstNodeSPtr expr, AstNodeSPtr index, u64 rBracketTokIdx)
+	AstIndexSliceExpr::AstIndexSliceExpr(AstNodeSPtr expr, bool nullCoalesce, AstNodeSPtr index, u64 rBracketTokIdx)
 		: AstNode(AstNodeKind::IndexSliceExpr, expr->startTokIdx, rBracketTokIdx)
 		, expr(expr)
+		, nullCoalesce(nullCoalesce)
 		, index(index)
 	{
 	}
@@ -1057,9 +1176,10 @@ namespace Noctis
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
-	AstSliceExpr::AstSliceExpr(AstNodeSPtr expr, AstNodeSPtr begin, AstNodeSPtr end, u64 rBracketTokIdx)
+	AstSliceExpr::AstSliceExpr(AstNodeSPtr expr, bool nullCoalesce, AstNodeSPtr begin, AstNodeSPtr end, u64 rBracketTokIdx)
 		: AstNode(AstNodeKind::SliceExpr, expr->startTokIdx, rBracketTokIdx)
 		, expr(expr)
+		, nullCoalesce(nullCoalesce)
 		, begin(begin)
 		, end(end)
 	{
@@ -1102,9 +1222,10 @@ namespace Noctis
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
-	AstMemberAccessExpr::AstMemberAccessExpr(AstNodeSPtr caller, StdString&& iden, u64 idenTokIdx)
+	AstMemberAccessExpr::AstMemberAccessExpr(AstNodeSPtr caller, bool nullCoalesce, StdString&& iden, u64 idenTokIdx)
 		: AstNode(AstNodeKind::MemberAccessExpr, caller->startTokIdx, idenTokIdx)
 		, caller(caller)
+		, nullCoalesc(nullCoalesc)
 		, iden(std::move(iden))
 	{
 	}
@@ -1121,10 +1242,11 @@ namespace Noctis
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
-	AstMethodCallExpr::AstMethodCallExpr(AstNodeSPtr caller, StdString&& iden, StdVector<AstNodeSPtr>&& args,
+	AstMethodCallExpr::AstMethodCallExpr(AstNodeSPtr caller, bool nullCoalesce, StdString&& iden, StdVector<AstNodeSPtr>&& args,
 	                                     u64 rParenTokIdx)
 		: AstNode(AstNodeKind::MethodCallExpr, caller->startTokIdx, rParenTokIdx)
 		, caller(caller)
+		, nullCoalesc(nullCoalesc)
 		, iden(std::move(iden))
 		, args(std::move(args))
 	{
@@ -1146,9 +1268,10 @@ namespace Noctis
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
-	AstTupleAccessExpr::AstTupleAccessExpr(AstNodeSPtr expr, u16 index, u64 indexTokIdx)
+	AstTupleAccessExpr::AstTupleAccessExpr(AstNodeSPtr expr, bool nullCoalesce, u16 index, u64 indexTokIdx)
 		: AstNode(AstNodeKind::TupleAccessExpr, expr->startTokIdx, indexTokIdx)
 		, expr(expr)
+		, nullCoalesc(nullCoalesc)
 		, index(index)
 	{
 	}
@@ -1166,7 +1289,7 @@ namespace Noctis
 	}
 
 	AstLiteralExpr::AstLiteralExpr(Token literal)
-		: AstNode(AstNodeKind::LiteralExpr, literal.TokenIdx(), literal.TokenIdx())
+		: AstNode(AstNodeKind::LiteralExpr, literal.Idx(), literal.Idx())
 		, literal(literal)
 	{
 	}
@@ -1180,7 +1303,7 @@ namespace Noctis
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
-	AstAggrInitExpr::AstAggrInitExpr(u64 startTokIdx, StdVector<StdString>&& idens, StdVector<AstNodeSPtr>&& args,
+	AstAggrInitExpr::AstAggrInitExpr(u64 startTokIdx, StdVector<AstNodeSPtr>&& idens, StdVector<AstNodeSPtr>&& args,
 		u64 rBraceTokIdx)
 		: AstNode(AstNodeKind::AggrInitExpr, startTokIdx, rBraceTokIdx)
 		, idens(std::move(idens))
@@ -1360,17 +1483,24 @@ namespace Noctis
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
-	AstVoidExpr::AstVoidExpr(u64 voidTokIdx)
-		: AstNode(AstNodeKind::VoidExpr, voidTokIdx, voidTokIdx)
+	AstCommaExpr::AstCommaExpr(StdVector<AstNodeSPtr>&& exprs)
+		: AstNode(AstNodeKind::CommaExpr, exprs.front()->startTokIdx, exprs.back()->endTokIdx)
+		, exprs(std::move(exprs))
 	{
 	}
 
-	void AstVoidExpr::Visit(AstVisitor& visitor)
+	void AstCommaExpr::Visit(AstVisitor& visitor)
 	{
 		if (!visitor.ShouldVisit(nodeKind))
 			return;
 
 		visitor.Visit(*this, AstVisitLoc::Begin);
+
+		for (AstNodeSPtr expr : exprs)
+		{
+			expr->Visit(visitor);
+		}
+
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
@@ -1390,9 +1520,10 @@ namespace Noctis
 
 		visitor.Visit(*this, AstVisitLoc::Begin);
 
-		for (AstNodeSPtr param : params)
+		for (std::pair<StdString, AstNodeSPtr>& param : params)
 		{
-			param->Visit(visitor);
+			if (param.second)
+				param.second->Visit(visitor);
 		}
 		
 		visitor.Visit(*this, AstVisitLoc::End);
@@ -1417,7 +1548,7 @@ namespace Noctis
 	}
 
 	AstBuiltinType::AstBuiltinType(const Token& tok)
-		: AstNode(AstNodeKind::BuiltinType, tok.TokenIdx(), tok.TokenIdx())
+		: AstNode(AstNodeKind::BuiltinType, tok.Idx(), tok.Idx())
 		, type(tok.Type())
 	{
 	}
@@ -1431,7 +1562,7 @@ namespace Noctis
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
-	AstIdentifierType::AstIdentifierType(u64 startTokIdx, StdVector<StdString>&& idens, u64 endTokIdx)
+	AstIdentifierType::AstIdentifierType(u64 startTokIdx, StdVector<AstNodeSPtr>&& idens, u64 endTokIdx)
 		: AstNode(AstNodeKind::IdentifierType, startTokIdx, endTokIdx)
 		, idens(std::move(idens))
 	{
@@ -1548,7 +1679,7 @@ namespace Noctis
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
-	AstAttributes::AstAttributes(u64 startTokIdx, StdVector<AstNodeSPtr>&& compAttribs, StdVector<AstNodeSPtr>& userAttribs,
+	AstAttributes::AstAttributes(u64 startTokIdx, StdVector<AstNodeSPtr>&& compAttribs, StdVector<AstNodeSPtr>&& userAttribs,
 		AstNodeSPtr visibility, StdVector<AstNodeSPtr>&& simpleAttribs, u64 endTokIdx)
 		: AstNode(AstNodeKind::Attributes, startTokIdx, endTokIdx)
 		, compAttribs(std::move(compAttribs))
@@ -1568,8 +1699,8 @@ namespace Noctis
 	}
 
 	AstCompAttribute::AstCompAttribute(u64 atColonTokIdx, StdString&& iden, StdVector<AstNodeSPtr>&& args,
-	                                   u64 rParenTokIdx)
-		: AstNode(AstNodeKind::CompilerAttribute, atColonTokIdx, rParenTokIdx)
+	                                   u64 endTokIdx)
+		: AstNode(AstNodeKind::CompilerAttribute, atColonTokIdx, endTokIdx)
 		, iden(std::move(iden))
 		, args(std::move(args))
 	{
@@ -1591,8 +1722,8 @@ namespace Noctis
 	}
 
 	AstUserAttribute::AstUserAttribute(u64 atColonTokIdx, StdString&& iden, StdVector<AstNodeSPtr>&& args,
-		u64 rParenTokIdx)
-		: AstNode(AstNodeKind::UserAttribute, atColonTokIdx, rParenTokIdx)
+		u64 endTokIdx)
+		: AstNode(AstNodeKind::UserAttribute, atColonTokIdx, endTokIdx)
 		, iden(std::move(iden))
 		, args(std::move(args))
 	{
@@ -1607,9 +1738,9 @@ namespace Noctis
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
-	AstVisibilityAttribute::AstVisibilityAttribute(u64 publicTokIdx, TokenType subType, u64 endTokId)
+	AstVisibilityAttribute::AstVisibilityAttribute(u64 publicTokIdx, StdString&& kind, u64 endTokId)
 		: AstNode(AstNodeKind::VisibilityAttribute, publicTokIdx, endTokId)
-		, subType(subType)
+		, kind(kind)
 	{
 	}
 
@@ -1725,10 +1856,10 @@ namespace Noctis
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
-	AstGenericInst::AstGenericInst(u64 startTokIdx, StdVector<StdString>&& idens, StdVector<AstNodeSPtr>&& args,
+	AstGenericInst::AstGenericInst(u64 startTokIdx, StdString&& iden, StdVector<AstNodeSPtr>&& args,
 		u64 endTokIdx)
 		: AstNode(AstNodeKind::GenericInst, startTokIdx, endTokIdx)
-		, idens(std::move(idens))
+		, iden(std::move(iden))
 		, args(std::move(args))
 	{
 	}
@@ -1765,7 +1896,7 @@ namespace Noctis
 	}
 
 	AstMacroSeparator::AstMacroSeparator(StdVector<Token>&& toks)
-		: AstNode(AstNodeKind::MacroSeparator, toks.front().TokenIdx(), toks.back().TokenIdx())
+		: AstNode(AstNodeKind::MacroSeparator, toks.front().Idx(), toks.back().Idx())
 		, toks(std::move(toks))
 	{
 	}
@@ -1779,11 +1910,10 @@ namespace Noctis
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
 
-	AstMacroFragment::AstMacroFragment(StdVector<AstNodeSPtr>&& subPatterns, AstNodeSPtr sep, TokenType repType,
+	AstMacroFragment::AstMacroFragment(u64 startIdx, AstNodeSPtr subPattern, TokenType repType,
 		u64 endTokIdx)
-		: AstNode(AstNodeKind::MacroFragment, subPatterns.front()->startTokIdx, endTokIdx)
-		, subPatterns(std::move(subPatterns))
-		, sep(sep)
+		: AstNode(AstNodeKind::MacroFragment, startIdx, endTokIdx)
+		, subPattern(subPattern)
 		, repType(repType)
 	{
 	}
@@ -1795,13 +1925,7 @@ namespace Noctis
 
 		visitor.Visit(*this, AstVisitLoc::Begin);
 
-		for (AstNodeSPtr macroVar : subPatterns)
-		{
-			macroVar->Visit(visitor);
-		}
-
-		if (sep)
-			sep->Visit(visitor);
+		subPattern->Visit(visitor);
 		
 		visitor.Visit(*this, AstVisitLoc::End);
 	}

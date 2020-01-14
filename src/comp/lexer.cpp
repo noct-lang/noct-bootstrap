@@ -628,6 +628,15 @@ namespace Noctis
 			case '$':
 			{
 				++m_Index;
+
+				if (content[m_Index] == '(')
+				{
+					++m_Index;
+					m_Tokens.push_back({ TokenType::DollarParen, "$(", tokIdx });
+					spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
+					break;
+				}
+				
 				m_Tokens.push_back({ TokenType::Dollar, "$", tokIdx });
 				spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 				break;

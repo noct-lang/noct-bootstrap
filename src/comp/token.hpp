@@ -153,6 +153,7 @@ namespace Noctis
 		QuestionBracket,
 		Hash,
 		Dollar,
+		DollarParen,
 
 		// Literals
 		CharLit,
@@ -195,7 +196,7 @@ namespace Noctis
 
 		TokenType Type() const { return m_Type; }
 		const StdString& Text() const { return m_Text; }
-		u64 TokenIdx() const { return m_TokenIdx; }
+		u64 Idx() const { return m_TokenIdx; }
 		
 		i64 Signed() const { return m_Signed; }
 		i64 Unsigned() const { return m_Unsigned; }
