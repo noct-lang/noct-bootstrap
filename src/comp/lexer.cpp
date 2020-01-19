@@ -710,9 +710,21 @@ namespace Noctis
 				StdUnorderedMap<StdStringView, TokenType>& keywords = GetKeywordMap();
 				auto it = keywords.find(iden);
 				if (it != keywords.end())
-					m_Tokens.push_back({ it->second, StdString{ iden }, tokIdx });
+				{
+					if (it->second == TokenType::In &&
+						!m_Tokens.empty() && m_Tokens.back().Type() == TokenType::Exclaim)
+					{
+						m_Tokens.back() = Token{ TokenType::NotIn , "!in", tokIdx - 1 };
+					}
+					else
+					{
+						m_Tokens.push_back({ it->second, StdString{ iden }, tokIdx });
+					}
+				}
 				else
+				{
 					m_Tokens.push_back({ TokenType::Iden, StdString{ iden }, tokIdx });
+				}
 
 				spanManager.AddSpan({ m_Index, end, m_Line, m_Column });
 				m_Index = end;
@@ -779,6 +791,7 @@ namespace Noctis
 			{ "impl", TokenType::Impl },
 			{ "in", TokenType::In },
 			{ "interface", TokenType::Interface },
+			{ "is", TokenType::Is },
 			{ "lazy", TokenType::Lazy },
 			{ "loop", TokenType::Loop },
 			{ "macro", TokenType::Macro },
@@ -827,6 +840,7 @@ namespace Noctis
 			{ "self", TokenType::IdenSelf },
 			{ "Self", TokenType::Self },
 			{ "weak", TokenType::Weak },
+			{ "where", TokenType::Where },
 		};
 
 		return keywords;

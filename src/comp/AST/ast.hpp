@@ -14,6 +14,8 @@ namespace Noctis
 
 	enum class AstNodeKind : u8
 	{
+		Unknown,
+		
 		ModuleDecl,
 		UnittestDecl, // TODO
 		BenchmarkDecl, // TODO
@@ -92,6 +94,7 @@ namespace Noctis
 		CommaExpr,
 		VoidExpr,
 		ClosureExpr,
+		IsExpr,
 		CompRunExpr,
 		MacroExpExpr,
 		ExprEndMarker = CompRunExpr,
@@ -154,21 +157,35 @@ namespace Noctis
 		bool IsMacro() const;
 		
 		virtual void Visit(AstVisitor& visitor);
+		virtual void Log(u32 indent);
 		
 		AstNodeKind nodeKind;
 		u64 startTokIdx;
 		u64 endTokIdx;
 
 		std::unique_ptr<AstContext> pCtx;
+
+	protected:
+		void LogIndent(u32 indent);
 	};
 
 	using AstNodeSPtr = StdSharedPtr<AstNode>;
+
+	struct AstTree
+	{
+		StdString filepath;
+		StdVector<AstNodeSPtr> nodes;
+
+		void Visit(AstVisitor& visitor);
+		void Log();
+	};
 
 	struct AstModuleDecl : public AstNode
 	{
 		AstModuleDecl(u64 importTokIdx, StdVector<StdString>&& moduleIdens, u64 semicolonTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 		
 		StdVector<StdString> moduleIdens;
 	};
@@ -178,6 +195,7 @@ namespace Noctis
 		AstIdentifier(u64 idenIdx, StdString&& iden);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdString iden;
 	};
@@ -187,6 +205,7 @@ namespace Noctis
 		AstParam(u64 startTokIdx, StdVector<std::pair<AstNodeSPtr, StdString>>&& idens, AstNodeSPtr type, bool isVariadic, u64 endTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdVector<std::pair<AstNodeSPtr, StdString>> idens;
 		AstNodeSPtr type;
@@ -198,6 +217,7 @@ namespace Noctis
 		AstArg(u64 startTokIdx, StdString&& iden, AstNodeSPtr expr);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 		
 		StdString iden;
 		AstNodeSPtr expr;
@@ -208,6 +228,7 @@ namespace Noctis
 		AstStructDecl(AstNodeSPtr attribs, u64 structTokIdx, StdString&& iden, AstNodeSPtr generics, StdVector<AstNodeSPtr>&& members, u64 rBraceTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr attribs;
 		StdString iden;
@@ -220,6 +241,7 @@ namespace Noctis
 		AstUnionDecl(AstNodeSPtr attribs, u64 unionTokIdx, StdString&& iden, AstNodeSPtr generics, StdVector<AstNodeSPtr>&& members, u64 rBraceTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr attribs;
 		StdString iden;
@@ -232,6 +254,7 @@ namespace Noctis
 		AstValueEnumDecl(AstNodeSPtr attribs, u64 enumTokIdx, StdString&& iden, StdVector<std::pair<StdString, AstNodeSPtr>>&& members, u64 rBraceTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr attribs;
 		StdString iden;
@@ -244,6 +267,7 @@ namespace Noctis
 		AstAdtEnumStructMember(u64 lBraceTokIdx, StdVector<std::pair<StdVector<StdString>, AstNodeSPtr>>&& members, u64 rBraceTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 		
 		StdVector<std::pair<StdVector<StdString>, AstNodeSPtr>> members;
 	};
@@ -253,6 +277,7 @@ namespace Noctis
 		AstAdtEnumDecl(AstNodeSPtr attribs, u64 enumTokIdx, StdString&& iden, AstNodeSPtr generics, StdVector<std::pair<StdString, AstNodeSPtr>>&& members, u64 rBraceTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr attribs;
 		StdString iden;
@@ -265,6 +290,7 @@ namespace Noctis
 		AstMarkerInterfaceDecl(AstNodeSPtr attribs, u64 interfaceTokIdx, StdString&& iden, u64 semicolonTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr attribs;
 		StdString iden;
@@ -275,6 +301,7 @@ namespace Noctis
 		AstWeakInterfaceDecl(AstNodeSPtr attribs, u64 weakTokIddx, StdString&& iden, StdVector<AstNodeSPtr>&& members, u64 rBraceToken);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr attribs;
 		StdString iden;
@@ -286,6 +313,7 @@ namespace Noctis
 		AstStrongInterfaceDecl(AstNodeSPtr attribs, u64 interfaceTokIdx, StdString&& iden, AstNodeSPtr generics, StdVector<AstNodeSPtr>&& members, u64 rBraceTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr attribs;
 		StdString iden;
@@ -298,6 +326,7 @@ namespace Noctis
 		AstTypeAliasDecl(AstNodeSPtr attribs, u64 typealiasTokIdx, StdString&& iden, AstNodeSPtr generics, AstNodeSPtr type, u64 semicolonTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr attribs;
 		StdString iden;
@@ -310,6 +339,7 @@ namespace Noctis
 		AstTypeDefDecl(AstNodeSPtr attribs, u64 typedefTokIdx, StdString&& iden, AstNodeSPtr generics, AstNodeSPtr type, u64 semicolonTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr attribs;
 		StdString iden;
@@ -322,6 +352,7 @@ namespace Noctis
 		AstVarDecl(AstNodeSPtr attribs, u64 startTokIdx, StdVector<StdString>&& idens, AstNodeSPtr type, AstNodeSPtr expr, u64 termTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr attribs;
 		StdVector<StdString> idens;
@@ -331,9 +362,10 @@ namespace Noctis
 
 	struct AstFuncDecl : public AstNode
 	{
-		AstFuncDecl(AstNodeSPtr attribs, u64 funcTokIdx, StdString&& identifier, AstNodeSPtr generics, StdVector<AstNodeSPtr>&& params, AstNodeSPtr ret, AstNodeSPtr whereClause, StdVector<AstNodeSPtr>&& statements, u64 rBraceTokIdx);
+		AstFuncDecl(AstNodeSPtr attribs, u64 funcTokIdx, StdString&& iden, AstNodeSPtr generics, StdVector<AstNodeSPtr>&& params, AstNodeSPtr ret, AstNodeSPtr whereClause, StdVector<AstNodeSPtr>&& statements, u64 rBraceTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr attribs;
 		StdString iden;
@@ -354,9 +386,10 @@ namespace Noctis
 	
 	struct AstMethodDecl : public AstNode
 	{
-		AstMethodDecl(AstNodeSPtr attribs, u64 funcTokIdx, AstMethodReceiverKind rec, StdString&& identifier, AstNodeSPtr generics, StdVector<AstNodeSPtr>&& params, AstNodeSPtr ret, AstNodeSPtr whereClause, StdVector<AstNodeSPtr>&& statements, u64 rBraceTokIdx);
+		AstMethodDecl(AstNodeSPtr attribs, u64 funcTokIdx, AstMethodReceiverKind rec, StdString&& iden, AstNodeSPtr generics, StdVector<AstNodeSPtr>&& params, AstNodeSPtr ret, AstNodeSPtr whereClause, StdVector<AstNodeSPtr>&& statements, u64 rBraceTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr attribs;
 		AstMethodReceiverKind rec;
@@ -370,9 +403,10 @@ namespace Noctis
 
 	struct AstEmptyMethodDecl : public AstNode
 	{
-		AstEmptyMethodDecl(AstNodeSPtr attribs, u64 funcTokIdx, AstMethodReceiverKind rec, StdString&& identifier, AstNodeSPtr generics, StdVector<AstNodeSPtr>&& params, AstNodeSPtr ret, AstNodeSPtr whereClause, StdVector<AstNodeSPtr>&& statements, u64 rBraceTokIdx);
+		AstEmptyMethodDecl(AstNodeSPtr attribs, u64 funcTokIdx, AstMethodReceiverKind rec, StdString&& iden, AstNodeSPtr generics, StdVector<AstNodeSPtr>&& params, AstNodeSPtr ret, AstNodeSPtr whereClause, StdVector<AstNodeSPtr>&& statements, u64 rBraceTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr attribs;
 		AstMethodReceiverKind rec;
@@ -389,6 +423,7 @@ namespace Noctis
 		AstImplDecl(AstNodeSPtr attribs, u64 implTokIdx, AstNodeSPtr generics, AstNodeSPtr type, StdVector<AstNodeSPtr>&& interfaces, StdVector<AstNodeSPtr>&& statements, u64 rBraceTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr attribs;
 		AstNodeSPtr generics;
@@ -402,6 +437,7 @@ namespace Noctis
 		AstImportStmt(AstNodeSPtr attribs, u64 importTokIdx, StdVector<StdString>&& moduleIdens, StdVector<std::pair<StdVector<StdString>, StdString>>&& symbols, u64 semicolonTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr attribs;
 		StdVector<StdString> moduleIdens;
@@ -413,6 +449,7 @@ namespace Noctis
 		AstBlockStmt(u64 lBraceTokIds, StdVector<AstNodeSPtr>&& statements, u64 rBraceTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdVector<AstNodeSPtr> statements;
 	};
@@ -422,6 +459,7 @@ namespace Noctis
 		AstIfStmt(u64 ifTokIdx, AstNodeSPtr decl, AstNodeSPtr cond, AstNodeSPtr body, AstNodeSPtr elseBody);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr decl;
 		AstNodeSPtr cond;
@@ -434,6 +472,7 @@ namespace Noctis
 		AstLoopStmt(AstNodeSPtr label, u64 loopTokIdx, AstNodeSPtr body);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr label;
 		AstNodeSPtr body;
@@ -444,6 +483,7 @@ namespace Noctis
 		AstWhileStmt(AstNodeSPtr label, u64 whileTokIdx, AstNodeSPtr cond, AstNodeSPtr body);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr label;
 		AstNodeSPtr cond;
@@ -455,6 +495,7 @@ namespace Noctis
 		AstDoWhileStmt(AstNodeSPtr label, u64 doTokIdx, AstNodeSPtr body, AstNodeSPtr cond, u64 endIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr label;
 		AstNodeSPtr body;
@@ -466,6 +507,7 @@ namespace Noctis
 		AstForStmt(AstNodeSPtr label, u64 forTokIdx, AstNodeSPtr init, AstNodeSPtr cond, AstNodeSPtr inc, AstNodeSPtr body);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr label;
 		AstNodeSPtr init;
@@ -479,6 +521,7 @@ namespace Noctis
 		AstForRangeStmt(AstNodeSPtr label, u64 forTokIdx, StdVector<StdString>&& idens, AstNodeSPtr range, AstNodeSPtr body);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr label;
 		StdVector<StdString> idens;
@@ -498,6 +541,7 @@ namespace Noctis
 		AstSwitchStmt(AstNodeSPtr label, u64 switchTokIdx, StdVector<AstSwitchCase>&& cases, u64 rBraceTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr label;
 		StdVector<AstSwitchCase> cases;
@@ -508,6 +552,7 @@ namespace Noctis
 		AstLabelStmt(u64 startTokIdx, StdString&& iden, u64 endTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdString iden;
 	};
@@ -517,6 +562,7 @@ namespace Noctis
 		AstBreakStmt(u64 breakTokIdx, StdString&& iden, u64 semicolonTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdString iden;
 	};
@@ -526,6 +572,7 @@ namespace Noctis
 		AstContinueStmt(u64 continueTokIdx, StdString&& iden, u64 semicolonTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdString iden;
 	};
@@ -535,6 +582,7 @@ namespace Noctis
 		AstFallthroughStmt(u64 fallthroughTokIdx, u64 semicolonTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 	};
 
 	struct AstGotoStmt : public AstNode
@@ -542,6 +590,7 @@ namespace Noctis
 		AstGotoStmt(u64 gotoTokIdx, StdString&& iden, u64 semicolonTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdString iden;
 	};
@@ -551,6 +600,7 @@ namespace Noctis
 		AstReturnStmt(u64 returnTokIdx, AstNodeSPtr expr, u64 semicolonTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr expr;
 	};
@@ -560,6 +610,7 @@ namespace Noctis
 		AstExprStmt(AstNodeSPtr expr, u64 semicolonTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr expr;
 	};
@@ -569,6 +620,7 @@ namespace Noctis
 		AstDeferStmt(u64 deferTokIdx, AstNodeSPtr stmt, u64 semicolonTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr expr;
 	};
@@ -578,6 +630,7 @@ namespace Noctis
 		AstStackDeferStmt(u64 deferTokIdx, AstNodeSPtr stmt, u64 semicolonTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr expr;
 	};
@@ -587,6 +640,7 @@ namespace Noctis
 		AstUnsafeStmt(u64 unsafeTokIdx, StdVector<AstNodeSPtr>&& stmts, u64 rBraceTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdVector<AstNodeSPtr> stmts;
 	};
@@ -596,9 +650,10 @@ namespace Noctis
 		AstCompIfStmt(u64 hashTokIdx, AstNodeSPtr decl, AstNodeSPtr expr, AstNodeSPtr body, AstNodeSPtr elseBody);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr decl;
-		AstNodeSPtr expr;
+		AstNodeSPtr cond;
 		AstNodeSPtr body;
 		AstNodeSPtr elseBody;
 	};
@@ -608,6 +663,7 @@ namespace Noctis
 		AstCompCondStmt(u64 hashTokIdx, Token cond, AstNodeSPtr body, AstNodeSPtr elseBody);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		Token cond;
 		AstNodeSPtr body;
@@ -619,6 +675,7 @@ namespace Noctis
 		AstCompDebugStmt(u64 hashTokIdx, Token cond, AstNodeSPtr body, AstNodeSPtr elseBody);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		Token cond;
 		AstNodeSPtr body;
@@ -630,6 +687,7 @@ namespace Noctis
 		AstAssignExpr(AstNodeSPtr lExpr, TokenType op, AstNodeSPtr rExpr);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr lExpr;
 		TokenType op;
@@ -641,6 +699,7 @@ namespace Noctis
 		AstTernaryExpr(AstNodeSPtr cond, AstNodeSPtr trueExpr, AstNodeSPtr falseExpr);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr cond;
 		AstNodeSPtr trueExpr;
@@ -652,6 +711,7 @@ namespace Noctis
 		AstBinaryExpr(AstNodeSPtr lExpr, TokenType op, AstNodeSPtr rExpr);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr lExpr;
 		TokenType op;
@@ -663,6 +723,7 @@ namespace Noctis
 		AstPostfixExpr(AstNodeSPtr expr, TokenType op, u64 opTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr expr;
 		TokenType op;
@@ -673,6 +734,7 @@ namespace Noctis
 		AstPrefixExpr(TokenType op, u64 opTokIdx, AstNodeSPtr expr);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		TokenType op;
 		AstNodeSPtr expr;
@@ -683,6 +745,7 @@ namespace Noctis
 		AstQualNameExpr(u64 startTokIdx, StdVector<AstNodeSPtr>&& idens, u64 endTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdVector<AstNodeSPtr> idens;
 	};
@@ -692,6 +755,7 @@ namespace Noctis
 		AstIndexSliceExpr(AstNodeSPtr expr, bool nullCoalesce, AstNodeSPtr index, u64 rBracketTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		bool nullCoalesce;
 		AstNodeSPtr expr;
@@ -703,6 +767,7 @@ namespace Noctis
 		AstSliceExpr(AstNodeSPtr expr, bool nullCoalesce, AstNodeSPtr begin, AstNodeSPtr end, u64 rBracketTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		bool nullCoalesce;
 		AstNodeSPtr expr;
@@ -716,6 +781,7 @@ namespace Noctis
 		AstFuncCallExpr(AstNodeSPtr func, StdVector<AstNodeSPtr>&& args, u64 rParenTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr func;
 		StdVector<AstNodeSPtr> args;
@@ -726,9 +792,10 @@ namespace Noctis
 		AstMemberAccessExpr(AstNodeSPtr caller, bool nullCoalesce, StdString&& iden, u64 idenTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr caller;
-		bool nullCoalesc;
+		bool nullCoalesce;
 		StdString iden;
 	};
 
@@ -737,9 +804,10 @@ namespace Noctis
 		AstMethodCallExpr(AstNodeSPtr caller, bool nullCoalesce, StdString&& iden, StdVector<AstNodeSPtr>&& args, u64 rParenTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr caller;
-		bool nullCoalesc;
+		bool nullCoalesce;
 		StdString iden;
 		StdVector<AstNodeSPtr> args;
 	};
@@ -749,9 +817,10 @@ namespace Noctis
 		AstTupleAccessExpr(AstNodeSPtr expr, bool nullCoalesce, u16 index, u64 indexTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr expr;
-		bool nullCoalesc;
+		bool nullCoalesce;
 		u16 index;
 	};
 
@@ -760,6 +829,7 @@ namespace Noctis
 		AstLiteralExpr(Token literal);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 		
 		Token literal;
 	};
@@ -767,11 +837,12 @@ namespace Noctis
 	// Can be: struct, union, ADT enum member
 	struct AstAggrInitExpr : public AstNode
 	{
-		AstAggrInitExpr(u64 startTokIdx, StdVector<AstNodeSPtr>&& idens, StdVector<AstNodeSPtr>&& args, u64 rBraceTokIdx);
+		AstAggrInitExpr(u64 startTokIdx, AstNodeSPtr type, StdVector<AstNodeSPtr>&& args, u64 rBraceTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
-
-		StdVector<AstNodeSPtr> idens;
+		void Log(u32 indent) override;
+		
+		AstNodeSPtr type;
 		StdVector<AstNodeSPtr> args;
 	};
 
@@ -780,6 +851,7 @@ namespace Noctis
 		AstTupleInitExpr(u64 lParenTokIdx, StdVector<AstNodeSPtr>&& exprs, u64 rParenTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdVector<AstNodeSPtr> exprs;
 	};
@@ -789,6 +861,7 @@ namespace Noctis
 		AstArrayInitExpr(u64 lBracketTokIdx, StdVector<AstNodeSPtr>&& exprs, u64 rBracketTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdVector<AstNodeSPtr> exprs;
 	};
@@ -798,6 +871,7 @@ namespace Noctis
 		AstCastExpr(u64 castTokIdx, AstNodeSPtr type, AstNodeSPtr expr);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr type;
 		AstNodeSPtr expr;
@@ -808,6 +882,7 @@ namespace Noctis
 		AstTransmuteExpr(u64 transmuteTokIdx, AstNodeSPtr type, AstNodeSPtr expr);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr type;
 		AstNodeSPtr expr;
@@ -818,6 +893,7 @@ namespace Noctis
 		AstMoveExpr(u64 moveTokIdx, AstNodeSPtr expr);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr expr;
 	};
@@ -827,6 +903,7 @@ namespace Noctis
 		AstBracketExpr(u64 lBracketTokIdx, AstNodeSPtr expr, u64 rBracketTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr expr;
 	};
@@ -836,15 +913,17 @@ namespace Noctis
 		AstBlockExpr(u64 lBraceTokIdx, StdVector<AstNodeSPtr>&& stmts, u64 rBraceExpr);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdVector<AstNodeSPtr> stmts;
 	};
 
 	struct AstUnsafeExpr : public AstNode
 	{
-		AstUnsafeExpr(u64 unsafeTokIdx, AstNodeSPtr expr, u64 rBraceTokIdx);
+		AstUnsafeExpr(u64 unsafeTokIdx, AstNodeSPtr expr);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr expr;
 	};
@@ -854,6 +933,7 @@ namespace Noctis
 		AstCommaExpr(StdVector<AstNodeSPtr>&& exprs);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdVector<AstNodeSPtr> exprs;
 	};
@@ -869,10 +949,22 @@ namespace Noctis
 		AstClosureExpr(u64 lParenTokIdx, StdVector<AstNodeSPtr>&& params, StdVector<AstClosureCapture>&& captures, StdVector<AstNodeSPtr> stmts, u64 rBraceTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdVector<AstNodeSPtr> params;
 		StdVector<AstClosureCapture> captures;
 		StdVector<AstNodeSPtr> stmts;
+	};
+
+	struct AstIsExpr : public AstNode
+	{
+		AstIsExpr(AstNodeSPtr expr, u64 isTokIdx, AstNodeSPtr type);
+
+		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
+
+		AstNodeSPtr expr;
+		AstNodeSPtr type;
 	};
 
 	struct AstCompRunExpr : public AstNode
@@ -880,6 +972,7 @@ namespace Noctis
 		AstCompRunExpr(u64 hashTokIdx, AstNodeSPtr expr);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr expr;
 	};
@@ -889,6 +982,7 @@ namespace Noctis
 		AstBuiltinType(const Token& tok);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 		
 		TokenType type;
 	};
@@ -898,6 +992,7 @@ namespace Noctis
 		AstIdentifierType(u64 startTokIdx, StdVector<AstNodeSPtr>&& idens, u64 endTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdVector<AstNodeSPtr> idens;
 	};
@@ -907,6 +1002,7 @@ namespace Noctis
 		AstPointerType(u64 asteriskTokIdx, AstNodeSPtr subType);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr subType;
 	};
@@ -916,6 +1012,7 @@ namespace Noctis
 		AstReferenceType(u64 andTokIdx, AstNodeSPtr subType);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr subType;
 	};
@@ -925,6 +1022,7 @@ namespace Noctis
 		AstArrayType(u64 lBracketTokIdx, AstNodeSPtr arraySize, AstNodeSPtr subType);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr arraySize;
 		AstNodeSPtr subType;
@@ -935,6 +1033,7 @@ namespace Noctis
 		AstSliceType(u64 lBraceTokIdx, AstNodeSPtr subType);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr subType;
 	};
@@ -944,6 +1043,7 @@ namespace Noctis
 		AstTupleType(u64 lParenTokIdx, StdVector<AstNodeSPtr>&& subTypes, u64 rParenTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdVector<AstNodeSPtr> subTypes;
 	};
@@ -953,6 +1053,7 @@ namespace Noctis
 		AstOptionalType(u64 lBraceTokIdx, AstNodeSPtr subType);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr subType;
 	};
@@ -962,6 +1063,7 @@ namespace Noctis
 		AstAttributes(u64 startTokIdx, StdVector<AstNodeSPtr>&& compAttribs, StdVector<AstNodeSPtr>&& userAttribs, AstNodeSPtr visibility, StdVector<AstNodeSPtr>&& simpleAttribs, u64 endTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdVector<AstNodeSPtr> compAttribs;
 		StdVector<AstNodeSPtr> userAttribs;
@@ -974,6 +1076,7 @@ namespace Noctis
 		AstCompAttribute(u64 atColonTokIdx, StdString&& iden, StdVector<AstNodeSPtr>&& args, u64 endTokIdx);
 		
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdString iden;
 		StdVector<AstNodeSPtr> args;
@@ -984,6 +1087,7 @@ namespace Noctis
 		AstUserAttribute(u64 atColonTokIdx, StdString&& iden, StdVector<AstNodeSPtr>&& args, u64 endTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdString iden;
 		StdVector<AstNodeSPtr> args;
@@ -994,6 +1098,7 @@ namespace Noctis
 		AstVisibilityAttribute(u64 publicTokIdx, StdString&& kind, u64 endTokId);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdString kind;
 	};
@@ -1003,6 +1108,7 @@ namespace Noctis
 		AstSimpleAttribute(u64 tokIdx, TokenType attrib);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		TokenType attrib;
 	};
@@ -1012,6 +1118,7 @@ namespace Noctis
 		AstGenericDecl(u64 startTokIdx, StdVector<AstNodeSPtr>&& params, u64 endTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdVector<AstNodeSPtr> params;
 	};
@@ -1021,6 +1128,7 @@ namespace Noctis
 		AstGenericTypeParam(u64 idenTokIdx, StdString&& iden, StdVector<AstNodeSPtr>&& implTypes, AstNodeSPtr defType);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdString iden;
 		StdVector<AstNodeSPtr> implTypes;
@@ -1032,6 +1140,7 @@ namespace Noctis
 		AstGenericValueParam(u64 idenTokIdx, StdString&& iden, AstNodeSPtr type, AstNodeSPtr defExpr);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdString iden;
 		AstNodeSPtr type;
@@ -1043,6 +1152,7 @@ namespace Noctis
 		AstGenericWhereClause(u64 whereTokIdx, AstNodeSPtr expr);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr expr;
 	};
@@ -1052,6 +1162,7 @@ namespace Noctis
 		AstGenericInst(u64 startTokIdx, StdString&& iden, StdVector<AstNodeSPtr>&& args, u64 endTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdString iden;
 		StdVector<AstNodeSPtr> args;
@@ -1064,6 +1175,7 @@ namespace Noctis
 		Expr,
 		Type,
 		Qual,
+		Iden,
 		Attr,
 		Toks
 	};
@@ -1073,7 +1185,8 @@ namespace Noctis
 		AstMacroVar(u64 dollarTokIdx, StdString&& iden, AstMacroVarKind kind, u64 kindTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
-
+		void Log(u32 indent) override;
+		
 		StdString iden;
 		AstMacroVarKind kind;
 	};
@@ -1083,6 +1196,7 @@ namespace Noctis
 		AstMacroSeparator(StdVector<Token>&& toks);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdVector<Token> toks;
 	};
@@ -1092,6 +1206,7 @@ namespace Noctis
 		AstMacroFragment(u64 startIdx, AstNodeSPtr subPattern, TokenType repType, u64 endTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr subPattern;
 		TokenType repType;
@@ -1102,6 +1217,7 @@ namespace Noctis
 		AstMacroPattern(u64 startTokIdx, StdVector<AstNodeSPtr>&& elems, u64 endTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 		
 		StdVector<AstNodeSPtr> elems;
 	};
@@ -1111,6 +1227,7 @@ namespace Noctis
 		AstMacroRule(u64 startTokIdx, AstNodeSPtr pattern, StdVector<AstNodeSPtr>&& body, u64 endTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		AstNodeSPtr pattern;
 		StdVector<AstNodeSPtr> body;
@@ -1121,6 +1238,7 @@ namespace Noctis
 		AstDeclMacro(u64 macroTokIdx, StdString&& iden, AstNodeSPtr pattern, StdVector<AstNodeSPtr>&& body, u64 rBraceTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdString iden;
 		AstNodeSPtr pattern;
@@ -1132,6 +1250,7 @@ namespace Noctis
 		AstRulesDeclMacro(u64 macroTokIdx, StdString&& iden, StdVector<AstNodeSPtr>&& rules, u64 rBraceTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdString iden;
 		StdVector<AstNodeSPtr> rules;
@@ -1142,6 +1261,7 @@ namespace Noctis
 		AstProcMacro(u64 macroTokIdx, StdString&& iden, StdString&& tokStreamIden, AstNodeSPtr pattern, StdVector<AstNodeSPtr>&& body, u64 rBraceTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdString iden;
 		StdString tokStreamIden;
@@ -1154,6 +1274,7 @@ namespace Noctis
 		AstRulesProcMacro(u64 macroTokIdx, StdString&& iden, StdString&& tokStreamIden, StdVector<AstNodeSPtr>&& rules, u64 rBraceTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdString iden;
 		StdString tokStreamIden;
@@ -1165,16 +1286,10 @@ namespace Noctis
 		AstMacroInst(u64 startTokIdx, StdVector<StdString>&& idens, StdVector<Token>& toks, u64 endTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
+		void Log(u32 indent) override;
 
 		StdVector<StdString> idens;
 		StdVector<Token> toks;
-		StdVector<AstNodeSPtr> args;
-	};
-	
-	struct AstTree
-	{
-		StdString filepath;
-		StdVector<AstNodeSPtr> nodes;
 	};
 
 	

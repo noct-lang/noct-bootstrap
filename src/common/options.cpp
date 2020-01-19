@@ -13,6 +13,7 @@ namespace Noctis
 	Options::Options()
 		: m_ToolMode(ToolMode::None)
 		, m_TabWidth(4)
+		, m_BuildOptions()
 	{
 	}
 
@@ -25,6 +26,7 @@ namespace Noctis
 		args::Command buildCommand{ toolmodeGroup, "build", "Build command", std::bind(&Options::ParseBuild, this, std::placeholders::_1) };
 
 		args::HelpFlag help{ parser, "help", "Show help", { 'h', "help" } };
+		args::ValueFlag<u8> tabWidth{ parser, "tab-width", "Width of a tab (in spaces)", { "tab-width" }, 4 };
 
 		bool res = parser.ParseCLI(argc, argv);
 
@@ -47,19 +49,24 @@ namespace Noctis
 			return false;
 		}
 
+		m_TabWidth = tabWidth.Get();
+
 		return true;
 	}
 
 	void Options::ParseBuild(args::Subparser& parser)
 	{
 		args::PositionalList<std::string> buildFiles{ parser, "File names", "File names" };
-		args::ValueFlag<u8> tabWidth{ parser, "tab-width", "Width of a tab (in spaces)", { "tab-width" }, 4 };
+		args::Flag logTokens{ parser, "log tokens", "Log tokens", { "log-tokens" } };
+		args::Flag logAst{ parser, "log tokens", "Log tokens", { "log-ast" } };
 
 		parser.Parse();
 
 		m_ToolMode = ToolMode::Build;
-		m_FilesToBuild.assign(buildFiles.begin(), buildFiles.end());
-		m_TabWidth = tabWidth;
+		m_BuildOptions.buildFiles.assign(buildFiles.begin(), buildFiles.end());
+		
+		m_BuildOptions.logTokens = logTokens.Get();
+		m_BuildOptions.LogAst = logAst.Get();
 		
 	}
 }

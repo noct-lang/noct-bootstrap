@@ -50,6 +50,7 @@ namespace Noctis
 		AstNodeSPtr ParseImplDecl(AstNodeSPtr attribs);
 
 		AstNodeSPtr ParseImport(AstNodeSPtr attribs);
+		AstNodeSPtr ParseBlockStmt();
 		AstNodeSPtr ParseIfStmt();
 		AstNodeSPtr ParseLoopStmt(AstNodeSPtr label);
 		AstNodeSPtr ParseWhileStmt(AstNodeSPtr label);
@@ -94,6 +95,7 @@ namespace Noctis
 		AstNodeSPtr ParseBlockExpr();
 		AstNodeSPtr ParseUnsafeExpr();
 		AstNodeSPtr ParseClosureExpr();
+		AstNodeSPtr ParseIsExpr(AstNodeSPtr expr);
 		AstNodeSPtr ParseCompRunExpr();
 			
 		AstNodeSPtr ParseType();
@@ -142,6 +144,7 @@ namespace Noctis
 		Token& EatToken();
 		Token& EatToken(TokenType type);
 		Token& EatIdenToken(StdStringView text);
+		bool TryEatToken(TokenType type);
 		Token& PeekToken();
 		Token& PeekToken(u64 offset);
 

@@ -10,7 +10,7 @@ void Noctis::ErrorSystem::Error(u64 line, u64 column, StdStringView text)
 	g_Logger.Log(stamp);
 	g_Logger.Log(text);
 	g_Logger.Log("\n");
-	g_Logger.SetForeColor(LoggerColor::ForeLightGray);
+	g_Logger.SetForeColor(LoggerColor::ForeGray);
 }
 
 void Noctis::ErrorSystem::Error(const Span& span, StdStringView text)

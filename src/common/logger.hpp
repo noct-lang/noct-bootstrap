@@ -48,34 +48,17 @@ namespace Noctis
 		Logger();
 
 		void Log(StdStringView text);
-		void Log(const StdString& text);
-		void Log(const char* text);
 
 		template<typename ...T>
 		void Log(StdStringView format, T... args)
 		{
 			StdString text = Format(format, args...);
-		}
-		
-		template<typename ...T>
-		void Log(const StdString& format, T... args)
-		{
-			StdString text = Format(format, args...);
-		}
-		
-		template<typename ...T>
-		void Log(const char* format, T... args)
-		{
-			StdString text = Format(format, args...);
+			Log(text);
 		}
 		
 		void LogStdOut(StdStringView text);
-		void LogStdOut(const StdString& text);
-		void LogStdOut(const char* text);
 		
 		void LogFile(StdStringView text);
-		void LogFile(const StdString& text);
-		void LogFile(const char* text);
 
 		void SetColor(LoggerColor color);
 		void SetForeColor(LoggerColor color);

@@ -15,6 +15,10 @@ namespace Noctis
 		return true;
 	}
 
+	void AstVisitor::Visit(AstTree& tree, AstVisitLoc loc)
+	{
+	}
+
 	void AstVisitor::Visit(AstModuleDecl& node, AstVisitLoc loc)
 	{
 	}
@@ -276,6 +280,10 @@ namespace Noctis
 	}
 
 	void AstVisitor::Visit(AstClosureExpr& node, AstVisitLoc loc)
+	{
+	}
+
+	void AstVisitor::Visit(AstIsExpr& node, AstVisitLoc loc)
 	{
 	}
 

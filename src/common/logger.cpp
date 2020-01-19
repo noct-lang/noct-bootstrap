@@ -28,18 +28,6 @@ namespace Noctis
 		LogFile(text);
 	}
 
-	void Logger::Log(const StdString& text)
-	{
-		LogStdOut(text);
-		LogFile(text);
-	}
-
-	void Logger::Log(const char* text)
-	{
-		LogStdOut(text);
-		LogFile(text);
-	}
-
 	void Logger::LogStdOut(StdStringView text)
 	{
 		if (m_CanWriteToStdOut)
@@ -48,32 +36,12 @@ namespace Noctis
 		}
 	}
 
-	void Logger::LogStdOut(const StdString& text)
-	{
-		LogStdOut(StdStringView(text));
-	}
-
-	void Logger::LogStdOut(const char* text)
-	{
-		LogStdOut(StdStringView(text));
-	}
-
 	void Logger::LogFile(StdStringView text)
 	{
 		if (m_CanWriteToFile && m_HasFile)
 		{
 			m_OutFile << text;
 		}
-	}
-
-	void Logger::LogFile(const StdString& text)
-	{
-		LogFile(StdStringView(text));
-	}
-
-	void Logger::LogFile(const char* text)
-	{
-		LogFile(StdStringView(text));
 	}
 
 	void Logger::SetColor(LoggerColor color)

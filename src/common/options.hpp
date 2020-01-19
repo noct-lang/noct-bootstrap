@@ -16,8 +16,16 @@ namespace Noctis
 		Run
 	};
 
-	class Options
+	struct BuildOptions
 	{
+		StdVector<StdString> buildFiles;
+		
+		bool logTokens : 1;
+		bool LogAst : 1;
+	};
+	
+	class Options
+	{		
 	public:
 		Options();
 
@@ -26,7 +34,7 @@ namespace Noctis
 		ToolMode Mode() const { return m_ToolMode; }
 		u8 TabWidth() const { return m_TabWidth; }
 
-		const StdVector<StdString>& FilesToBuild() const { return m_FilesToBuild; }
+		const BuildOptions& GetBuildOptions() const { return m_BuildOptions; }
 		
 	private:
 
@@ -35,8 +43,7 @@ namespace Noctis
 		ToolMode m_ToolMode;
 		u8 m_TabWidth;
 
-		// build
-		StdVector<StdString> m_FilesToBuild;
+		BuildOptions m_BuildOptions;
 	};
 	
 }

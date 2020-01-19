@@ -11,11 +11,10 @@ namespace Noctis
 
 		if (size <= 0)
 			return "";
-		++size;
 
 		StdString res;
 		res.resize(size);
-		i32 err = snprintf(res.data(), size, format, args...);
+		i32 err = snprintf(res.data(), size + 1, format, args...);
 		if (err < 0)
 			return "";
 

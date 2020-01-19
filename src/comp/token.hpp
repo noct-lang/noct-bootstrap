@@ -23,10 +23,12 @@ namespace Noctis
 		Func,
 		Goto,
 		If,
+		Is,
 		Immutable,
 		Import,
 		Impl,
 		In,
+		NotIn,
 		Interface,
 		Lazy,
 		Loop,
@@ -49,6 +51,7 @@ namespace Noctis
 		// Type keywords
 		Bool,
 		Char,
+		
 		F16,
 		F32,
 		F64,
@@ -79,6 +82,7 @@ namespace Noctis
 		IdenSelf,
 		Self,
 		Weak,
+		Where,
 
 		// Operators and Punctuation
 		Eq,

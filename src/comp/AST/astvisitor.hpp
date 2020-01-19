@@ -6,6 +6,8 @@ namespace Noctis
 {
 
 	// AST node forward decls
+	struct AstTree;
+	
 	struct AstModuleDecl;
 	struct AstIdentifier;
 	struct AstParam;
@@ -75,6 +77,7 @@ namespace Noctis
 	struct AstCommaExpr;
 	struct AstVoidExpr;
 	struct AstClosureExpr;
+	struct AstIsExpr;
 	struct AstCompRunExpr;
 
 	struct AstBuiltinType;
@@ -125,6 +128,8 @@ namespace Noctis
 
 		virtual bool ShouldVisit(AstNodeKind type);
 		
+		virtual void Visit(AstTree& tree, AstVisitLoc loc);
+
 		virtual void Visit(AstModuleDecl& node, AstVisitLoc loc);
 		virtual void Visit(AstIdentifier& node, AstVisitLoc loc);
 		virtual void Visit(AstParam& node, AstVisitLoc loc);
@@ -194,6 +199,7 @@ namespace Noctis
 		virtual void Visit(AstCommaExpr& node, AstVisitLoc loc);
 		virtual void Visit(AstVoidExpr& node, AstVisitLoc loc);
 		virtual void Visit(AstClosureExpr& node, AstVisitLoc loc);
+		virtual void Visit(AstIsExpr& node, AstVisitLoc loc);
 		virtual void Visit(AstCompRunExpr& node, AstVisitLoc loc);
 
 		virtual void Visit(AstBuiltinType& node, AstVisitLoc loc);

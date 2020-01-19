@@ -9,6 +9,8 @@
 #include "common/errorsystem.hpp"
 #include "common/perf.hpp"
 #include "common/utils.hpp"
+#include "comp/AST/parser.hpp"
+#include "comp/AST/ast.hpp"
 
 void ProcessBuild(Noctis::Context& context)
 {
@@ -16,7 +18,7 @@ void ProcessBuild(Noctis::Context& context)
 
 	context.pCompContext = new Noctis::CompContext{};
 
-	const StdString& file = context.options.FilesToBuild()[0];
+	const StdString& file = context.options.GetBuildOptions().buildFiles[0];
 	context.pCompContext->spanManager.SetCurFile(file);
 	g_ErrorSystem.SetCurrentFile(file);
 
@@ -28,9 +30,25 @@ void ProcessBuild(Noctis::Context& context)
 	lexer.Lex(content);
 	timer.Stop();
 
-	lexer.LogTokens();
+	if (context.options.GetBuildOptions().logTokens)
+		lexer.LogTokens();
 
-	g_Logger.Log(Noctis::Format("Lexer took %f microseconds", timer.GetTimeUS()));
+	g_Logger.Log(Noctis::Format("Lexer took %f milliseconds\n", timer.GetTimeMS()));
+
+	Noctis::Parser parser{ lexer.Tokens(), &context };
+
+	timer.Start();
+
+	Noctis::AstTree astTree;
+	astTree.filepath = file;
+	astTree.nodes = parser.Parse();
+	
+	timer.Stop();
+
+	if (context.options.GetBuildOptions().LogAst)
+		astTree.Log();
+	
+	g_Logger.Log(Noctis::Format("Parser took %f milliseconds\n", timer.GetTimeMS()));
 
 
 	delete context.pCompContext;
