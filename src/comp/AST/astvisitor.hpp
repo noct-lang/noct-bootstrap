@@ -75,7 +75,6 @@ namespace Noctis
 	struct AstBlockExpr;
 	struct AstUnsafeExpr;
 	struct AstCommaExpr;
-	struct AstVoidExpr;
 	struct AstClosureExpr;
 	struct AstIsExpr;
 	struct AstCompRunExpr;
@@ -126,7 +125,7 @@ namespace Noctis
 		AstVisitor();
 		virtual ~AstVisitor();
 
-		virtual bool ShouldVisit(AstNodeKind type);
+		virtual bool ShouldVisit(AstNodeKind kind);
 		
 		virtual void Visit(AstTree& tree, AstVisitLoc loc);
 
@@ -197,7 +196,6 @@ namespace Noctis
 		virtual void Visit(AstBlockExpr& node, AstVisitLoc loc);
 		virtual void Visit(AstUnsafeExpr& node, AstVisitLoc loc);
 		virtual void Visit(AstCommaExpr& node, AstVisitLoc loc);
-		virtual void Visit(AstVoidExpr& node, AstVisitLoc loc);
 		virtual void Visit(AstClosureExpr& node, AstVisitLoc loc);
 		virtual void Visit(AstIsExpr& node, AstVisitLoc loc);
 		virtual void Visit(AstCompRunExpr& node, AstVisitLoc loc);

@@ -10,7 +10,7 @@ namespace Noctis
 	{
 	}
 
-	bool AstVisitor::ShouldVisit(AstNodeKind type)
+	bool AstVisitor::ShouldVisit(AstNodeKind kind)
 	{
 		return true;
 	}
@@ -272,10 +272,6 @@ namespace Noctis
 	}
 
 	void AstVisitor::Visit(AstCommaExpr& node, AstVisitLoc loc)
-	{
-	}
-
-	void AstVisitor::Visit(AstVoidExpr& node, AstVisitLoc loc)
 	{
 	}
 

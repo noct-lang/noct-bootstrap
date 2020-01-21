@@ -4,51 +4,51 @@
 
 namespace Noctis
 {
+	bool IsNodeKindDeclaration(AstNodeKind kind)
+	{
+		return u64(kind) >= u64(AstNodeKind::DeclStartMarker) && u64(kind) <= u64(AstNodeKind::DeclEndMarker);
+	}
+
+	bool IsNodeKindStatement(AstNodeKind kind)
+	{
+		return u64(kind) >= u64(AstNodeKind::StmtStartMarker) && u64(kind) <= u64(AstNodeKind::StmtEndMarker);
+	}
+
+	bool IsNodeKindExpression(AstNodeKind kind)
+	{
+		return u64(kind) >= u64(AstNodeKind::ExprStartMarker) && u64(kind) <= u64(AstNodeKind::ExprEndMarker);
+	}
+
+	bool IsNodeKindType(AstNodeKind kind)
+	{
+		return u64(kind) >= u64(AstNodeKind::TypeStartMarker) && u64(kind) <= u64(AstNodeKind::TypeEndMarker);
+	}
+
+	bool IsNodeKindAttribute(AstNodeKind kind)
+	{
+		return u64(kind) >= u64(AstNodeKind::AttributeStartMarker) && u64(kind) <= u64(AstNodeKind::AttributeEndMarker);
+	}
+
+	bool IsNodeKindGeneric(AstNodeKind kind)
+	{
+		return u64(kind) >= u64(AstNodeKind::GenericsStartMarker) && u64(kind) <= u64(AstNodeKind::GenericsEndMarker);
+	}
+
+	bool IsNodeKindMacro(AstNodeKind kind)
+	{
+		return u64(kind) >= u64(AstNodeKind::MacroStartMarker) && u64(kind) <= u64(AstNodeKind::MacroEndMarker);
+	}
+
 	AstNode::AstNode(AstNodeKind nodeKind, u64 startTokIdx, u64 endTokIdx)
 		: nodeKind(nodeKind)
 		, startTokIdx(startTokIdx)
 		, endTokIdx(endTokIdx)
-		, pCtx(new AstContext{})
+		, ctx(new AstContext{})
 	{
 	}
 
 	AstNode::~AstNode()
 	{
-	}
-
-	bool AstNode::IsDeclaration() const
-	{
-		return u64(nodeKind) >= u64(AstNodeKind::DeclStartMarker) && u64(nodeKind) <= u64(AstNodeKind::DeclEndMarker);
-	}
-
-	bool AstNode::IsStatement() const
-	{
-		return u64(nodeKind) >= u64(AstNodeKind::StmtStartMarker) && u64(nodeKind) <= u64(AstNodeKind::StmtEndMarker);
-	}
-
-	bool AstNode::IsExpression() const
-	{
-		return u64(nodeKind) >= u64(AstNodeKind::ExprStartMarker) && u64(nodeKind) <= u64(AstNodeKind::ExprEndMarker);
-	}
-
-	bool AstNode::IsType() const
-	{
-		return u64(nodeKind) >= u64(AstNodeKind::TypeStartMarker) && u64(nodeKind) <= u64(AstNodeKind::TypeEndMarker);
-	}
-
-	bool AstNode::IsAttribute() const
-	{
-		return u64(nodeKind) >= u64(AstNodeKind::AttributeStartMarker) && u64(nodeKind) <= u64(AstNodeKind::AttributeEndMarker);
-	}
-
-	bool AstNode::IsGeneric() const
-	{
-		return u64(nodeKind) >= u64(AstNodeKind::GenericsStartMarker) && u64(nodeKind) <= u64(AstNodeKind::GenericsEndMarker);
-	}
-
-	bool AstNode::IsMacro() const
-	{
-		return u64(nodeKind) >= u64(AstNodeKind::MacroStartMarker) && u64(nodeKind) <= u64(AstNodeKind::MacroEndMarker);
 	}
 
 	void AstNode::Visit(AstVisitor& visitor)
@@ -1259,7 +1259,8 @@ namespace Noctis
 		for (AstSwitchCase& case_ : cases)
 		{
 			case_.staticExpr->Visit(visitor);
-			case_.dynamicExpr->Visit(visitor);
+			if (case_.dynamicExpr)
+				case_.dynamicExpr->Visit(visitor);
 			case_.body->Visit(visitor);
 		}
 
@@ -1837,8 +1838,10 @@ namespace Noctis
 		visitor.Visit(*this, AstVisitLoc::Begin);
 
 		expr->Visit(visitor);
-		begin->Visit(visitor);
-		end->Visit(visitor);
+		if (begin)
+			begin->Visit(visitor);
+		if (end)
+			end->Visit(visitor);
 		
 		visitor.Visit(*this, AstVisitLoc::End);
 	}
@@ -2334,11 +2337,10 @@ namespace Noctis
 		}
 	}
 
-	AstClosureExpr::AstClosureExpr(u64 lParenTokIdx, StdVector<AstNodeSPtr>&& params,
-	                               StdVector<AstClosureCapture>&& captures, StdVector<AstNodeSPtr> stmts, u64 rBraceTokIdx)
+	AstClosureExpr::AstClosureExpr(u64 lParenTokIdx, StdVector<AstNodeSPtr>&& params, AstNodeSPtr ret, StdVector<AstNodeSPtr> stmts, u64 rBraceTokIdx)
 		: AstNode(AstNodeKind::ClosureExpr, lParenTokIdx, rBraceTokIdx)
 		, params(std::move(params))
-		, captures(std::move(captures))
+		, ret(ret)
 		, stmts(std::move(stmts))
 	{
 	}
@@ -2353,6 +2355,14 @@ namespace Noctis
 		for (AstNodeSPtr& param : params)
 		{
 			param->Visit(visitor);
+		}
+
+		if (ret)
+			ret->Visit(visitor);
+
+		for (AstNodeSPtr stmt : stmts)
+		{
+			stmt->Visit(visitor);
 		}
 		
 		visitor.Visit(*this, AstVisitLoc::End);
@@ -2372,19 +2382,8 @@ namespace Noctis
 				param->Log(indent + 2);
 			}
 		}
-		if (!captures.empty())
-		{
-			LogIndent(indent + 1);
-			g_Logger.Log("(captures)\n");
-			for (AstClosureCapture& capture : captures)
-			{
-				LogIndent(indent + 2);
-				if (!capture.iden.empty())
-					g_Logger.Log("(local-capture '%s' %s)\n", capture.iden.c_str(), GetTokenTypeName(capture.captureType).data());
-				else
-					g_Logger.Log("(global-capture %s)\n", GetTokenTypeName(capture.captureType).data());
-			}
-		}
+		if (ret)
+			ret->Log(indent + 1);
 		LogIndent(indent + 1);
 		g_Logger.Log("(body)\n");
 		for (AstNodeSPtr stmt : stmts)

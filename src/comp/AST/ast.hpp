@@ -1,7 +1,7 @@
 #pragma once
 #include "common/defs.hpp"
-#include <memory>
 #include "comp/token.hpp"
+#include "comp/qualname.hpp"
 
 namespace Noctis
 {
@@ -9,7 +9,8 @@ namespace Noctis
 	
 	struct AstContext
 	{
-		
+		QualNameSPtr scope;
+		IdenSPtr iden;
 	};
 
 	enum class AstNodeKind : u8
@@ -142,19 +143,19 @@ namespace Noctis
 		MacroEndMarker = MacroInst,
 		
 	};
+
+	bool IsNodeKindDeclaration(AstNodeKind kind);
+	bool IsNodeKindStatement(AstNodeKind kind);
+	bool IsNodeKindExpression(AstNodeKind kind);
+	bool IsNodeKindType(AstNodeKind kind);
+	bool IsNodeKindAttribute(AstNodeKind kind);
+	bool IsNodeKindGeneric(AstNodeKind kind);
+	bool IsNodeKindMacro(AstNodeKind kind);
 	
 	struct AstNode
 	{
 		AstNode(AstNodeKind nodeKind, u64 startTokIdx, u64 endTokIdx);
 		virtual ~AstNode();
-
-		bool IsDeclaration() const;
-		bool IsStatement() const;
-		bool IsExpression() const;
-		bool IsType() const;
-		bool IsAttribute() const;
-		bool IsGeneric() const;
-		bool IsMacro() const;
 		
 		virtual void Visit(AstVisitor& visitor);
 		virtual void Log(u32 indent);
@@ -163,12 +164,11 @@ namespace Noctis
 		u64 startTokIdx;
 		u64 endTokIdx;
 
-		std::unique_ptr<AstContext> pCtx;
+		std::unique_ptr<AstContext> ctx;
 
 	protected:
 		void LogIndent(u32 indent);
 	};
-
 	using AstNodeSPtr = StdSharedPtr<AstNode>;
 
 	struct AstTree
@@ -937,22 +937,15 @@ namespace Noctis
 
 		StdVector<AstNodeSPtr> exprs;
 	};
-
-	struct AstClosureCapture
-	{
-		TokenType captureType;
-		StdString iden;
-	};
-
 	struct AstClosureExpr : public AstNode
 	{
-		AstClosureExpr(u64 lParenTokIdx, StdVector<AstNodeSPtr>&& params, StdVector<AstClosureCapture>&& captures, StdVector<AstNodeSPtr> stmts, u64 rBraceTokIdx);
+		AstClosureExpr(u64 lParenTokIdx, StdVector<AstNodeSPtr>&& params, AstNodeSPtr ret, StdVector<AstNodeSPtr> stmts, u64 rBraceTokIdx);
 
 		void Visit(AstVisitor& visitor) override;
 		void Log(u32 indent) override;
 
 		StdVector<AstNodeSPtr> params;
-		StdVector<AstClosureCapture> captures;
+		AstNodeSPtr ret;
 		StdVector<AstNodeSPtr> stmts;
 	};
 

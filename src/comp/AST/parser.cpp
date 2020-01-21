@@ -713,7 +713,7 @@ namespace Noctis
 		if (PeekToken().Type() == TokenType::Iden)
 			label = EatToken().Text();
 		u64 endIdx = EatToken(TokenType::Semicolon).Idx();
-		return AstNodeSPtr{ new AstBreakStmt{ startIdx, std::move(label), endIdx } };
+		return AstNodeSPtr{ new AstContinueStmt{ startIdx, std::move(label), endIdx } };
 	}
 
 	AstNodeSPtr Parser::ParseFallthroughStmt()
@@ -728,7 +728,7 @@ namespace Noctis
 		u64 startIdx = EatToken(TokenType::Goto).Idx();
 		StdString label = EatToken(TokenType::Iden).Text();
 		u64 endIdx = EatToken(TokenType::Semicolon).Idx();
-		return AstNodeSPtr{ new AstBreakStmt{ startIdx, std::move(label), endIdx } };
+		return AstNodeSPtr{ new AstGotoStmt{ startIdx, std::move(label), endIdx } };
 	}
 
 	AstNodeSPtr Parser::ParseReturnStmt()
@@ -1426,55 +1426,9 @@ namespace Noctis
 		StdVector<AstNodeSPtr> params = ParseParams(true);
 		EatToken(TokenType::Or);
 
-		StdVector<AstClosureCapture> captures;
-		if (TryEatToken(TokenType::LBracket))
-		{
-			do
-			{
-				switch (PeekToken().Type())
-				{
-				case TokenType::Eq:
-				{
-					EatToken();
-					captures.push_back(AstClosureCapture{ TokenType::Eq, StdString{} });
-					break;
-				}
-				case TokenType::And:
-				{
-					EatToken();
-					StdString iden;
-					if (PeekToken().Type() == TokenType::Iden)
-						iden = EatToken().Text();
-					captures.push_back(AstClosureCapture{ TokenType::And, iden });
-					break;
-				}
-				case TokenType::Move:
-				{
-					EatToken();
-					StdString iden;
-					if (PeekToken().Type() == TokenType::Iden)
-						iden = EatToken().Text();
-					captures.push_back(AstClosureCapture{ TokenType::Move, iden });
-					break;
-				}
-				case TokenType::Iden:
-				{
-					captures.push_back(AstClosureCapture{ TokenType::Unknown, EatToken().Text() });
-					break;
-				}
-				default:
-				{
-					Token& tok = PeekToken();
-					Span span = m_pCtx->pCompContext->spanManager.GetSpan(tok.Idx());
-					const char* pTokName = GetTokenTypeName(tok.Type()).data();
-					g_ErrorSystem.Error(span, "Unexpected token in closure capture: `%s`", pTokName);
-					break;
-				}
-				}
-			}
-			while (TryEatToken(TokenType::Comma));
-			EatToken(TokenType::RBracket);
-		}
+		AstNodeSPtr retType;
+		if (TryEatToken(TokenType::Arrow))
+			retType = ParseType();
 
 		EatToken(TokenType::LBrace);
 		StdVector<AstNodeSPtr> stmts;
@@ -1484,7 +1438,7 @@ namespace Noctis
 		}
 		u64 endIdx = EatToken().Idx();
 
-		return AstNodeSPtr{ new AstClosureExpr{ startIdx, std::move(params), std::move(captures), std::move(stmts), endIdx } };
+		return AstNodeSPtr{ new AstClosureExpr{ startIdx, std::move(params), retType, std::move(stmts), endIdx } };
 	}
 
 	AstNodeSPtr Parser::ParseIsExpr(AstNodeSPtr expr)
@@ -1737,8 +1691,12 @@ namespace Noctis
 	{
 		if (TryEatToken(TokenType::Colon))
 		{
-			if (PeekToken().Type() == TokenType::LBrace)
-				return ParseBlockExpr();
+			if (TryEatToken(TokenType::LBrace))
+			{
+				AstNodeSPtr expr = ParseExpression();
+				EatToken(TokenType::RBrace);
+				return expr;
+			}
 			return ParseType();
 		}
 
@@ -1787,18 +1745,22 @@ namespace Noctis
 		
 		EatToken(TokenType::ExclaimLess);
 		StdVector<AstNodeSPtr> args;
-		if (PeekToken().Type() == TokenType::LBrace)
-			args.push_back(ParseBlockExpr());
-		else
-			args.push_back(ParseType());
-		while (PeekToken().Type() == TokenType::Comma)
+
+		do
 		{
-			EatToken();
-			if (TryEatToken(TokenType::Colon))
-				args.push_back(ParseBlockExpr());
+			if (PeekToken().Type() == TokenType::LBrace)
+			{
+				EatToken(TokenType::LBrace);
+				args.push_back(ParseExpression());
+				EatToken(TokenType::RBrace);
+			}
 			else
+			{
 				args.push_back(ParseType());
+			}
 		}
+		while (TryEatToken(TokenType::Comma));
+
 		u64 endIdx = EatToken(TokenType::Greater).Idx();
 		return AstNodeSPtr{ new AstGenericInst{ idenIdx, std::move(iden), std::move(args), endIdx } };
 	}
