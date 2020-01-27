@@ -46,20 +46,20 @@ namespace Noctis
 					if (content[m_Index] == '=')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::EqEq, "==", tokIdx });
+						m_Tokens.push_back({ TokenType::EqEq, tokIdx });
 						spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 						break;
 					}
 					if (content[m_Index] == '>')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::DblArrow, "=>", tokIdx });
+						m_Tokens.push_back({ TokenType::DblArrow, tokIdx });
 						spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 						break;
 					}
 				}
 
-				m_Tokens.push_back({ TokenType::Eq, "=", tokIdx });
+				m_Tokens.push_back({ TokenType::Eq, tokIdx });
 				spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 				break;
 			}
@@ -71,20 +71,20 @@ namespace Noctis
 					if (content[m_Index] == '+')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::PlusPlus, "++", tokIdx });
+						m_Tokens.push_back({ TokenType::PlusPlus, tokIdx });
 						spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 						break;
 					}
 					if (content[m_Index] == '=')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::PlusEq, "+=", tokIdx });
+						m_Tokens.push_back({ TokenType::PlusEq, tokIdx });
 						spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 						break;
 					}
 				}
 
-				m_Tokens.push_back({ TokenType::Plus, "+", tokIdx });
+				m_Tokens.push_back({ TokenType::Plus, tokIdx });
 				spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 				break;
 			}
@@ -96,21 +96,21 @@ namespace Noctis
 					if (content[m_Index] == '-')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::MinusMinus, "--", tokIdx });
+						m_Tokens.push_back({ TokenType::MinusMinus, tokIdx });
 						spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 						break;
 					}
 					if (content[m_Index] == '=')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::MinusEq, "-=", tokIdx });
+						m_Tokens.push_back({ TokenType::MinusEq, tokIdx });
 						spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 						break;
 					}
 					if (content[m_Index] == '>')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::Arrow, "->", tokIdx });
+						m_Tokens.push_back({ TokenType::Arrow, tokIdx });
 						spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 						break;
 					}
@@ -122,7 +122,7 @@ namespace Noctis
 					}
 				}
 
-				m_Tokens.push_back({ TokenType::Minus, "-", tokIdx });
+				m_Tokens.push_back({ TokenType::Minus, tokIdx });
 				spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 				break;
 			}
@@ -132,12 +132,12 @@ namespace Noctis
 				if (m_Index < size && content[m_Index] == '=')
 				{
 					++m_Index;
-					m_Tokens.push_back({ TokenType::AsteriskEq, "*=", tokIdx });
+					m_Tokens.push_back({ TokenType::AsteriskEq, tokIdx });
 					spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 					break;
 				}
 
-				m_Tokens.push_back({ TokenType::Asterisk, "*", tokIdx });
+				m_Tokens.push_back({ TokenType::Asterisk, tokIdx });
 				spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 				break;
 			}
@@ -148,7 +148,7 @@ namespace Noctis
 					if (content[m_Index + 1] == '=')
 					{
 						m_Index += 2;
-						m_Tokens.push_back({ TokenType::SlashEq, "/=", tokIdx });
+						m_Tokens.push_back({ TokenType::SlashEq, tokIdx });
 						spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 						break;
 					}
@@ -167,7 +167,7 @@ namespace Noctis
 				}
 
 				++m_Index;
-				m_Tokens.push_back({ TokenType::Slash, "/", tokIdx });
+				m_Tokens.push_back({ TokenType::Slash, tokIdx });
 				spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 				break;
 			}
@@ -177,12 +177,12 @@ namespace Noctis
 				if (m_Index < size && content[m_Index] == '=')
 				{
 					++m_Index;
-					m_Tokens.push_back({ TokenType::PercentEq, "%=", tokIdx });
+					m_Tokens.push_back({ TokenType::PercentEq, tokIdx });
 					spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 					break;
 				}
 
-				m_Tokens.push_back({ TokenType::Percent, "%", tokIdx });
+				m_Tokens.push_back({ TokenType::Percent, tokIdx });
 				spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 				break;
 			}
@@ -192,12 +192,12 @@ namespace Noctis
 				if (m_Index < size && content[m_Index] == '=')
 				{
 					++m_Index;
-					m_Tokens.push_back({ TokenType::TildeEq, "~=", tokIdx });
+					m_Tokens.push_back({ TokenType::TildeEq, tokIdx });
 					spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 					break;
 				}
 
-				m_Tokens.push_back({ TokenType::Tilde, "~", tokIdx });
+				m_Tokens.push_back({ TokenType::Tilde, tokIdx });
 				spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 				break;
 			}
@@ -209,20 +209,20 @@ namespace Noctis
 					if (content[m_Index] == '&')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::AndAnd, "&&", tokIdx });
+						m_Tokens.push_back({ TokenType::AndAnd, tokIdx });
 						spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 						break;
 					}
 					if (content[m_Index] == '=')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::AndEq, "&=", tokIdx });
+						m_Tokens.push_back({ TokenType::AndEq, tokIdx });
 						spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 						break;
 					}
 				}
 
-				m_Tokens.push_back({ TokenType::And, "&", tokIdx });
+				m_Tokens.push_back({ TokenType::And, tokIdx });
 				spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 				break;
 			}
@@ -234,20 +234,20 @@ namespace Noctis
 					if (content[m_Index] == '|')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::OrOr, "||", tokIdx });
+						m_Tokens.push_back({ TokenType::OrOr, tokIdx });
 						spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 						break;
 					}
 					if (content[m_Index] == '=')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::OrEq, "|=", tokIdx });
+						m_Tokens.push_back({ TokenType::OrEq, tokIdx });
 						spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 						break;
 					}
 				}
 
-				m_Tokens.push_back({ TokenType::Or, "&", tokIdx });
+				m_Tokens.push_back({ TokenType::Or, tokIdx });
 				spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 				break;
 			}
@@ -257,12 +257,12 @@ namespace Noctis
 				if (m_Index + 1 < size && content[m_Index] == '=')
 				{
 					++m_Index;
-					m_Tokens.push_back({ TokenType::CaretEq, "^=", tokIdx });
+					m_Tokens.push_back({ TokenType::CaretEq, tokIdx });
 					spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 					break;
 				}
 
-				m_Tokens.push_back({ TokenType::Caret, "^", tokIdx });
+				m_Tokens.push_back({ TokenType::Caret, tokIdx });
 				spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 				break;
 			}
@@ -280,13 +280,13 @@ namespace Noctis
 								if (m_Index + 2 < size && content[m_Index + 2] == '=')
 								{
 									m_Index += 3;
-									m_Tokens.push_back({ TokenType::LessLessLessEq, "<<<=", tokIdx });
+									m_Tokens.push_back({ TokenType::LessLessLessEq, tokIdx });
 									spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 									break;
 								}
 
 								m_Index += 2;
-								m_Tokens.push_back({ TokenType::LessLessLess, "<<<", tokIdx });
+								m_Tokens.push_back({ TokenType::LessLessLess, tokIdx });
 								spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 								break;
 							}
@@ -295,40 +295,40 @@ namespace Noctis
 								if (m_Index + 2 < size && content[m_Index + 2] == '=')
 								{
 									m_Index += 3;
-									m_Tokens.push_back({ TokenType::LessLessAsteriskEq, "<<*=", tokIdx });
+									m_Tokens.push_back({ TokenType::LessLessAsteriskEq, tokIdx });
 									spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 									break;
 								}
 
 								m_Index += 2;
-								m_Tokens.push_back({ TokenType::LessLessAsterisk, "<<*", tokIdx });
+								m_Tokens.push_back({ TokenType::LessLessAsterisk, tokIdx });
 								spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 								break;
 							}
 							if (content[m_Index + 1] == '=')
 							{
 								m_Index += 2;
-								m_Tokens.push_back({ TokenType::LessLessEq, "<<=", tokIdx });
+								m_Tokens.push_back({ TokenType::LessLessEq, tokIdx });
 								spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 								break;
 							}
 						}
 						
 						++m_Index;
-						m_Tokens.push_back({ TokenType::LessLess, "<<", tokIdx });
+						m_Tokens.push_back({ TokenType::LessLess, tokIdx });
 						spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 						break;
 					}
 					if (content[m_Index] == '=')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::LessEq, "<=", tokIdx });
+						m_Tokens.push_back({ TokenType::LessEq, tokIdx });
 						spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 						break;
 					}
 				}
 
-				m_Tokens.push_back({ TokenType::Less, "<", tokIdx });
+				m_Tokens.push_back({ TokenType::Less, tokIdx });
 				spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 				break;
 			}
@@ -346,13 +346,13 @@ namespace Noctis
 								if (m_Index + 2 < size && content[m_Index + 2] == '=')
 								{
 									m_Index += 3;
-									m_Tokens.push_back({ TokenType::GreaterGreaterGreaterEq, ">>>=", tokIdx });
+									m_Tokens.push_back({ TokenType::GreaterGreaterGreaterEq, tokIdx });
 									spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 									break;
 								}
 
 								m_Index += 2;
-								m_Tokens.push_back({ TokenType::GreaterGreaterGreater, ">>>", tokIdx });
+								m_Tokens.push_back({ TokenType::GreaterGreaterGreater, tokIdx });
 								spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 								break;
 							}
@@ -361,34 +361,34 @@ namespace Noctis
 								if (m_Index + 2 < size && content[m_Index + 2] == '=')
 								{
 									m_Index += 3;
-									m_Tokens.push_back({ TokenType::GreaterGreaterAsteriskEq, ">>*=", tokIdx });
+									m_Tokens.push_back({ TokenType::GreaterGreaterAsteriskEq, tokIdx });
 									spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 									break;
 								}
 
 								m_Index += 2;
-								m_Tokens.push_back({ TokenType::GreaterGreaterAsterisk, ">>*", tokIdx });
+								m_Tokens.push_back({ TokenType::GreaterGreaterAsterisk, tokIdx });
 								spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 								break;
 							}
 							if (content[m_Index + 1] == '=')
 							{
 								m_Index += 2;
-								m_Tokens.push_back({ TokenType::GreaterGreaterEq, ">>=", tokIdx });
+								m_Tokens.push_back({ TokenType::GreaterGreaterEq, tokIdx });
 								spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 								break;
 							}
 						}
 
 						++m_Index;
-						m_Tokens.push_back({ TokenType::GreaterGreater, ">>", tokIdx });
+						m_Tokens.push_back({ TokenType::GreaterGreater, tokIdx });
 						spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 						break;
 					}
 					if (content[m_Index] == '=')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::GreaterEq, ">=", tokIdx });
+						m_Tokens.push_back({ TokenType::GreaterEq, tokIdx });
 						spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 						break;
 					}
@@ -406,97 +406,97 @@ namespace Noctis
 					if (content[m_Index] == '=')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::ExclaimEq, "!=", tokIdx });
+						m_Tokens.push_back({ TokenType::ExclaimEq, tokIdx });
 						spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 						break;
 					}
 					if (content[m_Index] == '<')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::ExclaimLess, "!<", tokIdx });
+						m_Tokens.push_back({ TokenType::ExclaimLess, tokIdx });
 						spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 						break;
 					}
 					if (content[m_Index] == '(')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::ExclaimParen, "!(", tokIdx });
+						m_Tokens.push_back({ TokenType::ExclaimParen, tokIdx });
 						spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 						break;
 					}
 					if (content[m_Index] == '{')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::ExclaimBrace, "!{", tokIdx });
+						m_Tokens.push_back({ TokenType::ExclaimBrace, tokIdx });
 						spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 						break;
 					}
 					if (content[m_Index] == '[')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::ExclaimBracket, "![", tokIdx });
+						m_Tokens.push_back({ TokenType::ExclaimBracket, tokIdx });
 						spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 						break;
 					}
 				}
 
-				m_Tokens.push_back({ TokenType::Exclaim, "!", tokIdx });
+				m_Tokens.push_back({ TokenType::Exclaim, tokIdx });
 				spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 				break;
 			}
 			case '(':
 			{
 				++m_Index;
-				m_Tokens.push_back({ TokenType::LParen, "(", tokIdx });
+				m_Tokens.push_back({ TokenType::LParen, tokIdx });
 				spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 				break;
 			}
 			case ')':
 			{
 				++m_Index;
-				m_Tokens.push_back({ TokenType::RParen, ")", tokIdx });
+				m_Tokens.push_back({ TokenType::RParen, tokIdx });
 				spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 				break;
 			}
 			case '{':
 			{
 				++m_Index;
-				m_Tokens.push_back({ TokenType::LBrace, "{", tokIdx });
+				m_Tokens.push_back({ TokenType::LBrace, tokIdx });
 				spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 				break;
 			}
 			case '}':
 			{
 				++m_Index;
-				m_Tokens.push_back({ TokenType::RBrace, "}", tokIdx });
+				m_Tokens.push_back({ TokenType::RBrace, tokIdx });
 				spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 				break;
 			}
 			case '[':
 			{
 				++m_Index;
-				m_Tokens.push_back({ TokenType::LBracket, "[", tokIdx });
+				m_Tokens.push_back({ TokenType::LBracket, tokIdx });
 				spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 				break;
 			}
 			case ']':
 			{
 				++m_Index;
-				m_Tokens.push_back({ TokenType::RBracket, "]", tokIdx });
+				m_Tokens.push_back({ TokenType::RBracket, tokIdx });
 				spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 				break;
 			}
 			case ',':
 			{
 				++m_Index;
-				m_Tokens.push_back({ TokenType::Comma, ",", tokIdx });
+				m_Tokens.push_back({ TokenType::Comma, tokIdx });
 				spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 				break;
 			}
 			case ';':
 			{
 				++m_Index;
-				m_Tokens.push_back({ TokenType::Semicolon, ";", tokIdx });
+				m_Tokens.push_back({ TokenType::Semicolon, tokIdx });
 				spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 				break;
 			}
@@ -508,14 +508,14 @@ namespace Noctis
 					if (content[m_Index] == ':')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::ColonColon, "::", tokIdx });
+						m_Tokens.push_back({ TokenType::ColonColon, tokIdx });
 						spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 						break;
 					}
 					if (content[m_Index] == '=')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::ColonEq, ":=", tokIdx });
+						m_Tokens.push_back({ TokenType::ColonEq, tokIdx });
 						spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 						break;
 					}
@@ -535,21 +535,21 @@ namespace Noctis
 						if (content[m_Index + 1] == '.')
 						{
 							m_Index += 2;
-							m_Tokens.push_back({ TokenType::DotDotDot, "...", tokIdx });
+							m_Tokens.push_back({ TokenType::DotDotDot, tokIdx });
 							spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 							break;
 						}
 						if (content[m_Index + 1] == '=')
 						{
 							m_Index += 2;
-							m_Tokens.push_back({ TokenType::DotDotEq, "..=", tokIdx });
+							m_Tokens.push_back({ TokenType::DotDotEq, tokIdx });
 							spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 							break;
 						}
 					}
 
 					++m_Index;
-					m_Tokens.push_back({ TokenType::DotDot, "..", tokIdx });
+					m_Tokens.push_back({ TokenType::DotDot, tokIdx });
 					spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 					break;
 				}
@@ -560,7 +560,7 @@ namespace Noctis
 					break;
 				}
 
-				m_Tokens.push_back({ TokenType::Dot, ".", tokIdx });
+				m_Tokens.push_back({ TokenType::Dot, tokIdx });
 				spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 				break;
 			}
@@ -570,12 +570,12 @@ namespace Noctis
 				if (m_Index < size && content[m_Index] == ':')
 				{
 					++m_Index;
-					m_Tokens.push_back({ TokenType::AtColon, "@:", tokIdx });
+					m_Tokens.push_back({ TokenType::AtColon, tokIdx });
 					spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 					break;
 				}
 
-				m_Tokens.push_back({ TokenType::At, "@", tokIdx });
+				m_Tokens.push_back({ TokenType::At, tokIdx });
 				spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 				break;
 			}
@@ -587,41 +587,41 @@ namespace Noctis
 					if (content[m_Index] == '?')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::QuestionQuestion, "??", tokIdx });
+						m_Tokens.push_back({ TokenType::QuestionQuestion, tokIdx });
 						spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 						break;
 					}
 					if (content[m_Index] == ':')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::QuestionColon, "?:", tokIdx });
+						m_Tokens.push_back({ TokenType::QuestionColon, tokIdx });
 						spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 						break;
 					}
 					if (content[m_Index] == '.')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::QuestionDot, "?.", tokIdx });
+						m_Tokens.push_back({ TokenType::QuestionDot, tokIdx });
 						spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 						break;
 					}
 					if (content[m_Index] == '[')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::QuestionBracket, "?[", tokIdx });
+						m_Tokens.push_back({ TokenType::QuestionBracket, tokIdx });
 						spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 						break;
 					}
 				}
 
-				m_Tokens.push_back({ TokenType::Question, "?", tokIdx });
+				m_Tokens.push_back({ TokenType::Question, tokIdx });
 				spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 				break;
 			}
 			case '#':
 			{
 				++m_Index;
-				m_Tokens.push_back({ TokenType::Hash, "#", tokIdx });
+				m_Tokens.push_back({ TokenType::Hash, tokIdx });
 				spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 				break;
 			}
@@ -632,12 +632,19 @@ namespace Noctis
 				if (content[m_Index] == '(')
 				{
 					++m_Index;
-					m_Tokens.push_back({ TokenType::DollarParen, "$(", tokIdx });
+					m_Tokens.push_back({ TokenType::DollarParen, tokIdx });
+					spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
+					break;
+				}
+				else if (content[m_Index] == '{')
+				{
+					++m_Index;
+					m_Tokens.push_back({ TokenType::DollarBrace, tokIdx });
 					spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 					break;
 				}
 				
-				m_Tokens.push_back({ TokenType::Dollar, "$", tokIdx });
+				m_Tokens.push_back({ TokenType::Dollar, tokIdx });
 				spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 				break;
 			}
@@ -714,7 +721,7 @@ namespace Noctis
 					if (it->second == TokenType::In &&
 						!m_Tokens.empty() && m_Tokens.back().Type() == TokenType::Exclaim)
 					{
-						m_Tokens.back() = Token{ TokenType::NotIn , "!in", tokIdx - 1 };
+						m_Tokens.back() = Token{ TokenType::NotIn, tokIdx - 1 };
 					}
 					else
 					{
@@ -881,7 +888,7 @@ namespace Noctis
 				}
 
 				StdString text = StdString(content.substr(start, m_Index - start));
-				m_Tokens.push_back({ litType, text, value, tokIdx });
+				m_Tokens.push_back({ litType, value, tokIdx });
 				spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 
 				return;
@@ -912,7 +919,7 @@ namespace Noctis
 				}
 
 				StdString text = StdString(content.substr(start, m_Index - start));
-				m_Tokens.push_back({ litType, text, value, tokIdx });
+				m_Tokens.push_back({ litType, value, tokIdx });
 				spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 				
 				return;
@@ -943,7 +950,7 @@ namespace Noctis
 				}
 
 				StdString text = StdString(content.substr(start, m_Index - start));
-				m_Tokens.push_back({ litType, text, value, tokIdx });
+				m_Tokens.push_back({ litType, value, tokIdx });
 				spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 
 				return;
@@ -1033,7 +1040,7 @@ namespace Noctis
 			}
 
 			StdString text = StdString{ content.substr(start, m_Index - start) };
-			m_Tokens.push_back({ litType, text, val, tokIdx });
+			m_Tokens.push_back({ litType, val, tokIdx });
 			spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 		}
 		else
@@ -1047,7 +1054,7 @@ namespace Noctis
 				std::from_chars(digits.data(), digits.data() + digits.size(), val);
 
 				StdString text = StdString{ content.substr(start, m_Index - start) };
-				m_Tokens.push_back({ litType, text, val, tokIdx });
+				m_Tokens.push_back({ litType, val, tokIdx });
 			}
 			else
 			{
@@ -1063,7 +1070,7 @@ namespace Noctis
 				}
 
 				StdString text = StdString{ content.substr(start, m_Index - start) };
-				m_Tokens.push_back({ litType, text, val, tokIdx });
+				m_Tokens.push_back({ litType, val, tokIdx });
 			}
 
 			spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
@@ -1222,7 +1229,7 @@ namespace Noctis
 		++m_Index;
 		
 		StdString text = StdString{ content.substr(start, m_Index - start) };
-		m_Tokens.push_back({ TokenType::CharLit, text, u64(val), tokIdx });
+		m_Tokens.push_back({ TokenType::CharLit, u64(val), tokIdx });
 		spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 	}
 

@@ -26,8 +26,13 @@ using isize = ptrdiff_t;
 template<typename T>
 using StdVector = std::pmr::vector<T>;
 
-using StdString = std::pmr::string;
+template<typename T0, typename T1>
+using StdPair = std::pair<T0, T1>;
 
+template<typename T0, typename T1>
+using StdPairVector = StdVector<StdPair<T0, T1>>;
+
+using StdString = std::pmr::string;
 using StdStringView = std::string_view;
 
 template<typename Key, typename Value, typename Hash = std::hash<Key>, typename KeyEq = std::equal_to<Key>>
@@ -35,6 +40,8 @@ using StdUnorderedMap = std::pmr::unordered_map<Key, Value, Hash, KeyEq>;
 
 template<typename T>
 using StdSharedPtr = std::shared_ptr<T>;
+template<typename T>
+using StdUniquePtr = std::unique_ptr<T>;
 
 #define DECLARE_ENUM_FLAGS(enumType) \
 	enumType operator|(enumType e0, enumType e1);\

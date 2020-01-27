@@ -1,6 +1,5 @@
 #pragma once
 #include "common/defs.hpp"
-#include "ast.hpp"
 
 namespace Noctis
 {
@@ -8,11 +7,16 @@ namespace Noctis
 	// AST node forward decls
 	struct AstTree;
 	
-	struct AstModuleDecl;
-	struct AstIdentifier;
+	struct AstIden;
+	struct AstTypeDisambiguation;
+	struct AstQualName;
 	struct AstParam;
 	struct AstArg;
 
+	struct AstModuleDecl;
+	struct AstUnittestDecl;
+	struct AstBenchmarkDecl;
+	
 	struct AstStructDecl;
 	struct AstUnionDecl;
 	struct AstValueEnumDecl;
@@ -36,7 +40,6 @@ namespace Noctis
 	struct AstWhileStmt;
 	struct AstDoWhileStmt;
 	struct AstForStmt;
-	struct AstForRangeStmt;
 	struct AstSwitchStmt;
 	struct AstLabelStmt;
 	struct AstBreakStmt;
@@ -51,6 +54,7 @@ namespace Noctis
 	struct AstCompIfStmt;
 	struct AstCompCondStmt;
 	struct AstCompDebugStmt;
+	struct AstMacroLoopStmt;
 
 	struct AstAssignExpr;
 	struct AstTernaryExpr;
@@ -78,6 +82,7 @@ namespace Noctis
 	struct AstClosureExpr;
 	struct AstIsExpr;
 	struct AstCompRunExpr;
+	struct AstMacroVarExpr;
 
 	struct AstBuiltinType;
 	struct AstIdentifierType;
@@ -87,18 +92,21 @@ namespace Noctis
 	struct AstSliceType;
 	struct AstTupleType;
 	struct AstOptionalType;
+	struct AstInlineStructType;
+	struct AstInlineEnumType;
+	struct AstCompoundInterfaceType;
 
-	struct AstAttributes;
-	struct AstCompAttribute;
-	struct AstUserAttribute;
-	struct AstVisibilityAttribute;
-	struct AstSimpleAttribute;
+	struct AstAttribs;
+	struct AstCompAttrib;
+	struct AstUserAttrib;
+	struct AstVisibilityAttrib;
+	struct AstSimpleAttrib;
 
 	struct AstGenericDecl;
 	struct AstGenericTypeParam;
 	struct AstGenericValueParam;
+	struct AstGenericTypeBound;
 	struct AstGenericWhereClause;
-	struct AstGenericInst;
 
 	struct AstMacroVar;
 	struct AstMacroSeparator;
@@ -111,127 +119,254 @@ namespace Noctis
 	struct AstRulesProcMacro;
 	struct AstMacroInst;
 
-	enum class AstNodeKind : u8;
+#define  FWD_DECL_SPTR(type) \
+	struct type;\
+	using type##SPtr = StdSharedPtr<type>
 
-	enum class AstVisitLoc
-	{
-		Begin,
-		End
-	};
+	FWD_DECL_SPTR(AstStmt);
+	FWD_DECL_SPTR(AstDecl);
+	FWD_DECL_SPTR(AstExpr);
+	FWD_DECL_SPTR(AstType);
+	FWD_DECL_SPTR(AstQualIden);
 
 	class AstVisitor
 	{
 	public:
 		AstVisitor();
 		virtual ~AstVisitor();
-
-		virtual bool ShouldVisit(AstNodeKind kind);
 		
-		virtual void Visit(AstTree& tree, AstVisitLoc loc);
+		virtual void Visit(AstTree& tree);
 
-		virtual void Visit(AstModuleDecl& node, AstVisitLoc loc);
-		virtual void Visit(AstIdentifier& node, AstVisitLoc loc);
-		virtual void Visit(AstParam& node, AstVisitLoc loc);
-		virtual void Visit(AstArg& node, AstVisitLoc loc);
+		virtual void Visit(AstQualIdenSPtr node);
+		virtual void Visit(AstIden& node);
+		virtual void Visit(AstTypeDisambiguation& node);
+		virtual void Visit(AstQualName& node);
+		virtual void Visit(AstParam& node);
+		virtual void Visit(AstArg& node);
 
-		virtual void Visit(AstStructDecl& node, AstVisitLoc loc);
-		virtual void Visit(AstUnionDecl& node, AstVisitLoc loc);
-		virtual void Visit(AstValueEnumDecl& node, AstVisitLoc loc);
-		virtual void Visit(AstAdtEnumStructMember& node, AstVisitLoc loc);
-		virtual void Visit(AstAdtEnumDecl& node, AstVisitLoc loc);
-		virtual void Visit(AstMarkerInterfaceDecl& node, AstVisitLoc loc);
-		virtual void Visit(AstWeakInterfaceDecl& node, AstVisitLoc loc);
-		virtual void Visit(AstStrongInterfaceDecl& node, AstVisitLoc loc);
-		virtual void Visit(AstTypeAliasDecl& node, AstVisitLoc loc);
-		virtual void Visit(AstTypeDefDecl& node, AstVisitLoc loc);
-		virtual void Visit(AstVarDecl& node, AstVisitLoc loc);
-		virtual void Visit(AstFuncDecl& node, AstVisitLoc loc);
-		virtual void Visit(AstMethodDecl& node, AstVisitLoc loc);
-		virtual void Visit(AstEmptyMethodDecl& node, AstVisitLoc loc);
-		virtual void Visit(AstImplDecl& node, AstVisitLoc loc);
-
-		virtual void Visit(AstImportStmt& node, AstVisitLoc loc);
-		virtual void Visit(AstBlockStmt& node, AstVisitLoc loc);
-		virtual void Visit(AstIfStmt& node, AstVisitLoc loc);
-		virtual void Visit(AstLoopStmt& node, AstVisitLoc loc);
-		virtual void Visit(AstWhileStmt& node, AstVisitLoc loc);
-		virtual void Visit(AstDoWhileStmt& node, AstVisitLoc loc);
-		virtual void Visit(AstForStmt& node, AstVisitLoc loc);
-		virtual void Visit(AstForRangeStmt& node, AstVisitLoc loc);
-		virtual void Visit(AstSwitchStmt& node, AstVisitLoc loc);
-		virtual void Visit(AstLabelStmt& node, AstVisitLoc loc);
-		virtual void Visit(AstBreakStmt& node, AstVisitLoc loc);
-		virtual void Visit(AstContinueStmt& node, AstVisitLoc loc);
-		virtual void Visit(AstFallthroughStmt& node, AstVisitLoc loc);
-		virtual void Visit(AstGotoStmt& node, AstVisitLoc loc);
-		virtual void Visit(AstReturnStmt& node, AstVisitLoc loc);
-		virtual void Visit(AstExprStmt& node, AstVisitLoc loc);
-		virtual void Visit(AstDeferStmt& node, AstVisitLoc loc);
-		virtual void Visit(AstStackDeferStmt& node, AstVisitLoc loc);
-		virtual void Visit(AstUnsafeStmt& node, AstVisitLoc loc);
-		virtual void Visit(AstCompIfStmt& node, AstVisitLoc loc);
-		virtual void Visit(AstCompCondStmt& node, AstVisitLoc loc);
-		virtual void Visit(AstCompDebugStmt& node, AstVisitLoc loc);
-
-		virtual void Visit(AstAssignExpr& node, AstVisitLoc loc);
-		virtual void Visit(AstTernaryExpr& node, AstVisitLoc loc);
-		virtual void Visit(AstBinaryExpr& node, AstVisitLoc loc);
-		virtual void Visit(AstPostfixExpr& node, AstVisitLoc loc);
-		virtual void Visit(AstPrefixExpr& node, AstVisitLoc loc);
-		virtual void Visit(AstQualNameExpr& node, AstVisitLoc loc);
-		virtual void Visit(AstIndexSliceExpr& node, AstVisitLoc loc);
-		virtual void Visit(AstSliceExpr& node, AstVisitLoc loc);
-		virtual void Visit(AstFuncCallExpr& node, AstVisitLoc loc);
-		virtual void Visit(AstMemberAccessExpr& node, AstVisitLoc loc);
-		virtual void Visit(AstMethodCallExpr& node, AstVisitLoc loc);
-		virtual void Visit(AstTupleAccessExpr& node, AstVisitLoc loc);
-		virtual void Visit(AstLiteralExpr& node, AstVisitLoc loc);
-		virtual void Visit(AstAggrInitExpr& node, AstVisitLoc loc);
-		virtual void Visit(AstTupleInitExpr& node, AstVisitLoc loc);
-		virtual void Visit(AstArrayInitExpr& node, AstVisitLoc loc);
-		virtual void Visit(AstCastExpr& node, AstVisitLoc loc);
-		virtual void Visit(AstTransmuteExpr& node, AstVisitLoc loc);
-		virtual void Visit(AstMoveExpr& node, AstVisitLoc loc);
-		virtual void Visit(AstBracketExpr& node, AstVisitLoc loc);
-		virtual void Visit(AstBlockExpr& node, AstVisitLoc loc);
-		virtual void Visit(AstUnsafeExpr& node, AstVisitLoc loc);
-		virtual void Visit(AstCommaExpr& node, AstVisitLoc loc);
-		virtual void Visit(AstClosureExpr& node, AstVisitLoc loc);
-		virtual void Visit(AstIsExpr& node, AstVisitLoc loc);
-		virtual void Visit(AstCompRunExpr& node, AstVisitLoc loc);
-
-		virtual void Visit(AstBuiltinType& node, AstVisitLoc loc);
-		virtual void Visit(AstIdentifierType& node, AstVisitLoc loc);
-		virtual void Visit(AstPointerType& node, AstVisitLoc loc);
-		virtual void Visit(AstReferenceType& node, AstVisitLoc loc);
-		virtual void Visit(AstArrayType& node, AstVisitLoc loc);
-		virtual void Visit(AstSliceType& node, AstVisitLoc loc);
-		virtual void Visit(AstTupleType& node, AstVisitLoc loc);
-		virtual void Visit(AstOptionalType& node, AstVisitLoc loc);
+		virtual void Visit(AstModuleDecl& node);
+		virtual void Visit(AstUnittestDecl& node);
+		virtual void Visit(AstBenchmarkDecl& node);
 		
-		virtual void Visit(AstAttributes& node, AstVisitLoc loc);
-		virtual void Visit(AstCompAttribute& node, AstVisitLoc loc);
-		virtual void Visit(AstUserAttribute& node, AstVisitLoc loc);
-		virtual void Visit(AstVisibilityAttribute& node, AstVisitLoc loc);
-		virtual void Visit(AstSimpleAttribute& node, AstVisitLoc loc);
+		virtual void Visit(AstStructDecl& node);
+		virtual void Visit(AstUnionDecl& node);
+		virtual void Visit(AstValueEnumDecl& node);
+		virtual void Visit(AstAdtEnumDecl& node);
+		virtual void Visit(AstMarkerInterfaceDecl& node);
+		virtual void Visit(AstWeakInterfaceDecl& node);
+		virtual void Visit(AstStrongInterfaceDecl& node);
+		virtual void Visit(AstTypeAliasDecl& node);
+		virtual void Visit(AstTypeDefDecl& node);
+		virtual void Visit(AstVarDecl& node);
+		virtual void Visit(AstFuncDecl& node);
+		virtual void Visit(AstMethodDecl& node);
+		virtual void Visit(AstEmptyMethodDecl& node);
+		virtual void Visit(AstImplDecl& node);
+
+		virtual void Visit(AstImportStmt& node);
+		virtual void Visit(AstBlockStmt& node);
+		virtual void Visit(AstIfStmt& node);
+		virtual void Visit(AstLoopStmt& node);
+		virtual void Visit(AstWhileStmt& node);
+		virtual void Visit(AstDoWhileStmt& node);
+		virtual void Visit(AstForStmt& node);
+		virtual void Visit(AstSwitchStmt& node);
+		virtual void Visit(AstLabelStmt& node);
+		virtual void Visit(AstBreakStmt& node);
+		virtual void Visit(AstContinueStmt& node);
+		virtual void Visit(AstFallthroughStmt& node);
+		virtual void Visit(AstGotoStmt& node);
+		virtual void Visit(AstReturnStmt& node);
+		virtual void Visit(AstExprStmt& node);
+		virtual void Visit(AstDeferStmt& node);
+		virtual void Visit(AstStackDeferStmt& node);
+		virtual void Visit(AstUnsafeStmt& node);
+		virtual void Visit(AstCompIfStmt& node);
+		virtual void Visit(AstCompCondStmt& node);
+		virtual void Visit(AstCompDebugStmt& node);
+		virtual void Visit(AstMacroLoopStmt& node);
+
+		virtual void Visit(AstAssignExpr& node);
+		virtual void Visit(AstTernaryExpr& node);
+		virtual void Visit(AstBinaryExpr& node);
+		virtual void Visit(AstPostfixExpr& node);
+		virtual void Visit(AstPrefixExpr& node);
+		virtual void Visit(AstQualNameExpr& node);
+		virtual void Visit(AstIndexSliceExpr& node);
+		virtual void Visit(AstSliceExpr& node);
+		virtual void Visit(AstFuncCallExpr& node);
+		virtual void Visit(AstMemberAccessExpr& node);
+		virtual void Visit(AstMethodCallExpr& node);
+		virtual void Visit(AstTupleAccessExpr& node);
+		virtual void Visit(AstLiteralExpr& node);
+		virtual void Visit(AstAggrInitExpr& node);
+		virtual void Visit(AstTupleInitExpr& node);
+		virtual void Visit(AstArrayInitExpr& node);
+		virtual void Visit(AstCastExpr& node);
+		virtual void Visit(AstTransmuteExpr& node);
+		virtual void Visit(AstMoveExpr& node);
+		virtual void Visit(AstBracketExpr& node);
+		virtual void Visit(AstBlockExpr& node);
+		virtual void Visit(AstUnsafeExpr& node);
+		virtual void Visit(AstCommaExpr& node);
+		virtual void Visit(AstClosureExpr& node);
+		virtual void Visit(AstIsExpr& node);
+		virtual void Visit(AstCompRunExpr& node);
+		virtual void Visit(AstMacroVarExpr& node);
+
+		virtual void Visit(AstBuiltinType& node);
+		virtual void Visit(AstIdentifierType& node);
+		virtual void Visit(AstPointerType& node);
+		virtual void Visit(AstReferenceType& node);
+		virtual void Visit(AstArrayType& node);
+		virtual void Visit(AstSliceType& node);
+		virtual void Visit(AstTupleType& node);
+		virtual void Visit(AstOptionalType& node);
+		virtual void Visit(AstInlineStructType& node);
+		virtual void Visit(AstInlineEnumType& node);
+		virtual void Visit(AstCompoundInterfaceType& node);
 		
-		virtual void Visit(AstGenericDecl& node, AstVisitLoc loc);
-		virtual void Visit(AstGenericValueParam& node, AstVisitLoc loc);
-		virtual void Visit(AstGenericTypeParam& node, AstVisitLoc loc);
-		virtual void Visit(AstGenericWhereClause& node, AstVisitLoc loc);
-		virtual void Visit(AstGenericInst& node, AstVisitLoc loc);
+		virtual void Visit(AstAttribs& node);
+		virtual void Visit(AstCompAttrib& node);
+		virtual void Visit(AstUserAttrib& node);
+		virtual void Visit(AstVisibilityAttrib& node);
+		virtual void Visit(AstSimpleAttrib& node);
 		
-		virtual void Visit(AstMacroVar& node, AstVisitLoc loc);
-		virtual void Visit(AstMacroSeparator& node, AstVisitLoc loc);
-		virtual void Visit(AstMacroFragment& node, AstVisitLoc loc);
-		virtual void Visit(AstMacroPattern& node, AstVisitLoc loc);
-		virtual void Visit(AstMacroRule& node, AstVisitLoc loc);
-		virtual void Visit(AstDeclMacro& node, AstVisitLoc loc);
-		virtual void Visit(AstRulesDeclMacro& node, AstVisitLoc loc);
-		virtual void Visit(AstProcMacro& node, AstVisitLoc loc);
-		virtual void Visit(AstRulesProcMacro& node, AstVisitLoc loc);
-		virtual void Visit(AstMacroInst& node, AstVisitLoc loc);
+		virtual void Visit(AstGenericDecl& node);
+		virtual void Visit(AstGenericTypeParam& node);
+		virtual void Visit(AstGenericValueParam& node);
+		virtual void Visit(AstGenericTypeBound& node);
+		virtual void Visit(AstGenericWhereClause& node);
 		
+		virtual void Visit(AstMacroVar& node);
+		virtual void Visit(AstMacroSeparator& node);
+		virtual void Visit(AstMacroFragment& node);
+		virtual void Visit(AstMacroPattern& node);
+		virtual void Visit(AstMacroRule& node);
+		virtual void Visit(AstDeclMacro& node);
+		virtual void Visit(AstRulesDeclMacro& node);
+		virtual void Visit(AstProcMacro& node);
+		virtual void Visit(AstRulesProcMacro& node);
+		virtual void Visit(AstMacroInst& node);
+
+	protected:
+		void Visit(AstStmtSPtr node);
+		void Visit(AstDeclSPtr node);
+		void Visit(AstExprSPtr node);
+		void Visit(AstTypeSPtr node);
+		
+		void Walk(AstTree& tree);
+
+		void Walk(AstIden& node);
+		void Walk(AstTypeDisambiguation& node);
+		void Walk(AstQualName& node);
+		void Walk(AstParam& node);
+		void Walk(AstArg& node);
+
+		void Walk(AstModuleDecl& node);
+		void Walk(AstUnittestDecl& node);
+		void Walk(AstBenchmarkDecl& node);
+
+		void Walk(AstStructDecl& node);
+		void Walk(AstUnionDecl& node);
+		void Walk(AstValueEnumDecl& node);
+		void Walk(AstAdtEnumDecl& node);
+		void Walk(AstMarkerInterfaceDecl& node);
+		void Walk(AstWeakInterfaceDecl& node);
+		void Walk(AstStrongInterfaceDecl& node);
+		void Walk(AstTypeAliasDecl& node);
+		void Walk(AstTypeDefDecl& node);
+		void Walk(AstVarDecl& node);
+		void Walk(AstFuncDecl& node);
+		void Walk(AstMethodDecl& node);
+		void Walk(AstEmptyMethodDecl& node);
+		void Walk(AstImplDecl& node);
+
+		void Walk(AstImportStmt& node);
+		void Walk(AstBlockStmt& node);
+		void Walk(AstIfStmt& node);
+		void Walk(AstLoopStmt& node);
+		void Walk(AstWhileStmt& node);
+		void Walk(AstDoWhileStmt& node);
+		void Walk(AstForStmt& node);
+		void Walk(AstSwitchStmt& node);
+		void Walk(AstLabelStmt& node);
+		void Walk(AstBreakStmt& node);
+		void Walk(AstContinueStmt& node);
+		void Walk(AstFallthroughStmt& node);
+		void Walk(AstGotoStmt& node);
+		void Walk(AstReturnStmt& node);
+		void Walk(AstExprStmt& node);
+		void Walk(AstDeferStmt& node);
+		void Walk(AstStackDeferStmt& node);
+		void Walk(AstUnsafeStmt& node);
+		void Walk(AstCompIfStmt& node);
+		void Walk(AstCompCondStmt& node);
+		void Walk(AstCompDebugStmt& node);
+		void Walk(AstMacroLoopStmt& node);
+
+		void Walk(AstAssignExpr& node);
+		void Walk(AstTernaryExpr& node);
+		void Walk(AstBinaryExpr& node);
+		void Walk(AstPostfixExpr& node);
+		void Walk(AstPrefixExpr& node);
+		void Walk(AstQualNameExpr& node);
+		void Walk(AstIndexSliceExpr& node);
+		void Walk(AstSliceExpr& node);
+		void Walk(AstFuncCallExpr& node);
+		void Walk(AstMemberAccessExpr& node);
+		void Walk(AstMethodCallExpr& node);
+		void Walk(AstTupleAccessExpr& node);
+		void Walk(AstLiteralExpr& node);
+		void Walk(AstAggrInitExpr& node);
+		void Walk(AstTupleInitExpr& node);
+		void Walk(AstArrayInitExpr& node);
+		void Walk(AstCastExpr& node);
+		void Walk(AstTransmuteExpr& node);
+		void Walk(AstMoveExpr& node);
+		void Walk(AstBracketExpr& node);
+		void Walk(AstBlockExpr& node);
+		void Walk(AstUnsafeExpr& node);
+		void Walk(AstCommaExpr& node);
+		void Walk(AstClosureExpr& node);
+		void Walk(AstIsExpr& node);
+		void Walk(AstCompRunExpr& node);
+		void Walk(AstMacroVarExpr& node);
+
+		void Walk(AstBuiltinType& node);
+		void Walk(AstIdentifierType& node);
+		void Walk(AstPointerType& node);
+		void Walk(AstReferenceType& node);
+		void Walk(AstArrayType& node);
+		void Walk(AstSliceType& node);
+		void Walk(AstTupleType& node);
+		void Walk(AstOptionalType& node);
+		void Walk(AstInlineStructType& node);
+		void Walk(AstInlineEnumType& node);
+		void Walk(AstCompoundInterfaceType& node);
+
+		void Walk(AstAttribs& node);
+		void Walk(AstCompAttrib& node);
+		void Walk(AstUserAttrib& node);
+		void Walk(AstVisibilityAttrib& node);
+		void Walk(AstSimpleAttrib& node);
+
+		void Walk(AstGenericDecl& node);
+		void Walk(AstGenericTypeParam& node);
+		void Walk(AstGenericValueParam& node);
+		void Walk(AstGenericTypeBound& node);
+		void Walk(AstGenericWhereClause& node);
+
+		void Walk(AstMacroVar& node);
+		void Walk(AstMacroSeparator& node);
+		void Walk(AstMacroFragment& node);
+		void Walk(AstMacroPattern& node);
+		void Walk(AstMacroRule& node);
+		void Walk(AstDeclMacro& node);
+		void Walk(AstRulesDeclMacro& node);
+		void Walk(AstProcMacro& node);
+		void Walk(AstRulesProcMacro& node);
+		void Walk(AstMacroInst& node);
 	};
 	
 }

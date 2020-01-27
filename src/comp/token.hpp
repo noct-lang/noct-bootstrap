@@ -158,6 +158,7 @@ namespace Noctis
 		Hash,
 		Dollar,
 		DollarParen,
+		DollarBrace,
 
 		// Literals
 		CharLit,
@@ -193,13 +194,14 @@ namespace Noctis
 	{
 	public:
 
+		Token(TokenType type, u64 tokenIdx);
 		Token(TokenType type, StdString text, u64 tokenIdx);
-		Token(TokenType type, StdString text, i64 val, u64 tokenIdx);
-		Token(TokenType type, StdString text, u64 val, u64 tokenIdx);
-		Token(TokenType type, StdString text, f64 val, u64 tokenIdx);
+		Token(TokenType type, i64 val, u64 tokenIdx);
+		Token(TokenType type, u64 val, u64 tokenIdx);
+		Token(TokenType type, f64 val, u64 tokenIdx);
 
 		TokenType Type() const { return m_Type; }
-		const StdString& Text() const { return m_Text; }
+		const StdString& Text() const { return m_Iden; }
 		u64 Idx() const { return m_TokenIdx; }
 		
 		i64 Signed() const { return m_Signed; }
@@ -210,7 +212,6 @@ namespace Noctis
 	private:
 
 		TokenType m_Type;
-		StdString m_Text;
 		u64 m_TokenIdx;
 		
 		union 
@@ -220,6 +221,7 @@ namespace Noctis
 			f64 m_Fp;
 			bool m_Bool;
 		};
+		StdString m_Iden;
 	};
 	
 }

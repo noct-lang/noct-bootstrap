@@ -2,378 +2,417 @@
 #include "common/defs.hpp"
 #include "comp/token.hpp"
 #include "comp/qualname.hpp"
+#include "ast.hpp"
 
 namespace Noctis
 {
-	class AstVisitor;
+#define  FWD_DECL_SPTR(type) \
+	struct type;\
+	using type##SPtr = StdSharedPtr<type>
 	
 	struct AstContext
 	{
+		u64 startIdx, endIdx;
 		QualNameSPtr scope;
 		IdenSPtr iden;
 	};
+	using AstContextPtr = StdUniquePtr<AstContext>;
 
-	enum class AstNodeKind : u8
+	enum class AstStmtKind : u8
 	{
-		Unknown,
-		
-		ModuleDecl,
-		UnittestDecl, // TODO
-		BenchmarkDecl, // TODO
+		Decl,
+		Import,
+		Block,
+		If,
+		Loop,
+		While,
+		DoWhile,
+		For,
+		Switch,
+		Label,
+		Break,
+		Continue,
+		Fallthrough,
+		Goto,
+		Return,
+		Expr,
+		Defer,
+		StackDefer,
+		Unsafe,
+		CompIf,
+		CompCond,
+		CompDebug,
+		MacroLoop,
+	};
 
-		Identifier,
-		Param,
-		Arg,
-
-		DeclStartMarker,
-		StructDecl = DeclStartMarker,
-		UnionDecl,
-		ValueEnumDecl,
-		AdtEnumStructMember,
-		AdtEnumDecl,
-		MarkerInterfaceDecl,
-		WeakInterfaceDecl,
-		StrongInterfaceDecl,
-		TypeAliasDecl,
-		TypeDefDecl,
-		VarDecl,
-		FuncDecl,
-		MethodDecl,
-		EmptyMethodDecl,
-		ImplDecl,
-		DeclEndMarker = ImplDecl,
-
-		StmtStartMarker,
-		ImportStmt = StmtStartMarker,
-		BlockStmt,
-		IfStmt,
-		LoopStmt,
-		WhileStmt,
-		DoWhileStmt,
-		ForStmt,
-		ForRangeStmt,
-		SwitchStmt,
-		LabelStmt,
-		BreakStmt,
-		ContinueStmt,
-		FallthroughStmt,
-		GotoStmt,
-		ReturnStmt,
-		ExprStmt,
-		DeferStmt,
-		StackDeferStmt,
-		UnsafeStmt,
-		CompIfStmt,
-		CompForStmt,
-		CompCondStmt,
-		CompDebugStmt,
-		StmtEndMarker,
-
-		ExprStartMarker,
-		AssignExpr = ExprStartMarker,
-		TernaryExpr,
-		BinaryExpr,
-		PostFixExpr,
-		PrefixExpr,
-		QualNameExpr,
-		IndexSliceExpr,
-		SliceExpr,
-		FuncCallExpr,
-		MemberAccessExpr,
-		MethodCallExpr,
-		TupleAccessExpr,
-		LiteralExpr,
-		AggrInitExpr,
-		TupleInitExpr,
-		ArrayInitExpr,
-		CastExpr,
-		TransmuteExpr,
-		MoveExpr,
-		BracketExpr,
-		BlockExpr,
-		UnsafeExpr,
-		CommaExpr,
-		VoidExpr,
-		ClosureExpr,
-		IsExpr,
-		CompRunExpr,
-		MacroExpExpr,
-		ExprEndMarker = CompRunExpr,
-
-		TypeStartMarker,
-		BuiltinType = TypeStartMarker,
-		IdentifierType,
-		PointerType,
-		ReferenceType,
-		ArrayType,
-		SliceType,
-		TupleType,
-		OptionalType,
-		TypeEndMarker = OptionalType,
-
-		AttributeStartMarker,
-		Attributes = AttributeStartMarker,
-		CompilerAttribute,
-		UserAttribute,
-		VisibilityAttribute,
-		SimpleAttribute,
-		AttributeEndMarker = SimpleAttribute,
-
-		GenericsStartMarker,
-		GenericsDecl,
-		GenericsTypeParam,
-		GenericTypeSpec,
-		GenericValueSpec,
-		GenericValueParam,
-		GenericWhereClause,
-		GenericInst,
-		GenericsEndMarker,
-		
-		MacroStartMarker,
-		MacroVar,
-		MacroSeparator,
-		MacroFragment,
-		MacroPattern,
-		MacroRule,
+	enum class AstDeclKind : u8
+	{
+		Module,
+		UnitTest,
+		Benchmark,
+		Struct,
+		Union,
+		ValueEnum,
+		AdtEnum,
+		MarkerInterface,
+		WeakInterface,
+		StrongInterface,
+		Typealias,
+		Typedef,
+		Var,
+		Func,
+		Method,
+		EmptyMethod,
+		Impl,
 		DeclMacro,
 		RulesDeclMacro,
 		ProcMacro,
-		RulesProcMacro,
-		MacroInst,
-		MacroEndMarker = MacroInst,
-		
+		RulesProcMacro
 	};
 
-	bool IsNodeKindDeclaration(AstNodeKind kind);
-	bool IsNodeKindStatement(AstNodeKind kind);
-	bool IsNodeKindExpression(AstNodeKind kind);
-	bool IsNodeKindType(AstNodeKind kind);
-	bool IsNodeKindAttribute(AstNodeKind kind);
-	bool IsNodeKindGeneric(AstNodeKind kind);
-	bool IsNodeKindMacro(AstNodeKind kind);
-	
-	struct AstNode
+	enum class AstExprKind : u8
 	{
-		AstNode(AstNodeKind nodeKind, u64 startTokIdx, u64 endTokIdx);
-		virtual ~AstNode();
-		
-		virtual void Visit(AstVisitor& visitor);
-		virtual void Log(u32 indent);
-		
-		AstNodeKind nodeKind;
-		u64 startTokIdx;
-		u64 endTokIdx;
-
-		std::unique_ptr<AstContext> ctx;
-
-	protected:
-		void LogIndent(u32 indent);
+		Assign,
+		Ternary,
+		Binary,
+		Postfix,
+		Prefix,
+		QualName,
+		IndexSlice,
+		Slice,
+		FuncCall,
+		MemberAccess,
+		MethodCall,
+		TupleAccess,
+		Literal,
+		AggrInit,
+		TupleInit,
+		ArrayInit,
+		Cast,
+		Transmute,
+		Move,
+		Bracket,
+		Block,
+		Unsafe,
+		Comma,
+		Closure,
+		Is,
+		CompRun,
+		MacroVar,
+		MacroInst,
 	};
-	using AstNodeSPtr = StdSharedPtr<AstNode>;
+
+	enum class AstTypeKind : u8
+	{
+		Builtin,
+		Iden,
+		Ptr,
+		Ref,
+		Arr,
+		Slice,
+		Tuple,
+		Optional,
+		InlineStruct,
+		InlineEnum,
+		CompoundInterface,
+	};
+
+	enum class GenericArgKind : u8
+	{
+		Type,
+		Expr,
+	};
+
+	enum class AstQualIdenKind : u8
+	{
+		Identifier,
+		TypeDisambiguation,
+	};
+
+	enum class AstMacroPatternElemKind : u8
+	{
+		Variable,
+		Separator,
+		Fragment
+	};
+	
+	struct AstStmt
+	{
+		AstStmt(AstStmtKind kind, u64 startIdx, u64 endIdx);
+		~AstStmt();
+		AstStmtKind stmtKind;
+		AstContextPtr ctx;
+	};
+	using AstStmtSPtr = StdSharedPtr<AstStmt>;
+
+	struct AstDecl : public AstStmt
+	{
+		AstDecl(AstDeclKind kind, u64 startIdx, u64 endIdx);
+
+		AstDeclKind declKind;
+	};
+	using AstDeclSPtr = StdSharedPtr<AstDecl>;
+
+	struct AstExpr
+	{
+		AstExpr(AstExprKind kind, u64 startIdx, u64 endIdx);
+
+		AstExprKind exprKind;
+		AstContextPtr ctx;
+	};
+	using AstExprSPtr = StdSharedPtr<AstExpr>;
+
+	struct AstType
+	{
+		AstType(AstTypeKind nodeKkindind, u64 startIdx, u64 endIdx);
+
+		AstTypeKind typeKind;
+		AstContextPtr ctx;
+	};
+	using AstTypeSPtr = StdSharedPtr<AstType>;
+
+	FWD_DECL_SPTR(AstLabelStmt);
+	FWD_DECL_SPTR(AstIdentifierType);
+	FWD_DECL_SPTR(AstGenericDecl);
+	FWD_DECL_SPTR(AstGenericWhereClause);
+	FWD_DECL_SPTR(AstAttribs);
+	FWD_DECL_SPTR(AstCompAttrib);
+	FWD_DECL_SPTR(AstUserAttrib);
+	FWD_DECL_SPTR(AstVisibilityAttrib);
+	FWD_DECL_SPTR(AstSimpleAttrib);
+	FWD_DECL_SPTR(AstGenericTypeParam);
+	FWD_DECL_SPTR(AstGenericValueParam);
+	FWD_DECL_SPTR(AstMacroPattern);
 
 	struct AstTree
 	{
 		StdString filepath;
-		StdVector<AstNodeSPtr> nodes;
-
-		void Visit(AstVisitor& visitor);
-		void Log();
+		StdVector<AstStmtSPtr> nodes;
 	};
 
-	struct AstModuleDecl : public AstNode
+	struct AstParam
 	{
-		AstModuleDecl(u64 importTokIdx, StdVector<StdString>&& moduleIdens, u64 semicolonTokIdx);
+		AstParam(u64 startIdx, StdPairVector<AstAttribsSPtr, StdString>&& idens,
+			AstTypeSPtr type, bool isVariadic, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
+		StdPairVector<AstAttribsSPtr, StdString> idens;
+		AstTypeSPtr type;
+		bool isVariadic;
+		AstContextPtr ctx;
+	};
+	using AstParamSPtr = StdSharedPtr<AstParam>;
+
+	struct AstArg
+	{
+		AstArg(u64 startTokIdx, StdString&& iden, AstExprSPtr expr);
+
+		StdString iden;
+		AstExprSPtr expr;
+		AstContextPtr ctx;
+	};
+	using AstArgSPtr = StdSharedPtr<AstArg>;
+
+	struct AstGenericArg
+	{
+		AstGenericArg(AstTypeSPtr type);
+		AstGenericArg(AstExprSPtr expr);
+		AstGenericArg(AstGenericArg&& arg) noexcept;
+		~AstGenericArg();
+
+		GenericArgKind kind;
+		union
+		{
+			AstTypeSPtr type;
+			AstExprSPtr expr;
+		};
+	};
+
+	struct AstQualIden
+	{
+		AstQualIden(AstQualIdenKind kind, u64 startIdx, u64 endIdx);
+		
+		AstQualIdenKind qualIdenKind;
+		AstContextPtr ctx;
+	};
+	using AstQualIdenSPtr = StdSharedPtr<AstQualIden>;
+	
+	struct AstIden : public AstQualIden
+	{
+		AstIden(u64 startIdx, StdString&& iden, StdVector<AstGenericArg>&& args, u64 endIdx);
+
+		StdString iden;
+		StdVector<AstGenericArg> args;
+	};
+
+	struct AstTypeDisambiguation : public AstQualIden
+	{
+		AstTypeDisambiguation(u64 startIdx, AstTypeSPtr type, AstIdentifierTypeSPtr interface, u64 endIdx);
+
+		AstTypeSPtr type;
+		AstIdentifierTypeSPtr interface;
+	};
+
+	struct AstQualName
+	{
+		AstQualName(u64 startIdx, bool global, StdVector<AstQualIdenSPtr>&& idens);
+
+		bool global;
+		StdVector<AstQualIdenSPtr> idens;
+		AstContextPtr ctx;
+	};
+	using AstQualNameSPtr = StdSharedPtr<AstQualName>;
+	
+	struct AstModuleDecl : public AstDecl
+	{
+		AstModuleDecl(u64 startIdx, StdVector<StdString>&& moduleIdens, u64 endIdx);
 		
 		StdVector<StdString> moduleIdens;
 	};
 
-	struct AstIdentifier : public AstNode
+	struct AstUnittestDecl : public AstDecl
 	{
-		AstIdentifier(u64 idenIdx, StdString&& iden);
+		AstUnittestDecl(u64 startIdx, StdString&& name, StdVector<AstStmtSPtr>&& stmts, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
+		StdString name;
+		StdVector<AstStmtSPtr> stmts;
+	};
 
+	struct AstBenchmarkDecl : public AstDecl
+	{
+		AstBenchmarkDecl(u64 hashTokIdx, StdString&& name, StdString&& stateIden,
+			StdVector<AstStmtSPtr>&& stmts, u64 rBraceTokIdx);
+
+		StdString name;
+		StdString stateIden;
+		StdVector<AstStmtSPtr> stmts;
+	};
+
+	struct AstStructDecl : public AstDecl
+	{
+		AstStructDecl(AstAttribsSPtr attribs, u64 startIdx, StdString&& iden,
+			AstGenericDeclSPtr generics, StdVector<AstStmtSPtr>&& members, u64 endIdx);
+
+		AstAttribsSPtr attribs;
+		StdString iden;
+		AstGenericDeclSPtr generics;
+		StdVector<AstStmtSPtr> members;
+	};
+
+	struct AstUnionDecl : public AstDecl
+	{
+		AstUnionDecl(AstAttribsSPtr attribs, u64 startIdx, StdString&& iden,
+			AstGenericDeclSPtr generics, StdVector<AstStmtSPtr>&& members, u64 endIdx);
+
+		AstAttribsSPtr attribs;
+		StdString iden;
+		AstGenericDeclSPtr generics;
+		StdVector<AstStmtSPtr> members;
+	};
+
+	struct AstValueEnumDecl : public AstDecl
+	{
+		AstValueEnumDecl(AstAttribsSPtr attribs, u64 startIdx, StdString&& iden,
+			AstTypeSPtr baseType, StdPairVector<StdString, AstExprSPtr>&& members,
+			u64 endIdx);
+
+		AstAttribsSPtr attribs;
+		StdString iden;
+		AstTypeSPtr baseType;
+		StdPairVector<StdString, AstExprSPtr> members;
+	};
+
+	
+	struct AstAdtEnumDecl : public AstDecl
+	{
+		AstAdtEnumDecl(AstAttribsSPtr attribs, u64 startIdx, StdString&& iden,
+			AstGenericDeclSPtr generics, StdPairVector<StdString, AstTypeSPtr>&& members,
+			u64 rBraceTokIdx);
+
+		AstAttribsSPtr attribs;
+		StdString iden;
+		AstGenericDeclSPtr generics;
+		StdPairVector<StdString, AstTypeSPtr> members;
+	};
+
+	struct AstMarkerInterfaceDecl : public AstDecl
+	{
+		AstMarkerInterfaceDecl(AstAttribsSPtr attribs, u64 startIdx, StdString&& iden,
+			u64 endIdx);
+
+		AstAttribsSPtr attribs;
 		StdString iden;
 	};
 
-	struct AstParam : public AstNode
+	struct AstWeakInterfaceDecl : public AstDecl
 	{
-		AstParam(u64 startTokIdx, StdVector<std::pair<AstNodeSPtr, StdString>>&& idens, AstNodeSPtr type, bool isVariadic, u64 endTokIdx);
+		AstWeakInterfaceDecl(AstAttribsSPtr attribs, u64 startIdx, StdString&& iden,
+			StdVector<AstStmtSPtr>&& members, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		StdVector<std::pair<AstNodeSPtr, StdString>> idens;
-		AstNodeSPtr type;
-		bool isVariadic;
-	};
-
-	struct AstArg : public AstNode
-	{
-		AstArg(u64 startTokIdx, StdString&& iden, AstNodeSPtr expr);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-		
+		AstAttribsSPtr attribs;
 		StdString iden;
-		AstNodeSPtr expr;
-	};
-
-	struct AstStructDecl : public AstNode
-	{
-		AstStructDecl(AstNodeSPtr attribs, u64 structTokIdx, StdString&& iden, AstNodeSPtr generics, StdVector<AstNodeSPtr>&& members, u64 rBraceTokIdx);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr attribs;
-		StdString iden;
-		AstNodeSPtr generics;
-		StdVector<AstNodeSPtr> members;
-	};
-
-	struct AstUnionDecl : public AstNode
-	{
-		AstUnionDecl(AstNodeSPtr attribs, u64 unionTokIdx, StdString&& iden, AstNodeSPtr generics, StdVector<AstNodeSPtr>&& members, u64 rBraceTokIdx);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr attribs;
-		StdString iden;
-		AstNodeSPtr generics;
-		StdVector<AstNodeSPtr> members;
-	};
-
-	struct AstValueEnumDecl : public AstNode
-	{
-		AstValueEnumDecl(AstNodeSPtr attribs, u64 enumTokIdx, StdString&& iden, StdVector<std::pair<StdString, AstNodeSPtr>>&& members, u64 rBraceTokIdx);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr attribs;
-		StdString iden;
-		AstNodeSPtr type;
-		StdVector<std::pair<StdString, AstNodeSPtr>> members;
-	};
-
-	struct AstAdtEnumStructMember : public AstNode
-	{
-		AstAdtEnumStructMember(u64 lBraceTokIdx, StdVector<std::pair<StdVector<StdString>, AstNodeSPtr>>&& members, u64 rBraceTokIdx);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-		
-		StdVector<std::pair<StdVector<StdString>, AstNodeSPtr>> members;
+		StdVector<AstStmtSPtr> members;
 	};
 	
-	struct AstAdtEnumDecl : public AstNode
+	struct AstStrongInterfaceDecl : public AstDecl
 	{
-		AstAdtEnumDecl(AstNodeSPtr attribs, u64 enumTokIdx, StdString&& iden, AstNodeSPtr generics, StdVector<std::pair<StdString, AstNodeSPtr>>&& members, u64 rBraceTokIdx);
+		AstStrongInterfaceDecl(AstAttribsSPtr attribs, u64 startIdx, StdString&& iden,
+			AstGenericDeclSPtr generics, StdVector<AstStmtSPtr>&& members, u64 rBraceTokIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr attribs;
+		AstAttribsSPtr attribs;
 		StdString iden;
-		AstNodeSPtr generics;
-		StdVector<std::pair<StdString, AstNodeSPtr>> members;
+		AstGenericDeclSPtr generics;
+		StdVector<AstStmtSPtr> members;
 	};
 
-	struct AstMarkerInterfaceDecl : public AstNode
+	struct AstTypeAliasDecl : public AstDecl
 	{
-		AstMarkerInterfaceDecl(AstNodeSPtr attribs, u64 interfaceTokIdx, StdString&& iden, u64 semicolonTokIdx);
+		AstTypeAliasDecl(AstAttribsSPtr attribs, u64 startIdx, StdString&& iden,
+			AstGenericDeclSPtr generics, AstTypeSPtr type, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr attribs;
+		AstAttribsSPtr attribs;
 		StdString iden;
+		AstGenericDeclSPtr generics;
+		AstTypeSPtr type;
 	};
 
-	struct AstWeakInterfaceDecl : public AstNode
+	struct AstTypeDefDecl : public AstDecl
 	{
-		AstWeakInterfaceDecl(AstNodeSPtr attribs, u64 weakTokIddx, StdString&& iden, StdVector<AstNodeSPtr>&& members, u64 rBraceToken);
+		AstTypeDefDecl(AstAttribsSPtr attribs, u64 startIdx, StdString&& iden,
+			AstGenericDeclSPtr generics, AstTypeSPtr type, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr attribs;
+		AstAttribsSPtr attribs;
 		StdString iden;
-		StdVector<AstNodeSPtr> members;
-	};
-	
-	struct AstStrongInterfaceDecl : public AstNode
-	{
-		AstStrongInterfaceDecl(AstNodeSPtr attribs, u64 interfaceTokIdx, StdString&& iden, AstNodeSPtr generics, StdVector<AstNodeSPtr>&& members, u64 rBraceTokIdx);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr attribs;
-		StdString iden;
-		AstNodeSPtr generics;
-		StdVector<AstNodeSPtr> members;
+		AstGenericDeclSPtr generics;
+		AstTypeSPtr type;
 	};
 
-	struct AstTypeAliasDecl : public AstNode
+	struct AstVarDecl : public AstDecl
 	{
-		AstTypeAliasDecl(AstNodeSPtr attribs, u64 typealiasTokIdx, StdString&& iden, AstNodeSPtr generics, AstNodeSPtr type, u64 semicolonTokIdx);
+		AstVarDecl(AstAttribsSPtr attribs, u64 startIdx, StdVector<StdString>&& idens,
+			AstTypeSPtr type, AstExprSPtr expr, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr attribs;
-		StdString iden;
-		AstNodeSPtr generics;
-		AstNodeSPtr type;
-	};
-
-	struct AstTypeDefDecl : public AstNode
-	{
-		AstTypeDefDecl(AstNodeSPtr attribs, u64 typedefTokIdx, StdString&& iden, AstNodeSPtr generics, AstNodeSPtr type, u64 semicolonTokIdx);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr attribs;
-		StdString iden;
-		AstNodeSPtr generics;
-		AstNodeSPtr type;
-	};
-
-	struct AstVarDecl : public AstNode
-	{
-		AstVarDecl(AstNodeSPtr attribs, u64 startTokIdx, StdVector<StdString>&& idens, AstNodeSPtr type, AstNodeSPtr expr, u64 termTokIdx);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr attribs;
+		AstAttribsSPtr attribs;
 		StdVector<StdString> idens;
-		AstNodeSPtr type;
-		AstNodeSPtr expr;
+		AstTypeSPtr type;
+		AstExprSPtr expr;
 	};
+	using AstVarDeclSPtr = StdSharedPtr<AstVarDecl>;
 
-	struct AstFuncDecl : public AstNode
+	struct AstFuncDecl : public AstDecl
 	{
-		AstFuncDecl(AstNodeSPtr attribs, u64 funcTokIdx, StdString&& iden, AstNodeSPtr generics, StdVector<AstNodeSPtr>&& params, AstNodeSPtr ret, AstNodeSPtr whereClause, StdVector<AstNodeSPtr>&& statements, u64 rBraceTokIdx);
+		AstFuncDecl(AstAttribsSPtr attribs, u64 startIdx, StdString&& iden,
+			AstGenericDeclSPtr generics, StdVector<AstParamSPtr>&& params, AstTypeSPtr retType,
+			StdPairVector<StdString, AstTypeSPtr>&& namedRet,
+			AstGenericWhereClauseSPtr whereClause, StdVector<AstStmtSPtr>&& stmts, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr attribs;
+		AstAttribsSPtr attribs;
 		StdString iden;
-		AstNodeSPtr generics;
-		StdVector<AstNodeSPtr> params;
-		AstNodeSPtr ret;
-		AstNodeSPtr whereClause;
-		StdVector<AstNodeSPtr> statements;
+		AstGenericDeclSPtr generics;
+		StdVector<AstParamSPtr> params;
+		AstTypeSPtr retType;
+		StdPairVector<StdString, AstTypeSPtr> namedRet;
+		AstGenericWhereClauseSPtr whereClause;
+		StdVector<AstStmtSPtr> stmts;
 	};
 
 	enum class AstMethodReceiverKind
@@ -384,781 +423,653 @@ namespace Noctis
 		ConstRef
 	};
 	
-	struct AstMethodDecl : public AstNode
+	struct AstMethodDecl : public AstDecl
 	{
-		AstMethodDecl(AstNodeSPtr attribs, u64 funcTokIdx, AstMethodReceiverKind rec, StdString&& iden, AstNodeSPtr generics, StdVector<AstNodeSPtr>&& params, AstNodeSPtr ret, AstNodeSPtr whereClause, StdVector<AstNodeSPtr>&& statements, u64 rBraceTokIdx);
+		AstMethodDecl(AstAttribsSPtr attribs, u64 startIdx, AstMethodReceiverKind rec,
+			StdString&& iden, AstGenericDeclSPtr generics, StdVector<AstParamSPtr>&& params,
+			AstTypeSPtr retType, StdPairVector<StdString, AstTypeSPtr>&& namedRet,
+			AstGenericWhereClauseSPtr whereClause, StdVector<AstStmtSPtr>&& stmts, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr attribs;
+		AstAttribsSPtr attribs;
 		AstMethodReceiverKind rec;
 		StdString iden;
-		AstNodeSPtr generics;
-		StdVector<AstNodeSPtr> params;
-		AstNodeSPtr ret;
-		AstNodeSPtr whereClause;
-		StdVector<AstNodeSPtr> statements;
+		AstGenericDeclSPtr generics;
+		StdVector<AstParamSPtr> params;
+		AstTypeSPtr retType;
+		StdPairVector<StdString, AstTypeSPtr> namedRet;
+		AstGenericWhereClauseSPtr whereClause;
+		StdVector<AstStmtSPtr> stmts;
 	};
 
-	struct AstEmptyMethodDecl : public AstNode
+	struct AstEmptyMethodDecl : public AstDecl
 	{
-		AstEmptyMethodDecl(AstNodeSPtr attribs, u64 funcTokIdx, AstMethodReceiverKind rec, StdString&& iden, AstNodeSPtr generics, StdVector<AstNodeSPtr>&& params, AstNodeSPtr ret, AstNodeSPtr whereClause, StdVector<AstNodeSPtr>&& statements, u64 rBraceTokIdx);
+		AstEmptyMethodDecl(AstAttribsSPtr attribs, u64 startIdx, AstMethodReceiverKind rec,
+			StdString&& iden, AstGenericDeclSPtr generics, StdVector<AstParamSPtr>&& params,
+			AstTypeSPtr retType, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr attribs;
+		AstAttribsSPtr attribs;
 		AstMethodReceiverKind rec;
 		StdString iden;
-		AstNodeSPtr generics;
-		StdVector<AstNodeSPtr> params;
-		AstNodeSPtr ret;
-		AstNodeSPtr whereClause;
-		StdVector<AstNodeSPtr> statements;
+		AstGenericDeclSPtr generics;
+		StdVector<AstParamSPtr> params;
+		AstTypeSPtr retType;
 	};
 
-	struct AstImplDecl : public AstNode
+	struct AstImplDecl : public AstDecl
 	{
-		AstImplDecl(AstNodeSPtr attribs, u64 implTokIdx, AstNodeSPtr generics, AstNodeSPtr type, StdVector<AstNodeSPtr>&& interfaces, StdVector<AstNodeSPtr>&& statements, u64 rBraceTokIdx);
+		AstImplDecl(AstAttribsSPtr attribs, u64 startIdx, AstGenericDeclSPtr generics,
+			AstTypeSPtr type, StdVector<AstIdentifierTypeSPtr>&& interfaces, 
+			StdVector<AstStmtSPtr>&& stmts, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr attribs;
-		AstNodeSPtr generics;
-		AstNodeSPtr type;
-		StdVector<AstNodeSPtr> interfaces;
-		StdVector<AstNodeSPtr> statements;
+		AstAttribsSPtr attribs;
+		AstGenericDeclSPtr generics;
+		AstTypeSPtr type;
+		StdVector<AstIdentifierTypeSPtr> interfaces;
+		StdVector<AstStmtSPtr> stmts;
 	};
 
-	struct AstImportStmt : public AstNode
+	struct AstImportStmt : public AstStmt
 	{
-		AstImportStmt(AstNodeSPtr attribs, u64 importTokIdx, StdVector<StdString>&& moduleIdens, StdVector<std::pair<StdVector<StdString>, StdString>>&& symbols, u64 semicolonTokIdx);
+		AstImportStmt(AstAttribsSPtr attribs, u64 startIdx, StdVector<StdString>&& moduleIdens, StdPairVector<StdVector<StdString>, StdString>&& symbols, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr attribs;
+		AstAttribsSPtr attribs;
 		StdVector<StdString> moduleIdens;
-		StdVector<std::pair<StdVector<StdString>, StdString>> symbols;
+		StdPairVector<StdVector<StdString>, StdString> symbols;
 	};
 
-	struct AstBlockStmt : public AstNode
+	struct AstBlockStmt : public AstStmt
 	{
-		AstBlockStmt(u64 lBraceTokIds, StdVector<AstNodeSPtr>&& statements, u64 rBraceTokIdx);
+		AstBlockStmt(u64 startIdx, StdVector<AstStmtSPtr>&& statements, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		StdVector<AstNodeSPtr> statements;
+		StdVector<AstStmtSPtr> stmts;
 	};
 
-	struct AstIfStmt : public AstNode
+	struct AstIfStmt : public AstStmt
 	{
-		AstIfStmt(u64 ifTokIdx, AstNodeSPtr decl, AstNodeSPtr cond, AstNodeSPtr body, AstNodeSPtr elseBody);
+		AstIfStmt(u64 startIdx, AstVarDeclSPtr decl, AstExprSPtr cond, AstStmtSPtr body, AstStmtSPtr elseBody);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr decl;
-		AstNodeSPtr cond;
-		AstNodeSPtr body;
-		AstNodeSPtr elseBody;
+		AstVarDeclSPtr decl;
+		AstExprSPtr cond;
+		AstStmtSPtr body;
+		AstStmtSPtr elseBody;
 	};
 
-	struct AstLoopStmt : public AstNode
+	struct AstLoopStmt : public AstStmt
 	{
-		AstLoopStmt(AstNodeSPtr label, u64 loopTokIdx, AstNodeSPtr body);
+		AstLoopStmt(AstLabelStmtSPtr label, u64 startIdx, AstStmtSPtr body);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr label;
-		AstNodeSPtr body;
+		AstLabelStmtSPtr label;
+		AstStmtSPtr body;
 	};
 
-	struct AstWhileStmt : public AstNode
+	struct AstWhileStmt : public AstStmt
 	{
-		AstWhileStmt(AstNodeSPtr label, u64 whileTokIdx, AstNodeSPtr cond, AstNodeSPtr body);
+		AstWhileStmt(AstLabelStmtSPtr label, u64 startIdx, AstExprSPtr cond, AstStmtSPtr body);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr label;
-		AstNodeSPtr cond;
-		AstNodeSPtr body;
+		AstLabelStmtSPtr label;
+		AstExprSPtr cond;
+		AstStmtSPtr body;
 	};
 
-	struct AstDoWhileStmt : public AstNode
+	struct AstDoWhileStmt : public AstStmt
 	{
-		AstDoWhileStmt(AstNodeSPtr label, u64 doTokIdx, AstNodeSPtr body, AstNodeSPtr cond, u64 endIdx);
+		AstDoWhileStmt(AstLabelStmtSPtr label, u64 startIdx, AstStmtSPtr body, AstExprSPtr cond, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr label;
-		AstNodeSPtr body;
-		AstNodeSPtr cond;
+		AstLabelStmtSPtr label;
+		AstStmtSPtr body;
+		AstExprSPtr cond;
 	};
 
-	struct AstForStmt : public AstNode
+	struct AstForStmt : public AstStmt
 	{
-		AstForStmt(AstNodeSPtr label, u64 forTokIdx, AstNodeSPtr init, AstNodeSPtr cond, AstNodeSPtr inc, AstNodeSPtr body);
+		AstForStmt(AstLabelStmtSPtr label, u64 startIdx, StdVector<StdString>&& idens, 
+			AstExprSPtr range, AstStmtSPtr body);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr label;
-		AstNodeSPtr init;
-		AstNodeSPtr cond;
-		AstNodeSPtr inc;
-		AstNodeSPtr body;
-	};
-
-	struct AstForRangeStmt : public AstNode
-	{
-		AstForRangeStmt(AstNodeSPtr label, u64 forTokIdx, StdVector<StdString>&& idens, AstNodeSPtr range, AstNodeSPtr body);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr label;
+		AstLabelStmtSPtr label;
 		StdVector<StdString> idens;
-		AstNodeSPtr range;
-		AstNodeSPtr body;
+		AstExprSPtr range;
+		AstStmtSPtr body;
 	};
 
 	struct AstSwitchCase
 	{
-		AstNodeSPtr staticExpr;
-		AstNodeSPtr dynamicExpr;
-		AstNodeSPtr body;
+		AstExprSPtr staticExpr;
+		AstExprSPtr dynamicExpr;
+		AstStmtSPtr body;
 	};
 
-	struct AstSwitchStmt : public AstNode
+	struct AstSwitchStmt : public AstStmt
 	{
-		AstSwitchStmt(AstNodeSPtr label, u64 switchTokIdx, StdVector<AstSwitchCase>&& cases, u64 rBraceTokIdx);
+		AstSwitchStmt(AstLabelStmtSPtr label, u64 startIdx, AstExprSPtr cond, StdVector<AstSwitchCase>&& cases, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr label;
+		AstLabelStmtSPtr label;
+		AstExprSPtr cond;
 		StdVector<AstSwitchCase> cases;
 	};
 
-	struct AstLabelStmt : public AstNode
+	struct AstLabelStmt : public AstStmt
 	{
-		AstLabelStmt(u64 startTokIdx, StdString&& iden, u64 endTokIdx);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
+		AstLabelStmt(u64 startIdx, StdString&& iden, u64 endIdx);
 
 		StdString iden;
 	};
 
-	struct AstBreakStmt : public AstNode
+	struct AstBreakStmt : public AstStmt
 	{
-		AstBreakStmt(u64 breakTokIdx, StdString&& iden, u64 semicolonTokIdx);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
+		AstBreakStmt(u64 startIdx, StdString&& iden, u64 endIdx);
 
 		StdString iden;
 	};
 
-	struct AstContinueStmt : public AstNode
+	struct AstContinueStmt : public AstStmt
 	{
-		AstContinueStmt(u64 continueTokIdx, StdString&& iden, u64 semicolonTokIdx);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
+		AstContinueStmt(u64 startIdx, StdString&& iden, u64 endIdx);
 
 		StdString iden;
 	};
 
-	struct AstFallthroughStmt : public AstNode
+	struct AstFallthroughStmt : public AstStmt
 	{
-		AstFallthroughStmt(u64 fallthroughTokIdx, u64 semicolonTokIdx);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
+		AstFallthroughStmt(u64 startIdx, u64 endIdx);
 	};
 
-	struct AstGotoStmt : public AstNode
+	struct AstGotoStmt : public AstStmt
 	{
-		AstGotoStmt(u64 gotoTokIdx, StdString&& iden, u64 semicolonTokIdx);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
+		AstGotoStmt(u64 startIdx, StdString&& iden, u64 endIdx);
 
 		StdString iden;
 	};
 
-	struct AstReturnStmt : public AstNode
+	struct AstReturnStmt : public AstStmt
 	{
-		AstReturnStmt(u64 returnTokIdx, AstNodeSPtr expr, u64 semicolonTokIdx);
+		AstReturnStmt(u64 startIdx, AstExprSPtr expr, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr expr;
+		AstExprSPtr expr;
 	};
 
-	struct AstExprStmt : public AstNode
+	struct AstExprStmt : public AstStmt
 	{
-		AstExprStmt(AstNodeSPtr expr, u64 semicolonTokIdx);
+		AstExprStmt(AstExprSPtr expr, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr expr;
+		AstExprSPtr expr;
 	};
 
-	struct AstDeferStmt : public AstNode
+	struct AstDeferStmt : public AstStmt
 	{
-		AstDeferStmt(u64 deferTokIdx, AstNodeSPtr stmt, u64 semicolonTokIdx);
+		AstDeferStmt(u64 startIdx, AstExprSPtr stmt, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr expr;
+		AstExprSPtr expr;
 	};
 
-	struct AstStackDeferStmt : public AstNode
+	struct AstStackDeferStmt : public AstStmt
 	{
-		AstStackDeferStmt(u64 deferTokIdx, AstNodeSPtr stmt, u64 semicolonTokIdx);
+		AstStackDeferStmt(u64 startIdx, AstExprSPtr stmt, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr expr;
+		AstExprSPtr expr;
 	};
 
-	struct AstUnsafeStmt : public AstNode
+	struct AstUnsafeStmt : public AstStmt
 	{
-		AstUnsafeStmt(u64 unsafeTokIdx, StdVector<AstNodeSPtr>&& stmts, u64 rBraceTokIdx);
+		AstUnsafeStmt(u64 startIdx, StdVector<AstStmtSPtr>&& stmts, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		StdVector<AstNodeSPtr> stmts;
+		StdVector<AstStmtSPtr> stmts;
 	};
 
-	struct AstCompIfStmt : public AstNode
+	struct AstCompIfStmt : public AstStmt
 	{
-		AstCompIfStmt(u64 hashTokIdx, AstNodeSPtr decl, AstNodeSPtr expr, AstNodeSPtr body, AstNodeSPtr elseBody);
+		AstCompIfStmt(u64 startIdx, AstVarDeclSPtr decl, AstExprSPtr expr, AstStmtSPtr body,
+			AstStmtSPtr elseBody);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr decl;
-		AstNodeSPtr cond;
-		AstNodeSPtr body;
-		AstNodeSPtr elseBody;
+		AstVarDeclSPtr decl;
+		AstExprSPtr cond;
+		AstStmtSPtr body;
+		AstStmtSPtr elseBody;
 	};
 
-	struct AstCompCondStmt : public AstNode
+	struct AstCompCondStmt : public AstStmt
 	{
-		AstCompCondStmt(u64 hashTokIdx, Token cond, AstNodeSPtr body, AstNodeSPtr elseBody);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
+		AstCompCondStmt(u64 startIdx, Token cond, AstStmtSPtr body, AstStmtSPtr elseBody);
 
 		Token cond;
-		AstNodeSPtr body;
-		AstNodeSPtr elseBody;
+		AstStmtSPtr body;
+		AstStmtSPtr elseBody;
 	};
 
-	struct AstCompDebugStmt : public AstNode
+	struct AstCompDebugStmt : public AstStmt
 	{
-		AstCompDebugStmt(u64 hashTokIdx, Token cond, AstNodeSPtr body, AstNodeSPtr elseBody);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
+		AstCompDebugStmt(u64 startIdx, Token cond, AstStmtSPtr body, AstStmtSPtr elseBody);
 
 		Token cond;
-		AstNodeSPtr body;
-		AstNodeSPtr elseBody;
+		AstStmtSPtr body;
+		AstStmtSPtr elseBody;
 	};
 
-	struct AstAssignExpr : public AstNode
+	struct AstMacroLoopStmt : public AstStmt
 	{
-		AstAssignExpr(AstNodeSPtr lExpr, TokenType op, AstNodeSPtr rExpr);
+		AstMacroLoopStmt(u64 startIdx, StdVector<AstStmtSPtr>&& stmts, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
+		StdVector<AstStmtSPtr> stmts;
+	};
 
-		AstNodeSPtr lExpr;
+	struct AstAssignExpr : public AstExpr
+	{
+		AstAssignExpr(AstExprSPtr lExpr, TokenType op, AstExprSPtr rExpr);
+
+		AstExprSPtr lExpr;
 		TokenType op;
-		AstNodeSPtr rExpr;
+		AstExprSPtr rExpr;
 	};
 
-	struct AstTernaryExpr : public AstNode
+	struct AstTernaryExpr : public AstExpr
 	{
-		AstTernaryExpr(AstNodeSPtr cond, AstNodeSPtr trueExpr, AstNodeSPtr falseExpr);
+		AstTernaryExpr(AstExprSPtr cond, AstExprSPtr trueExpr, AstExprSPtr falseExpr);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr cond;
-		AstNodeSPtr trueExpr;
-		AstNodeSPtr falseExpr;
+		AstExprSPtr cond;
+		AstExprSPtr trueExpr;
+		AstExprSPtr falseExpr;
 	};
 
-	struct AstBinaryExpr : public AstNode
+	struct AstBinaryExpr : public AstExpr
 	{
-		AstBinaryExpr(AstNodeSPtr lExpr, TokenType op, AstNodeSPtr rExpr);
+		AstBinaryExpr(AstExprSPtr lExpr, TokenType op, AstExprSPtr rExpr);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr lExpr;
+		AstExprSPtr lExpr;
 		TokenType op;
-		AstNodeSPtr rExpr;
+		AstExprSPtr rExpr;
 	};
 
-	struct AstPostfixExpr : public AstNode
+	struct AstPostfixExpr : public AstExpr
 	{
-		AstPostfixExpr(AstNodeSPtr expr, TokenType op, u64 opTokIdx);
+		AstPostfixExpr(AstExprSPtr expr, Token op);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr expr;
+		AstExprSPtr expr;
 		TokenType op;
 	};
 
-	struct AstPrefixExpr : public AstNode
+	struct AstPrefixExpr : public AstExpr
 	{
-		AstPrefixExpr(TokenType op, u64 opTokIdx, AstNodeSPtr expr);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
+		AstPrefixExpr(Token op, AstExprSPtr expr);
 
 		TokenType op;
-		AstNodeSPtr expr;
+		AstExprSPtr expr;
 	};
 
-	struct AstQualNameExpr : public AstNode
+	struct AstQualNameExpr : public AstExpr
 	{
-		AstQualNameExpr(u64 startTokIdx, StdVector<AstNodeSPtr>&& idens, u64 endTokIdx);
+		AstQualNameExpr(AstQualNameSPtr qualName);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		StdVector<AstNodeSPtr> idens;
+		AstQualNameSPtr qualName;
 	};
 
-	struct AstIndexSliceExpr : public AstNode
+	struct AstIndexSliceExpr : public AstExpr
 	{
-		AstIndexSliceExpr(AstNodeSPtr expr, bool nullCoalesce, AstNodeSPtr index, u64 rBracketTokIdx);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
+		AstIndexSliceExpr(AstExprSPtr expr, bool nullCoalesce, AstExprSPtr index, u64 endIdx);
 
 		bool nullCoalesce;
-		AstNodeSPtr expr;
-		AstNodeSPtr index;
+		AstExprSPtr expr;
+		AstExprSPtr index;
 	};
 
-	struct AstSliceExpr : public AstNode
+	struct AstSliceExpr : public AstExpr
 	{
-		AstSliceExpr(AstNodeSPtr expr, bool nullCoalesce, AstNodeSPtr begin, AstNodeSPtr end, u64 rBracketTokIdx);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
+		AstSliceExpr(AstExprSPtr expr, bool nullCoalesce, AstExprSPtr begin, AstExprSPtr end, 
+			u64 endIdx);
 		bool nullCoalesce;
-		AstNodeSPtr expr;
-		AstNodeSPtr begin;
-		AstNodeSPtr end;
+		AstExprSPtr expr;
+		AstExprSPtr begin;
+		AstExprSPtr end;
 	};
 
 	// can be func, ADT enum member
-	struct AstFuncCallExpr : public AstNode
+	struct AstFuncCallExpr : public AstExpr
 	{
-		AstFuncCallExpr(AstNodeSPtr func, StdVector<AstNodeSPtr>&& args, u64 rParenTokIdx);
+		AstFuncCallExpr(AstExprSPtr func, StdVector<AstArgSPtr>&& args, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr func;
-		StdVector<AstNodeSPtr> args;
+		AstExprSPtr func;
+		StdVector<AstArgSPtr> args;
 	};
 
-	struct AstMemberAccessExpr : public AstNode
+	struct AstMemberAccessExpr : public AstExpr
 	{
-		AstMemberAccessExpr(AstNodeSPtr caller, bool nullCoalesce, StdString&& iden, u64 idenTokIdx);
+		AstMemberAccessExpr(AstExprSPtr caller, bool nullCoalesce, StdString&& iden, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr caller;
+		AstExprSPtr caller;
 		bool nullCoalesce;
 		StdString iden;
 	};
 
-	struct AstMethodCallExpr : public AstNode
+	struct AstMethodCallExpr : public AstExpr
 	{
-		AstMethodCallExpr(AstNodeSPtr caller, bool nullCoalesce, StdString&& iden, StdVector<AstNodeSPtr>&& args, u64 rParenTokIdx);
+		AstMethodCallExpr(AstExprSPtr caller, bool nullCoalesce, StdString&& iden,
+			StdVector<AstArgSPtr>&& args, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr caller;
+		AstExprSPtr caller;
 		bool nullCoalesce;
 		StdString iden;
-		StdVector<AstNodeSPtr> args;
+		StdVector<AstArgSPtr> args;
 	};
 
-	struct AstTupleAccessExpr : public AstNode
+	struct AstTupleAccessExpr : public AstExpr
 	{
-		AstTupleAccessExpr(AstNodeSPtr expr, bool nullCoalesce, u16 index, u64 indexTokIdx);
+		AstTupleAccessExpr(AstExprSPtr expr, bool nullCoalesce, u16 index, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr expr;
+		AstExprSPtr expr;
 		bool nullCoalesce;
 		u16 index;
 	};
 
-	struct AstLiteralExpr : public AstNode
+	struct AstLiteralExpr : public AstExpr
 	{
 		AstLiteralExpr(Token literal);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-		
 		Token literal;
 	};
 
 	// Can be: struct, union, ADT enum member
-	struct AstAggrInitExpr : public AstNode
+	struct AstAggrInitExpr : public AstExpr
 	{
-		AstAggrInitExpr(u64 startTokIdx, AstNodeSPtr type, StdVector<AstNodeSPtr>&& args, u64 rBraceTokIdx);
+		AstAggrInitExpr(u64 startIdx, AstTypeSPtr type, StdVector<AstArgSPtr>&& args, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-		
-		AstNodeSPtr type;
-		StdVector<AstNodeSPtr> args;
+		AstTypeSPtr type;
+		StdVector<AstArgSPtr> args;
 	};
 
-	struct AstTupleInitExpr : public AstNode
+	struct AstTupleInitExpr : public AstExpr
 	{
-		AstTupleInitExpr(u64 lParenTokIdx, StdVector<AstNodeSPtr>&& exprs, u64 rParenTokIdx);
+		AstTupleInitExpr(u64 startIdx, StdVector<AstExprSPtr>&& exprs, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		StdVector<AstNodeSPtr> exprs;
+		StdVector<AstExprSPtr> exprs;
 	};
 
-	struct AstArrayInitExpr : public AstNode
+	struct AstArrayInitExpr : public AstExpr
 	{
-		AstArrayInitExpr(u64 lBracketTokIdx, StdVector<AstNodeSPtr>&& exprs, u64 rBracketTokIdx);
+		AstArrayInitExpr(u64 startIdx, StdVector<AstExprSPtr>&& exprs, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		StdVector<AstNodeSPtr> exprs;
+		StdVector<AstExprSPtr> exprs;
 	};
 
-	struct AstCastExpr : public AstNode
+	struct AstCastExpr : public AstExpr
 	{
-		AstCastExpr(u64 castTokIdx, AstNodeSPtr type, AstNodeSPtr expr);
+		AstCastExpr(u64 startIdx, AstTypeSPtr type, AstExprSPtr expr);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr type;
-		AstNodeSPtr expr;
+		AstTypeSPtr type;
+		AstExprSPtr expr;
 	};
 
-	struct AstTransmuteExpr : public AstNode
+	struct AstTransmuteExpr : public AstExpr
 	{
-		AstTransmuteExpr(u64 transmuteTokIdx, AstNodeSPtr type, AstNodeSPtr expr);
+		AstTransmuteExpr(u64 startIdx, AstTypeSPtr type, AstExprSPtr expr);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr type;
-		AstNodeSPtr expr;
+		AstTypeSPtr type;
+		AstExprSPtr expr;
 	};
 
-	struct AstMoveExpr : public AstNode
+	struct AstMoveExpr : public AstExpr
 	{
-		AstMoveExpr(u64 moveTokIdx, AstNodeSPtr expr);
+		AstMoveExpr(u64 startIdx, AstExprSPtr expr);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr expr;
+		AstExprSPtr expr;
 	};
 
-	struct AstBracketExpr : public AstNode
+	struct AstBracketExpr : public AstExpr
 	{
-		AstBracketExpr(u64 lBracketTokIdx, AstNodeSPtr expr, u64 rBracketTokIdx);
+		AstBracketExpr(u64 startIdx, AstExprSPtr expr, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr expr;
+		AstExprSPtr expr;
 	};
 
-	struct AstBlockExpr : public AstNode
+	struct AstBlockExpr : public AstExpr
 	{
-		AstBlockExpr(u64 lBraceTokIdx, StdVector<AstNodeSPtr>&& stmts, u64 rBraceExpr);
+		AstBlockExpr(u64 startIdx, StdVector<AstStmtSPtr>&& stmts, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		StdVector<AstNodeSPtr> stmts;
+		StdVector<AstStmtSPtr> stmts;
 	};
 
-	struct AstUnsafeExpr : public AstNode
+	struct AstUnsafeExpr : public AstExpr
 	{
-		AstUnsafeExpr(u64 unsafeTokIdx, AstNodeSPtr expr);
+		AstUnsafeExpr(u64 startIdx, AstExprSPtr expr);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr expr;
+		AstExprSPtr expr;
 	};
 
-	struct AstCommaExpr : public AstNode
+	struct AstCommaExpr : public AstExpr
 	{
-		AstCommaExpr(StdVector<AstNodeSPtr>&& exprs);
+		AstCommaExpr(StdVector<AstExprSPtr>&& exprs);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		StdVector<AstNodeSPtr> exprs;
+		StdVector<AstExprSPtr> exprs;
 	};
-	struct AstClosureExpr : public AstNode
+	
+	struct AstClosureExpr : public AstExpr
 	{
-		AstClosureExpr(u64 lParenTokIdx, StdVector<AstNodeSPtr>&& params, AstNodeSPtr ret, StdVector<AstNodeSPtr> stmts, u64 rBraceTokIdx);
+		AstClosureExpr(u64 startIdx, StdVector<AstParamSPtr>&& params, AstTypeSPtr ret, AstExprSPtr expr);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		StdVector<AstNodeSPtr> params;
-		AstNodeSPtr ret;
-		StdVector<AstNodeSPtr> stmts;
+		StdVector<AstParamSPtr> params;
+		AstTypeSPtr ret;
+		AstExprSPtr expr;
 	};
 
-	struct AstIsExpr : public AstNode
+	struct AstIsExpr : public AstExpr
 	{
-		AstIsExpr(AstNodeSPtr expr, u64 isTokIdx, AstNodeSPtr type);
+		AstIsExpr(AstExprSPtr expr, u64 isIdx, AstTypeSPtr type);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr expr;
-		AstNodeSPtr type;
+		AstExprSPtr expr;
+		AstTypeSPtr type;
 	};
 
-	struct AstCompRunExpr : public AstNode
+	struct AstCompRunExpr : public AstExpr
 	{
-		AstCompRunExpr(u64 hashTokIdx, AstNodeSPtr expr);
+		AstCompRunExpr(u64 startIdx, AstExprSPtr expr);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr expr;
+		AstExprSPtr expr;
 	};
 
-	struct AstBuiltinType : public AstNode
+	struct AstMacroVarExpr : public AstExpr
+	{
+		AstMacroVarExpr(u64 startIdx, StdString&& iden, u64 endIdx);
+
+		StdString iden;
+	};
+
+	struct AstBuiltinType : public AstType
 	{
 		AstBuiltinType(const Token& tok);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-		
 		TokenType type;
 	};
 
-	struct AstIdentifierType : public AstNode
+	struct AstIdentifierType : public AstType
 	{
-		AstIdentifierType(u64 startTokIdx, StdVector<AstNodeSPtr>&& idens, u64 endTokIdx);
+		AstIdentifierType(AstQualNameSPtr qualName);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		StdVector<AstNodeSPtr> idens;
+		AstQualNameSPtr qualName;
 	};
 
-	struct AstPointerType : public AstNode
+	struct AstPointerType : public AstType
 	{
-		AstPointerType(u64 asteriskTokIdx, AstNodeSPtr subType);
+		AstPointerType(u64 asteriskTokIdx, AstTypeSPtr subType);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr subType;
+		AstTypeSPtr subType;
 	};
 
-	struct AstReferenceType : public AstNode
+	struct AstReferenceType : public AstType
 	{
-		AstReferenceType(u64 andTokIdx, AstNodeSPtr subType);
+		AstReferenceType(u64 andTokIdx, AstTypeSPtr subType);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr subType;
+		AstTypeSPtr subType;
 	};
 
-	struct AstArrayType : public AstNode
+	struct AstArrayType : public AstType
 	{
-		AstArrayType(u64 lBracketTokIdx, AstNodeSPtr arraySize, AstNodeSPtr subType);
+		AstArrayType(u64 lBracketTokIdx, AstExprSPtr arraySize, AstTypeSPtr subType);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr arraySize;
-		AstNodeSPtr subType;
+		AstExprSPtr arraySize;
+		AstTypeSPtr subType;
 	};
 
-	struct AstSliceType : public AstNode
+	struct AstSliceType : public AstType
 	{
-		AstSliceType(u64 lBraceTokIdx, AstNodeSPtr subType);
+		AstSliceType(u64 lBraceTokIdx, AstTypeSPtr subType);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr subType;
+		AstTypeSPtr subType;
 	};
 
-	struct AstTupleType : public AstNode
+	struct AstTupleType : public AstType
 	{
-		AstTupleType(u64 lParenTokIdx, StdVector<AstNodeSPtr>&& subTypes, u64 rParenTokIdx);
+		AstTupleType(u64 lParenTokIdx, StdVector<AstTypeSPtr>&& subTypes, u64 rParenTokIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		StdVector<AstNodeSPtr> subTypes;
+		StdVector<AstTypeSPtr> subTypes;
 	};
 
-	struct AstOptionalType : public AstNode
+	struct AstOptionalType : public AstType
 	{
-		AstOptionalType(u64 lBraceTokIdx, AstNodeSPtr subType);
+		AstOptionalType(u64 lBraceTokIdx, AstTypeSPtr subType);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr subType;
+		AstTypeSPtr subType;
 	};
 
-	struct AstAttributes : public AstNode
+	struct AstInlineStructType : public AstType
 	{
-		AstAttributes(u64 startTokIdx, StdVector<AstNodeSPtr>&& compAttribs, StdVector<AstNodeSPtr>&& userAttribs, AstNodeSPtr visibility, StdVector<AstNodeSPtr>&& simpleAttribs, u64 endTokIdx);
+		AstInlineStructType(u64 startIdx, StdPairVector<StdVector<StdString>, AstTypeSPtr>&& members,
+			u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		StdVector<AstNodeSPtr> compAttribs;
-		StdVector<AstNodeSPtr> userAttribs;
-		AstNodeSPtr visibility;
-		StdVector<AstNodeSPtr> simpleAttribs;
+		StdPairVector<StdVector<StdString>, AstTypeSPtr> members;
 	};
 
-	struct AstCompAttribute : public AstNode
+	struct AstInlineEnumType : public AstType
 	{
-		AstCompAttribute(u64 atColonTokIdx, StdString&& iden, StdVector<AstNodeSPtr>&& args, u64 endTokIdx);
+		AstInlineEnumType(u64 startIdx, StdVector<StdString>&& members,
+			u64 endIdx);
+
+		StdVector<StdString> members;
+	};
+
+	struct AstCompoundInterfaceType : public AstType
+	{
+		AstCompoundInterfaceType(StdVector<AstIdentifierTypeSPtr>&& interfaces);
+
+		StdVector<AstIdentifierTypeSPtr> interfaces;
+	};
+
+	struct AstAttribs
+	{
+		AstAttribs(u64 startIdx, StdVector<AstCompAttribSPtr>&& compAttribs,
+			StdVector<AstUserAttribSPtr>&& userAttribs, AstVisibilityAttribSPtr visibility,
+			StdVector<AstSimpleAttribSPtr>&& simpleAttribs, u64 endIdx);
+
+		StdVector<AstCompAttribSPtr> compAttribs;
+		StdVector<AstUserAttribSPtr> userAttribs;
+		AstVisibilityAttribSPtr visibility;
+		StdVector<AstSimpleAttribSPtr> simpleAttribs;
+		AstContextPtr ctx;
+	};
+
+	struct AstCompAttrib
+	{
+		AstCompAttrib(u64 startIdx, StdString&& iden, StdVector<AstArgSPtr>&& args, u64 endTokIdx);
 		
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
 		StdString iden;
-		StdVector<AstNodeSPtr> args;
+		StdVector<AstArgSPtr> args;
+		AstContextPtr ctx;
 	};
 
-	struct AstUserAttribute : public AstNode
+	struct AstUserAttrib
 	{
-		AstUserAttribute(u64 atColonTokIdx, StdString&& iden, StdVector<AstNodeSPtr>&& args, u64 endTokIdx);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
+		AstUserAttrib(u64 startIdx, StdString&& iden, StdVector<AstArgSPtr>&& args, u64 endTokIdx);
 
 		StdString iden;
-		StdVector<AstNodeSPtr> args;
+		StdVector<AstArgSPtr> args;
+		AstContextPtr ctx;
 	};
 
-	struct AstVisibilityAttribute : public AstNode
+	struct AstVisibilityAttrib
 	{
-		AstVisibilityAttribute(u64 publicTokIdx, StdString&& kind, u64 endTokId);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
+		AstVisibilityAttrib(u64 startIdx, StdString&& kind, u64 endTokId);
 
 		StdString kind;
+		AstContextPtr ctx;
 	};
 
-	struct AstSimpleAttribute : public AstNode
+	struct AstSimpleAttrib
 	{
-		AstSimpleAttribute(u64 tokIdx, TokenType attrib);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
+		AstSimpleAttrib(Token attrib);
 
 		TokenType attrib;
+		AstContextPtr ctx;
 	};
 
-	struct AstGenericDecl : public AstNode
+	enum class AstGenericParamKind : u8
 	{
-		AstGenericDecl(u64 startTokIdx, StdVector<AstNodeSPtr>&& params, u64 endTokIdx);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		StdVector<AstNodeSPtr> params;
-	};
-
-	struct AstGenericTypeParam : public AstNode
-	{
-		AstGenericTypeParam(u64 idenTokIdx, StdString&& iden, StdVector<AstNodeSPtr>&& implTypes, AstNodeSPtr defType);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		StdString iden;
-		StdVector<AstNodeSPtr> implTypes;
-		AstNodeSPtr defType;
-	};
-
-	struct AstGenericValueParam : public AstNode
-	{
-		AstGenericValueParam(u64 idenTokIdx, StdString&& iden, AstNodeSPtr type, AstNodeSPtr defExpr);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		StdString iden;
-		AstNodeSPtr type;
-		AstNodeSPtr defExpr;
+		Invalid,
+		TypeParam,
+		ValueParam,
+		TypeSpec,
+		ValueSpec,
 	};
 	
-	struct AstGenericWhereClause : public AstNode
+	struct AstGenericParam
 	{
-		AstGenericWhereClause(u64 whereTokIdx, AstNodeSPtr expr);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr expr;
+		AstGenericParam(AstGenericTypeParamSPtr typeParam);
+		AstGenericParam(AstGenericValueParamSPtr valueParam);
+		AstGenericParam(AstTypeSPtr typeSpec);
+		AstGenericParam(AstExprSPtr valueSpec);
+		AstGenericParam(AstGenericParam&& param) noexcept;
+		~AstGenericParam();
+		
+		AstGenericParamKind kind;
+		union
+		{
+			AstGenericTypeParamSPtr typeParam;
+			AstGenericValueParamSPtr valueParam;
+			AstTypeSPtr typeSpec;
+			AstExprSPtr valueSpec;
+		};
 	};
 
-	struct AstGenericInst : public AstNode
+	struct AstGenericDecl
 	{
-		AstGenericInst(u64 startTokIdx, StdString&& iden, StdVector<AstNodeSPtr>&& args, u64 endTokIdx);
+		AstGenericDecl(u64 startIdx, StdVector<AstGenericParam>&& params, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
+		StdVector<AstGenericParam> params;
+		AstContextPtr ctx;
+	};
+
+	struct AstGenericTypeParam
+	{
+		AstGenericTypeParam(u64 startIdx, StdString&& iden,
+			StdVector<AstIdentifierTypeSPtr>&& implTypes, AstTypeSPtr defType);
 
 		StdString iden;
-		StdVector<AstNodeSPtr> args;
+		StdVector<AstIdentifierTypeSPtr> implTypes;
+		AstTypeSPtr defType;
+		AstContextPtr ctx;
+	};
+
+	struct AstGenericValueParam
+	{
+		AstGenericValueParam(u64 startIdx, StdString&& iden, AstTypeSPtr type, AstExprSPtr defExpr);
+
+		StdString iden;
+		AstTypeSPtr type;
+		AstExprSPtr defExpr;
+		AstContextPtr ctx;
+	};
+
+	struct AstGenericTypeBound
+	{
+		AstGenericTypeBound(AstTypeSPtr type, AstTypeSPtr bound);
+
+		AstTypeSPtr type;
+		AstTypeSPtr bound;
+		AstContextPtr ctx;
+	};
+	using AstGenericTypeBoundSPtr = StdSharedPtr<AstGenericTypeBound>;
+	
+	struct AstGenericWhereClause
+	{
+		AstGenericWhereClause(u64 startIdx, StdVector<AstGenericTypeBoundSPtr>&& bounds);
+
+		StdVector<AstGenericTypeBoundSPtr> bounds;
+		AstContextPtr ctx;
 	};
 
 	enum class AstMacroVarKind : u8
@@ -1172,116 +1083,104 @@ namespace Noctis
 		Attr,
 		Toks
 	};
-	
-	struct AstMacroVar : public AstNode
-	{
-		AstMacroVar(u64 dollarTokIdx, StdString&& iden, AstMacroVarKind kind, u64 kindTokIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
+	struct AstMacroPatternElem
+	{
+		AstMacroPatternElem(AstMacroPatternElemKind kind, u64 startIdx, u64 endIdx);
 		
+		AstMacroPatternElemKind elemKind;
+		AstContextPtr ctx;
+	};
+	using AstMacroPatternElemSPtr = StdSharedPtr<AstMacroPatternElem>;
+	
+	struct AstMacroVar : public AstMacroPatternElem
+	{
+		AstMacroVar(u64 startIdx, StdString&& iden, AstMacroVarKind kind, u64 endIdx);
+
 		StdString iden;
 		AstMacroVarKind kind;
 	};
 
-	struct AstMacroSeparator : public AstNode
+	struct AstMacroSeparator : public AstMacroPatternElem
 	{
 		AstMacroSeparator(StdVector<Token>&& toks);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
 
 		StdVector<Token> toks;
 	};
 
-	struct AstMacroFragment : public AstNode
+	struct AstMacroFragment : public AstMacroPatternElem
 	{
-		AstMacroFragment(u64 startIdx, AstNodeSPtr subPattern, TokenType repType, u64 endTokIdx);
+		AstMacroFragment(u64 startIdx, AstMacroPatternSPtr subPattern, TokenType repType, 
+			u64 endTokIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr subPattern;
+		AstMacroPatternSPtr subPattern;
 		TokenType repType;
 	};
 	
-	struct AstMacroPattern : public AstNode
+	struct AstMacroPattern
 	{
-		AstMacroPattern(u64 startTokIdx, StdVector<AstNodeSPtr>&& elems, u64 endTokIdx);
+		AstMacroPattern(u64 startTokIdx, StdVector<AstMacroPatternElemSPtr>&& elems, u64 endTokIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-		
-		StdVector<AstNodeSPtr> elems;
+		StdVector<AstMacroPatternElemSPtr> elems;
+		AstContextPtr ctx;
 	};
+	using AstMacroPatternSPtr = StdSharedPtr<AstMacroPattern>;
 
-	struct AstMacroRule : public AstNode
+	struct AstMacroRule
 	{
-		AstMacroRule(u64 startTokIdx, AstNodeSPtr pattern, StdVector<AstNodeSPtr>&& body, u64 endTokIdx);
+		AstMacroRule(u64 startIdx, AstMacroPatternSPtr pattern, StdVector<AstStmtSPtr>&& body,
+			u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		AstNodeSPtr pattern;
-		StdVector<AstNodeSPtr> body;
+		AstMacroPatternSPtr pattern;
+		StdVector<AstStmtSPtr> body;
+		AstContextPtr ctx;
 	};
+	using AstMacroRuleSPtr = StdSharedPtr<AstMacroRule>;
 	
-	struct AstDeclMacro : public AstNode
+	struct AstDeclMacro : public AstDecl
 	{
-		AstDeclMacro(u64 macroTokIdx, StdString&& iden, AstNodeSPtr pattern, StdVector<AstNodeSPtr>&& body, u64 rBraceTokIdx);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
+		AstDeclMacro(u64 startIdx, StdString&& iden, AstMacroPatternSPtr pattern,
+			StdVector<AstStmtSPtr>&& body, u64 endIdx);
 
 		StdString iden;
-		AstNodeSPtr pattern;
-		StdVector<AstNodeSPtr> body;
+		AstMacroPatternSPtr pattern;
+		StdVector<AstStmtSPtr> body;
 	};
 
-	struct AstRulesDeclMacro : public AstNode
+	struct AstRulesDeclMacro : public AstDecl
 	{
-		AstRulesDeclMacro(u64 macroTokIdx, StdString&& iden, StdVector<AstNodeSPtr>&& rules, u64 rBraceTokIdx);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
+		AstRulesDeclMacro(u64 startIdx, StdString&& iden, StdVector<AstMacroRuleSPtr>&& rules,
+			u64 endIdx);
 
 		StdString iden;
-		StdVector<AstNodeSPtr> rules;
+		StdVector<AstMacroRuleSPtr> rules;
 	};
 
-	struct AstProcMacro : public AstNode
+	struct AstProcMacro : public AstDecl
 	{
-		AstProcMacro(u64 macroTokIdx, StdString&& iden, StdString&& tokStreamIden, AstNodeSPtr pattern, StdVector<AstNodeSPtr>&& body, u64 rBraceTokIdx);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
+		AstProcMacro(u64 startIdx, StdString&& iden, StdString&& tokStreamIden,
+			AstMacroPatternSPtr pattern, StdVector<AstStmtSPtr>&& body, u64 endIdx);
 
 		StdString iden;
 		StdString tokStreamIden;
-		AstNodeSPtr pattern;
-		StdVector<AstNodeSPtr> body;
+		AstMacroPatternSPtr pattern;
+		StdVector<AstStmtSPtr> body;
 	};
 
-	struct AstRulesProcMacro : public AstNode
+	struct AstRulesProcMacro : public AstDecl
 	{
-		AstRulesProcMacro(u64 macroTokIdx, StdString&& iden, StdString&& tokStreamIden, StdVector<AstNodeSPtr>&& rules, u64 rBraceTokIdx);
-
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
+		AstRulesProcMacro(u64 startIdx, StdString&& iden, StdString&& tokStreamIden, StdVector<AstMacroRuleSPtr>&& rules, u64 endIdx);
 
 		StdString iden;
 		StdString tokStreamIden;
-		StdVector<AstNodeSPtr> rules;
+		StdVector<AstMacroRuleSPtr> rules;
 	};
 
-	struct AstMacroInst : public AstNode
+	struct AstMacroInst : public AstExpr
 	{
-		AstMacroInst(u64 startTokIdx, StdVector<StdString>&& idens, StdVector<Token>& toks, u64 endTokIdx);
+		AstMacroInst(AstQualNameSPtr qualName, StdVector<Token>& toks, u64 endIdx);
 
-		void Visit(AstVisitor& visitor) override;
-		void Log(u32 indent) override;
-
-		StdVector<StdString> idens;
+		AstQualNameSPtr qualName;
 		StdVector<Token> toks;
 	};
 
