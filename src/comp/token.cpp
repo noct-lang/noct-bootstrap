@@ -74,12 +74,6 @@ namespace Noctis
 		case TokenType::False: return "false";
 		case TokenType::Null: return "null";
 		case TokenType::True: return "true";
-			
-		case TokenType::As: return "as";
-		case TokenType::IdenSelf: return "self";
-		case TokenType::Self: return "Self";
-		case TokenType::Weak: return "weak";
-		case TokenType::Where: return "where";
 
 		case TokenType::SBenchmark: return "#benchmark";
 		case TokenType::SConditional: return "#conditional";

@@ -859,12 +859,6 @@ namespace Noctis
 			{ "false", TokenType::False },
 			{ "null", TokenType::Null },
 			{ "true", TokenType::True },
-			
-			{ "as", TokenType::As },
-			{ "self", TokenType::IdenSelf },
-			{ "Self", TokenType::Self },
-			{ "weak", TokenType::Weak },
-			{ "where", TokenType::Where },
 
 			{ "#benchmark" , TokenType::SBenchmark },
 			{ "#conditional" , TokenType::SConditional },

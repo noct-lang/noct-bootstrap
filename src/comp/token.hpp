@@ -79,13 +79,6 @@ namespace Noctis
 		Null,
 		True,
 
-		// Context dependent keywords
-		As,
-		IdenSelf,
-		Self,
-		Weak,
-		Where,
-
 		// Special keywords
 		SBenchmark,
 		SConditional,

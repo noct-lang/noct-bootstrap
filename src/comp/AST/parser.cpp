@@ -104,7 +104,6 @@ namespace Noctis
 		case TokenType::Union: return ParseUnion(attribs);
 		case TokenType::Enum: return ParseEnum(attribs);
 		case TokenType::Interface: return ParseInterface(attribs);
-		case TokenType::Weak: return ParseWeakInterface(attribs);
 		case TokenType::Typealias: return ParseTypealias(attribs);
 		case TokenType::Typedef: return ParseTypedef(attribs);
 		case TokenType::Func:
@@ -145,6 +144,9 @@ namespace Noctis
 		case TokenType::SErrorHandler: return ParseErrorHandlerStmt();
 		case TokenType::Iden:
 		{
+			if (PeekToken().Text() == "weak" && PeekToken(1).Type() == TokenType::Interface)
+				return ParseWeakInterface(attribs);
+			
 			u64 startIdx, endIdx;
 			StdVector<StdString> idens = ParseIdenList(TokenType::Comma, startIdx, endIdx);
 
@@ -156,7 +158,7 @@ namespace Noctis
 			return ParseExprStmt();
 		}
 		default:
-		{
+		{			
 			if (label)
 				return label;
 			return ParseExprStmt();
@@ -301,7 +303,7 @@ namespace Noctis
 
 	AstDeclSPtr Parser::ParseWeakInterface(AstAttribsSPtr attribs)
 	{
-		u64 weakIdx = EatToken(TokenType::Weak).Idx();
+		u64 weakIdx = EatIdenToken("weak").Idx();
 		EatToken(TokenType::Interface);
 		StdString iden = EatToken(TokenType::Iden).Text();
 
@@ -440,7 +442,7 @@ namespace Noctis
 		}
 
 		AstGenericWhereClauseSPtr whereClause;
-		if (PeekToken().Type() == TokenType::Where)
+		if (PeekToken().Text() == "where")
 			whereClause = ParseGenericWhereClause();
 
 		StdVector<AstStmtSPtr> stmts;
@@ -473,7 +475,7 @@ namespace Noctis
 			{
 				recKind = AstMethodReceiverKind::Value;
 			}
-			EatToken(TokenType::IdenSelf);
+			EatIdenToken("self");
 			EatToken(TokenType::RParen);
 		}
 		StdString iden = EatToken(TokenType::Iden).Text();
@@ -524,7 +526,7 @@ namespace Noctis
 		}
 
 		AstGenericWhereClauseSPtr whereClause;
-		if (PeekToken().Type() == TokenType::Where)
+		if (PeekToken().Text() == "where")
 			whereClause = ParseGenericWhereClause();
 
 		StdVector<AstStmtSPtr> stmts;
@@ -596,7 +598,7 @@ namespace Noctis
 			{
 				StdVector<StdString> symIdens = ParseIdenList(TokenType::ColonColon);
 				StdString symAlias;
-				if (TryEatToken(TokenType::As))
+				if (TryEatIdenToken("as"))
 					symAlias = EatToken(TokenType::Iden).Text();
 				symbols.push_back(std::pair{ std::move(symIdens), std::move(symAlias) });
 			}
@@ -700,7 +702,7 @@ namespace Noctis
 		{
 			AstExprSPtr staticExpr = ParseExpression();
 			AstExprSPtr dynamicExpr;
-			if (TryEatToken(TokenType::Where))
+			if (TryEatIdenToken("where"))
 				dynamicExpr = ParseExpression();
 			EatToken(TokenType::DblArrow);
 			AstStmtSPtr body = ParseStatement();
@@ -1045,6 +1047,8 @@ namespace Noctis
 			{
 			case TokenType::Less:
 			case TokenType::Iden:
+				if (prev)
+					return nullptr;
 				return ParseQualNameExpr();
 			
 			case TokenType::Or:
@@ -1864,7 +1868,7 @@ namespace Noctis
 
 	AstGenericWhereClauseSPtr Parser::ParseGenericWhereClause()
 	{
-		u64 startIdx = EatToken(TokenType::Where).Idx();
+		u64 startIdx = EatToken().Idx();
 		StdVector<AstGenericTypeBoundSPtr> bounds;
 		do
 		{
@@ -2128,7 +2132,7 @@ namespace Noctis
 					startIdx = tmpIdx;
 
 				AstTypeSPtr type = ParseType();
-				EatToken(TokenType::As);
+				EatIdenToken("as");
 				AstIdentifierTypeSPtr interface = ParseIdentifierType();
 				u64 endIdx = EatToken(TokenType::Greater).Idx();
 				qualIdens.emplace_back(new AstTypeDisambiguation{ tmpIdx, type, interface, endIdx });
