@@ -55,6 +55,7 @@ namespace Noctis
 		void Visit(AstDeferStmt& node) override;
 		void Visit(AstStackDeferStmt& node) override;
 		void Visit(AstUnsafeStmt& node) override;
+		void Visit(AstErrorHandlerStmt& node) override;
 		void Visit(AstCompIfStmt& node) override;
 		void Visit(AstCompCondStmt& node) override;
 		void Visit(AstCompDebugStmt& node) override;
@@ -85,6 +86,9 @@ namespace Noctis
 		void Visit(AstCommaExpr& node) override;
 		void Visit(AstClosureExpr& node) override;
 		void Visit(AstIsExpr& node) override;
+		void Visit(AstTryExpr& node) override;
+		void Visit(AstThrowExpr& node) override;
+		void Visit(AstSpecKwExpr& node) override;
 		void Visit(AstCompRunExpr& node) override;
 		void Visit(AstMacroVarExpr& node) override;
 		
@@ -127,6 +131,7 @@ namespace Noctis
 		void PrintIndent();
 		void PrintContextAndClose(AstContextPtr& ctx);
 
+	private:
 		u32 m_Indent;
 	};
 	

@@ -226,6 +226,11 @@ namespace Noctis
 		Walk(node);
 	}
 
+	void AstVisitor::Visit(AstErrorHandlerStmt& node)
+	{
+		Walk(node);
+	}
+
 	void AstVisitor::Visit(AstCompIfStmt& node)
 	{
 		Walk(node);
@@ -367,6 +372,21 @@ namespace Noctis
 	}
 
 	void AstVisitor::Visit(AstIsExpr& node)
+	{
+		Walk(node);
+	}
+
+	void AstVisitor::Visit(AstTryExpr& node)
+	{
+		Walk(node);
+	}
+
+	void AstVisitor::Visit(AstThrowExpr& node)
+	{
+		Walk(node);
+	}
+
+	void AstVisitor::Visit(AstSpecKwExpr& node)
 	{
 		Walk(node);
 	}
@@ -560,6 +580,7 @@ namespace Noctis
 		case AstStmtKind::Defer: Visit(*static_cast<AstDeferStmt*>(node.get())); break;
 		case AstStmtKind::StackDefer: Visit(*static_cast<AstStackDeferStmt*>(node.get())); break;
 		case AstStmtKind::Unsafe: Visit(*static_cast<AstUnsafeStmt*>(node.get())); break;
+		case AstStmtKind::ErrorHandler: Visit(*static_cast<AstErrorHandlerStmt*>(node.get())); break;
 		case AstStmtKind::CompIf: Visit(*static_cast<AstCompIfStmt*>(node.get())); break;
 		case AstStmtKind::CompCond: Visit(*static_cast<AstCompCondStmt*>(node.get())); break;
 		case AstStmtKind::CompDebug: Visit(*static_cast<AstCompDebugStmt*>(node.get())); break;
@@ -841,6 +862,8 @@ namespace Noctis
 		{
 			Visit(*param);
 		}
+		if (node.errorType)
+			Visit(node.errorType);
 		if (node.retType)
 			Visit(node.retType);
 		for (StdPair<StdString, AstTypeSPtr>& namedRet : node.namedRet)
@@ -865,6 +888,8 @@ namespace Noctis
 		{
 			Visit(*param);
 		}
+		if (node.errorType)
+			Visit(node.errorType);
 		if (node.retType)
 			Visit(node.retType);
 		for (StdPair<StdString, AstTypeSPtr>& namedRet : node.namedRet)
@@ -1021,6 +1046,16 @@ namespace Noctis
 
 	void AstVisitor::Walk(AstUnsafeStmt& node)
 	{
+		for (AstStmtSPtr stmt : node.stmts)
+		{
+			Visit(stmt);
+		}
+	}
+
+	void AstVisitor::Walk(AstErrorHandlerStmt& node)
+	{
+		if (node.errType)
+			Visit(node.errType);
 		for (AstStmtSPtr stmt : node.stmts)
 		{
 			Visit(stmt);
@@ -1223,6 +1258,20 @@ namespace Noctis
 		if (node.expr)
 			Visit(node.expr);
 		Visit(node.type);
+	}
+
+	void AstVisitor::Walk(AstTryExpr& node)
+	{
+		Visit(node.call);
+	}
+
+	void AstVisitor::Walk(AstThrowExpr& node)
+	{
+		Visit(node.expr);
+	}
+
+	void AstVisitor::Walk(AstSpecKwExpr& node)
+	{
 	}
 
 	void AstVisitor::Walk(AstCompRunExpr& node)

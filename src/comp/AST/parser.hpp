@@ -10,7 +10,7 @@ namespace Noctis
 	{
 	private:
 
-		enum class OperatorPrecedence : u8
+		enum class OpPrecedence : u8
 		{
 			MulDivRemCon,
 			AddMin,
@@ -70,13 +70,16 @@ namespace Noctis
 		AstStmtSPtr ParseDeferStmt();
 		AstStmtSPtr ParseStackDeferStmt();
 		AstStmtSPtr ParseUnsafeStmt();
+		AstStmtSPtr ParseErrorHandlerStmt();
 		AstStmtSPtr ParseCompIfStmt();
 		AstStmtSPtr ParseCompCondStmt();
 		AstStmtSPtr ParseCompDebugStmt();
 		AstStmtSPtr ParseMacroLoopStmt();
 
 		AstExprSPtr ParseCommaExpression();
+
 		AstExprSPtr ParseExpression(AstExprSPtr prev = nullptr, bool allowBlockExpr = false);
+		AstExprSPtr ParseOperand(AstExprSPtr prev);
 
 		AstExprSPtr ParseAssignmentExpr(AstExprSPtr lExpr);
 		AstExprSPtr ParseTernaryExpr(AstExprSPtr cond);
@@ -100,6 +103,9 @@ namespace Noctis
 		AstExprSPtr ParseUnsafeExpr();
 		AstExprSPtr ParseClosureExpr();
 		AstExprSPtr ParseIsExpr(AstExprSPtr expr);
+		AstExprSPtr ParseTryExpr();
+		AstExprSPtr ParseThrowExpr();
+		AstExprSPtr ParseSpecKwExpr();
 		AstExprSPtr ParseCompRunExpr();
 		AstExprSPtr ParseMacroVarExpr();
 			
@@ -131,7 +137,7 @@ namespace Noctis
 		AstMacroRuleSPtr ParseMacroRules();
 		AstDeclSPtr ParseDeclMacro();
 		AstDeclSPtr ParseProcMacro();
-		AstExprSPtr ParseMacroInst();
+		AstExprSPtr ParseMacroInst(AstQualNameSPtr qualName);
 
 		AstQualNameSPtr ParseQualName();
 		StdVector<AstParamSPtr> ParseParams(bool allowNoType = false);
@@ -144,12 +150,13 @@ namespace Noctis
 		StdVector<StdString> ParseIdenList(TokenType separator);
 		StdVector<StdString> ParseIdenList(TokenType separator, u64& startIdx, u64& endIdx);
 
-		OperatorPrecedence GetPrecedence(TokenType op);
+		OpPrecedence GetPrecedence(TokenType op);
 		
 		Token& EatToken();
 		Token& EatToken(TokenType type);
 		Token& EatIdenToken(StdStringView text);
 		bool TryEatToken(TokenType type);
+		bool TryEatIdenToken(StdStringView text);
 		Token& PeekToken();
 		Token& PeekToken(u64 offset);
 

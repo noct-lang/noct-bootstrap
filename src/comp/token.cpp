@@ -6,7 +6,7 @@ namespace Noctis
 	{
 		switch (type)
 		{
-		case TokenType::Unknown: return StdStringView{ "__unknown__" };
+		case TokenType::Unknown: return "__unknown__";
 			
 		case TokenType::Break: return "break";
 		case TokenType::Cast: return "cast";
@@ -40,7 +40,11 @@ namespace Noctis
 		case TokenType::Static: return "static";
 		case TokenType::Struct: return "struct";
 		case TokenType::Switch: return "switch";
+		case TokenType::Throw: return "throw";
 		case TokenType::Transmute: return "transmute";
+		case TokenType::Try: return "try";
+		case TokenType::TryQuestion: return "try?";
+		case TokenType::TryExclaim: return "try!";
 		case TokenType::Typealias: return "typealias";
 		case TokenType::Typedef: return "typedef";
 		case TokenType::Union: return "union";
@@ -72,12 +76,27 @@ namespace Noctis
 		case TokenType::True: return "true";
 			
 		case TokenType::As: return "as";
-		case TokenType::Dynlib: return "dynlib";
-		case TokenType::Package: return "Package";
 		case TokenType::IdenSelf: return "self";
 		case TokenType::Self: return "Self";
 		case TokenType::Weak: return "weak";
 		case TokenType::Where: return "where";
+
+		case TokenType::SBenchmark: return "#benchmark";
+		case TokenType::SConditional: return "#conditional";
+		case TokenType::SDebug: return "#debug";
+		case TokenType::SErrorHandler: return "#errorhandler";
+		case TokenType::SFile: return "#file";
+		case TokenType::SFileFullPath: return "#fileFullPath";
+		case TokenType::SFullModule: return "#fullModule";
+		case TokenType::SFunc: return "#func";
+		case TokenType::SFuncName: return "#funcName";
+		case TokenType::SIf: return "#if";
+		case TokenType::SLine: return "#line";
+		case TokenType::SModule: return "#module";
+		case TokenType::SPackage: return "#package";
+		case TokenType::SPrettyFunc: return "#prettyFunc";
+		case TokenType::SRun: return "#run";
+		case TokenType::SUnittest: return "#unittest";
 			
 		case TokenType::Eq: return "=";
 		case TokenType::EqEq: return "==";
@@ -149,7 +168,6 @@ namespace Noctis
 		case TokenType::QuestionColon: return "?:";
 		case TokenType::QuestionDot: return "?.";
 		case TokenType::QuestionBracket: return "?[";
-		case TokenType::Hash: return "#";
 		case TokenType::Dollar: return "$";
 		case TokenType::DollarParen: return "$(";
 		case TokenType::DollarBrace: return "${";
@@ -170,10 +188,10 @@ namespace Noctis
 		case TokenType::U32Lit: return "U32Lit";
 		case TokenType::U64Lit: return "U64Lit";
 		case TokenType::U128Lit: return "U128Lit";
-			
+
 		case TokenType::Iden: return "Iden";
 		case TokenType::EoL: return "EoL";
-		default: return StdStringView{ "__unknown__" };
+		default: return "__unknown__";
 		}
 	}
 

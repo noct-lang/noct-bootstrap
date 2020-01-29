@@ -239,7 +239,7 @@ namespace Noctis
 	}
 
 	AstFuncDecl::AstFuncDecl(AstAttribsSPtr attribs, u64 startIdx, StdString&& iden, AstGenericDeclSPtr generics,
-		StdVector<AstParamSPtr>&& params, AstTypeSPtr retType,
+		StdVector<AstParamSPtr>&& params, bool throws, AstTypeSPtr errorType, AstTypeSPtr retType,
 		StdPairVector<StdString, AstTypeSPtr>&& namedRet, AstGenericWhereClauseSPtr whereClause,
 		StdVector<AstStmtSPtr>&& stmts, u64 endIdx)
 		: AstDecl(AstDeclKind::Func, attribs ? attribs->ctx->startIdx : startIdx, endIdx)
@@ -247,6 +247,8 @@ namespace Noctis
 		, iden(std::move(iden))
 		, generics(generics)
 		, params(std::move(params))
+		, throws(throws)
+		, errorType(errorType)
 		, retType(retType)
 		, namedRet(std::move(namedRet))
 		, whereClause(whereClause)
@@ -255,7 +257,7 @@ namespace Noctis
 	}
 
 	AstMethodDecl::AstMethodDecl(AstAttribsSPtr attribs, u64 startIdx, AstMethodReceiverKind rec, StdString&& iden,
-		AstGenericDeclSPtr generics, StdVector<AstParamSPtr>&& params, AstTypeSPtr retType,
+		AstGenericDeclSPtr generics, StdVector<AstParamSPtr>&& params, bool throws, AstTypeSPtr errorType, AstTypeSPtr retType,
 		StdPairVector<StdString, AstTypeSPtr>&& namedRet, AstGenericWhereClauseSPtr whereClause,
 	    StdVector<AstStmtSPtr>&& stmts, u64 endIdx)
 		: AstDecl(AstDeclKind::Method, attribs ? attribs->ctx->startIdx : startIdx, endIdx)
@@ -264,6 +266,8 @@ namespace Noctis
 		, iden(std::move(iden))
 		, generics(generics)
 		, params(std::move(params))
+		, throws(throws)
+		, errorType(errorType)
 		, retType(retType)
 		, namedRet(std::move(namedRet))
 		, whereClause(whereClause)
@@ -419,8 +423,17 @@ namespace Noctis
 	{
 	}
 
+	AstErrorHandlerStmt::AstErrorHandlerStmt(u64 startIdx, StdString&& errIden, AstTypeSPtr errType,
+		StdVector<AstStmtSPtr>&& stmts, u64 endIdx)
+		: AstStmt(AstStmtKind::ErrorHandler, startIdx, endIdx)
+		, errIden(std::move(errIden))
+		, errType(std::move(errType))
+		, stmts(std::move(stmts))
+	{
+	}
+
 	AstCompIfStmt::AstCompIfStmt(u64 startIdx, AstVarDeclSPtr decl, AstExprSPtr expr, AstStmtSPtr body,
-		AstStmtSPtr elseBody)
+	                             AstStmtSPtr elseBody)
 		: AstStmt(AstStmtKind::CompIf, startIdx, elseBody ? elseBody->ctx->endIdx : body->ctx->endIdx)
 		, decl(decl)
 		, cond(expr)
@@ -625,6 +638,24 @@ namespace Noctis
 		: AstExpr(AstExprKind::Is, expr ? expr->ctx->startIdx : isIdx, type->ctx->endIdx)
 		, expr(expr)
 		, type(type)
+	{
+	}
+
+	AstTryExpr::AstTryExpr(Token& tryTok, AstExprSPtr call)
+		: AstExpr(AstExprKind::Try, tryTok.Idx(), call->ctx->endIdx)
+		, call(call)
+	{
+	}
+
+	AstThrowExpr::AstThrowExpr(u64 startIdx, AstExprSPtr expr)
+		: AstExpr(AstExprKind::Throw, startIdx, expr->ctx->endIdx)
+		, expr(expr)
+	{
+	}
+
+	AstSpecKwExpr::AstSpecKwExpr(Token& tok)
+		: AstExpr(AstExprKind::SpecKw, tok.Idx(), tok.Idx())
+		, specKw(tok.Type())
 	{
 	}
 

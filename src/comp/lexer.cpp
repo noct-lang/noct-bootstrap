@@ -618,13 +618,6 @@ namespace Noctis
 				spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 				break;
 			}
-			case '#':
-			{
-				++m_Index;
-				m_Tokens.push_back({ TokenType::Hash, tokIdx });
-				spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
-				break;
-			}
 			case '$':
 			{
 				++m_Index;
@@ -711,7 +704,11 @@ namespace Noctis
 			}
 			default:
 			{
-				usize end = content.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDDEFGHIJKLMNOPQRSTUVWXYZ1234567890_", m_Index);
+				usize searchStart = m_Index;
+				if (searchStart + 1 < size && content[searchStart] == '#')
+					++searchStart;
+				
+				usize end = content.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDDEFGHIJKLMNOPQRSTUVWXYZ1234567890_", searchStart);
 				StdStringView iden = content.substr(m_Index, end - m_Index);
 				
 				StdUnorderedMap<StdStringView, TokenType>& keywords = GetKeywordMap();
@@ -722,6 +719,26 @@ namespace Noctis
 						!m_Tokens.empty() && m_Tokens.back().Type() == TokenType::Exclaim)
 					{
 						m_Tokens.back() = Token{ TokenType::NotIn, tokIdx - 1 };
+					}
+					else if (it->second == TokenType::Try)
+					{
+						if (end + 1 < size)
+						{
+							if (content[end + 1] == '?')
+							{
+								m_Tokens.push_back({ TokenType::TryQuestion, tokIdx });
+								++end;
+							}
+							else if (content[end + 1] == '!')
+							{
+								m_Tokens.push_back({ TokenType::TryExclaim, tokIdx });
+								++end;
+							}
+							else
+							{
+								m_Tokens.push_back({ TokenType::Try, tokIdx });
+							}
+						}
 					}
 					else
 					{
@@ -810,7 +827,9 @@ namespace Noctis
 			{ "static", TokenType::Static },
 			{ "struct", TokenType::Struct },
 			{ "switch", TokenType::Switch },
+			{ "throw", TokenType::Throw },
 			{ "transmute", TokenType::Transmute },
+			{ "try", TokenType::Try },
 			{ "typealias", TokenType::Typealias },
 			{ "typedef", TokenType::Typedef },
 			{ "union", TokenType::Union },
@@ -842,12 +861,27 @@ namespace Noctis
 			{ "true", TokenType::True },
 			
 			{ "as", TokenType::As },
-			{ "dynlib", TokenType::Dynlib },
-			{ "package", TokenType::Package },
 			{ "self", TokenType::IdenSelf },
 			{ "Self", TokenType::Self },
 			{ "weak", TokenType::Weak },
 			{ "where", TokenType::Where },
+
+			{ "#benchmark" , TokenType::SBenchmark },
+			{ "#conditional" , TokenType::SConditional },
+			{ "#debug" , TokenType::SDebug },
+			{ "#errorhandler" , TokenType::SErrorHandler },
+			{ "#file" , TokenType::SFile },
+			{ "#fileFullPath" , TokenType::SFileFullPath },
+			{ "#fullModule" , TokenType::SFullModule },
+			{ "#func" , TokenType::SFunc },
+			{ "#funcName" , TokenType::SFuncName },
+			{ "#if" , TokenType::SIf },
+			{ "#line" , TokenType::SLine },
+			{ "#module" , TokenType::SModule },
+			{ "#package" , TokenType::SPackage },
+			{ "#prettyFunc" , TokenType::SPrettyFunc },
+			{ "#run" , TokenType::SRun },
+			{ "#unittest" , TokenType::SUnittest },
 		};
 
 		return keywords;

@@ -275,6 +275,8 @@ namespace Noctis
 	{
 		PrintIndent();
 		g_Logger.Log("(func-decl '%s'", node.iden.c_str());
+		if (node.throws)
+			g_Logger.Log(" throws");
 		PrintContextAndClose(node.ctx);
 		++m_Indent;
 		if (node.attribs)
@@ -285,14 +287,29 @@ namespace Noctis
 		{
 			Visit(*param);
 		}
-		if (node.retType)
-			AstVisitor::Visit(node.retType);
-		for (StdPair<StdString, AstTypeSPtr>& namedRet : node.namedRet)
+		if (node.errorType)
 		{
 			PrintIndent();
-			g_Logger.Log("(named-return '%s')\n", namedRet.first.c_str());
+			g_Logger.Log("(error-type)\n");
 			++m_Indent;
-			AstVisitor::Visit(namedRet.second);
+			AstVisitor::Visit(node.errorType);
+			--m_Indent;
+		}
+		if (node.retType || !node.namedRet.empty())
+		{
+			PrintIndent();
+			g_Logger.Log("(return)\n");
+			++m_Indent;
+			if (node.retType)
+				AstVisitor::Visit(node.retType);
+			for (StdPair<StdString, AstTypeSPtr>& namedRet : node.namedRet)
+			{
+				PrintIndent();
+				g_Logger.Log("(named-return '%s')\n", namedRet.first.c_str());
+				++m_Indent;
+				AstVisitor::Visit(namedRet.second);
+				--m_Indent;
+			}
 			--m_Indent;
 		}
 		if (node.whereClause)
@@ -322,6 +339,8 @@ namespace Noctis
 		}
 		
 		g_Logger.Log("(method-decl '%s' rec='%s'", node.iden.c_str(), rec);
+		if (node.throws)
+			g_Logger.Log(" throws");
 		PrintContextAndClose(node.ctx);
 		++m_Indent;
 		if (node.attribs)
@@ -332,14 +351,29 @@ namespace Noctis
 		{
 			Visit(*param);
 		}
-		if (node.retType)
-			AstVisitor::Visit(node.retType);
-		for (StdPair<StdString, AstTypeSPtr>& namedRet : node.namedRet)
+		if (node.errorType)
 		{
 			PrintIndent();
-			g_Logger.Log("(named-return '%s')\n", namedRet.first.c_str());
+			g_Logger.Log("(error-type)\n");
 			++m_Indent;
-			AstVisitor::Visit(namedRet.second);
+			AstVisitor::Visit(node.errorType);
+			--m_Indent;
+		}
+		if (node.retType || !node.namedRet.empty())
+		{
+			PrintIndent();
+			g_Logger.Log("(return)\n");
+			++m_Indent;
+			if (node.retType)
+				AstVisitor::Visit(node.retType);
+			for (StdPair<StdString, AstTypeSPtr>& namedRet : node.namedRet)
+			{
+				PrintIndent();
+				g_Logger.Log("(named-return '%s')\n", namedRet.first.c_str());
+				++m_Indent;
+				AstVisitor::Visit(namedRet.second);
+				--m_Indent;
+			}
 			--m_Indent;
 		}
 		if (node.whereClause)
@@ -613,6 +647,16 @@ namespace Noctis
 	{
 		PrintIndent();
 		g_Logger.Log("(unsafe-stmt");
+		PrintContextAndClose(node.ctx);
+		++m_Indent;
+		Walk(node);
+		--m_Indent;
+	}
+
+	void AstPrinter::Visit(AstErrorHandlerStmt& node)
+	{
+		PrintIndent();
+		g_Logger.Log("(error-handler-stmt '%s'", node.errIden.c_str());
 		PrintContextAndClose(node.ctx);
 		++m_Indent;
 		Walk(node);
@@ -957,6 +1001,33 @@ namespace Noctis
 		++m_Indent;
 		Walk(node);
 		--m_Indent;
+	}
+
+	void AstPrinter::Visit(AstTryExpr& node)
+	{
+		PrintIndent();
+		g_Logger.Log("(try-expr");
+		PrintContextAndClose(node.ctx);
+		++m_Indent;
+		Walk(node);
+		--m_Indent;
+	}
+
+	void AstPrinter::Visit(AstThrowExpr& node)
+	{
+		PrintIndent();
+		g_Logger.Log("(throw-expr");
+		PrintContextAndClose(node.ctx);
+		++m_Indent;
+		Walk(node);
+		--m_Indent;
+	}
+
+	void AstPrinter::Visit(AstSpecKwExpr& node)
+	{
+		PrintIndent();
+		g_Logger.Log("(spec-kw-expr '%s'", GetTokenTypeName(node.specKw).data());
+		PrintContextAndClose(node.ctx);
 	}
 
 	void AstPrinter::Visit(AstCompRunExpr& node)
@@ -1326,7 +1397,18 @@ namespace Noctis
 	{
 		if (ctx->scope)
 		{
-			g_Logger.Log("scope=''");
+			StdString name;
+			QualNameSPtr qualName = ctx->scope;
+			do
+			{
+				StdString str = "::" + qualName->Iden()->Name();
+				name.insert(name.begin(), str.begin(), str.end());
+				qualName = qualName->Base();
+			}
+			while (qualName->Base());
+			
+			
+			g_Logger.Log(" scope='%s'", name.c_str());
 		}
 		
 		g_Logger.Log(")\n");
