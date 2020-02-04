@@ -58,7 +58,8 @@ namespace Noctis
 	{
 		args::PositionalList<std::string> buildFiles{ parser, "File names", "File names" };
 		args::Flag logTokens{ parser, "log tokens", "Log tokens", { "log-tokens" } };
-		args::Flag logAst{ parser, "log tokens", "Log tokens", { "log-ast" } };
+		args::Flag logParsedAst{ parser, "log parsed ast", "Log parsed ast", { "log-parsed-ast" } };
+		args::Flag logAst{ parser, "log ast", "Log ast", { "log-ast" } };
 
 		parser.Parse();
 
@@ -66,7 +67,8 @@ namespace Noctis
 		m_BuildOptions.buildFiles.assign(buildFiles.begin(), buildFiles.end());
 		
 		m_BuildOptions.logTokens = logTokens.Get();
-		m_BuildOptions.LogAst = logAst.Get();
+		m_BuildOptions.logParsedAst = logParsedAst.Get();
+		m_BuildOptions.logAst = logAst.Get();
 		
 	}
 }

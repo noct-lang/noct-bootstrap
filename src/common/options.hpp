@@ -21,7 +21,8 @@ namespace Noctis
 		StdVector<StdString> buildFiles;
 		
 		bool logTokens : 1;
-		bool LogAst : 1;
+		bool logParsedAst : 1;
+		bool logAst : 1;
 	};
 	
 	class Options

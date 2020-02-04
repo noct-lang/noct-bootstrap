@@ -48,7 +48,7 @@ void ProcessBuild(Noctis::Context& context)
 	
 	timer.Stop();
 
-	if (context.options.GetBuildOptions().LogAst)
+	if (context.options.GetBuildOptions().logParsedAst)
 	{
 		Noctis::AstPrinter printer;
 		printer.Visit(astTree);
@@ -56,6 +56,18 @@ void ProcessBuild(Noctis::Context& context)
 	
 	g_Logger.Log(Noctis::Format("Parser took %fms\n", timer.GetTimeMS()));
 
+	Noctis::SemanticAnalysis semAnalysis{ &context };
+	timer.Start();
+	semAnalysis.Run(astTree);
+	timer.Stop();
+
+	g_Logger.Log(Noctis::Format("Semantic analysis took %fms\n", timer.GetTimeMS()));
+
+	if (context.options.GetBuildOptions().logAst)
+	{
+		Noctis::AstPrinter printer;
+		printer.Visit(astTree);
+	}
 
 	delete context.pCompContext;
 
