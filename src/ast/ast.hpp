@@ -1,7 +1,7 @@
 #pragma once
 #include "common/defs.hpp"
-#include "comp/token.hpp"
-#include "comp/qualname.hpp"
+#include "tokens/token.hpp"
+#include "common/qualname.hpp"
 #include "ast.hpp"
 
 namespace Noctis

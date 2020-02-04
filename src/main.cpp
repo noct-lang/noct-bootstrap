@@ -2,16 +2,16 @@
 #include "common/logger.hpp"
 
 #include <string_view>
-#include "comp/lexer.hpp"
-#include "comp/token.hpp"
+#include "tokens/lexer.hpp"
 #include <sstream>
-#include "comp/compcontext.hpp"
+#include "common/compcontext.hpp"
 #include "common/errorsystem.hpp"
 #include "common/perf.hpp"
 #include "common/utils.hpp"
-#include "comp/AST/parser.hpp"
-#include "comp/AST/ast.hpp"
-#include "comp/AST/astprinter.hpp"
+#include "ast/parser.hpp"
+#include "ast/ast.hpp"
+#include "semantic/semanticanalysis.hpp"
+#include "ast/astprinter.hpp"
 
 void ProcessBuild(Noctis::Context& context)
 {

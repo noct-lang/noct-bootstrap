@@ -1,9 +1,9 @@
 #include "parser.hpp"
 #include "common/errorsystem.hpp"
-#include "comp/span.hpp"
 #include "common/context.hpp"
-#include "comp/compcontext.hpp"
-#include "comp/token.hpp"
+#include "common/compcontext.hpp"
+#include "tokens/span.hpp"
+#include "tokens/token.hpp"
 
 namespace Noctis
 {

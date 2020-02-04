@@ -1,7 +1,7 @@
 #include "lexer.hpp"
 #include "token.hpp"
 #include "common/context.hpp"
-#include "comp/compcontext.hpp"
+#include "common/compcontext.hpp"
 #include <charconv>
 #include "common/errorsystem.hpp"
 #include <algorithm>

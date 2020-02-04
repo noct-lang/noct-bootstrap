@@ -1,5 +1,5 @@
 #pragma once
-#include "comp/semantic/semanticpass.hpp"
+#include "semantic/semanticpass.hpp"
 #include "ast.hpp"
 
 namespace Noctis

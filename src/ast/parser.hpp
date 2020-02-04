@@ -1,5 +1,5 @@
 #pragma  once
-#include "comp/token.hpp"
+#include "tokens/token.hpp"
 #include "ast.hpp"
 
 namespace Noctis

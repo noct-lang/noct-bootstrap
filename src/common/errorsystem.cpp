@@ -1,7 +1,7 @@
 #include "errorsystem.hpp"
 #include "logger.hpp"
 #include "utils.hpp"
-#include "comp/span.hpp"
+#include "tokens/span.hpp"
 
 void Noctis::ErrorSystem::Error(u64 line, u64 column, StdStringView text)
 {
