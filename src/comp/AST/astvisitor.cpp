@@ -216,7 +216,7 @@ namespace Noctis
 		Walk(node);
 	}
 
-	void AstVisitor::Visit(AstStackDeferStmt& node)
+	void AstVisitor::Visit(AstErrDeferStmt& node)
 	{
 		Walk(node);
 	}
@@ -456,6 +456,61 @@ namespace Noctis
 		Walk(node);
 	}
 
+	void AstVisitor::Visit(AstPlaceholderPattern& node)
+	{
+		Walk(node);
+	}
+
+	void AstVisitor::Visit(AstWildcardPattern& node)
+	{
+		Walk(node);
+	}
+
+	void AstVisitor::Visit(AstValueBindPattern& node)
+	{
+		Walk(node);
+	}
+
+	void AstVisitor::Visit(AstLiteralPattern& node)
+	{
+		Walk(node);
+	}
+
+	void AstVisitor::Visit(AstRangePattern& node)
+	{
+		Walk(node);
+	}
+
+	void AstVisitor::Visit(AstTuplePattern& node)
+	{
+		Walk(node);
+	}
+
+	void AstVisitor::Visit(AstEnumPattern& node)
+	{
+		Walk(node);
+	}
+
+	void AstVisitor::Visit(AstAggrPattern& node)
+	{
+		Walk(node);
+	}
+
+	void AstVisitor::Visit(AstSlicePattern& node)
+	{
+		Walk(node);
+	}
+
+	void AstVisitor::Visit(AstEitherPattern& node)
+	{
+		Walk(node);
+	}
+
+	void AstVisitor::Visit(AstTypePattern& node)
+	{
+		Walk(node);
+	}
+
 	void AstVisitor::Visit(AstAttribs& node)
 	{
 		Walk(node);
@@ -578,7 +633,7 @@ namespace Noctis
 		case AstStmtKind::Return: Visit(*static_cast<AstReturnStmt*>(node.get())); break;
 		case AstStmtKind::Expr: Visit(*static_cast<AstExprStmt*>(node.get())); break;
 		case AstStmtKind::Defer: Visit(*static_cast<AstDeferStmt*>(node.get())); break;
-		case AstStmtKind::StackDefer: Visit(*static_cast<AstStackDeferStmt*>(node.get())); break;
+		case AstStmtKind::StackDefer: Visit(*static_cast<AstErrDeferStmt*>(node.get())); break;
 		case AstStmtKind::Unsafe: Visit(*static_cast<AstUnsafeStmt*>(node.get())); break;
 		case AstStmtKind::ErrorHandler: Visit(*static_cast<AstErrorHandlerStmt*>(node.get())); break;
 		case AstStmtKind::CompIf: Visit(*static_cast<AstCompIfStmt*>(node.get())); break;
@@ -672,6 +727,25 @@ namespace Noctis
 		case AstTypeKind::InlineEnum: Visit(*static_cast<AstInlineEnumType*>(node.get())); break;
 		case AstTypeKind::CompoundInterface: Visit(*static_cast<AstCompoundInterfaceType*>(node.get())); break;
 		default: ;
+		}
+	}
+
+	void AstVisitor::Visit(AstPatternSPtr node)
+	{
+		switch (node->patternKind)
+		{
+		case AstPatternKind::Placeholder: Visit(*static_cast<AstPlaceholderPattern*>(node.get())); break;
+		case AstPatternKind::Wildcard: Visit(*static_cast<AstWildcardPattern*>(node.get())); break;
+		case AstPatternKind::ValueBind: Visit(*static_cast<AstValueBindPattern*>(node.get())); break;
+		case AstPatternKind::Literal: Visit(*static_cast<AstLiteralPattern*>(node.get())); break;
+		case AstPatternKind::Range: Visit(*static_cast<AstRangePattern*>(node.get())); break;
+		case AstPatternKind::Tuple: Visit(*static_cast<AstTuplePattern*>(node.get())); break;
+		case AstPatternKind::Enum: Visit(*static_cast<AstEnumPattern*>(node.get())); break;
+		case AstPatternKind::Aggr: Visit(*static_cast<AstAggrPattern*>(node.get())); break;
+		case AstPatternKind::Slice: Visit(*static_cast<AstSlicePattern*>(node.get())); break;
+		case AstPatternKind::Either: Visit(*static_cast<AstEitherPattern*>(node.get())); break;
+		case AstPatternKind::Type: Visit(*static_cast<AstTypePattern*>(node.get())); break;
+		default:;
 		}
 	}
 
@@ -996,9 +1070,9 @@ namespace Noctis
 			Visit(*node.label);
 		for (AstSwitchCase& case_ : node.cases)
 		{
-			Visit(case_.staticExpr);
-			if (case_.dynamicExpr)
-				Visit(case_.dynamicExpr);
+			Visit(case_.pattern);
+			if (case_.expr)
+				Visit(case_.expr);
 			Visit(case_.body);
 		}
 	}
@@ -1039,7 +1113,7 @@ namespace Noctis
 		Visit(node.expr);
 	}
 
-	void AstVisitor::Walk(AstStackDeferStmt& node)
+	void AstVisitor::Walk(AstErrDeferStmt& node)
 	{
 		Visit(node.expr);
 	}
@@ -1285,36 +1359,50 @@ namespace Noctis
 
 	void AstVisitor::Walk(AstBuiltinType& node)
 	{
+		if (node.attribs)
+			Visit(*node.attribs);
 	}
 
 	void AstVisitor::Walk(AstIdentifierType& node)
 	{
+		if (node.attribs)
+			Visit(*node.attribs);
 		Visit(*node.qualName);
 	}
 
 	void AstVisitor::Walk(AstPointerType& node)
 	{
+		if (node.attribs)
+			Visit(*node.attribs);
 		Visit(node.subType);
 	}
 
 	void AstVisitor::Walk(AstReferenceType& node)
 	{
+		if (node.attribs)
+			Visit(*node.attribs);
 		Visit(node.subType);
 	}
 
 	void AstVisitor::Walk(AstArrayType& node)
 	{
+		if (node.attribs)
+			Visit(*node.attribs);
 		Visit(node.arraySize);
 		Visit(node.subType);
 	}
 
 	void AstVisitor::Walk(AstSliceType& node)
 	{
+		if (node.attribs)
+			Visit(*node.attribs);
 		Visit(node.subType);
 	}
 
 	void AstVisitor::Walk(AstTupleType& node)
 	{
+		if (node.attribs)
+			Visit(*node.attribs);
 		for (AstTypeSPtr subType : node.subTypes)
 		{
 			Visit(subType);
@@ -1323,6 +1411,8 @@ namespace Noctis
 
 	void AstVisitor::Walk(AstOptionalType& node)
 	{
+		if (node.attribs)
+			Visit(*node.attribs);
 		Visit(node.subType);
 	}
 
@@ -1344,6 +1434,76 @@ namespace Noctis
 		{
 			Walk(*interface);
 		}
+	}
+
+	void AstVisitor::Walk(AstPlaceholderPattern& node)
+	{
+	}
+
+	void AstVisitor::Walk(AstWildcardPattern& node)
+	{
+	}
+
+	void AstVisitor::Walk(AstValueBindPattern& node)
+	{
+		if (node.subPattern)
+			Visit(node.subPattern);
+	}
+
+	void AstVisitor::Walk(AstLiteralPattern& node)
+	{
+	}
+
+	void AstVisitor::Walk(AstRangePattern& node)
+	{
+		Visit(node.from);
+		Visit(node.to);
+	}
+
+	void AstVisitor::Walk(AstTuplePattern& node)
+	{
+		for (AstPatternSPtr subPattern : node.subPatterns)
+		{
+			Visit(subPattern);
+		}
+	}
+
+	void AstVisitor::Walk(AstEnumPattern& node)
+	{
+		for (AstPatternSPtr subPattern : node.subPatterns)
+		{
+			Visit(subPattern);
+		}
+	}
+
+	void AstVisitor::Walk(AstAggrPattern& node)
+	{
+		Visit(*node.qualName);
+		for (StdPair<StdString, AstPatternSPtr>& member : node.subPatterns)
+		{
+			Visit(member.second);
+		}
+	}
+
+	void AstVisitor::Walk(AstSlicePattern& node)
+	{
+		for (AstPatternSPtr subPattern : node.subPatterns)
+		{
+			Visit(subPattern);
+		}
+	}
+
+	void AstVisitor::Walk(AstEitherPattern& node)
+	{
+		for (AstPatternSPtr subPattern : node.subPatterns)
+		{
+			Visit(subPattern);
+		}
+	}
+
+	void AstVisitor::Walk(AstTypePattern& node)
+	{
+		Visit(node.type);
 	}
 
 	void AstVisitor::Walk(AstAttribs& node)
@@ -1464,19 +1624,11 @@ namespace Noctis
 	void AstVisitor::Walk(AstMacroRule& node)
 	{
 		Visit(*node.pattern);
-		for (AstStmtSPtr stmt : node.body)
-		{
-			Visit(stmt);
-		}
 	}
 
 	void AstVisitor::Walk(AstDeclMacro& node)
 	{
 		Visit(*node.pattern);
-		for (AstStmtSPtr stmt : node.body)
-		{
-			Visit(stmt);
-		}
 	}
 
 	void AstVisitor::Walk(AstRulesDeclMacro& node)
@@ -1490,10 +1642,6 @@ namespace Noctis
 	void AstVisitor::Walk(AstProcMacro& node)
 	{
 		Visit(*node.pattern);
-		for (AstStmtSPtr stmt : node.body)
-		{
-			Visit(stmt);
-		}
 	}
 
 	void AstVisitor::Walk(AstRulesProcMacro& node)

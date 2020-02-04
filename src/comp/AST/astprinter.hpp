@@ -53,7 +53,7 @@ namespace Noctis
 		void Visit(AstReturnStmt& node) override;
 		void Visit(AstExprStmt& node) override;
 		void Visit(AstDeferStmt& node) override;
-		void Visit(AstStackDeferStmt& node) override;
+		void Visit(AstErrDeferStmt& node) override;
 		void Visit(AstUnsafeStmt& node) override;
 		void Visit(AstErrorHandlerStmt& node) override;
 		void Visit(AstCompIfStmt& node) override;
@@ -103,6 +103,18 @@ namespace Noctis
 		void Visit(AstInlineStructType& node) override;
 		void Visit(AstInlineEnumType& node) override;
 		void Visit(AstCompoundInterfaceType& node) override;
+
+		void Visit(AstPlaceholderPattern& node) override;
+		void Visit(AstWildcardPattern& node) override;
+		void Visit(AstValueBindPattern& node) override;
+		void Visit(AstLiteralPattern& node) override;
+		void Visit(AstRangePattern& node) override;
+		void Visit(AstTuplePattern& node) override;
+		void Visit(AstEnumPattern& node) override;
+		void Visit(AstAggrPattern& node) override;
+		void Visit(AstSlicePattern& node) override;
+		void Visit(AstEitherPattern& node) override;
+		void Visit(AstTypePattern& node) override;
 		
 		void Visit(AstAttribs& node) override;
 		void Visit(AstCompAttrib& node) override;

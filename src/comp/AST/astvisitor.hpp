@@ -49,7 +49,7 @@ namespace Noctis
 	struct AstReturnStmt;
 	struct AstExprStmt;
 	struct AstDeferStmt;
-	struct AstStackDeferStmt;
+	struct AstErrDeferStmt;
 	struct AstUnsafeStmt;
 	struct AstErrorHandlerStmt;
 	struct AstCompIfStmt;
@@ -100,6 +100,18 @@ namespace Noctis
 	struct AstInlineEnumType;
 	struct AstCompoundInterfaceType;
 
+	struct AstPlaceholderPattern;
+	struct AstWildcardPattern;
+	struct AstValueBindPattern;
+	struct AstLiteralPattern;
+	struct AstRangePattern;
+	struct AstTuplePattern;
+	struct AstEnumPattern;
+	struct AstAggrPattern;
+	struct AstSlicePattern;
+	struct AstEitherPattern;
+	struct AstTypePattern;
+
 	struct AstAttribs;
 	struct AstCompAttrib;
 	struct AstUserAttrib;
@@ -132,6 +144,7 @@ namespace Noctis
 	FWD_DECL_SPTR(AstExpr);
 	FWD_DECL_SPTR(AstType);
 	FWD_DECL_SPTR(AstQualIden);
+	FWD_DECL_SPTR(AstPattern);
 
 	class AstVisitor
 	{
@@ -183,7 +196,7 @@ namespace Noctis
 		virtual void Visit(AstReturnStmt& node);
 		virtual void Visit(AstExprStmt& node);
 		virtual void Visit(AstDeferStmt& node);
-		virtual void Visit(AstStackDeferStmt& node);
+		virtual void Visit(AstErrDeferStmt& node);
 		virtual void Visit(AstUnsafeStmt& node);
 		virtual void Visit(AstErrorHandlerStmt& node);
 		virtual void Visit(AstCompIfStmt& node);
@@ -234,6 +247,18 @@ namespace Noctis
 		virtual void Visit(AstInlineEnumType& node);
 		virtual void Visit(AstCompoundInterfaceType& node);
 		
+		virtual void Visit(AstPlaceholderPattern& node);
+		virtual void Visit(AstWildcardPattern& node);
+		virtual void Visit(AstValueBindPattern& node);
+		virtual void Visit(AstLiteralPattern& node);
+		virtual void Visit(AstRangePattern& node);
+		virtual void Visit(AstTuplePattern& node);
+		virtual void Visit(AstEnumPattern& node);
+		virtual void Visit(AstAggrPattern& node);
+		virtual void Visit(AstSlicePattern& node);
+		virtual void Visit(AstEitherPattern& node);
+		virtual void Visit(AstTypePattern& node);
+		
 		virtual void Visit(AstAttribs& node);
 		virtual void Visit(AstCompAttrib& node);
 		virtual void Visit(AstUserAttrib& node);
@@ -262,6 +287,7 @@ namespace Noctis
 		void Visit(AstDeclSPtr node);
 		void Visit(AstExprSPtr node);
 		void Visit(AstTypeSPtr node);
+		void Visit(AstPatternSPtr node);
 		
 		void Walk(AstTree& tree);
 
@@ -306,7 +332,7 @@ namespace Noctis
 		void Walk(AstReturnStmt& node);
 		void Walk(AstExprStmt& node);
 		void Walk(AstDeferStmt& node);
-		void Walk(AstStackDeferStmt& node);
+		void Walk(AstErrDeferStmt& node);
 		void Walk(AstUnsafeStmt& node);
 		void Walk(AstErrorHandlerStmt& node);
 		void Walk(AstCompIfStmt& node);
@@ -356,6 +382,18 @@ namespace Noctis
 		void Walk(AstInlineStructType& node);
 		void Walk(AstInlineEnumType& node);
 		void Walk(AstCompoundInterfaceType& node);
+
+		void Walk(AstPlaceholderPattern& node);
+		void Walk(AstWildcardPattern& node);
+		void Walk(AstValueBindPattern& node);
+		void Walk(AstLiteralPattern& node);
+		void Walk(AstRangePattern& node);
+		void Walk(AstTuplePattern& node);
+		void Walk(AstEnumPattern& node);
+		void Walk(AstAggrPattern& node);
+		void Walk(AstSlicePattern& node);
+		void Walk(AstEitherPattern& node);
+		void Walk(AstTypePattern& node);
 
 		void Walk(AstAttribs& node);
 		void Walk(AstCompAttrib& node);

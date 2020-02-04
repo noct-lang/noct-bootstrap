@@ -553,9 +553,9 @@ namespace Noctis
 			PrintIndent();
 			g_Logger.Log("(case)\n");
 			++m_Indent;
-			AstVisitor::Visit(case_.staticExpr);
-			if (case_.dynamicExpr)
-				AstVisitor::Visit(case_.dynamicExpr);
+			AstVisitor::Visit(case_.pattern);
+			if (case_.expr)
+				AstVisitor::Visit(case_.expr);
 			AstVisitor::Visit(case_.body);
 			--m_Indent;
 		}
@@ -633,7 +633,7 @@ namespace Noctis
 		--m_Indent;
 	}
 
-	void AstPrinter::Visit(AstStackDeferStmt& node)
+	void AstPrinter::Visit(AstErrDeferStmt& node)
 	{
 		PrintIndent();
 		g_Logger.Log("(stack-defer-stmt");
@@ -872,12 +872,8 @@ namespace Noctis
 		case TokenType::Null:
 			g_Logger.Log("(literal-expr null");
 			break;
-		case TokenType::Void:
-			g_Logger.Log("(literal-expr void");
-			break;
 		default:
 			g_Logger.Log("(literal-expr unknown");
-			break;
 			break;
 		}
 		PrintContextAndClose(node.ctx);
@@ -1154,6 +1150,148 @@ namespace Noctis
 		--m_Indent;
 	}
 
+	void AstPrinter::Visit(AstPlaceholderPattern& node)
+	{
+		PrintIndent();
+		g_Logger.Log("(placeholder-pattern");
+		PrintContextAndClose(node.ctx);
+	}
+
+	void AstPrinter::Visit(AstWildcardPattern& node)
+	{
+		PrintIndent();
+		g_Logger.Log("(wildcard-pattern");
+		PrintContextAndClose(node.ctx);
+	}
+
+	void AstPrinter::Visit(AstValueBindPattern& node)
+	{
+		PrintIndent();
+		g_Logger.Log("(value-bind-pattern '%s'", node.iden.c_str());
+		PrintContextAndClose(node.ctx);
+		++m_Indent;
+		Walk(node);
+		--m_Indent;
+	}
+
+	void AstPrinter::Visit(AstLiteralPattern& node)
+	{
+		PrintIndent();
+		Token& literal = node.literal;
+		switch (literal.Type())
+		{
+		case TokenType::I8Lit:
+		case TokenType::I16Lit:
+		case TokenType::I32Lit:
+		case TokenType::I64Lit:
+		case TokenType::I128Lit:
+			g_Logger.Log("(literal-pattern %i %s", literal.Signed(), GetTokenTypeName(literal.Type()).data());
+			break;
+		case TokenType::U8Lit:
+		case TokenType::U16Lit:
+		case TokenType::U32Lit:
+		case TokenType::U64Lit:
+		case TokenType::U128Lit:
+		case TokenType::CharLit:
+			g_Logger.Log("(literal-pattern %u %s", literal.Unsigned(), GetTokenTypeName(literal.Type()).data());
+			break;
+		case TokenType::F16Lit:
+		case TokenType::F32Lit:
+		case TokenType::F64Lit:
+		case TokenType::F128Lit:
+			g_Logger.Log("(literal-pattern %f %s", literal.Fp(), GetTokenTypeName(literal.Type()).data());
+			break;
+		case TokenType::True:
+			g_Logger.Log("(literal-pattern true");
+			break;
+		case TokenType::False:
+			g_Logger.Log("(literal-pattern false");
+			break;
+		case TokenType::StringLit:
+			g_Logger.Log("(literal-pattern %s StringLit", literal.Text().c_str());
+			break;
+		case TokenType::Null:
+			g_Logger.Log("(literal-pattern null");
+			break;
+		default:
+			g_Logger.Log("(literal-pattern unknown");
+			break;
+		}
+		PrintContextAndClose(node.ctx);
+	}
+
+	void AstPrinter::Visit(AstRangePattern& node)
+	{
+		PrintIndent();
+		g_Logger.Log("(range-pattern");
+		if (node.inclusive)
+			g_Logger.Log(" inclusive");
+		PrintContextAndClose(node.ctx);
+		++m_Indent;
+		Walk(node);
+		--m_Indent;
+	}
+
+	void AstPrinter::Visit(AstTuplePattern& node)
+	{
+		PrintIndent();
+		g_Logger.Log("(tuple-pattern");
+		PrintContextAndClose(node.ctx);
+		++m_Indent;
+		Walk(node);
+		--m_Indent;
+	}
+
+	void AstPrinter::Visit(AstEnumPattern& node)
+	{
+		PrintIndent();
+		g_Logger.Log("(enum-pattern '%s'", node.iden.c_str());
+		PrintContextAndClose(node.ctx);
+		++m_Indent;
+		Walk(node);
+		--m_Indent;
+	}
+
+	void AstPrinter::Visit(AstAggrPattern& node)
+	{
+		PrintIndent();
+		g_Logger.Log("(aggr-pattern");
+		PrintContextAndClose(node.ctx);
+		++m_Indent;
+		Walk(node);
+		--m_Indent;
+	}
+
+	void AstPrinter::Visit(AstSlicePattern& node)
+	{
+		PrintIndent();
+		g_Logger.Log("(slice-pattern");
+		PrintContextAndClose(node.ctx);
+		++m_Indent;
+		Walk(node);
+		--m_Indent;
+	}
+
+	void AstPrinter::Visit(AstEitherPattern& node)
+	{
+		PrintIndent();
+		g_Logger.Log("(either-pattern");
+		PrintContextAndClose(node.ctx);
+		++m_Indent;
+		Walk(node);
+		--m_Indent;
+	}
+
+	void AstPrinter::Visit(AstTypePattern& node)
+	{
+		PrintIndent();
+		g_Logger.Log("(type-pattern");
+		PrintContextAndClose(node.ctx);
+		++m_Indent;
+		Walk(node);
+		--m_Indent;
+	}
+
 	void AstPrinter::Visit(AstAttribs& node)
 	{
 		PrintIndent();
@@ -1319,6 +1457,33 @@ namespace Noctis
 		PrintContextAndClose(node.ctx);
 		++m_Indent;
 		Walk(node);
+		if (!node.body.empty())
+		{
+			PrintIndent();
+			g_Logger.Log("(macro-body: ");
+			for (usize i = 0; i < node.body.size(); ++i)
+			{
+				if (i != 0)
+					g_Logger.Log(" ");
+
+				Token& tok = node.body[i];
+				if (Noctis::IsTokenTypeSignedLiteral(tok.Type()))
+					g_Logger.Log("%i", tok.Signed());
+				else if (Noctis::IsTokenTypeUnsignedLiteral(tok.Type()))
+					g_Logger.Log("%u", tok.Unsigned());
+				else if (Noctis::IsTokenTypeFpLiteral(tok.Type()))
+					g_Logger.Log("%f", tok.Fp());
+				else if (tok.Type() == Noctis::TokenType::CharLit)
+					g_Logger.Log("%u", tok.Signed());
+				else if (tok.Type() == Noctis::TokenType::True || tok.Type() == Noctis::TokenType::False)
+					g_Logger.Log(tok.Bool() ? "true" : "false");
+				else if (!tok.Text().empty())
+					g_Logger.Log(tok.Text());
+				else
+					g_Logger.Log(GetTokenTypeName(tok.Type()));
+			}
+		g_Logger.Log(")\n");
+		}
 		--m_Indent;
 	}
 
@@ -1329,6 +1494,33 @@ namespace Noctis
 		PrintContextAndClose(node.ctx);
 		++m_Indent;
 		Walk(node);
+		if (!node.body.empty())
+		{
+			PrintIndent();
+			g_Logger.Log("(macro-body: ");
+			for (usize i = 0; i < node.body.size(); ++i)
+			{
+				if (i != 0)
+					g_Logger.Log(" ");
+
+				Token& tok = node.body[i];
+				if (Noctis::IsTokenTypeSignedLiteral(tok.Type()))
+					g_Logger.Log("%i", tok.Signed());
+				else if (Noctis::IsTokenTypeUnsignedLiteral(tok.Type()))
+					g_Logger.Log("%u", tok.Unsigned());
+				else if (Noctis::IsTokenTypeFpLiteral(tok.Type()))
+					g_Logger.Log("%f", tok.Fp());
+				else if (tok.Type() == Noctis::TokenType::CharLit)
+					g_Logger.Log("%u", tok.Signed());
+				else if (tok.Type() == Noctis::TokenType::True || tok.Type() == Noctis::TokenType::False)
+					g_Logger.Log(tok.Bool() ? "true" : "false");
+				else if (!tok.Text().empty())
+					g_Logger.Log("%s%s", tok.Type() == TokenType::MacroIden ? "$" : "", tok.Text().c_str());
+				else
+					g_Logger.Log(GetTokenTypeName(tok.Type()));
+			}
+			g_Logger.Log(")\n");
+		}
 		--m_Indent;
 	}
 
@@ -1349,6 +1541,33 @@ namespace Noctis
 		PrintContextAndClose(node.ctx);
 		++m_Indent;
 		Walk(node);
+		if (!node.body.empty())
+		{
+			PrintIndent();
+			g_Logger.Log("(macro-body: ");
+			for (usize i = 0; i < node.body.size(); ++i)
+			{
+				if (i != 0)
+					g_Logger.Log(" ");
+
+				Token& tok = node.body[i];
+				if (Noctis::IsTokenTypeSignedLiteral(tok.Type()))
+					g_Logger.Log("%i", tok.Signed());
+				else if (Noctis::IsTokenTypeUnsignedLiteral(tok.Type()))
+					g_Logger.Log("%u", tok.Unsigned());
+				else if (Noctis::IsTokenTypeFpLiteral(tok.Type()))
+					g_Logger.Log("%f", tok.Fp());
+				else if (tok.Type() == Noctis::TokenType::CharLit)
+					g_Logger.Log("%u", tok.Signed());
+				else if (tok.Type() == Noctis::TokenType::True || tok.Type() == Noctis::TokenType::False)
+					g_Logger.Log(tok.Bool() ? "true" : "false");
+				else if (!tok.Text().empty())
+					g_Logger.Log(tok.Text());
+				else
+					g_Logger.Log(GetTokenTypeName(tok.Type()));
+			}
+			g_Logger.Log(")\n");
+		}
 		--m_Indent;
 	}
 
@@ -1397,17 +1616,7 @@ namespace Noctis
 	{
 		if (ctx->scope)
 		{
-			StdString name;
-			QualNameSPtr qualName = ctx->scope;
-			do
-			{
-				StdString str = "::" + qualName->Iden()->Name();
-				name.insert(name.begin(), str.begin(), str.end());
-				qualName = qualName->Base();
-			}
-			while (qualName->Base());
-			
-			
+			StdString name = ctx->scope->ToString();
 			g_Logger.Log(" scope='%s'", name.c_str());
 		}
 		

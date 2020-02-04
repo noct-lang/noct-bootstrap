@@ -403,6 +403,13 @@ namespace Noctis
 				++m_Index;
 				if (m_Index < size)
 				{
+					if (content[m_Index] == '!')
+					{
+						++m_Index;
+						m_Tokens.push_back({ TokenType::ExclaimExclaim, tokIdx });
+						spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
+						break;
+					}
 					if (content[m_Index] == '=')
 					{
 						++m_Index;
@@ -586,6 +593,14 @@ namespace Noctis
 				{
 					if (content[m_Index] == '?')
 					{
+						if (m_Index + 1 < size && content[m_Index + 1] == '=')
+						{
+							m_Index += 2;
+							m_Tokens.push_back({ TokenType::QuestionQuestionEquals, tokIdx });
+							spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
+							break;
+						}
+						
 						++m_Index;
 						m_Tokens.push_back({ TokenType::QuestionQuestion, tokIdx });
 						spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
@@ -636,9 +651,14 @@ namespace Noctis
 					spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
 					break;
 				}
-				
-				m_Tokens.push_back({ TokenType::Dollar, tokIdx });
-				spanManager.AddSpan({ size, m_Index, m_Line, m_Column });
+
+				usize searchStart = m_Index + 1;
+				usize end = content.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDDEFGHIJKLMNOPQRSTUVWXYZ1234567890_", searchStart);
+				StdStringView iden = content.substr(m_Index, end - m_Index);
+
+				m_Tokens.push_back({ TokenType::MacroIden, StdString{ iden }, tokIdx });
+				spanManager.AddSpan({ m_Index, end, m_Line, m_Column });
+				m_Index = end;
 				break;
 			}
 			case '0':
@@ -720,25 +740,10 @@ namespace Noctis
 					{
 						m_Tokens.back() = Token{ TokenType::NotIn, tokIdx - 1 };
 					}
-					else if (it->second == TokenType::Try)
+					else if (it->second == TokenType::Is &&
+						!m_Tokens.empty() && m_Tokens.back().Type() == TokenType::Exclaim)
 					{
-						if (end + 1 < size)
-						{
-							if (content[end + 1] == '?')
-							{
-								m_Tokens.push_back({ TokenType::TryQuestion, tokIdx });
-								++end;
-							}
-							else if (content[end + 1] == '!')
-							{
-								m_Tokens.push_back({ TokenType::TryExclaim, tokIdx });
-								++end;
-							}
-							else
-							{
-								m_Tokens.push_back({ TokenType::Try, tokIdx });
-							}
-						}
+						m_Tokens.back() = Token{ TokenType::NotIs, tokIdx - 1 };
 					}
 					else
 					{
@@ -772,8 +777,12 @@ namespace Noctis
 			ss << '[' << span.line << ':' << span.column << ']';
 			ss << ", ";
 			ss << Noctis::GetTokenTypeName(tok.Type());
-			ss << ", ";
-			ss << tok.Text();
+
+			if (tok.Type() == TokenType::Iden)
+			{
+				ss << ", ";
+				ss << tok.Text();
+			}
 
 			if (Noctis::IsTokenTypeSignedLiteral(tok.Type()))
 				ss << ", " << tok.Signed();
@@ -798,13 +807,14 @@ namespace Noctis
 		{
 			{ "break", TokenType::Break },
 			{ "cast", TokenType::Cast },
-			{ "cconst", TokenType::CConst },
+			{ "cconst", TokenType::Comptime },
 			{ "const", TokenType::Const },
 			{ "continue", TokenType::Continue },
 			{ "defer", TokenType::Defer },
 			{ "do", TokenType::Do },
 			{ "else", TokenType::Else },
 			{ "enum", TokenType::Enum },
+			{ "errdefer", TokenType::ErrDefer },
 			{ "fallthrough", TokenType::Fallthrough },
 			{ "for", TokenType::For },
 			{ "func", TokenType::Func },
@@ -823,7 +833,6 @@ namespace Noctis
 			{ "move", TokenType::Move },
 			{ "public", TokenType::Public },
 			{ "return", TokenType::Return },
-			{ "stack_defer", TokenType::StackDefer },
 			{ "static", TokenType::Static },
 			{ "struct", TokenType::Struct },
 			{ "switch", TokenType::Switch },
@@ -854,11 +863,14 @@ namespace Noctis
 			{ "u32", TokenType::U32 },
 			{ "u64", TokenType::U64 },
 			{ "u128", TokenType::U128 },
-			{ "void", TokenType::Void },
 			
 			{ "false", TokenType::False },
 			{ "null", TokenType::Null },
 			{ "true", TokenType::True },
+			
+			{ "async", TokenType::Async },
+			{ "await", TokenType::Await },
+			{ "yield", TokenType::Yield },
 
 			{ "#benchmark" , TokenType::SBenchmark },
 			{ "#conditional" , TokenType::SConditional },
@@ -999,6 +1011,15 @@ namespace Noctis
 
 		usize end = content.find_first_not_of("0123456789._", offset);
 		StdStringView digitsView = content.substr(offset, end - offset);
+		
+		// Make sure that the range operator is not confused as being part of the literal, i.e 1.. -> 1 ..
+		usize doubleDotPos = digitsView.find("..");
+		if (doubleDotPos != StdString::npos && offset + doubleDotPos < end)
+		{
+			digitsView = content.substr(offset, doubleDotPos);
+			end = offset + doubleDotPos;
+		}
+
 		StdString digits;
 		digits.reserve(digitsView.size() + usize(neg));
 		if (neg)

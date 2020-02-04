@@ -11,24 +11,26 @@ namespace Noctis
 		// Keywords
 		Break,
 		Cast,
-		CConst,
+		Comptime,
 		Const,
 		Continue,
 		Defer,
 		Do,
 		Else,
 		Enum,
+		ErrDefer,
 		Fallthrough,
 		For,
 		Func,
 		Goto,
 		If,
-		Is,
 		Immutable,
 		Import,
 		Impl,
 		In,
 		NotIn,
+		Is,
+		NotIs,
 		Interface,
 		Lazy,
 		Loop,
@@ -37,15 +39,12 @@ namespace Noctis
 		Move,
 		Public,
 		Return,
-		StackDefer,
 		Static,
 		Struct,
 		Switch,
 		Throw,
 		Transmute,
 		Try,
-		TryQuestion,
-		TryExclaim,
 		Typealias,
 		Typedef,
 		Union,
@@ -72,12 +71,16 @@ namespace Noctis
 		U32,
 		U64,
 		U128,
-		Void,
 
 		// Constant keywords
 		False,
 		Null,
 		True,
+
+		// Reserved keywords
+		Async,
+		Await,
+		Yield,
 
 		// Special keywords
 		SBenchmark,
@@ -141,6 +144,7 @@ namespace Noctis
 		GreaterGreaterGreaterEq,
 		GreaterGreaterAsteriskEq,
 		Exclaim,
+		ExclaimExclaim,
 		ExclaimEq,
 		ExclaimLess,
 		ExclaimParen,
@@ -165,10 +169,10 @@ namespace Noctis
 		AtColon,
 		Question,
 		QuestionQuestion,
+		QuestionQuestionEquals,
 		QuestionColon,
 		QuestionDot,
 		QuestionBracket,
-		Dollar,
 		DollarParen,
 		DollarBrace,
 
@@ -192,6 +196,7 @@ namespace Noctis
 
 		// Other
 		Iden,
+		MacroIden,
 		EoL
 		
 	};

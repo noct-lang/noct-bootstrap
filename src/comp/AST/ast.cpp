@@ -30,8 +30,9 @@ namespace Noctis
 		ctx->endIdx = endIdx;
 	}
 
-	AstType::AstType(AstTypeKind kind, u64 startIdx, u64 endIdx)
-		: typeKind(kind)
+	AstType::AstType(AstAttribsSPtr attribs, AstTypeKind kind, u64 startIdx, u64 endIdx)
+		: attribs(attribs)
+		, typeKind(kind)
 		, ctx(new AstContext{})
 	{
 		ctx->startIdx = startIdx;
@@ -411,7 +412,7 @@ namespace Noctis
 	{
 	}
 
-	AstStackDeferStmt::AstStackDeferStmt(u64 startIdx, AstExprSPtr expr, u64 endIdx)
+	AstErrDeferStmt::AstErrDeferStmt(u64 startIdx, AstExprSPtr expr, u64 endIdx)
 		: AstStmt(AstStmtKind::StackDefer, startIdx, endIdx)
 		, expr(expr)
 	{
@@ -641,8 +642,8 @@ namespace Noctis
 	{
 	}
 
-	AstTryExpr::AstTryExpr(Token& tryTok, AstExprSPtr call)
-		: AstExpr(AstExprKind::Try, tryTok.Idx(), call->ctx->endIdx)
+	AstTryExpr::AstTryExpr(u64 startIdx, AstExprSPtr call)
+		: AstExpr(AstExprKind::Try, startIdx, call->ctx->endIdx)
 		, call(call)
 	{
 	}
@@ -671,71 +672,150 @@ namespace Noctis
 	{
 	}
 
-	AstBuiltinType::AstBuiltinType(const Token& tok)
-		: AstType(AstTypeKind::Builtin, tok.Idx(), tok.Idx())
+	AstBuiltinType::AstBuiltinType(AstAttribsSPtr attribs, const Token& tok)
+		: AstType(attribs, AstTypeKind::Builtin, tok.Idx(), tok.Idx())
 		, type(tok.Type())
 	{
 	}
 
-	AstIdentifierType::AstIdentifierType(AstQualNameSPtr qualName)
-		: AstType(AstTypeKind::Iden, qualName->ctx->startIdx, qualName->ctx->endIdx)
+	AstIdentifierType::AstIdentifierType(AstAttribsSPtr attribs, AstQualNameSPtr qualName)
+		: AstType(attribs, AstTypeKind::Iden, attribs ? attribs->ctx->startIdx : qualName->ctx->startIdx, 
+			qualName->ctx->endIdx)
 		, qualName(qualName)
 	{
 	}
 	
-	AstPointerType::AstPointerType(u64 startIdx, AstTypeSPtr subType)
-		: AstType(AstTypeKind::Ptr, startIdx, subType->ctx->endIdx)
+	AstPointerType::AstPointerType(AstAttribsSPtr attribs, u64 startIdx, AstTypeSPtr subType)
+		: AstType(attribs, AstTypeKind::Ptr, attribs ? attribs->ctx->startIdx : startIdx, subType->ctx->endIdx)
 		, subType(subType)
 	{
 	}
 
-	AstReferenceType::AstReferenceType(u64 startIdx, AstTypeSPtr subType)
-		: AstType(AstTypeKind::Ref, startIdx, subType->ctx->endIdx)
+	AstReferenceType::AstReferenceType(AstAttribsSPtr attribs, u64 startIdx, AstTypeSPtr subType)
+		: AstType(attribs, AstTypeKind::Ref, attribs ? attribs->ctx->startIdx : startIdx, subType->ctx->endIdx)
 		, subType(subType)
 	{
 	}
 
-	AstArrayType::AstArrayType(u64 startIdx, AstExprSPtr arraySize, AstTypeSPtr subType)
-		: AstType(AstTypeKind::Arr, startIdx, subType->ctx->endIdx)
+	AstArrayType::AstArrayType(AstAttribsSPtr attribs, u64 startIdx, AstExprSPtr arraySize, AstTypeSPtr subType)
+		: AstType(attribs, AstTypeKind::Arr, attribs ? attribs->ctx->startIdx : startIdx, subType->ctx->endIdx)
 		, arraySize(arraySize)
 		, subType(subType)
 	{
 	}
 
-	AstSliceType::AstSliceType(u64 startIdx, AstTypeSPtr subType)
-		: AstType(AstTypeKind::Slice, startIdx, subType->ctx->endIdx)
+	AstSliceType::AstSliceType(AstAttribsSPtr attribs, u64 startIdx, AstTypeSPtr subType)
+		: AstType(attribs, AstTypeKind::Slice, attribs ? attribs->ctx->startIdx : startIdx, subType->ctx->endIdx)
 		, subType(subType)
 	{
 	}
 
-	AstTupleType::AstTupleType(u64 startIdx, StdVector<AstTypeSPtr>&& subTypes, u64 endIdx)
-		: AstType(AstTypeKind::Tuple, startIdx, endIdx)
+	AstTupleType::AstTupleType(AstAttribsSPtr attribs, u64 startIdx, StdVector<AstTypeSPtr>&& subTypes, u64 endIdx)
+		: AstType(attribs, AstTypeKind::Tuple, attribs ? attribs->ctx->startIdx : startIdx, endIdx)
 		, subTypes(std::move(subTypes))
 	{
 	}
 
-	AstOptionalType::AstOptionalType(u64 lBraceTokIdx, AstTypeSPtr subType)
-		: AstType(AstTypeKind::Optional, lBraceTokIdx, subType->ctx->endIdx)
+	AstOptionalType::AstOptionalType(AstAttribsSPtr attribs, u64 startIdx, AstTypeSPtr subType)
+		: AstType(attribs, AstTypeKind::Optional, attribs ? attribs->ctx->startIdx : startIdx, subType->ctx->endIdx)
 		, subType(subType)
 	{
 	}
 
 	AstInlineStructType::AstInlineStructType(u64 startIdx, StdPairVector<StdVector<StdString>, AstTypeSPtr>&& members,
 		u64 endIdx)
-		: AstType(AstTypeKind::InlineStruct, startIdx, endIdx)
+		: AstType(nullptr, AstTypeKind::InlineStruct, startIdx, endIdx)
 		, members(std::move(members))
 	{
 	}
 
 	AstInlineEnumType::AstInlineEnumType(u64 startIdx, StdVector<StdString>&& members, u64 endIdx)
-		: AstType(AstTypeKind::InlineStruct, startIdx, endIdx)
+		: AstType(nullptr, AstTypeKind::InlineStruct, startIdx, endIdx)
 		, members(std::move(members))
 	{
 	}
 
 	AstCompoundInterfaceType::AstCompoundInterfaceType(StdVector<AstIdentifierTypeSPtr>&& interfaces)
-		: AstType(AstTypeKind::CompoundInterface, interfaces.front()->ctx->startIdx, interfaces.back()->ctx->endIdx)
+		: AstType(nullptr, AstTypeKind::CompoundInterface, interfaces.front()->ctx->startIdx, interfaces.back()->ctx->endIdx)
 		, interfaces(std::move(interfaces))
+	{
+	}
+
+	AstPattern::AstPattern(AstPatternKind kind, u64 startIdx, u64 endIdx)
+		: patternKind(kind)
+		, ctx(new AstContext{})
+	{
+		ctx->startIdx = startIdx;
+		ctx->endIdx = endIdx;
+	}
+
+	AstPlaceholderPattern::AstPlaceholderPattern(u64 tokIdx)
+		: AstPattern(AstPatternKind::Placeholder, tokIdx, tokIdx)
+	{
+	}
+
+	AstWildcardPattern::AstWildcardPattern(u64 tokIdx)
+		: AstPattern(AstPatternKind::Wildcard, tokIdx, tokIdx)
+	{
+	}
+
+	AstValueBindPattern::AstValueBindPattern(u64 startIdx, StdString&& iden, AstPatternSPtr subPattern, u64 endIdx)
+		: AstPattern(AstPatternKind::ValueBind, startIdx, endIdx)
+		, iden(std::move(iden))
+		, subPattern(subPattern)
+	{
+	}
+
+	AstLiteralPattern::AstLiteralPattern(Token& tok)
+		: AstPattern(AstPatternKind::Literal, tok.Idx(), tok.Idx())
+		, literal(tok)
+	{
+	}
+
+	AstRangePattern::AstRangePattern(AstPatternSPtr from, bool inclusive, AstPatternSPtr to)
+		: AstPattern(AstPatternKind::Range, from->ctx->startIdx, from->ctx->endIdx)
+		, from(from)
+		, inclusive(inclusive)
+		, to(to)
+	{
+	}
+
+	AstTuplePattern::AstTuplePattern(u64 startIdx, StdVector<AstPatternSPtr>&& subPatterns, u64 endIdx)
+		: AstPattern(AstPatternKind::Tuple, startIdx, endIdx)
+		, subPatterns(std::move(subPatterns))
+	{
+	}
+
+	AstEnumPattern::AstEnumPattern(u64 startIdx, StdString&& iden, StdVector<AstPatternSPtr>&& subPatterns, u64 endIdx)
+		: AstPattern(AstPatternKind::Enum, startIdx, endIdx)
+		, iden(std::move(iden))
+		, subPatterns(std::move(subPatterns))
+	{
+	}
+
+	AstAggrPattern::AstAggrPattern(AstQualNameSPtr qualName, StdPairVector<StdString, AstPatternSPtr>&& subPatterns, 
+		u64 endIdx)
+		: AstPattern(AstPatternKind::Aggr, qualName->ctx->startIdx, endIdx)
+		, qualName(qualName)
+		, subPatterns(std::move(subPatterns))
+	{
+	}
+
+	AstSlicePattern::AstSlicePattern(u64 startIdx, StdVector<AstPatternSPtr>&& subPatterns, u64 endIdx)
+		: AstPattern(AstPatternKind::Slice, startIdx, endIdx)
+		, subPatterns(std::move(subPatterns))
+	{
+	}
+
+	AstEitherPattern::AstEitherPattern(StdVector<AstPatternSPtr>&& subPatterns)
+		: AstPattern(AstPatternKind::Either, subPatterns.front()->ctx->startIdx, subPatterns.back()->ctx->endIdx)
+		, subPatterns(std::move(subPatterns))
+	{
+	}
+
+	AstTypePattern::AstTypePattern(u64 startIdx, AstTypeSPtr type)
+		: AstPattern(AstPatternKind::Type, startIdx, type->ctx->endIdx)
+		, type(type)
 	{
 	}
 
@@ -924,7 +1004,7 @@ namespace Noctis
 		ctx->endIdx = endIdx;
 	}
 
-	AstMacroRule::AstMacroRule(u64 startIdx, AstMacroPatternSPtr pattern, StdVector<AstStmtSPtr>&& body, u64 endIdx)
+	AstMacroRule::AstMacroRule(u64 startIdx, AstMacroPatternSPtr pattern, StdVector<Token>&& body, u64 endIdx)
 		: pattern(pattern)
 		, body(std::move(body))
 		, ctx(new AstContext{})
@@ -933,7 +1013,7 @@ namespace Noctis
 		ctx->endIdx = endIdx;
 	}
 
-	AstDeclMacro::AstDeclMacro(u64 startIdx, StdString&& iden, AstMacroPatternSPtr pattern, StdVector<AstStmtSPtr>&& body,
+	AstDeclMacro::AstDeclMacro(u64 startIdx, StdString&& iden, AstMacroPatternSPtr pattern, StdVector<Token>&& body,
 	                           u64 endIdx)
 		: AstDecl(AstDeclKind::DeclMacro, startIdx, endIdx)
 		, iden(std::move(iden))
@@ -951,7 +1031,7 @@ namespace Noctis
 	}
 
 	AstProcMacro::AstProcMacro(u64 startIdx, StdString&& iden, StdString&& tokStreamIden, AstMacroPatternSPtr pattern,
-	                           StdVector<AstStmtSPtr>&& body, u64 endIdx)
+	                           StdVector<Token>&& body, u64 endIdx)
 		: AstDecl(AstDeclKind::ProcMacro, startIdx, endIdx)
 		, iden(std::move(iden))
 		, tokStreamIden(std::move(tokStreamIden))

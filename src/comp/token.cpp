@@ -10,13 +10,14 @@ namespace Noctis
 			
 		case TokenType::Break: return "break";
 		case TokenType::Cast: return "cast";
-		case TokenType::CConst: return "cconst";
+		case TokenType::Comptime: return "comptime";
 		case TokenType::Const: return "const";
 		case TokenType::Continue: return "continue";
 		case TokenType::Defer: return "defer";
 		case TokenType::Do: return "do";
 		case TokenType::Else: return "else";
 		case TokenType::Enum: return "enum";
+		case TokenType::ErrDefer: return "errdefer";
 		case TokenType::Fallthrough: return "fallthrough";
 		case TokenType::For: return "for";
 		case TokenType::Func: return "func";
@@ -29,6 +30,7 @@ namespace Noctis
 		case TokenType::NotIn: return "!in";
 		case TokenType::Interface: return "interface";
 		case TokenType::Is: return "is";
+		case TokenType::NotIs: return "!is";
 		case TokenType::Lazy: return "lazy";
 		case TokenType::Loop: return "loop";
 		case TokenType::Macro: return "macro";
@@ -36,15 +38,12 @@ namespace Noctis
 		case TokenType::Move: return "move";
 		case TokenType::Public: return "public";
 		case TokenType::Return: return "return";
-		case TokenType::StackDefer: return "stack_defer";
 		case TokenType::Static: return "static";
 		case TokenType::Struct: return "struct";
 		case TokenType::Switch: return "switch";
 		case TokenType::Throw: return "throw";
 		case TokenType::Transmute: return "transmute";
 		case TokenType::Try: return "try";
-		case TokenType::TryQuestion: return "try?";
-		case TokenType::TryExclaim: return "try!";
 		case TokenType::Typealias: return "typealias";
 		case TokenType::Typedef: return "typedef";
 		case TokenType::Union: return "union";
@@ -69,11 +68,14 @@ namespace Noctis
 		case TokenType::U32: return "u32";
 		case TokenType::U64: return "u64";
 		case TokenType::U128: return "u128";
-		case TokenType::Void: return "void";
 			
 		case TokenType::False: return "false";
 		case TokenType::Null: return "null";
 		case TokenType::True: return "true";
+			
+		case TokenType::Async: return "async";
+		case TokenType::Await: return "await";
+		case TokenType::Yield: return "yield";
 
 		case TokenType::SBenchmark: return "#benchmark";
 		case TokenType::SConditional: return "#conditional";
@@ -135,6 +137,7 @@ namespace Noctis
 		case TokenType::GreaterGreaterGreaterEq: return ">>>=";
 		case TokenType::GreaterGreaterAsteriskEq: return ">>*=";
 		case TokenType::Exclaim: return "!";
+		case TokenType::ExclaimExclaim: return "!!";
 		case TokenType::ExclaimEq: return "!=";
 		case TokenType::ExclaimLess: return "!<";
 		case TokenType::ExclaimParen: return "!(";
@@ -159,10 +162,10 @@ namespace Noctis
 		case TokenType::AtColon: return "@:";
 		case TokenType::Question: return "?";
 		case TokenType::QuestionQuestion: return "??";
+		case TokenType::QuestionQuestionEquals: return "??=";
 		case TokenType::QuestionColon: return "?:";
 		case TokenType::QuestionDot: return "?.";
 		case TokenType::QuestionBracket: return "?[";
-		case TokenType::Dollar: return "$";
 		case TokenType::DollarParen: return "$(";
 		case TokenType::DollarBrace: return "${";
 			
@@ -184,6 +187,7 @@ namespace Noctis
 		case TokenType::U128Lit: return "U128Lit";
 
 		case TokenType::Iden: return "Iden";
+		case TokenType::MacroIden: return "MacroIden";
 		case TokenType::EoL: return "EoL";
 		default: return "__unknown__";
 		}

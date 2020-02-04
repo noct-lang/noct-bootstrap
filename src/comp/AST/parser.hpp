@@ -68,7 +68,7 @@ namespace Noctis
 		AstStmtSPtr ParseReturnStmt();
 		AstStmtSPtr ParseExprStmt();
 		AstStmtSPtr ParseDeferStmt();
-		AstStmtSPtr ParseStackDeferStmt();
+		AstStmtSPtr ParseErrDeferStmt();
 		AstStmtSPtr ParseUnsafeStmt();
 		AstStmtSPtr ParseErrorHandlerStmt();
 		AstStmtSPtr ParseCompIfStmt();
@@ -78,7 +78,8 @@ namespace Noctis
 
 		AstExprSPtr ParseCommaExpression();
 
-		AstExprSPtr ParseExpression(AstExprSPtr prev = nullptr, bool allowBlockExpr = false);
+		AstExprSPtr ParseExpression(AstExprSPtr prev = nullptr, bool allowBlockExpr = false, 
+			bool allowAggrInit = true);
 		AstExprSPtr ParseOperand(AstExprSPtr prev);
 
 		AstExprSPtr ParseAssignmentExpr(AstExprSPtr lExpr);
@@ -110,16 +111,26 @@ namespace Noctis
 		AstExprSPtr ParseMacroVarExpr();
 			
 		AstTypeSPtr ParseType(bool structKwOptional = false);
-		AstIdentifierTypeSPtr ParseIdentifierType();
-		AstTypeSPtr ParsePointerType();
-		AstTypeSPtr ParseReferenceType();
-		AstTypeSPtr ParseArraySliceType();
-		AstTypeSPtr ParseTupleType();
-		AstTypeSPtr ParseOptionalType();
+		AstIdentifierTypeSPtr ParseIdentifierType(AstAttribsSPtr attribs = nullptr);
+		AstTypeSPtr ParsePointerType(AstAttribsSPtr attribs);
+		AstTypeSPtr ParseReferenceType(AstAttribsSPtr attribs);
+		AstTypeSPtr ParseArraySliceType(AstAttribsSPtr attribs);
+		AstTypeSPtr ParseTupleType(AstAttribsSPtr attribs);
+		AstTypeSPtr ParseOptionalType(AstAttribsSPtr attribs);
 		AstTypeSPtr ParseInlineStructType(bool structKwOptional = false);
 		AstTypeSPtr ParseInlineEnumType();
 		AstTypeSPtr ParseCompoundInterfaceType(AstIdentifierTypeSPtr first);
 
+		AstPatternSPtr ParsePattern();
+		AstPatternSPtr ParseValueBindPattern(StdString&& iden);
+		AstPatternSPtr ParseRangePattern(AstPatternSPtr pattern);
+		AstPatternSPtr ParseTuplePattern();
+		AstPatternSPtr ParseEnumPattern(StdString&& iden);
+		AstPatternSPtr ParseAggrPattern(AstQualNameSPtr qualName);
+		AstPatternSPtr ParseSlicePattern();
+		AstPatternSPtr ParseEitherPattern(AstPatternSPtr pattern);
+		AstPatternSPtr ParseTypePattern();
+		
 		AstAttribsSPtr ParseAttributes();
 		AstCompAttribSPtr ParseCompAttribute();
 		AstUserAttribSPtr ParseUserAttribute();
@@ -134,9 +145,10 @@ namespace Noctis
 		AstMacroPatternElemSPtr ParseMacroSeparator();
 		AstMacroPatternElemSPtr ParseMacroFragment();
 		AstMacroPatternSPtr ParseMacroPattern();
-		AstMacroRuleSPtr ParseMacroRules();
+		AstMacroRuleSPtr ParseMacroRule();
 		AstDeclSPtr ParseDeclMacro();
 		AstDeclSPtr ParseProcMacro();
+		StdVector<Token> ParseMacroBody();
 		AstExprSPtr ParseMacroInst(AstQualNameSPtr qualName);
 
 		AstQualNameSPtr ParseQualName();

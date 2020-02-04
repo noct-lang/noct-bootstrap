@@ -121,6 +121,21 @@ namespace Noctis
 		CompoundInterface,
 	};
 
+	enum class AstPatternKind : u8
+	{
+		Placeholder,
+		Wildcard,
+		ValueBind,
+		Literal,
+		Range,
+		Tuple,
+		Enum,
+		Aggr,
+		Slice,
+		Either,
+		Type
+	};
+
 	enum class GenericArgKind : u8
 	{
 		Type,
@@ -139,6 +154,20 @@ namespace Noctis
 		Separator,
 		Fragment
 	};
+
+	FWD_DECL_SPTR(AstLabelStmt);
+	FWD_DECL_SPTR(AstIdentifierType);
+	FWD_DECL_SPTR(AstPattern);
+	FWD_DECL_SPTR(AstAttribs);
+	FWD_DECL_SPTR(AstCompAttrib);
+	FWD_DECL_SPTR(AstUserAttrib);
+	FWD_DECL_SPTR(AstVisibilityAttrib);
+	FWD_DECL_SPTR(AstSimpleAttrib);
+	FWD_DECL_SPTR(AstGenericDecl);
+	FWD_DECL_SPTR(AstGenericWhereClause);
+	FWD_DECL_SPTR(AstGenericTypeParam);
+	FWD_DECL_SPTR(AstGenericValueParam);
+	FWD_DECL_SPTR(AstMacroPattern);
 	
 	struct AstStmt
 	{
@@ -168,25 +197,13 @@ namespace Noctis
 
 	struct AstType
 	{
-		AstType(AstTypeKind nodeKkindind, u64 startIdx, u64 endIdx);
+		AstType(AstAttribsSPtr attribs, AstTypeKind kKind, u64 startIdx, u64 endIdx);
 
+		AstAttribsSPtr attribs;
 		AstTypeKind typeKind;
 		AstContextPtr ctx;
 	};
 	using AstTypeSPtr = StdSharedPtr<AstType>;
-
-	FWD_DECL_SPTR(AstLabelStmt);
-	FWD_DECL_SPTR(AstIdentifierType);
-	FWD_DECL_SPTR(AstGenericDecl);
-	FWD_DECL_SPTR(AstGenericWhereClause);
-	FWD_DECL_SPTR(AstAttribs);
-	FWD_DECL_SPTR(AstCompAttrib);
-	FWD_DECL_SPTR(AstUserAttrib);
-	FWD_DECL_SPTR(AstVisibilityAttrib);
-	FWD_DECL_SPTR(AstSimpleAttrib);
-	FWD_DECL_SPTR(AstGenericTypeParam);
-	FWD_DECL_SPTR(AstGenericValueParam);
-	FWD_DECL_SPTR(AstMacroPattern);
 
 	struct AstTree
 	{
@@ -543,8 +560,8 @@ namespace Noctis
 
 	struct AstSwitchCase
 	{
-		AstExprSPtr staticExpr;
-		AstExprSPtr dynamicExpr;
+		AstPatternSPtr pattern;
+		AstExprSPtr expr;
 		AstStmtSPtr body;
 	};
 
@@ -611,9 +628,9 @@ namespace Noctis
 		AstExprSPtr expr;
 	};
 
-	struct AstStackDeferStmt : public AstStmt
+	struct AstErrDeferStmt : public AstStmt
 	{
-		AstStackDeferStmt(u64 startIdx, AstExprSPtr stmt, u64 endIdx);
+		AstErrDeferStmt(u64 startIdx, AstExprSPtr stmt, u64 endIdx);
 
 		AstExprSPtr expr;
 	};
@@ -877,9 +894,8 @@ namespace Noctis
 
 	struct AstTryExpr : public AstExpr
 	{
-		AstTryExpr(Token& tryTok, AstExprSPtr call);
+		AstTryExpr(u64 startIdx, AstExprSPtr call);
 
-		TokenType tryType;
 		AstExprSPtr call;
 	};
 
@@ -913,35 +929,36 @@ namespace Noctis
 
 	struct AstBuiltinType : public AstType
 	{
-		AstBuiltinType(const Token& tok);
+		AstBuiltinType(AstAttribsSPtr attribs, const Token& tok);
 
 		TokenType type;
 	};
 
 	struct AstIdentifierType : public AstType
 	{
-		AstIdentifierType(AstQualNameSPtr qualName);
+		AstIdentifierType(AstAttribsSPtr attribs, AstQualNameSPtr qualName);
 
 		AstQualNameSPtr qualName;
 	};
 
 	struct AstPointerType : public AstType
 	{
-		AstPointerType(u64 asteriskTokIdx, AstTypeSPtr subType);
+		AstPointerType(AstAttribsSPtr attribs, u64 startIdx, AstTypeSPtr subType);
 
 		AstTypeSPtr subType;
 	};
 
 	struct AstReferenceType : public AstType
 	{
-		AstReferenceType(u64 andTokIdx, AstTypeSPtr subType);
+		AstReferenceType(AstAttribsSPtr attribs, u64 startIdx, AstTypeSPtr subType);
 
 		AstTypeSPtr subType;
 	};
 
 	struct AstArrayType : public AstType
 	{
-		AstArrayType(u64 lBracketTokIdx, AstExprSPtr arraySize, AstTypeSPtr subType);
+		AstArrayType(AstAttribsSPtr attribs, u64 startIdx, AstExprSPtr arraySize,
+			AstTypeSPtr subType);
 
 		AstExprSPtr arraySize;
 		AstTypeSPtr subType;
@@ -949,21 +966,22 @@ namespace Noctis
 
 	struct AstSliceType : public AstType
 	{
-		AstSliceType(u64 lBraceTokIdx, AstTypeSPtr subType);
+		AstSliceType(AstAttribsSPtr attribs, u64 startIdx, AstTypeSPtr subType);
 
 		AstTypeSPtr subType;
 	};
 
 	struct AstTupleType : public AstType
 	{
-		AstTupleType(u64 lParenTokIdx, StdVector<AstTypeSPtr>&& subTypes, u64 rParenTokIdx);
+		AstTupleType(AstAttribsSPtr attribs, u64 startIdx, StdVector<AstTypeSPtr>&& subTypes,
+			u64 rParenTokIdx);
 
 		StdVector<AstTypeSPtr> subTypes;
 	};
 
 	struct AstOptionalType : public AstType
 	{
-		AstOptionalType(u64 lBraceTokIdx, AstTypeSPtr subType);
+		AstOptionalType(AstAttribsSPtr attribs, u64 startIdx, AstTypeSPtr subType);
 
 		AstTypeSPtr subType;
 	};
@@ -991,6 +1009,93 @@ namespace Noctis
 		StdVector<AstIdentifierTypeSPtr> interfaces;
 	};
 
+	struct AstPattern
+	{
+		AstPattern(AstPatternKind kind, u64 startIdx, u64 endIdx);
+
+		AstPatternKind patternKind;
+		AstContextPtr ctx;
+	};
+
+	struct AstPlaceholderPattern : public AstPattern
+	{
+		AstPlaceholderPattern(u64 tokIdx);
+	};
+
+	struct AstWildcardPattern : public AstPattern
+	{
+		AstWildcardPattern(u64 tokIdx);
+	};
+
+	struct AstValueBindPattern : public AstPattern
+	{
+		AstValueBindPattern(u64 startIdx, StdString&& iden, AstPatternSPtr subPattern, u64 endIdx);
+
+		StdString iden;
+		AstPatternSPtr subPattern;
+	};
+
+	struct AstLiteralPattern : public AstPattern
+	{
+		AstLiteralPattern(Token& tok);
+		
+		Token literal;
+	};
+
+	struct AstRangePattern : public AstPattern
+	{
+		AstRangePattern(AstPatternSPtr from, bool inclusive, AstPatternSPtr to);
+
+		AstPatternSPtr from;
+		bool inclusive;
+		AstPatternSPtr to;
+	};
+
+	struct AstTuplePattern : public AstPattern
+	{
+		AstTuplePattern(u64 startIdx, StdVector<AstPatternSPtr>&& subPatterns, u64 endIdx);
+
+		StdVector<AstPatternSPtr> subPatterns;
+	};
+
+	struct AstEnumPattern : public AstPattern
+	{
+		AstEnumPattern(u64 startIdx, StdString&& iden, StdVector<AstPatternSPtr>&& subPatterns, u64 endIdx);
+
+		StdString iden;
+		StdVector<AstPatternSPtr> subPatterns;
+	};
+
+	struct AstAggrPattern : public AstPattern
+	{
+		AstAggrPattern(AstQualNameSPtr qualName, StdPairVector<StdString, AstPatternSPtr>&& subPatterns,
+			u64 endIdx);
+
+		AstQualNameSPtr qualName;
+		StdPairVector<StdString, AstPatternSPtr> subPatterns;
+	};
+
+	struct AstSlicePattern : public AstPattern
+	{
+		AstSlicePattern(u64 startIdx, StdVector<AstPatternSPtr>&& subPatterns, u64 endIdx);
+
+		StdVector<AstPatternSPtr> subPatterns;
+	};
+
+	struct AstEitherPattern : public AstPattern
+	{
+		AstEitherPattern(StdVector<AstPatternSPtr>&& subPatterns);
+
+		StdVector<AstPatternSPtr> subPatterns;
+	};
+
+	struct AstTypePattern : public AstPattern
+	{
+		AstTypePattern(u64 startIdx, AstTypeSPtr type);
+
+		AstTypeSPtr type;
+	};
+	
 	struct AstAttribs
 	{
 		AstAttribs(u64 startIdx, StdVector<AstCompAttribSPtr>&& compAttribs,
@@ -1122,7 +1227,8 @@ namespace Noctis
 		Qual,
 		Iden,
 		Attr,
-		Toks
+		Toks,
+		Patr,
 	};
 
 	struct AstMacroPatternElem
@@ -1169,11 +1275,11 @@ namespace Noctis
 
 	struct AstMacroRule
 	{
-		AstMacroRule(u64 startIdx, AstMacroPatternSPtr pattern, StdVector<AstStmtSPtr>&& body,
+		AstMacroRule(u64 startIdx, AstMacroPatternSPtr pattern, StdVector<Token>&& body,
 			u64 endIdx);
 
 		AstMacroPatternSPtr pattern;
-		StdVector<AstStmtSPtr> body;
+		StdVector<Token> body;
 		AstContextPtr ctx;
 	};
 	using AstMacroRuleSPtr = StdSharedPtr<AstMacroRule>;
@@ -1181,11 +1287,11 @@ namespace Noctis
 	struct AstDeclMacro : public AstDecl
 	{
 		AstDeclMacro(u64 startIdx, StdString&& iden, AstMacroPatternSPtr pattern,
-			StdVector<AstStmtSPtr>&& body, u64 endIdx);
+			StdVector<Token>&& body, u64 endIdx);
 
 		StdString iden;
 		AstMacroPatternSPtr pattern;
-		StdVector<AstStmtSPtr> body;
+		StdVector<Token> body;
 	};
 
 	struct AstRulesDeclMacro : public AstDecl
@@ -1200,12 +1306,12 @@ namespace Noctis
 	struct AstProcMacro : public AstDecl
 	{
 		AstProcMacro(u64 startIdx, StdString&& iden, StdString&& tokStreamIden,
-			AstMacroPatternSPtr pattern, StdVector<AstStmtSPtr>&& body, u64 endIdx);
+			AstMacroPatternSPtr pattern, StdVector<Token>&& body, u64 endIdx);
 
 		StdString iden;
 		StdString tokStreamIden;
 		AstMacroPatternSPtr pattern;
-		StdVector<AstStmtSPtr> body;
+		StdVector<Token> body;
 	};
 
 	struct AstRulesProcMacro : public AstDecl
