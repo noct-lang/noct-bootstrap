@@ -46,9 +46,6 @@ filter "system:windows"
 project "Noctis"
     targetdir "build/bin/"
     files { "src/**.cpp", 
-            "src/common/**.hpp", 
-            "src/common/**.cpp", 
-            "src/comp/**.hpp", 
-            "src/comp/**.cpp", 
+            "src/**.hpp", 
             "src/3rdparty/**.hxx" }
     location "build/Noctis"
