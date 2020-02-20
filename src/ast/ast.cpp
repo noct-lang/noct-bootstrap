@@ -1,6 +1,7 @@
 #include "ast.hpp"
 #include "astvisitor.hpp"
 #include "common/logger.hpp"
+#include "tokens/token.hpp"
 
 namespace Noctis
 {
@@ -989,9 +990,10 @@ namespace Noctis
 	{
 	}
 
-	AstMacroFragment::AstMacroFragment(u64 startIdx, AstMacroPatternSPtr subPattern, TokenType repType, u64 endIdx)
+	AstMacroFragment::AstMacroFragment(u64 startIdx, AstMacroPatternSPtr subPattern, Token repTok, TokenType repType, u64 endIdx)
 		: AstMacroPatternElem(AstMacroPatternElemKind::Fragment, startIdx, endIdx)
 		, subPattern(subPattern)
+		, repTok(repTok)
 		, repType(repType)
 	{
 	}
@@ -1004,7 +1006,7 @@ namespace Noctis
 		ctx->endIdx = endIdx;
 	}
 
-	AstMacroRule::AstMacroRule(u64 startIdx, AstMacroPatternSPtr pattern, StdVector<Token>&& body, u64 endIdx)
+	AstMacroRule::AstMacroRule(u64 startIdx, AstMacroPatternSPtr pattern, TokenTree&& body, u64 endIdx)
 		: pattern(pattern)
 		, body(std::move(body))
 		, ctx(new AstContext{})
@@ -1013,8 +1015,7 @@ namespace Noctis
 		ctx->endIdx = endIdx;
 	}
 
-	AstDeclMacro::AstDeclMacro(u64 startIdx, StdString&& iden, AstMacroPatternSPtr pattern, StdVector<Token>&& body,
-	                           u64 endIdx)
+	AstDeclMacro::AstDeclMacro(u64 startIdx, StdString&& iden, AstMacroPatternSPtr pattern, TokenTree&& body, u64 endIdx)
 		: AstDecl(AstDeclKind::DeclMacro, startIdx, endIdx)
 		, iden(std::move(iden))
 		, pattern(pattern)
@@ -1022,8 +1023,7 @@ namespace Noctis
 	{
 	}
 
-	AstRulesDeclMacro::AstRulesDeclMacro(u64 startIdx, StdString&& iden, StdVector<AstMacroRuleSPtr>&& rules,
-	                                     u64 endIdx)
+	AstRulesDeclMacro::AstRulesDeclMacro(u64 startIdx, StdString&& iden, StdVector<AstMacroRuleSPtr>&& rules, u64 endIdx)
 		: AstDecl(AstDeclKind::RulesDeclMacro, startIdx, endIdx)
 		, iden(std::move(iden))
 		, rules(std::move(rules))
@@ -1031,7 +1031,7 @@ namespace Noctis
 	}
 
 	AstProcMacro::AstProcMacro(u64 startIdx, StdString&& iden, StdString&& tokStreamIden, AstMacroPatternSPtr pattern,
-	                           StdVector<Token>&& body, u64 endIdx)
+		TokenTree&& body, u64 endIdx)
 		: AstDecl(AstDeclKind::ProcMacro, startIdx, endIdx)
 		, iden(std::move(iden))
 		, tokStreamIden(std::move(tokStreamIden))
@@ -1041,7 +1041,7 @@ namespace Noctis
 	}
 
 	AstRulesProcMacro::AstRulesProcMacro(u64 startIdx, StdString&& iden, StdString&& tokStreamIden,
-	                                     StdVector<AstMacroRuleSPtr>&& rules, u64 endIdx)
+	    StdVector<AstMacroRuleSPtr>&& rules, u64 endIdx)
 		: AstDecl(AstDeclKind::RulesProcMacro, startIdx, endIdx)
 		, iden(std::move(iden))
 		, tokStreamIden(std::move(tokStreamIden))
@@ -1049,8 +1049,22 @@ namespace Noctis
 	{
 	}
 
-	AstMacroInst::AstMacroInst(AstQualNameSPtr qualName, StdVector<Token>& toks, u64 endIdx)
+	AstMacroInstStmt::AstMacroInstStmt(AstQualNameSPtr qualName, TokenTree&& toks, u64 endIdx)
+		: AstStmt(AstStmtKind::MacroInst, qualName->ctx->startIdx, endIdx)
+		, qualName(qualName)
+		, toks(std::move(toks))
+	{
+	}
+
+	AstMacroInstExpr::AstMacroInstExpr(AstQualNameSPtr qualName, TokenTree&& toks, u64 endIdx)
 		: AstExpr(AstExprKind::MacroInst, qualName->ctx->startIdx, endIdx)
+		, qualName(qualName)
+		, toks(std::move(toks))
+	{
+	}
+
+	AstMacroInstPattern::AstMacroInstPattern(AstQualNameSPtr qualName, TokenTree&& toks, u64 endIdx)
+		: AstPattern(AstPatternKind::MacroInst, qualName->ctx->startIdx, endIdx)
 		, qualName(qualName)
 		, toks(std::move(toks))
 	{

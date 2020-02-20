@@ -133,18 +133,17 @@ namespace Noctis
 	struct AstRulesDeclMacro;
 	struct AstProcMacro;
 	struct AstRulesProcMacro;
-	struct AstMacroInst;
+	
+	struct AstMacroInstStmt;
+	struct AstMacroInstExpr;
+	struct AstMacroInstPattern;
 
-#define  FWD_DECL_SPTR(type) \
-	struct type;\
-	using type##SPtr = StdSharedPtr<type>
-
-	FWD_DECL_SPTR(AstStmt);
-	FWD_DECL_SPTR(AstDecl);
-	FWD_DECL_SPTR(AstExpr);
-	FWD_DECL_SPTR(AstType);
-	FWD_DECL_SPTR(AstQualIden);
-	FWD_DECL_SPTR(AstPattern);
+	FWDECL_STRUCT_SPTR(AstStmt);
+	FWDECL_STRUCT_SPTR(AstDecl);
+	FWDECL_STRUCT_SPTR(AstExpr);
+	FWDECL_STRUCT_SPTR(AstType);
+	FWDECL_STRUCT_SPTR(AstQualIden);
+	FWDECL_STRUCT_SPTR(AstPattern);
 
 	class AstVisitor
 	{
@@ -280,15 +279,18 @@ namespace Noctis
 		virtual void Visit(AstRulesDeclMacro& node);
 		virtual void Visit(AstProcMacro& node);
 		virtual void Visit(AstRulesProcMacro& node);
-		virtual void Visit(AstMacroInst& node);
-
-	protected:
-		void Visit(AstStmtSPtr node);
-		void Visit(AstDeclSPtr node);
-		void Visit(AstExprSPtr node);
-		void Visit(AstTypeSPtr node);
-		void Visit(AstPatternSPtr node);
 		
+		virtual void Visit(AstMacroInstStmt& node);
+		virtual void Visit(AstMacroInstExpr& node);
+		virtual void Visit(AstMacroInstPattern& node);
+
+		virtual void Visit(AstStmtSPtr node);
+		virtual void Visit(AstDeclSPtr node);
+		virtual void Visit(AstExprSPtr node);
+		virtual void Visit(AstTypeSPtr node);
+		virtual void Visit(AstPatternSPtr node);
+		
+	protected:
 		void Walk(AstTree& tree);
 
 		void Walk(AstIden& node);
@@ -416,7 +418,10 @@ namespace Noctis
 		void Walk(AstRulesDeclMacro& node);
 		void Walk(AstProcMacro& node);
 		void Walk(AstRulesProcMacro& node);
-		void Walk(AstMacroInst& node);
+		
+		void Walk(AstMacroInstStmt& node);
+		void Walk(AstMacroInstExpr& node);
+		void Walk(AstMacroInstPattern& node);
 	};
 	
 }

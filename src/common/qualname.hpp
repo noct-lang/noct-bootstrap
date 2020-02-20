@@ -32,8 +32,10 @@ namespace Noctis
 		static QualNameSPtr Create(QualNameSPtr base, IdenSPtr iden);
 		static QualNameSPtr Create(QualNameSPtr base, StdStringView name);
 		static QualNameSPtr Create(const StdVector<StdString>& names);
+		static QualNameSPtr Create(const StdVector<IdenSPtr>& idens);
 
 		StdString ToString();
+		StdVector<IdenSPtr> AllIdens();
 
 		IdenSPtr Iden() { return m_Iden; };
 		QualNameSPtr Base() { return m_Base; }

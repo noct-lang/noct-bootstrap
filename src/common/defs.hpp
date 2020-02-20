@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <memory>
 #include <unordered_set>
+#include <stack>
 
 using i8  = int8_t;
 using i16 = int16_t;
@@ -26,6 +27,8 @@ using isize = ptrdiff_t;
 
 template<typename T>
 using StdVector = std::pmr::vector<T>;
+template<typename T>
+using StdStack = std::stack<T, std::pmr::deque<T>>;
 
 template<typename T0, typename T1>
 using StdPair = std::pair<T0, T1>;
@@ -46,6 +49,18 @@ template<typename T>
 using StdSharedPtr = std::shared_ptr<T>;
 template<typename T>
 using StdUniquePtr = std::unique_ptr<T>;
+
+#define FWDECL_STRUCT_SPTR(name) \
+	struct name; \
+	using name##SPtr = StdSharedPtr<name>
+
+#define FWDECL_CLASS_SPTR(name) \
+	class name; \
+	using name##SPtr = StdSharedPtr<name>
+
+#define FWDECL_STRUCT_UPTR(name) \
+	struct name; \
+	using name##UPtr = StdSharedPtr<name>
 
 #define DECLARE_ENUM_FLAGS(enumType) \
 	enumType operator|(enumType e0, enumType e1);\

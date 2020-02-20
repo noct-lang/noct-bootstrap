@@ -12,6 +12,9 @@
 #include "ast/ast.hpp"
 #include "semantic/semanticanalysis.hpp"
 #include "ast/astprinter.hpp"
+#include "common/qualname.hpp"
+#include "module/module.hpp"
+#include "tokens/token.hpp"
 
 void ProcessBuild(Noctis::Context& context)
 {
@@ -20,54 +23,104 @@ void ProcessBuild(Noctis::Context& context)
 	g_Logger.Log("Processing build command\n");
 
 	context.pCompContext = new Noctis::CompContext{};
-
-	const StdString& file = context.options.GetBuildOptions().buildFiles[0];
-	context.pCompContext->spanManager.SetCurFile(file);
-	g_ErrorSystem.SetCurrentFile(file);
-
-	StdString content = Noctis::ReadFileAsString(file);
-
-	Noctis::Lexer lexer{ &context };
-
+	StdUnorderedMap<Noctis::QualNameSPtr, Noctis::ModuleSPtr>& modules = context.pCompContext->modules;
 	Noctis::Timer timer{ true };
-	lexer.Lex(content);
-	timer.Stop();
 
-	if (context.options.GetBuildOptions().logTokens)
-		lexer.LogTokens();
-
-	g_Logger.Log(Noctis::Format("Lexer took %fms\n", timer.GetTimeMS()));
-
-	Noctis::Parser parser{ lexer.Tokens(), &context };
-
-	timer.Start();
-
-	Noctis::AstTree astTree;
-	astTree.filepath = file;
-	astTree.nodes = parser.Parse();
-	
-	timer.Stop();
-
-	if (context.options.GetBuildOptions().logParsedAst)
+	const StdVector<StdString>& filepaths = context.options.GetBuildOptions().buildFiles;
+	for (const StdString& filepath : filepaths)
 	{
-		Noctis::AstPrinter printer;
-		printer.Visit(astTree);
+		context.pCompContext->spanManager.SetCurFile(filepath);
+		g_ErrorSystem.SetCurrentFile(filepath);
+
+		StdString content;
+		bool couldRead = Noctis::ReadFileAsString(filepath, content);
+		if (!couldRead)
+		{
+			const char* pFilePath = filepath.c_str();
+			g_ErrorSystem.Error("Failed to open file '%s'", pFilePath);
+			continue;
+		}
+		
+		Noctis::Lexer lexer{ &context };
+
+		lexer.Lex(content);
+		timer.Stop();
+
+		if (context.options.GetBuildOptions().logTokens)
+			lexer.LogTokens();
+
+		g_Logger.Log(Noctis::Format("Lexer took %fms\n", timer.GetTimeMS()));
+
+		Noctis::Parser parser{ lexer.Tokens(), &context };
+
+		timer.Start();
+
+		Noctis::AstTree astTree;
+		astTree.filepath = filepath;
+		astTree.nodes = parser.Parse();
+
+		timer.Stop();
+
+		if (context.options.GetBuildOptions().logParsedAst)
+		{
+			Noctis::AstPrinter printer;
+			printer.Visit(astTree);
+		}
+
+		g_Logger.Log(Noctis::Format("Parser took %fms\n", timer.GetTimeMS()));
+
+		Noctis::QualNameSPtr moduleQualName;
+		if (astTree.nodes.size() != 0 && astTree.nodes[0]->stmtKind == Noctis::AstStmtKind::Decl)
+		{
+
+			Noctis::AstDecl* pDecl = static_cast<Noctis::AstDecl*>(astTree.nodes[0].get());
+			if (pDecl->declKind == Noctis::AstDeclKind::Module)
+			{
+				Noctis::AstModuleDecl* pModDecl = static_cast<Noctis::AstModuleDecl*>(pDecl);
+				moduleQualName = Noctis::QualName::Create(pModDecl->moduleIdens);
+			}
+		}
+
+		if (!moduleQualName)
+			moduleQualName = context.options.GetBuildOptions().moduleQualName;
+
+		if (!moduleQualName)
+		{
+			g_ErrorSystem.Error("No module name is defined and no default name is passed to the compiler!");
+			continue;
+		}
+
+		auto it = modules.find(moduleQualName);
+		if (it == modules.end())
+		{
+			it = modules.insert(std::pair{ moduleQualName, Noctis::ModuleSPtr{ new Noctis::Module{} } }).first;
+		}
+		it->second->trees.push_back(astTree);		
+	}
+
+	for (StdPair<const Noctis::QualNameSPtr, Noctis::ModuleSPtr>& pair : modules)
+	{
+		context.pCompContext->activeModule = pair.second;
+		
+		Noctis::SemanticAnalysis semAnalysis{ &context };
+
+		for (Noctis::AstTree& tree : pair.second->trees)
+		{
+			timer.Start();
+			semAnalysis.Run(tree);
+			timer.Stop();
+
+			g_Logger.Log(Noctis::Format("Semantic analysis took %fms\n", timer.GetTimeMS()));
+
+			if (true || context.options.GetBuildOptions().logAst)
+			{
+				Noctis::AstPrinter printer;
+				printer.Visit(tree);
+			}
+
+		}
 	}
 	
-	g_Logger.Log(Noctis::Format("Parser took %fms\n", timer.GetTimeMS()));
-
-	Noctis::SemanticAnalysis semAnalysis{ &context };
-	timer.Start();
-	semAnalysis.Run(astTree);
-	timer.Stop();
-
-	g_Logger.Log(Noctis::Format("Semantic analysis took %fms\n", timer.GetTimeMS()));
-
-	if (context.options.GetBuildOptions().logAst)
-	{
-		Noctis::AstPrinter printer;
-		printer.Visit(astTree);
-	}
 
 	delete context.pCompContext;
 

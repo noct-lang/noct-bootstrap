@@ -9,7 +9,7 @@ namespace Noctis
 	public:
 		IdenScopePass(Context* pCtx);
 
-		void Visit(AstTree& tree) override;
+		void Process(AstTree& tree) override;
 
 		void Visit(AstTypeDisambiguation& node) override;
 		void Visit(AstIden& node) override;
@@ -132,7 +132,10 @@ namespace Noctis
 		void Visit(AstRulesDeclMacro& node) override;
 		void Visit(AstProcMacro& node) override;
 		void Visit(AstRulesProcMacro& node) override;
-		void Visit(AstMacroInst& node) override;
+		
+		void Visit(AstMacroInstStmt& node) override;
+		void Visit(AstMacroInstExpr& node) override;
+		void Visit(AstMacroInstPattern& node) override;
 
 	private:
 

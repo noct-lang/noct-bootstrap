@@ -12,6 +12,8 @@ namespace Noctis
 		SemanticPass(const char* pName, Context* pCtx);
 		virtual ~SemanticPass();
 
+		virtual void Process(AstTree& tree);
+
 	protected:
 		Timer m_Timer;
 		const char* m_pName;

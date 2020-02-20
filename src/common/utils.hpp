@@ -33,6 +33,6 @@ namespace Noctis
 		return Format(format.c_str(), args...);
 	}
 
-	StdString ReadFileAsString(const StdString& filepath);
+	bool ReadFileAsString(const StdString& filepath, StdString& content);
 	
 }

@@ -3,6 +3,8 @@
 #include "semanticutils.hpp"
 #include "common/context.hpp"
 #include "common/compcontext.hpp"
+#include "macros/declmacrocontextgen.hpp"
+#include "macros/declmacroexpansion.hpp"
 
 namespace Noctis
 {
@@ -15,15 +17,27 @@ namespace Noctis
 	{
 		{
 			IdenScopePass idenScopePass{ m_pCtx };
-			idenScopePass.Visit(tree);
+			idenScopePass.Process(tree);
 		}
 
 		{
 			StdUnorderedSet<QualNameSPtr> extractedImportMods = ExtractImportModules(tree, m_pCtx);
 			for (QualNameSPtr mod : extractedImportMods)
 			{
-				m_pCtx->pCompContext->importModules.try_emplace(mod, nullptr);
+				m_pCtx->pCompContext->modules.try_emplace(mod, nullptr);
 			}
+		}
+
+		// TODO: Load modules
+
+		{
+			DeclMacroContextGen contextGen{ m_pCtx };
+			contextGen.Process(tree);
+		}
+
+		{
+			DeclMacroExpansion expansion{ m_pCtx };
+			expansion.Process(tree);
 		}
 		
 	}

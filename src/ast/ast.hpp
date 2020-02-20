@@ -6,14 +6,11 @@
 
 namespace Noctis
 {
-#define  FWD_DECL_SPTR(type) \
-	struct type;\
-	using type##SPtr = StdSharedPtr<type>
-	
 	struct AstContext
 	{
 		u64 startIdx, endIdx;
 		QualNameSPtr scope;
+		QualNameSPtr qualName;
 		IdenSPtr iden;
 	};
 	using AstContextPtr = StdUniquePtr<AstContext>;
@@ -44,6 +41,7 @@ namespace Noctis
 		CompCond,
 		CompDebug,
 		MacroLoop,
+		MacroInst,
 	};
 
 	enum class AstDeclKind : u8
@@ -119,6 +117,7 @@ namespace Noctis
 		InlineStruct,
 		InlineEnum,
 		CompoundInterface,
+		MacroInst,
 	};
 
 	enum class AstPatternKind : u8
@@ -133,7 +132,8 @@ namespace Noctis
 		Aggr,
 		Slice,
 		Either,
-		Type
+		Type,
+		MacroInst
 	};
 
 	enum class GenericArgKind : u8
@@ -155,19 +155,19 @@ namespace Noctis
 		Fragment
 	};
 
-	FWD_DECL_SPTR(AstLabelStmt);
-	FWD_DECL_SPTR(AstIdentifierType);
-	FWD_DECL_SPTR(AstPattern);
-	FWD_DECL_SPTR(AstAttribs);
-	FWD_DECL_SPTR(AstCompAttrib);
-	FWD_DECL_SPTR(AstUserAttrib);
-	FWD_DECL_SPTR(AstVisibilityAttrib);
-	FWD_DECL_SPTR(AstSimpleAttrib);
-	FWD_DECL_SPTR(AstGenericDecl);
-	FWD_DECL_SPTR(AstGenericWhereClause);
-	FWD_DECL_SPTR(AstGenericTypeParam);
-	FWD_DECL_SPTR(AstGenericValueParam);
-	FWD_DECL_SPTR(AstMacroPattern);
+	FWDECL_STRUCT_SPTR(AstLabelStmt);
+	FWDECL_STRUCT_SPTR(AstIdentifierType);
+	FWDECL_STRUCT_SPTR(AstPattern);
+	FWDECL_STRUCT_SPTR(AstAttribs);
+	FWDECL_STRUCT_SPTR(AstCompAttrib);
+	FWDECL_STRUCT_SPTR(AstUserAttrib);
+	FWDECL_STRUCT_SPTR(AstVisibilityAttrib);
+	FWDECL_STRUCT_SPTR(AstSimpleAttrib);
+	FWDECL_STRUCT_SPTR(AstGenericDecl);
+	FWDECL_STRUCT_SPTR(AstGenericWhereClause);
+	FWDECL_STRUCT_SPTR(AstGenericTypeParam);
+	FWDECL_STRUCT_SPTR(AstGenericValueParam);
+	FWDECL_STRUCT_SPTR(AstMacroPattern);
 	
 	struct AstStmt
 	{
@@ -1257,10 +1257,11 @@ namespace Noctis
 
 	struct AstMacroFragment : public AstMacroPatternElem
 	{
-		AstMacroFragment(u64 startIdx, AstMacroPatternSPtr subPattern, TokenType repType, 
+		AstMacroFragment(u64 startIdx, AstMacroPatternSPtr subPattern, Token repTok, TokenType repType, 
 			u64 endTokIdx);
 
 		AstMacroPatternSPtr subPattern;
+		Token repTok;
 		TokenType repType;
 	};
 	
@@ -1275,11 +1276,11 @@ namespace Noctis
 
 	struct AstMacroRule
 	{
-		AstMacroRule(u64 startIdx, AstMacroPatternSPtr pattern, StdVector<Token>&& body,
+		AstMacroRule(u64 startIdx, AstMacroPatternSPtr pattern, TokenTree&& body,
 			u64 endIdx);
 
 		AstMacroPatternSPtr pattern;
-		StdVector<Token> body;
+		TokenTree body;
 		AstContextPtr ctx;
 	};
 	using AstMacroRuleSPtr = StdSharedPtr<AstMacroRule>;
@@ -1287,11 +1288,11 @@ namespace Noctis
 	struct AstDeclMacro : public AstDecl
 	{
 		AstDeclMacro(u64 startIdx, StdString&& iden, AstMacroPatternSPtr pattern,
-			StdVector<Token>&& body, u64 endIdx);
+			TokenTree&& body, u64 endIdx);
 
 		StdString iden;
 		AstMacroPatternSPtr pattern;
-		StdVector<Token> body;
+		TokenTree body;
 	};
 
 	struct AstRulesDeclMacro : public AstDecl
@@ -1306,12 +1307,12 @@ namespace Noctis
 	struct AstProcMacro : public AstDecl
 	{
 		AstProcMacro(u64 startIdx, StdString&& iden, StdString&& tokStreamIden,
-			AstMacroPatternSPtr pattern, StdVector<Token>&& body, u64 endIdx);
+			AstMacroPatternSPtr pattern, TokenTree&& body, u64 endIdx);
 
 		StdString iden;
 		StdString tokStreamIden;
 		AstMacroPatternSPtr pattern;
-		StdVector<Token> body;
+		TokenTree body;
 	};
 
 	struct AstRulesProcMacro : public AstDecl
@@ -1323,13 +1324,33 @@ namespace Noctis
 		StdVector<AstMacroRuleSPtr> rules;
 	};
 
-	struct AstMacroInst : public AstExpr
+	struct AstMacroInstStmt : public AstStmt
 	{
-		AstMacroInst(AstQualNameSPtr qualName, StdVector<Token>& toks, u64 endIdx);
+		AstMacroInstStmt(AstQualNameSPtr qualName, TokenTree&& toks, u64 endIdx);
 
 		AstQualNameSPtr qualName;
-		StdVector<Token> toks;
+		TokenTree toks;
+		AstStmtSPtr expandedStmt;
 	};
+
+	struct AstMacroInstExpr : public AstExpr
+	{
+		AstMacroInstExpr(AstQualNameSPtr qualName, TokenTree&& toks, u64 endIdx);
+
+		AstQualNameSPtr qualName;
+		TokenTree toks;
+		AstExprSPtr expandedExpr;
+	};
+
+	struct AstMacroInstPattern : public AstPattern
+	{
+		AstMacroInstPattern(AstQualNameSPtr qualName, TokenTree&& toks, u64 endIdx);
+
+		AstQualNameSPtr qualName;
+		TokenTree toks;
+		AstPatternSPtr expandedPattern;
+	};
+	
 
 	
 }

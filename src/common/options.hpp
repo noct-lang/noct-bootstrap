@@ -1,5 +1,6 @@
 #pragma once
 #include "defs.hpp"
+#include "qualname.hpp"
 
 namespace args
 {
@@ -18,6 +19,7 @@ namespace Noctis
 
 	struct BuildOptions
 	{
+		QualNameSPtr moduleQualName;
 		StdVector<StdString> buildFiles;
 		
 		bool logTokens : 1;

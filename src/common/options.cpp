@@ -57,6 +57,7 @@ namespace Noctis
 	void Options::ParseBuild(args::Subparser& parser)
 	{
 		args::PositionalList<std::string> buildFiles{ parser, "File names", "File names" };
+		args::ValueFlagList<std::string> moduleIdens{ parser, "Module name", "Module name if no module is defined in source", { "module-name" } };
 		args::Flag logTokens{ parser, "log tokens", "Log tokens", { "log-tokens" } };
 		args::Flag logParsedAst{ parser, "log parsed ast", "Log parsed ast", { "log-parsed-ast" } };
 		args::Flag logAst{ parser, "log ast", "Log ast", { "log-ast" } };
@@ -64,6 +65,11 @@ namespace Noctis
 		parser.Parse();
 
 		m_ToolMode = ToolMode::Build;
+
+		StdVector<StdString> tempModuleIdens;
+		tempModuleIdens.assign(moduleIdens.begin(), moduleIdens.end());
+		m_BuildOptions.moduleQualName = QualName::Create(tempModuleIdens);
+		
 		m_BuildOptions.buildFiles.assign(buildFiles.begin(), buildFiles.end());
 		
 		m_BuildOptions.logTokens = logTokens.Get();

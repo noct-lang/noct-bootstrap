@@ -61,22 +61,21 @@ namespace Noctis
 		return Format(format.data(), varList);
 	}
 
-	StdString ReadFileAsString(const StdString& filepath)
+	bool ReadFileAsString(const StdString& filepath, StdString& content)
 	{
 		std::ifstream ifs{ filepath.c_str() };
 		if (!ifs.is_open())
-			return "";
+			return false;
 
 		ifs.seekg(0, std::ios::end);
 		usize fileSize = ifs.tellg();
 
-		StdString content;
 		content.resize(fileSize + 1);
 		
 		ifs.seekg(0, std::ios::beg);
 		ifs.read(content.data(), fileSize);
 
 		ifs.close();
-		return content;
+		return true;
 	}
 }

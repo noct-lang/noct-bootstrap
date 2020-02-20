@@ -1,4 +1,7 @@
 #include "token.hpp"
+#include "span.hpp"
+#include "common/logger.hpp"
+#include <sstream>
 
 namespace Noctis
 {
@@ -243,5 +246,137 @@ namespace Noctis
 		, m_TokenIdx(tokenIdx)
 		, m_Fp(val)
 	{
+	}
+
+	bool Token::operator==(const Token& other) const
+	{
+		if (m_Type != other.m_Type)
+			return false;
+
+		switch (m_Type)
+		{
+		case TokenType::F16Lit:
+		case TokenType::F32Lit:
+		case TokenType::F64Lit:
+		case TokenType::F128Lit:
+			return m_Fp == other.m_Fp;
+		case TokenType::I8Lit:
+		case TokenType::I16Lit:
+		case TokenType::I32Lit:
+		case TokenType::I64Lit:
+		case TokenType::I128Lit:
+			return m_Signed == other.m_Signed;
+		case TokenType::U8Lit:
+		case TokenType::U16Lit:
+		case TokenType::U32Lit:
+		case TokenType::U64Lit:
+		case TokenType::U128Lit:
+		case TokenType::CharLit:
+			return m_Unsigned == other.m_Unsigned;
+		case TokenType::StringLit:
+		case TokenType::Iden:
+		case TokenType::MacroIden:
+			return m_Iden == other.m_Iden;
+		default:
+			return true;
+		}
+	}
+
+	bool Token::operator!=(const Token& other) const
+	{
+		return !(*this == other);
+	}
+
+	TokenTree::TokenTree()
+		: tok(TokenType::Unknown, u64(-1))
+	{
+	}
+
+	TokenTree::TokenTree(Token& tok)
+		: tok(tok)
+	{
+	}
+
+	TokenTree::TokenTree(StdVector<TokenTree>&& subToks)
+		: tok(TokenType::Unknown, u64(-1))
+		, subToks(std::move(subToks))
+	{
+	}
+
+	void TokenTree::Append(Token& tok)
+	{
+		subToks.push_back(TokenTree{ tok });
+	}
+
+	void TokenTree::Append(TokenTree& subTree)
+	{
+		subToks.push_back(subTree);
+	}
+
+	void TokenTree::ToToks(StdVector<Token>& toks)
+	{
+		if (subToks.empty())
+		{
+			toks.push_back(tok);
+			return;
+		}
+
+		for (TokenTree& subTok : subToks)
+		{
+			if (subTok.subToks.empty())
+				toks.push_back(subTok.tok);
+			else
+				subTok.ToToks(toks);
+		}
+	}
+
+	void TokenTree::LogTokens(SpanManager& spanManager, usize indent) const
+	{
+		for (usize i = 0; i < subToks.size(); ++i)
+		{
+			const TokenTree& subTree = subToks[i];
+
+			if (!subTree.subToks.empty())
+			{
+				subTree.LogTokens(spanManager, indent + 1);
+				continue;
+			}
+
+			for (usize j = 0; j < indent; ++j)
+			{
+				g_Logger.Log("|   ");
+			}
+			
+			const Token& tok = subTree.tok;
+			std::stringstream ss;
+
+			Noctis::Span span = spanManager.GetSpan(i);
+
+			ss << '[' << span.line << ':' << span.column << ']';
+			ss << ", ";
+			ss << Noctis::GetTokenTypeName(tok.Type());
+
+			if (tok.Type() == TokenType::Iden ||
+				tok.Type() == TokenType::MacroIden)
+			{
+				ss << ", ";
+				ss << tok.Text();
+			}
+
+			if (Noctis::IsTokenTypeSignedLiteral(tok.Type()))
+				ss << ", " << tok.Signed();
+			if (Noctis::IsTokenTypeUnsignedLiteral(tok.Type()))
+				ss << ", " << tok.Unsigned();
+			if (Noctis::IsTokenTypeFpLiteral(tok.Type()))
+				ss << ", " << tok.Fp();
+			if (tok.Type() == Noctis::TokenType::CharLit)
+				ss << ", " << tok.Signed();
+			if (tok.Type() == Noctis::TokenType::True || tok.Type() == Noctis::TokenType::False)
+				ss << ", " << tok.Bool();
+
+			ss << "\n";
+
+			g_Logger.Log(ss.str());
+		}
 	}
 }

@@ -3,6 +3,7 @@
 
 namespace Noctis
 {
+	class SpanManager;
 
 	enum class TokenType
 	{
@@ -225,6 +226,9 @@ namespace Noctis
 		i64 Unsigned() const { return m_Unsigned; }
 		f64 Fp() const { return m_Fp; }
 		bool Bool() const { return m_Bool; }
+
+		bool Token::operator==(const Token& other) const;
+		bool Token::operator!=(const Token& other) const;
 		
 	private:
 
@@ -239,6 +243,30 @@ namespace Noctis
 			bool m_Bool;
 		};
 		StdString m_Iden;
+	};
+
+	struct TokenTree
+	{
+		TokenTree();
+		TokenTree(Token& tok);
+		TokenTree(StdVector<TokenTree>&& subToks);
+		template<typename It>
+		TokenTree(It&& begin, It&& end)
+			: tok(TokenType::Unknown, u64(-1))
+		{
+			subToks.insert(subToks.end(), begin, end);
+		}
+
+		Token tok;
+		StdVector<TokenTree> subToks;
+
+		void Append(Token& tok);
+		void Append(TokenTree& subTree);
+
+		void ToToks(StdVector<Token>& toks);
+
+		// Debug utils
+		void LogTokens(SpanManager& spanManager, usize indent = 0) const;
 	};
 	
 }

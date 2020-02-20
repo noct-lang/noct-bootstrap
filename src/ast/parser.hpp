@@ -4,6 +4,7 @@
 
 namespace Noctis
 {
+	class MacroVarSolver;
 	struct Context;
 
 	class Parser
@@ -48,8 +49,7 @@ namespace Noctis
 		AstVarDeclSPtr ParseVarDecl(AstAttribsSPtr attribs);
 		AstVarDeclSPtr ParseVarDecl(AstAttribsSPtr attribs, u64 startIdx,
 			StdVector<StdString>&& idens);
-		AstDeclSPtr ParseFuncDecl(AstAttribsSPtr attribs);
-		AstDeclSPtr ParseMethodDecl(AstAttribsSPtr attribs);
+		AstDeclSPtr ParseFuncDecl(AstAttribsSPtr attribs, bool asMethod);
 		AstDeclSPtr ParseImplDecl(AstAttribsSPtr attribs);
 
 		AstStmtSPtr ParseImport(AstAttribsSPtr attribs);
@@ -66,7 +66,7 @@ namespace Noctis
 		AstStmtSPtr ParseFallthroughStmt();
 		AstStmtSPtr ParseGotoStmt();
 		AstStmtSPtr ParseReturnStmt();
-		AstStmtSPtr ParseExprStmt();
+		AstStmtSPtr ParseExprOrMacroStmt();
 		AstStmtSPtr ParseDeferStmt();
 		AstStmtSPtr ParseErrDeferStmt();
 		AstStmtSPtr ParseUnsafeStmt();
@@ -144,18 +144,25 @@ namespace Noctis
 		AstMacroPatternElemSPtr ParseMacroVar();
 		AstMacroPatternElemSPtr ParseMacroSeparator();
 		AstMacroPatternElemSPtr ParseMacroFragment();
-		AstMacroPatternSPtr ParseMacroPattern();
+		AstMacroPatternSPtr ParseMacroPattern(bool inFragment = false);
 		AstMacroRuleSPtr ParseMacroRule();
 		AstDeclSPtr ParseDeclMacro();
 		AstDeclSPtr ParseProcMacro();
-		StdVector<Token> ParseMacroBody();
-		AstExprSPtr ParseMacroInst(AstQualNameSPtr qualName);
+		TokenTree ParseTokenTree(Token firstTok = Token{ TokenType::Unknown, u64(-1) });
+		AstExprSPtr ParseMacroInstExpr(AstQualNameSPtr qualName);
+		AstPatternSPtr ParseMacroInstPattern(AstQualNameSPtr qualName);
 
-		AstQualNameSPtr ParseQualName();
-		StdVector<AstParamSPtr> ParseParams(bool allowNoType = false);
+		AstQualNameSPtr ParseQualName(bool genericInstWithLess);
+		AstQualIdenSPtr ParseQualIden(bool genericInstWithLess);
+		StdVector<AstParamSPtr> ParseParams(bool allowNoType);
 		AstParamSPtr ParseParam(bool allowNoType = false);
 		StdVector<AstArgSPtr> ParseArgs();
 		AstArgSPtr ParseArg();
+		StdString ParseIden();
+		StdString ParseIden(u64& tokIdx);
+
+		bool HasParsedAllTokens() const { return m_TokIdx == m_Tokens.size(); }
+		void SetMacroVarSolver(MacroVarSolver* pSolver) { m_pMacroSolver = pSolver; }
 
 	private:
 
@@ -163,7 +170,7 @@ namespace Noctis
 		StdVector<StdString> ParseIdenList(TokenType separator, u64& startIdx, u64& endIdx);
 
 		OpPrecedence GetPrecedence(TokenType op);
-		
+
 		Token& EatToken();
 		Token& EatToken(TokenType type);
 		Token& EatIdenToken(StdStringView text);
@@ -172,9 +179,12 @@ namespace Noctis
 		Token& PeekToken();
 		Token& PeekToken(u64 offset);
 
+		void InsertTreeIntoTokens(TokenTree& tree);
+
 		StdVector<Token> m_Tokens;
 		u64 m_TokIdx;
 		Context* m_pCtx;
+		MacroVarSolver* m_pMacroSolver;
 	};
 	
 }

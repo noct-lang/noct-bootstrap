@@ -11,7 +11,7 @@ namespace Noctis
 	{
 	}
 
-	void IdenScopePass::Visit(AstTree& tree)
+	void IdenScopePass::Process(AstTree& tree)
 	{
 		std::hash<StdString> hasher;
 		usize hash = hasher(tree.filepath);
@@ -23,18 +23,28 @@ namespace Noctis
 	{
 		node.ctx->scope = m_CurScope;
 		Walk(node);
+		// TODO: Iden
 	}
 
 	void IdenScopePass::Visit(AstIden& node)
 	{
 		node.ctx->scope = m_CurScope;
 		Walk(node);
+		// TODO: Generic args
+		node.ctx->iden = Iden::Create(node.iden);
 	}
 
 	void IdenScopePass::Visit(AstQualName& node)
 	{
 		node.ctx->scope = m_CurScope;
 		Walk(node);
+
+		StdVector<IdenSPtr> idens;
+		for (AstQualIdenSPtr iden : node.idens)
+		{
+			idens.push_back(iden->ctx->iden);
+		}
+		node.ctx->qualName = QualName::Create(idens);
 	}
 
 	void IdenScopePass::Visit(AstParam& node)
@@ -730,31 +740,50 @@ namespace Noctis
 	void IdenScopePass::Visit(AstDeclMacro& node)
 	{
 		node.ctx->scope = m_CurScope;
+		node.ctx->iden = Iden::Create(node.iden);
 		Walk(node);
 	}
 
 	void IdenScopePass::Visit(AstRulesDeclMacro& node)
 	{
 		node.ctx->scope = m_CurScope;
+		node.ctx->iden = Iden::Create(node.iden);
 		Walk(node);
 	}
 
 	void IdenScopePass::Visit(AstProcMacro& node)
 	{
 		node.ctx->scope = m_CurScope;
+		node.ctx->iden = Iden::Create(node.iden);
 		Walk(node);
 	}
 
 	void IdenScopePass::Visit(AstRulesProcMacro& node)
 	{
 		node.ctx->scope = m_CurScope;
+		node.ctx->iden = Iden::Create(node.iden);
 		Walk(node);
 	}
 
-	void IdenScopePass::Visit(AstMacroInst& node)
+	void IdenScopePass::Visit(AstMacroInstStmt& node)
 	{
 		node.ctx->scope = m_CurScope;
 		Walk(node);
+		node.ctx->qualName = node.qualName->ctx->qualName;
+	}
+
+	void IdenScopePass::Visit(AstMacroInstExpr& node)
+	{
+		node.ctx->scope = m_CurScope;
+		Walk(node);
+		node.ctx->qualName = node.qualName->ctx->qualName;
+	}
+
+	void IdenScopePass::Visit(AstMacroInstPattern& node)
+	{
+		node.ctx->scope = m_CurScope;
+		Walk(node);
+		node.ctx->qualName = node.qualName->ctx->qualName;
 	}
 
 	void IdenScopePass::GenericScope(std::unique_ptr<AstContext>& ctx, StdStringView name, AstGenericDeclSPtr generics)

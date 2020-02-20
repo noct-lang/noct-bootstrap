@@ -606,7 +606,17 @@ namespace Noctis
 		Walk(node);
 	}
 
-	void AstVisitor::Visit(AstMacroInst& node)
+	void AstVisitor::Visit(AstMacroInstStmt& node)
+	{
+		Walk(node);
+	}
+
+	void AstVisitor::Visit(AstMacroInstExpr& node)
+	{
+		Walk(node);
+	}
+
+	void AstVisitor::Visit(AstMacroInstPattern& node)
 	{
 		Walk(node);
 	}
@@ -640,6 +650,7 @@ namespace Noctis
 		case AstStmtKind::CompCond: Visit(*static_cast<AstCompCondStmt*>(node.get())); break;
 		case AstStmtKind::CompDebug: Visit(*static_cast<AstCompDebugStmt*>(node.get())); break;
 		case AstStmtKind::MacroLoop: Visit(*static_cast<AstMacroLoopStmt*>(node.get())); break;
+		case AstStmtKind::MacroInst: Visit(*static_cast<AstMacroInstStmt*>(node.get())); break;
 		default:
 			break;
 		}
@@ -706,7 +717,7 @@ namespace Noctis
 		case AstExprKind::Is: Visit(*static_cast<AstIsExpr*>(node.get())); break;
 		case AstExprKind::CompRun: Visit(*static_cast<AstCompRunExpr*>(node.get())); break;
 		case AstExprKind::MacroVar: Visit(*static_cast<AstMacroVarExpr*>(node.get())); break;
-		case AstExprKind::MacroInst: Visit(*static_cast<AstMacroInst*>(node.get())); break;
+		case AstExprKind::MacroInst: Visit(*static_cast<AstMacroInstExpr*>(node.get())); break;
 		default: ;
 		}
 	}
@@ -745,6 +756,7 @@ namespace Noctis
 		case AstPatternKind::Slice: Visit(*static_cast<AstSlicePattern*>(node.get())); break;
 		case AstPatternKind::Either: Visit(*static_cast<AstEitherPattern*>(node.get())); break;
 		case AstPatternKind::Type: Visit(*static_cast<AstTypePattern*>(node.get())); break;
+		case AstPatternKind::MacroInst: Visit(*static_cast<AstMacroInstPattern*>(node.get())); break;
 		default:;
 		}
 	}
@@ -1652,7 +1664,17 @@ namespace Noctis
 		}
 	}
 
-	void AstVisitor::Walk(AstMacroInst& node)
+	void AstVisitor::Walk(AstMacroInstStmt& node)
+	{
+		Visit(*node.qualName);
+	}
+
+	void AstVisitor::Walk(AstMacroInstExpr& node)
+	{
+		Visit(*node.qualName);
+	}
+
+	void AstVisitor::Walk(AstMacroInstPattern& node)
 	{
 		Visit(*node.qualName);
 	}

@@ -66,6 +66,16 @@ namespace Noctis
 		return qualName;
 	}
 
+	QualNameSPtr QualName::Create(const StdVector<IdenSPtr>& idens)
+	{
+		QualNameSPtr qualName;
+		for (const IdenSPtr iden : idens)
+		{
+			qualName = Create(qualName, iden);
+		}
+		return qualName;
+	}
+
 	StdString QualName::ToString()
 	{
 		QualName* qualName = this;
@@ -78,6 +88,20 @@ namespace Noctis
 		}
 		while (qualName);
 		return name;
+	}
+
+	StdVector<IdenSPtr> QualName::AllIdens()
+	{
+		StdVector<IdenSPtr> idens;
+		QualName* qualName = this;
+		do
+		{
+			idens.push_back(qualName->m_Iden);
+			qualName = qualName->m_Base.get();
+		}
+		while (qualName);
+		std::reverse(idens.begin(), idens.end());
+		return idens;
 	}
 
 	QualName::QualName(QualNameSPtr base, IdenSPtr iden)

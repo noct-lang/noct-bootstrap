@@ -10,6 +10,14 @@ namespace Noctis
 	{
 	public:
 
+		void Error(StdStringView text);
+		template<typename ...Args>
+		void Error(StdStringView format, Args&... args)
+		{
+			StdString text = Format(format, args...);
+			Error(text);
+		}
+
 		// Line and column
 		void Error(u64 line, u64 column, StdStringView text);
 		template<typename ...Args>

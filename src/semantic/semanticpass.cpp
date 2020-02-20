@@ -16,4 +16,9 @@ namespace Noctis
 		m_Timer.Stop();
 		g_Logger.Log("%s took %fms\n", m_pName, m_Timer.GetTimeMS());
 	}
+
+	void SemanticPass::Process(AstTree& tree)
+	{
+		Visit(tree);
+	}
 }

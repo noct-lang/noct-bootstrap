@@ -137,9 +137,13 @@ namespace Noctis
 		void Visit(AstRulesDeclMacro& node) override;
 		void Visit(AstProcMacro& node) override;
 		void Visit(AstRulesProcMacro& node) override;
-		void Visit(AstMacroInst& node) override;
+		
+		void Visit(AstMacroInstStmt& node) override;
+		void Visit(AstMacroInstExpr& node) override;
+		void Visit(AstMacroInstPattern& node) override;
 
 	private:
+		void PrintTokTree(TokenTree& tokTree);
 		void PrintIndent();
 		void PrintContextAndClose(AstContextPtr& ctx);
 
