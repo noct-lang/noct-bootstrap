@@ -1,7 +1,6 @@
-#include "idenscopepass.hpp"
+#include "iden-scope-pass.hpp"
 #include "common/utils.hpp"
 #include "common/context.hpp"
-#include "common/compcontext.hpp"
 
 namespace Noctis
 {

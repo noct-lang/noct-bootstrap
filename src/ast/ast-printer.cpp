@@ -1,4 +1,4 @@
-#include "astprinter.hpp"
+#include "ast-printer.hpp"
 #include "common/logger.hpp"
 
 namespace Noctis

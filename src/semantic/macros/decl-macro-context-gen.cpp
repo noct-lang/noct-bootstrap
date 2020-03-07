@@ -1,9 +1,9 @@
-#include "declmacrocontextgen.hpp"
+#include "decl-macro-context-gen.hpp"
 #include "common/context.hpp"
-#include "common/compcontext.hpp"
 #include "common/errorsystem.hpp"
 #include "ast/ast.hpp"
 #include "module/macro.hpp"
+#include "module/module.hpp"
 
 namespace Noctis
 {
@@ -19,11 +19,11 @@ namespace Noctis
 		case AstDeclKind::DeclMacro:
 		{
 			AstDeclMacroSPtr macroNode = *reinterpret_cast<AstDeclMacroSPtr*>(&node);
-			bool res = m_pCtx->pCompContext->activeModule->macroCtx.AddMacro(macroNode->ctx->scope, macroNode->ctx->iden, macroNode);
+			bool res = m_pCtx->activeModule->macroCtx.AddMacro(macroNode->ctx->scope, macroNode->ctx->iden, macroNode);
 
 			if (!res)
 			{
-				Span span = m_pCtx->pCompContext->spanManager.GetSpan(node->ctx->startIdx);
+				Span span = m_pCtx->spanManager.GetSpan(node->ctx->startIdx);
 				QualNameSPtr qualName = QualName::Create(node->ctx->scope, node->ctx->iden);
 				StdString qualNameStr = qualName->ToString();
 				const char* pQualNameStr = qualNameStr.c_str();

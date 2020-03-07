@@ -1,9 +1,10 @@
-#include "declmacroexpansion.hpp"
+#include "decl-macro-expansion.hpp"
 #include "common/context.hpp"
-#include "common/compcontext.hpp"
 #include "ast/ast.hpp"
 #include "common/errorsystem.hpp"
 #include "ast/parser.hpp"
+#include "module/macro.hpp"
+#include "module/module.hpp"
 
 namespace Noctis
 {
@@ -14,7 +15,7 @@ namespace Noctis
 
 	void DeclMacroExpansion::Visit(AstMacroInstStmt& node)
 	{
-		MacroContext& macroCtx = m_pCtx->pCompContext->activeModule->macroCtx;
+		MacroContext& macroCtx = m_pCtx->activeModule->macroCtx;
 		StdVector<DeclMacro> macros = macroCtx.GetDeclMacros(node.ctx->scope, node.ctx->qualName);
 
 		for (DeclMacro& macro : macros)
@@ -39,7 +40,7 @@ namespace Noctis
 
 			if (!parser.HasParsedAllTokens())
 			{
-				Span span = m_pCtx->pCompContext->spanManager.GetSpan(node.ctx->startIdx);
+				Span span = m_pCtx->spanManager.GetSpan(node.ctx->startIdx);
 				g_ErrorSystem.Error(span, "Failed to parse complete statement macro");
 			}
 		}
@@ -47,7 +48,7 @@ namespace Noctis
 
 	void DeclMacroExpansion::Visit(AstMacroInstExpr& node)
 	{
-		MacroContext& macroCtx = m_pCtx->pCompContext->activeModule->macroCtx;
+		MacroContext& macroCtx = m_pCtx->activeModule->macroCtx;
 		StdVector<DeclMacro> macros = macroCtx.GetDeclMacros(node.ctx->scope, node.ctx->qualName);
 
 		for (DeclMacro& macro : macros)

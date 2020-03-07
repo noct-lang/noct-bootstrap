@@ -1,10 +1,9 @@
-#include "semanticanalysis.hpp"
-#include "basic/idenscopepass.hpp"
-#include "semanticutils.hpp"
+#include "semantic-analysis.hpp"
+#include "basic/iden-scope-pass.hpp"
+#include "semantic-utils.hpp"
 #include "common/context.hpp"
-#include "common/compcontext.hpp"
-#include "macros/declmacrocontextgen.hpp"
-#include "macros/declmacroexpansion.hpp"
+#include "macros/decl-macro-context-gen.hpp"
+#include "macros/decl-macro-expansion.hpp"
 
 namespace Noctis
 {
@@ -24,7 +23,7 @@ namespace Noctis
 			StdUnorderedSet<QualNameSPtr> extractedImportMods = ExtractImportModules(tree, m_pCtx);
 			for (QualNameSPtr mod : extractedImportMods)
 			{
-				m_pCtx->pCompContext->modules.try_emplace(mod, nullptr);
+				m_pCtx->modules.try_emplace(mod, nullptr);
 			}
 		}
 

@@ -1,5 +1,5 @@
-#include "semanticutils.hpp"
-#include "semanticpass.hpp"
+#include "semantic-utils.hpp"
+#include "semantic-pass.hpp"
 #include "ast/ast.hpp"
 
 namespace Noctis

@@ -1,5 +1,5 @@
 #include "ast.hpp"
-#include "astvisitor.hpp"
+#include "ast-visitor.hpp"
 #include "common/logger.hpp"
 #include "tokens/token.hpp"
 

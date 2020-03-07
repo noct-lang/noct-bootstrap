@@ -1,20 +1,17 @@
+#include <string_view>
+#include <sstream>
 #include "common/context.hpp"
 #include "common/logger.hpp"
-
-#include <string_view>
-#include "tokens/lexer.hpp"
-#include <sstream>
-#include "common/compcontext.hpp"
 #include "common/errorsystem.hpp"
 #include "common/perf.hpp"
 #include "common/utils.hpp"
-#include "ast/parser.hpp"
-#include "ast/ast.hpp"
-#include "semantic/semanticanalysis.hpp"
-#include "ast/astprinter.hpp"
 #include "common/qualname.hpp"
 #include "module/module.hpp"
-#include "tokens/token.hpp"
+#include "tokens/lexer.hpp"
+#include "ast/parser.hpp"
+#include "ast/ast.hpp"
+#include "ast/ast-printer.hpp"
+#include "semantic/semantic-analysis.hpp"
 
 void ProcessBuild(Noctis::Context& context)
 {
@@ -22,14 +19,13 @@ void ProcessBuild(Noctis::Context& context)
 	
 	g_Logger.Log("Processing build command\n");
 
-	context.pCompContext = new Noctis::CompContext{};
-	StdUnorderedMap<Noctis::QualNameSPtr, Noctis::ModuleSPtr>& modules = context.pCompContext->modules;
+	StdUnorderedMap<Noctis::QualNameSPtr, Noctis::ModuleSPtr>& modules = context.modules;
 	Noctis::Timer timer{ true };
 
 	const StdVector<StdString>& filepaths = context.options.GetBuildOptions().buildFiles;
 	for (const StdString& filepath : filepaths)
 	{
-		context.pCompContext->spanManager.SetCurFile(filepath);
+		context.spanManager.SetCurFile(filepath);
 		g_ErrorSystem.SetCurrentFile(filepath);
 
 		StdString content;
@@ -100,7 +96,7 @@ void ProcessBuild(Noctis::Context& context)
 
 	for (StdPair<const Noctis::QualNameSPtr, Noctis::ModuleSPtr>& pair : modules)
 	{
-		context.pCompContext->activeModule = pair.second;
+		context.activeModule = pair.second;
 		
 		Noctis::SemanticAnalysis semAnalysis{ &context };
 
@@ -120,9 +116,6 @@ void ProcessBuild(Noctis::Context& context)
 
 		}
 	}
-	
-
-	delete context.pCompContext;
 
 	buildTimer.Stop();
 	g_Logger.Log(Noctis::Format("build took %fms\n", buildTimer.GetTimeMS()));

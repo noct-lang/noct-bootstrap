@@ -1,4 +1,4 @@
-#include "semanticpass.hpp"
+#include "semantic-pass.hpp"
 #include "common/logger.hpp"
 
 namespace Noctis

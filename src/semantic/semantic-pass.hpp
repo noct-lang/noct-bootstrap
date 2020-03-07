@@ -1,5 +1,5 @@
 #pragma once
-#include "AST/astvisitor.hpp"
+#include "AST/ast-visitor.hpp"
 #include "common/perf.hpp"
 
 namespace Noctis

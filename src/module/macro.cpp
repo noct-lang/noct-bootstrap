@@ -3,7 +3,6 @@
 #include "ast/parser.hpp"
 #include "common/errorsystem.hpp"
 #include "common/context.hpp"
-#include "common/compcontext.hpp"
 #include "tokens/token.hpp"
 
 namespace Noctis
@@ -82,7 +81,7 @@ namespace Noctis
 			{
 				if (toks.size() != 1)
 				{
-					Span span = pCtx->pCompContext->spanManager.GetSpan(toks[0].Idx());
+					Span span = pCtx->spanManager.GetSpan(toks[0].Idx());
 					g_ErrorSystem.Error(span, "expected a single identifier");
 					break;
 				}

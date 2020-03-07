@@ -1,7 +1,6 @@
 #include "lexer.hpp"
 #include "token.hpp"
 #include "common/context.hpp"
-#include "common/compcontext.hpp"
 #include <charconv>
 #include "common/errorsystem.hpp"
 #include <algorithm>
@@ -30,7 +29,7 @@ namespace Noctis
 	{
 		usize size = content.size();
 
-		SpanManager& spanManager = m_pCtx->pCompContext->spanManager;
+		SpanManager& spanManager = m_pCtx->spanManager;
 		
 		while (m_Index < size)
 		{
@@ -772,7 +771,7 @@ namespace Noctis
 			const Noctis::Token& tok = m_Tokens[i];
 			std::stringstream ss;
 
-			Noctis::Span span = m_pCtx->pCompContext->spanManager.GetSpan(i);
+			Noctis::Span span = m_pCtx->spanManager.GetSpan(i);
 
 			ss << '[' << span.line << ':' << span.column << ']';
 			ss << ", ";

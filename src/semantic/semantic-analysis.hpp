@@ -1,6 +1,6 @@
 #pragma once
 #include "common/defs.hpp"
-#include "semanticpass.hpp"
+#include "semantic-pass.hpp"
 
 namespace Noctis
 {

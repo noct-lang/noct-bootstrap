@@ -1,4 +1,4 @@
-#include "astvisitor.hpp"
+#include "ast-visitor.hpp"
 #include "ast.hpp"
 
 namespace Noctis
