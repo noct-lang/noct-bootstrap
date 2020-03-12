@@ -170,7 +170,7 @@ namespace Noctis
 		AtColon,
 		Question,
 		QuestionQuestion,
-		QuestionQuestionEquals,
+		QuestionQuestionEq,
 		QuestionColon,
 		QuestionDot,
 		QuestionBracket,

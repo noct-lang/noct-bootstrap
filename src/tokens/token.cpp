@@ -165,7 +165,7 @@ namespace Noctis
 		case TokenType::AtColon: return "@:";
 		case TokenType::Question: return "?";
 		case TokenType::QuestionQuestion: return "??";
-		case TokenType::QuestionQuestionEquals: return "??=";
+		case TokenType::QuestionQuestionEq: return "??=";
 		case TokenType::QuestionColon: return "?:";
 		case TokenType::QuestionDot: return "?.";
 		case TokenType::QuestionBracket: return "?[";

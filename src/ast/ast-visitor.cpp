@@ -206,6 +206,11 @@ namespace Noctis
 		Walk(node);
 	}
 
+	void AstVisitor::Visit(AstThrowStmt& node)
+	{
+		Walk(node);
+	}
+
 	void AstVisitor::Visit(AstExprStmt& node)
 	{
 		Walk(node);
@@ -377,11 +382,6 @@ namespace Noctis
 	}
 
 	void AstVisitor::Visit(AstTryExpr& node)
-	{
-		Walk(node);
-	}
-
-	void AstVisitor::Visit(AstThrowExpr& node)
 	{
 		Walk(node);
 	}
@@ -621,7 +621,7 @@ namespace Noctis
 		Walk(node);
 	}
 
-	void AstVisitor::Visit(AstStmtSPtr node)
+	void AstVisitor::Visit(AstStmtSPtr& node)
 	{
 		AstStmt* pStmt = node.get();
 		switch (pStmt->stmtKind)
@@ -641,9 +641,10 @@ namespace Noctis
 		case AstStmtKind::Fallthrough: Visit(*static_cast<AstFallthroughStmt*>(node.get())); break;
 		case AstStmtKind::Goto: Visit(*static_cast<AstGotoStmt*>(node.get())); break;
 		case AstStmtKind::Return: Visit(*static_cast<AstReturnStmt*>(node.get())); break;
+		case AstStmtKind::Throw: Visit(*static_cast<AstThrowStmt*>(node.get())); break;
 		case AstStmtKind::Expr: Visit(*static_cast<AstExprStmt*>(node.get())); break;
 		case AstStmtKind::Defer: Visit(*static_cast<AstDeferStmt*>(node.get())); break;
-		case AstStmtKind::StackDefer: Visit(*static_cast<AstErrDeferStmt*>(node.get())); break;
+		case AstStmtKind::ErrDefer: Visit(*static_cast<AstErrDeferStmt*>(node.get())); break;
 		case AstStmtKind::Unsafe: Visit(*static_cast<AstUnsafeStmt*>(node.get())); break;
 		case AstStmtKind::ErrorHandler: Visit(*static_cast<AstErrorHandlerStmt*>(node.get())); break;
 		case AstStmtKind::CompIf: Visit(*static_cast<AstCompIfStmt*>(node.get())); break;
@@ -656,7 +657,7 @@ namespace Noctis
 		}
 	}
 
-	void AstVisitor::Visit(AstDeclSPtr node)
+	void AstVisitor::Visit(AstDeclSPtr& node)
 	{
 		switch (node->declKind)
 		{
@@ -686,7 +687,7 @@ namespace Noctis
 		}
 	}
 
-	void AstVisitor::Visit(AstExprSPtr node)
+	void AstVisitor::Visit(AstExprSPtr& node)
 	{
 		switch (node->exprKind)
 		{
@@ -722,7 +723,7 @@ namespace Noctis
 		}
 	}
 
-	void AstVisitor::Visit(AstTypeSPtr node)
+	void AstVisitor::Visit(AstTypeSPtr& node)
 	{
 		switch (node->typeKind)
 		{
@@ -741,7 +742,7 @@ namespace Noctis
 		}
 	}
 
-	void AstVisitor::Visit(AstPatternSPtr node)
+	void AstVisitor::Visit(AstPatternSPtr& node)
 	{
 		switch (node->patternKind)
 		{
@@ -783,7 +784,7 @@ namespace Noctis
 	void AstVisitor::Walk(AstTypeDisambiguation& node)
 	{
 		Visit(node.type);
-		Visit(node.interface);
+		Visit(*node.interface);
 	}
 
 	void AstVisitor::Walk(AstQualName& node)
@@ -1114,6 +1115,11 @@ namespace Noctis
 		if (node.expr)
 			Visit(node.expr);
 	}
+	
+	void AstVisitor::Walk(AstThrowStmt& node)
+	{
+		Visit(node.expr);
+	}
 
 	void AstVisitor::Walk(AstExprStmt& node)
 	{
@@ -1349,11 +1355,6 @@ namespace Noctis
 	void AstVisitor::Walk(AstTryExpr& node)
 	{
 		Visit(node.call);
-	}
-
-	void AstVisitor::Walk(AstThrowExpr& node)
-	{
-		Visit(node.expr);
 	}
 
 	void AstVisitor::Walk(AstSpecKwExpr& node)

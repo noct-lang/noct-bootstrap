@@ -401,6 +401,14 @@ namespace Noctis
 	{
 	}
 
+
+	AstThrowStmt::AstThrowStmt(u64 startIdx, AstExprSPtr expr)
+		: AstStmt(AstStmtKind::Throw, startIdx, expr->ctx->endIdx)
+		, expr(expr)
+	{
+	}
+
+
 	AstExprStmt::AstExprStmt(AstExprSPtr expr, u64 endIdx)
 		: AstStmt(AstStmtKind::Expr, expr->ctx->startIdx, endIdx)
 		, expr(expr)
@@ -414,7 +422,7 @@ namespace Noctis
 	}
 
 	AstErrDeferStmt::AstErrDeferStmt(u64 startIdx, AstExprSPtr expr, u64 endIdx)
-		: AstStmt(AstStmtKind::StackDefer, startIdx, endIdx)
+		: AstStmt(AstStmtKind::ErrDefer, startIdx, endIdx)
 		, expr(expr)
 	{
 	}
@@ -444,17 +452,21 @@ namespace Noctis
 	{
 	}
 
-	AstCompCondStmt::AstCompCondStmt(u64 startIdx, Token cond, AstStmtSPtr body, AstStmtSPtr elseBody)
+	AstCompCondStmt::AstCompCondStmt(u64 startIdx, Token cond, Token cmp, Token val, AstStmtSPtr body, AstStmtSPtr elseBody)
 		: AstStmt(AstStmtKind::CompCond, startIdx, elseBody ? elseBody->ctx->endIdx : body->ctx->endIdx)
 		, cond(cond)
+		, cmp(cmp)
+		, val(val)
 		, body(body)
 		, elseBody(elseBody)
 	{
 	}
 
-	AstCompDebugStmt::AstCompDebugStmt(u64 startIdx, Token cond, AstStmtSPtr body, AstStmtSPtr elseBody)
+	AstCompDebugStmt::AstCompDebugStmt(u64 startIdx, Token cond, Token cmp, Token val, AstStmtSPtr body, AstStmtSPtr elseBody)
 		: AstStmt(AstStmtKind::CompDebug, startIdx, elseBody ? elseBody->ctx->endIdx : body->ctx->endIdx)
 		, cond(cond)
+		, cmp(cmp)
+		, val(val)
 		, body(body)
 		, elseBody(elseBody)
 	{
@@ -649,12 +661,6 @@ namespace Noctis
 	{
 	}
 
-	AstThrowExpr::AstThrowExpr(u64 startIdx, AstExprSPtr expr)
-		: AstExpr(AstExprKind::Throw, startIdx, expr->ctx->endIdx)
-		, expr(expr)
-	{
-	}
-
 	AstSpecKwExpr::AstSpecKwExpr(Token& tok)
 		: AstExpr(AstExprKind::SpecKw, tok.Idx(), tok.Idx())
 		, specKw(tok.Type())
@@ -787,9 +793,9 @@ namespace Noctis
 	{
 	}
 
-	AstEnumPattern::AstEnumPattern(u64 startIdx, StdString&& iden, StdVector<AstPatternSPtr>&& subPatterns, u64 endIdx)
+	AstEnumPattern::AstEnumPattern(u64 startIdx, AstQualNameSPtr iden, StdVector<AstPatternSPtr>&& subPatterns, u64 endIdx)
 		: AstPattern(AstPatternKind::Enum, startIdx, endIdx)
-		, iden(std::move(iden))
+		, iden(iden)
 		, subPatterns(std::move(subPatterns))
 	{
 	}

@@ -595,7 +595,7 @@ namespace Noctis
 						if (m_Index + 1 < size && content[m_Index + 1] == '=')
 						{
 							m_Index += 2;
-							m_Tokens.push_back({ TokenType::QuestionQuestionEquals, tokIdx });
+							m_Tokens.push_back({ TokenType::QuestionQuestionEq, tokIdx });
 							spanManager.AddSpan({ start, m_Index, m_Line, m_Column });
 							break;
 						}

@@ -108,7 +108,7 @@ void ProcessBuild(Noctis::Context& context)
 
 			g_Logger.Log(Noctis::Format("Semantic analysis took %fms\n", timer.GetTimeMS()));
 
-			if (true || context.options.GetBuildOptions().logAst)
+			if (context.options.GetBuildOptions().logAst)
 			{
 				Noctis::AstPrinter printer;
 				printer.Visit(tree);

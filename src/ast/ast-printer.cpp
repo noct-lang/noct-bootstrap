@@ -4,8 +4,7 @@
 namespace Noctis
 {
 	AstPrinter::AstPrinter()
-		: SemanticPass("AstPrinter", nullptr)
-		, m_Indent(0)
+		: m_Indent(0)
 	{
 	}
 
@@ -172,7 +171,7 @@ namespace Noctis
 			if (member.second)
 			{
 				++m_Indent;
-				SemanticPass::Visit(member.second);
+				AstVisitor::Visit(member.second);
 				--m_Indent;
 			}
 		}
@@ -613,6 +612,18 @@ namespace Noctis
 		--m_Indent;
 	}
 
+
+	void AstPrinter::Visit(AstThrowStmt& node)
+	{
+		PrintIndent();
+		g_Logger.Log("(throw-stmt");
+		PrintContextAndClose(node.ctx);
+		++m_Indent;
+		Walk(node);
+		--m_Indent;
+	}
+
+
 	void AstPrinter::Visit(AstExprStmt& node)
 	{
 		PrintIndent();
@@ -1009,16 +1020,6 @@ namespace Noctis
 		--m_Indent;
 	}
 
-	void AstPrinter::Visit(AstThrowExpr& node)
-	{
-		PrintIndent();
-		g_Logger.Log("(throw-expr");
-		PrintContextAndClose(node.ctx);
-		++m_Indent;
-		Walk(node);
-		--m_Indent;
-	}
-
 	void AstPrinter::Visit(AstSpecKwExpr& node)
 	{
 		PrintIndent();
@@ -1245,7 +1246,7 @@ namespace Noctis
 	void AstPrinter::Visit(AstEnumPattern& node)
 	{
 		PrintIndent();
-		g_Logger.Log("(enum-pattern '%s'", node.iden.c_str());
+		g_Logger.Log("(enum-pattern");
 		PrintContextAndClose(node.ctx);
 		++m_Indent;
 		Walk(node);

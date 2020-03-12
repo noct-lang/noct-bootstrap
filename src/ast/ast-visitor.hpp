@@ -47,6 +47,7 @@ namespace Noctis
 	struct AstFallthroughStmt;
 	struct AstGotoStmt;
 	struct AstReturnStmt;
+	struct AstThrowStmt;
 	struct AstExprStmt;
 	struct AstDeferStmt;
 	struct AstErrDeferStmt;
@@ -83,7 +84,6 @@ namespace Noctis
 	struct AstClosureExpr;
 	struct AstIsExpr;
 	struct AstTryExpr;
-	struct AstThrowExpr;
 	struct AstSpecKwExpr;
 	struct AstCompRunExpr;
 	struct AstMacroVarExpr;
@@ -193,6 +193,7 @@ namespace Noctis
 		virtual void Visit(AstFallthroughStmt& node);
 		virtual void Visit(AstGotoStmt& node);
 		virtual void Visit(AstReturnStmt& node);
+		virtual void Visit(AstThrowStmt& node);
 		virtual void Visit(AstExprStmt& node);
 		virtual void Visit(AstDeferStmt& node);
 		virtual void Visit(AstErrDeferStmt& node);
@@ -229,7 +230,6 @@ namespace Noctis
 		virtual void Visit(AstClosureExpr& node);
 		virtual void Visit(AstIsExpr& node);
 		virtual void Visit(AstTryExpr& node);
-		virtual void Visit(AstThrowExpr& node);
 		virtual void Visit(AstSpecKwExpr& node);
 		virtual void Visit(AstCompRunExpr& node);
 		virtual void Visit(AstMacroVarExpr& node);
@@ -284,11 +284,11 @@ namespace Noctis
 		virtual void Visit(AstMacroInstExpr& node);
 		virtual void Visit(AstMacroInstPattern& node);
 
-		virtual void Visit(AstStmtSPtr node);
-		virtual void Visit(AstDeclSPtr node);
-		virtual void Visit(AstExprSPtr node);
-		virtual void Visit(AstTypeSPtr node);
-		virtual void Visit(AstPatternSPtr node);
+		virtual void Visit(AstStmtSPtr& node);
+		virtual void Visit(AstDeclSPtr& node);
+		virtual void Visit(AstExprSPtr& node);
+		virtual void Visit(AstTypeSPtr& node);
+		virtual void Visit(AstPatternSPtr& node);
 		
 	protected:
 		void Walk(AstTree& tree);
@@ -332,6 +332,7 @@ namespace Noctis
 		void Walk(AstFallthroughStmt& node);
 		void Walk(AstGotoStmt& node);
 		void Walk(AstReturnStmt& node);
+		void Walk(AstThrowStmt& node);
 		void Walk(AstExprStmt& node);
 		void Walk(AstDeferStmt& node);
 		void Walk(AstErrDeferStmt& node);
@@ -368,7 +369,6 @@ namespace Noctis
 		void Walk(AstClosureExpr& node);
 		void Walk(AstIsExpr& node);
 		void Walk(AstTryExpr& node);
-		void Walk(AstThrowExpr& node);
 		void Walk(AstSpecKwExpr& node);
 		void Walk(AstCompRunExpr& node);
 		void Walk(AstMacroVarExpr& node);

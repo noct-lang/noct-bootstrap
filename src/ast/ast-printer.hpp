@@ -5,7 +5,7 @@
 namespace Noctis
 {
 
-	class AstPrinter : public SemanticPass
+	class AstPrinter : public AstVisitor
 	{
 	public:
 		AstPrinter();
@@ -51,6 +51,7 @@ namespace Noctis
 		void Visit(AstFallthroughStmt& node) override;
 		void Visit(AstGotoStmt& node) override;
 		void Visit(AstReturnStmt& node) override;
+		void Visit(AstThrowStmt& node) override;
 		void Visit(AstExprStmt& node) override;
 		void Visit(AstDeferStmt& node) override;
 		void Visit(AstErrDeferStmt& node) override;
@@ -87,7 +88,6 @@ namespace Noctis
 		void Visit(AstClosureExpr& node) override;
 		void Visit(AstIsExpr& node) override;
 		void Visit(AstTryExpr& node) override;
-		void Visit(AstThrowExpr& node) override;
 		void Visit(AstSpecKwExpr& node) override;
 		void Visit(AstCompRunExpr& node) override;
 		void Visit(AstMacroVarExpr& node) override;

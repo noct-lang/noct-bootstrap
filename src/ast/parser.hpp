@@ -66,6 +66,7 @@ namespace Noctis
 		AstStmtSPtr ParseFallthroughStmt();
 		AstStmtSPtr ParseGotoStmt();
 		AstStmtSPtr ParseReturnStmt();
+		AstStmtSPtr ParseThrowStmt();
 		AstStmtSPtr ParseExprOrMacroStmt();
 		AstStmtSPtr ParseDeferStmt();
 		AstStmtSPtr ParseErrDeferStmt();
@@ -105,7 +106,6 @@ namespace Noctis
 		AstExprSPtr ParseClosureExpr();
 		AstExprSPtr ParseIsExpr(AstExprSPtr expr);
 		AstExprSPtr ParseTryExpr();
-		AstExprSPtr ParseThrowExpr();
 		AstExprSPtr ParseSpecKwExpr();
 		AstExprSPtr ParseCompRunExpr();
 		AstExprSPtr ParseMacroVarExpr();
@@ -125,7 +125,7 @@ namespace Noctis
 		AstPatternSPtr ParseValueBindPattern(StdString&& iden);
 		AstPatternSPtr ParseRangePattern(AstPatternSPtr pattern);
 		AstPatternSPtr ParseTuplePattern();
-		AstPatternSPtr ParseEnumPattern(StdString&& iden);
+		AstPatternSPtr ParseEnumPattern(AstQualNameSPtr iden);
 		AstPatternSPtr ParseAggrPattern(AstQualNameSPtr qualName);
 		AstPatternSPtr ParseSlicePattern();
 		AstPatternSPtr ParseEitherPattern(AstPatternSPtr pattern);

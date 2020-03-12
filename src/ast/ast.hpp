@@ -32,9 +32,10 @@ namespace Noctis
 		Fallthrough,
 		Goto,
 		Return,
+		Throw,
 		Expr,
 		Defer,
-		StackDefer,
+		ErrDefer,
 		Unsafe,
 		ErrorHandler,
 		CompIf,
@@ -614,6 +615,14 @@ namespace Noctis
 		AstExprSPtr expr;
 	};
 
+	struct AstThrowStmt : public AstStmt
+	{
+		AstThrowStmt(u64 startIdx, AstExprSPtr expr);
+
+		AstExprSPtr expr;
+	};
+
+
 	struct AstExprStmt : public AstStmt
 	{
 		AstExprStmt(AstExprSPtr expr, u64 endIdx);
@@ -664,18 +673,22 @@ namespace Noctis
 
 	struct AstCompCondStmt : public AstStmt
 	{
-		AstCompCondStmt(u64 startIdx, Token cond, AstStmtSPtr body, AstStmtSPtr elseBody);
+		AstCompCondStmt(u64 startIdx, Token cond, Token cmp, Token val, AstStmtSPtr body, AstStmtSPtr elseBody);
 
 		Token cond;
+		Token cmp;
+		Token val;
 		AstStmtSPtr body;
 		AstStmtSPtr elseBody;
 	};
 
 	struct AstCompDebugStmt : public AstStmt
 	{
-		AstCompDebugStmt(u64 startIdx, Token cond, AstStmtSPtr body, AstStmtSPtr elseBody);
+		AstCompDebugStmt(u64 startIdx, Token cond, Token cmp, Token val, AstStmtSPtr body, AstStmtSPtr elseBody);
 
 		Token cond;
+		Token cmp;
+		Token val;
 		AstStmtSPtr body;
 		AstStmtSPtr elseBody;
 	};
@@ -899,13 +912,6 @@ namespace Noctis
 		AstExprSPtr call;
 	};
 
-	struct AstThrowExpr : public AstExpr
-	{
-		AstThrowExpr(u64 startIdx, AstExprSPtr expr);
-
-		AstExprSPtr expr;
-	};
-
 	struct AstSpecKwExpr : public AstExpr
 	{
 		AstSpecKwExpr(Token& tok);
@@ -1060,9 +1066,9 @@ namespace Noctis
 
 	struct AstEnumPattern : public AstPattern
 	{
-		AstEnumPattern(u64 startIdx, StdString&& iden, StdVector<AstPatternSPtr>&& subPatterns, u64 endIdx);
+		AstEnumPattern(u64 startIdx, AstQualNameSPtr iden, StdVector<AstPatternSPtr>&& subPatterns, u64 endIdx);
 
-		StdString iden;
+		AstQualNameSPtr iden;
 		StdVector<AstPatternSPtr> subPatterns;
 	};
 
