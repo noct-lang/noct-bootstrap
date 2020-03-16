@@ -42,12 +42,12 @@ namespace Noctis
 	}
 
 	ITrValEnum::ITrValEnum(ITrAttribsSPtr attribs, QualNameSPtr qualName, bool isModDef)
-		: ITrDef(ITrDefKind::ValueEnum, attribs, nullptr, qualName, isModDef)
+		: ITrDef(ITrDefKind::ValEnum, attribs, nullptr, qualName, isModDef)
 	{
 	}
 
 	ITrValEnumMember::ITrValEnumMember(QualNameSPtr parent, IdenSPtr iden, ITrExprSPtr val)
-		: ITrDef(ITrDefKind::ValueEnumMember, nullptr, nullptr, QualName::Create(parent, iden), false)
+		: ITrDef(ITrDefKind::ValEnumMember, nullptr, nullptr, QualName::Create(parent, iden), false)
 		, val(val)
 	{
 	}

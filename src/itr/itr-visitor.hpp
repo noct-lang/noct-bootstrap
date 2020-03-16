@@ -1,4 +1,6 @@
 #pragma once
+#include <functional>
+
 #include "common/defs.hpp"
 
 namespace Noctis
@@ -97,6 +99,13 @@ namespace Noctis
 	struct ITrGenValParam;
 	struct ITrGenBound;
 
+	enum class ITrVisitorDefKind : u8
+	{
+		Module,
+		Local,
+		Both
+	};
+	
 	class ITrVisitor
 	{
 	public:
@@ -104,6 +113,21 @@ namespace Noctis
 		virtual ~ITrVisitor();
 
 		void SetModule(ITrModule* pMod) { m_pMod = pMod; }
+
+		void Foreach(ITrVisitorDefKind kind, std::function<void(ITrStruct&)>& func);
+		void Foreach(ITrVisitorDefKind kind, std::function<void(ITrUnion&)>& func);
+		void Foreach(ITrVisitorDefKind kind, std::function<void(ITrValEnum&)>& func);
+		void Foreach(ITrVisitorDefKind kind, std::function<void(ITrValEnumMember&)>& func);
+		void Foreach(ITrVisitorDefKind kind, std::function<void(ITrAdtEnum&)>& func);
+		void Foreach(ITrVisitorDefKind kind, std::function<void(ITrAdtEnumMember&)>& func);
+		void Foreach(ITrVisitorDefKind kind, std::function<void(ITrMarkerInterface&)>& func);
+		void Foreach(ITrVisitorDefKind kind, std::function<void(ITrWeakInterface&)>& func);
+		void Foreach(ITrVisitorDefKind kind, std::function<void(ITrStrongInterface&)>& func);
+		void Foreach(ITrVisitorDefKind kind, std::function<void(ITrTypealias&)>& func);
+		void Foreach(ITrVisitorDefKind kind, std::function<void(ITrTypedef&)>& func);
+		void Foreach(ITrVisitorDefKind kind, std::function<void(ITrVar&)>& func);
+		void Foreach(ITrVisitorDefKind kind, std::function<void(ITrFunc&)>& func);
+		void Foreach(ITrVisitorDefKind kind, std::function<void(ITrImpl&)>& func);
 		
 		virtual void Visit(ITrStruct& node);
 		virtual void Visit(ITrUnion& node);

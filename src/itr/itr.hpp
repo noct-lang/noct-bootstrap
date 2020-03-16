@@ -40,8 +40,8 @@ namespace Noctis
 		
 		Struct,
 		Union,
-		ValueEnum,
-		ValueEnumMember,
+		ValEnum,
+		ValEnumMember,
 		AdtEnum,
 		AdtEnumMember,
 		MarkerInterface,

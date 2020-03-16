@@ -14,6 +14,50 @@ namespace Noctis
 	{
 	}
 
+	
+#define FOREACH_IMPL(Type) \
+	void ITrVisitor::Foreach(ITrVisitorDefKind kind, std::function<void(ITr##Type&)>& func) \
+	{ \
+		for (ITrDefSPtr def : m_pMod->defMapping[u8(ITrDefKind::Type)]) \
+		{ \
+			switch (kind) \
+			{ \
+			case ITrVisitorDefKind::Module: \
+			{ \
+				if (def->isModDef) \
+					func(*reinterpret_cast<ITr##Type*>(def.get())); \
+				break; \
+			} \
+			case ITrVisitorDefKind::Local: \
+			{ \
+				if (!def->isModDef) \
+					func(*reinterpret_cast<ITr##Type*>(def.get())); \
+				break; \
+			} \
+			default: \
+			{ \
+				func(*reinterpret_cast<ITr##Type*>(def.get())); \
+				break; \
+			} \
+			} \
+		} \
+	}
+
+	FOREACH_IMPL(Struct)
+	FOREACH_IMPL(Union)
+	FOREACH_IMPL(ValEnum)
+	FOREACH_IMPL(ValEnumMember)
+	FOREACH_IMPL(AdtEnum)
+	FOREACH_IMPL(AdtEnumMember)
+	FOREACH_IMPL(MarkerInterface)
+	FOREACH_IMPL(WeakInterface)
+	FOREACH_IMPL(StrongInterface)
+	FOREACH_IMPL(Typealias)
+	FOREACH_IMPL(Typedef)
+	FOREACH_IMPL(Var)
+	FOREACH_IMPL(Func)
+	FOREACH_IMPL(Impl)
+	
 	void ITrVisitor::Visit(ITrStruct& node)
 	{
 		Walk(node);
@@ -413,8 +457,8 @@ namespace Noctis
 		{
 		case ITrDefKind::Struct: Visit(*reinterpret_cast<ITrStruct*>(def.get())); break;
 		case ITrDefKind::Union: Visit(*reinterpret_cast<ITrUnion*>(def.get())); break;
-		case ITrDefKind::ValueEnum: Visit(*reinterpret_cast<ITrValEnum*>(def.get())); break;
-		case ITrDefKind::ValueEnumMember: Visit(*reinterpret_cast<ITrValEnumMember*>(def.get())); break;
+		case ITrDefKind::ValEnum: Visit(*reinterpret_cast<ITrValEnum*>(def.get())); break;
+		case ITrDefKind::ValEnumMember: Visit(*reinterpret_cast<ITrValEnumMember*>(def.get())); break;
 		case ITrDefKind::AdtEnum: Visit(*reinterpret_cast<ITrAdtEnum*>(def.get())); break;
 		case ITrDefKind::AdtEnumMember: Visit(*reinterpret_cast<ITrAdtEnumMember*>(def.get())); break;
 		case ITrDefKind::MarkerInterface: Visit(*reinterpret_cast<ITrMarkerInterface*>(def.get())); break;
