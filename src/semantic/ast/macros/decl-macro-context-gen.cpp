@@ -8,11 +8,11 @@
 namespace Noctis
 {
 	DeclMacroContextGen::DeclMacroContextGen(Context* pCtx)
-		: SemanticPass("decl macro processor", pCtx)
+		: AstSemanticPass("decl macro context gen", pCtx)
 	{
 	}
 
-	void DeclMacroContextGen::Visit(AstDeclSPtr node)
+	void DeclMacroContextGen::Visit(AstDeclSPtr& node)
 	{
 		switch (node->declKind)
 		{

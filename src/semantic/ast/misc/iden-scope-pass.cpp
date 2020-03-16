@@ -5,8 +5,7 @@
 namespace Noctis
 {
 	IdenScopePass::IdenScopePass(Context* pCtx)
-		: SemanticPass("IdenScopePass", pCtx)
-		, m_AllowVisit(true)
+		: AstSemanticPass("iden-scope pass", pCtx)
 	{
 	}
 
@@ -15,6 +14,7 @@ namespace Noctis
 		std::hash<StdString> hasher;
 		usize hash = hasher(tree.filepath);
 		m_FileNameHash = Format("%llx", hash);
+		m_pTree = &tree;
 		Walk(tree);
 	}
 
@@ -342,9 +342,9 @@ namespace Noctis
 
 	void IdenScopePass::Visit(AstMacroLoopStmt& node)
 	{
-		UnnamedScope(node.ctx, "macro_loop");
+		//UnnamedScope(node.ctx, "macro_loop");
 		Walk(node);
-		m_CurScope = m_CurScope->Base();
+		//m_CurScope = m_CurScope->Base();
 	}
 
 	void IdenScopePass::Visit(AstAssignExpr& node)
@@ -381,6 +381,7 @@ namespace Noctis
 	{
 		node.ctx->scope = m_CurScope;
 		Walk(node);
+		node.ctx->qualName = node.qualName->ctx->qualName;
 	}
 
 	void IdenScopePass::Visit(AstIndexSliceExpr& node)
@@ -785,39 +786,53 @@ namespace Noctis
 		node.ctx->qualName = node.qualName->ctx->qualName;
 	}
 
-	void IdenScopePass::GenericScope(std::unique_ptr<AstContext>& ctx, StdStringView name, AstGenericDeclSPtr generics)
+	void IdenScopePass::GenericScope(AstContextPtr& ctx, StdStringView name, AstGenericDeclSPtr generics)
 	{
-		IdenSPtr iden;
-		if (generics)
+		if (!ctx->qualName)
 		{
-			AstGenericDecl* pGenerics = static_cast<AstGenericDecl*>(generics.get());
-			StdString idenStr = Format("%s__gen_%u", name.data(), pGenerics->params.size());
-			iden = Iden::Create(idenStr);
-		}
-		else
-		{
-			iden = Iden::Create(name);
-		}
+			IdenSPtr iden;
+			if (generics)
+			{
+				AstGenericDecl* pGenerics = static_cast<AstGenericDecl*>(generics.get());
+				StdString idenStr = Format("%s__gen_%u", name.data(), pGenerics->params.size());
+				iden = Iden::Create(idenStr);
+			}
+			else
+			{
+				iden = Iden::Create(name);
+			}
 
-		ctx->iden = iden;
-		ctx->scope = m_CurScope;
-		m_CurScope = QualName::Create(m_CurScope, iden);
+			ctx->iden = iden;
+			ctx->scope = m_CurScope;
+			ctx->qualName = QualName::Create(m_CurScope, iden);
+		}
+		m_CurScope = ctx->qualName;
 	}
 
-	void IdenScopePass::IdenScope(std::unique_ptr<AstContext>& ctx, StdStringView name)
+	void IdenScopePass::IdenScope(AstContextPtr& ctx, StdStringView name)
 	{
-		IdenSPtr iden = Iden::Create(name);
-		ctx->iden = iden;
-		ctx->scope = m_CurScope;
-		m_CurScope = QualName::Create(m_CurScope, iden);
+		if (!ctx->qualName)
+		{
+			IdenSPtr iden = Iden::Create(name);
+			ctx->iden = iden;
+			ctx->scope = m_CurScope;
+			ctx->qualName = QualName::Create(m_CurScope, iden);
+		}
+		m_CurScope = ctx->qualName;
 	}
 
-	void IdenScopePass::UnnamedScope(std::unique_ptr<AstContext>& ctx, StdStringView scopeName)
+	void IdenScopePass::UnnamedScope(AstContextPtr& ctx, StdStringView scopeName)
 	{
-		StdString idenStr = Format("__%s_%s_%u", scopeName.data(), m_FileNameHash.c_str(), ctx->startIdx);
-		IdenSPtr iden = Iden::Create(idenStr);
-		ctx->iden = iden;
-		ctx->scope = m_CurScope;
-		m_CurScope = QualName::Create(m_CurScope, iden);
+		if (!ctx->qualName)
+		{
+			u64 genId = m_pTree->genId;
+			++m_pTree->genId;
+			StdString idenStr = Format("__%s_%s_%u", scopeName.data(), m_FileNameHash.c_str(), genId);
+			IdenSPtr iden = Iden::Create(idenStr);
+			ctx->iden = iden;
+			ctx->scope = m_CurScope;
+			ctx->qualName = QualName::Create(m_CurScope, iden);
+		}
+		m_CurScope = ctx->qualName;
 	}
 }

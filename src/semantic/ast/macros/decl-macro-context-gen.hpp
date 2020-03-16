@@ -4,12 +4,12 @@
 namespace Noctis
 {
 
-	class DeclMacroContextGen : public SemanticPass
+	class DeclMacroContextGen : public AstSemanticPass
 	{
 	public:
 		DeclMacroContextGen(Context* pCtx);
 
-		void Visit(AstDeclSPtr node) override;
+		void Visit(AstDeclSPtr& node) override;
 	};
 	
 }

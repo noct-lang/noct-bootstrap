@@ -9,7 +9,7 @@
 namespace Noctis
 {
 	DeclMacroExpansion::DeclMacroExpansion(Context* pCtx)
-		: SemanticPass("decl macro expansion", pCtx)
+		: AstSemanticPass("decl macro expansion", pCtx)
 	{
 	}
 

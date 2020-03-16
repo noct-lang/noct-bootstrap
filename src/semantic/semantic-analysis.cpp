@@ -1,23 +1,30 @@
 #include "semantic-analysis.hpp"
-#include "basic/iden-scope-pass.hpp"
-#include "semantic-utils.hpp"
 #include "common/context.hpp"
-#include "macros/decl-macro-context-gen.hpp"
-#include "macros/decl-macro-expansion.hpp"
+#include "ast/misc/iden-scope-pass.hpp"
+#include "ast/macros/decl-macro-context-gen.hpp"
+#include "ast/macros/decl-macro-expansion.hpp"
+#include "ast/misc/ast-to-itr-lowering.hpp"
+#include "semantic-utils.hpp"
 
 namespace Noctis
 {
-	SemanticAnalysis::SemanticAnalysis(Context* pCtx)
+
+	template<typename T>
+	void RunAstSemanticPass(Context* pCtx, AstTree& tree)
+	{
+		static_assert(std::is_base_of_v<AstSemanticPass, T>, "");
+		T pass{ pCtx };
+		pass.Process(tree);
+	}
+	
+	AstSemanticAnalysis::AstSemanticAnalysis(Context* pCtx)
 		: m_pCtx(pCtx)
 	{
 	}
 
-	void SemanticAnalysis::Run(AstTree& tree)
+	void AstSemanticAnalysis::Run(AstTree& tree)
 	{
-		{
-			IdenScopePass idenScopePass{ m_pCtx };
-			idenScopePass.Process(tree);
-		}
+		RunAstSemanticPass<IdenScopePass>(m_pCtx, tree);
 
 		{
 			StdUnorderedSet<QualNameSPtr> extractedImportMods = ExtractImportModules(tree, m_pCtx);
@@ -29,15 +36,12 @@ namespace Noctis
 
 		// TODO: Load modules
 
-		{
-			DeclMacroContextGen contextGen{ m_pCtx };
-			contextGen.Process(tree);
-		}
+		RunAstSemanticPass<DeclMacroContextGen>(m_pCtx, tree);
+		RunAstSemanticPass<DeclMacroExpansion>(m_pCtx, tree);
 
-		{
-			DeclMacroExpansion expansion{ m_pCtx };
-			expansion.Process(tree);
-		}
-		
+		// Rerun for names inside expanded macros
+		RunAstSemanticPass<IdenScopePass>(m_pCtx, tree);
+
+		RunAstSemanticPass<AstToITrLowering>(m_pCtx, tree);
 	}
 }

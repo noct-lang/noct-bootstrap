@@ -25,6 +25,7 @@ namespace Noctis
 		bool logTokens : 1;
 		bool logParsedAst : 1;
 		bool logAst : 1;
+		bool logLoweredITr : 1;
 	};
 	
 	class Options

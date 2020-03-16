@@ -7,17 +7,18 @@ namespace Noctis
 	struct AstTree;
 	struct Context;
 	
-	class SemanticAnalysis
+	class AstSemanticAnalysis
 	{
 	public:
-		SemanticAnalysis(Context* pCtx);
+		AstSemanticAnalysis(Context* pCtx);
 
 		void Run(AstTree& tree);
 
 	private:
 		Context* m_pCtx;
 
-		StdVector<std::unique_ptr<SemanticPass>> m_Passes;
+		StdVector<std::unique_ptr<AstSemanticPass>> m_Passes;
 	};
 	
 }
+ 

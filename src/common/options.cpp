@@ -61,6 +61,7 @@ namespace Noctis
 		args::Flag logTokens{ parser, "log tokens", "Log tokens", { "log-tokens" } };
 		args::Flag logParsedAst{ parser, "log parsed ast", "Log parsed ast", { "log-parsed-ast" } };
 		args::Flag logAst{ parser, "log ast", "Log ast", { "log-ast" } };
+		args::Flag logLoweredITr{ parser, "log lowered itr", "Log lowered itr", { "log-lowered-itr" } };
 
 		parser.Parse();
 
@@ -75,6 +76,7 @@ namespace Noctis
 		m_BuildOptions.logTokens = logTokens.Get();
 		m_BuildOptions.logParsedAst = logParsedAst.Get();
 		m_BuildOptions.logAst = logAst.Get();
+		m_BuildOptions.logLoweredITr = logLoweredITr.Get();
 		
 	}
 }

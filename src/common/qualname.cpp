@@ -22,8 +22,32 @@ namespace Noctis
 		: m_Name(std::move(name))
 	{
 	}
-	
+
+	StdUnorderedMap<QualNameSPtr, StdUnorderedMap<TypeHandle, TypeDisambiguationSPtr>> TypeDisambiguation::m_sTypeDisambiguations;
+
+	TypeDisambiguationSPtr TypeDisambiguation::Create(QualNameSPtr qualName, TypeHandle type)
+	{
+		auto qIt = m_sTypeDisambiguations.find(qualName);
+		if (qIt == m_sTypeDisambiguations.end())
+			qIt = m_sTypeDisambiguations.insert(std::pair{ qualName, StdUnorderedMap<TypeHandle, TypeDisambiguationSPtr>{} }).first;
+
+		auto it = qIt->second.find(type);
+		if (it != qIt->second.end())
+			return it->second;
+
+		TypeDisambiguationSPtr td{ new TypeDisambiguation{ qualName, type } };
+		qIt->second.try_emplace(type, td);
+		return td;
+	}
+
+	TypeDisambiguation::TypeDisambiguation(QualNameSPtr qualName, TypeHandle type)
+		: m_QualName(qualName)
+		, m_Type(type)
+	{
+	}
+
 	StdUnorderedMap<IdenSPtr, QualNameSPtr> QualName::s_BaseNames = {};
+	StdUnorderedMap<TypeDisambiguationSPtr, QualNameSPtr> QualName::s_TypeDisambiguationBaseNames = {};
 
 	QualNameSPtr QualName::Create(IdenSPtr iden)
 	{
@@ -33,6 +57,20 @@ namespace Noctis
 
 		QualNameSPtr qualName{ new QualName{ nullptr, iden } };
 		s_BaseNames.try_emplace(iden, qualName);
+		return qualName;
+	}
+
+	QualNameSPtr QualName::Create(TypeDisambiguationSPtr disambiguation)
+	{
+		if (!disambiguation)
+			return nullptr;
+
+		auto it = s_TypeDisambiguationBaseNames.find(disambiguation);
+		if (it != s_TypeDisambiguationBaseNames.end())
+			return it->second;
+
+		QualNameSPtr qualName{ new QualName{ disambiguation } };
+		s_TypeDisambiguationBaseNames.try_emplace(disambiguation, qualName);
 		return qualName;
 	}
 
@@ -76,6 +114,16 @@ namespace Noctis
 		return qualName;
 	}
 
+	QualNameSPtr QualName::Create(QualNameSPtr first, const StdVector<IdenSPtr>& idens)
+	{
+		QualNameSPtr tmp = first;
+		for (IdenSPtr iden : idens)
+		{
+			tmp = QualName::Create(tmp, iden);
+		}
+		return tmp;
+	}
+
 	StdString QualName::ToString()
 	{
 		QualName* qualName = this;
@@ -110,4 +158,8 @@ namespace Noctis
 	{
 	}
 
+	QualName::QualName(TypeDisambiguationSPtr disambiguation)
+		: m_Disambiguation(disambiguation)
+	{
+	}
 }

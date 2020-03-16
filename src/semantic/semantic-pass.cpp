@@ -3,7 +3,7 @@
 
 namespace Noctis
 {
-	SemanticPass::SemanticPass(const char* pName, Context* pCtx)
+	AstSemanticPass::AstSemanticPass(const char* pName, Context* pCtx)
 		: AstVisitor()
 		, m_pName(pName)
 		, m_pCtx(pCtx)
@@ -11,13 +11,13 @@ namespace Noctis
 	{
 	}
 
-	SemanticPass::~SemanticPass()
+	AstSemanticPass::~AstSemanticPass()
 	{
 		m_Timer.Stop();
 		g_Logger.Log("%s took %fms\n", m_pName, m_Timer.GetTimeMS());
 	}
 
-	void SemanticPass::Process(AstTree& tree)
+	void AstSemanticPass::Process(AstTree& tree)
 	{
 		Visit(tree);
 	}

@@ -6,11 +6,11 @@ namespace Noctis
 {
 	StdUnorderedSet<QualNameSPtr> ExtractImportModules(AstTree& tree, Context* pCtx)
 	{
-		class ImportExtractor : public SemanticPass
+		class ImportExtractor : public AstSemanticPass
 		{
 		public:
 			ImportExtractor(Context* pCtx)
-				: SemanticPass("Import Extractor", pCtx)
+				: AstSemanticPass("import extractor", pCtx)
 			{
 			}
 			

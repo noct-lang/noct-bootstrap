@@ -5,7 +5,7 @@ namespace Noctis
 {
 	struct Context;
 
-	class DeclMacroExpansion : public SemanticPass
+	class DeclMacroExpansion : public AstSemanticPass
 	{
 	public:
 		DeclMacroExpansion(Context* pCtx);

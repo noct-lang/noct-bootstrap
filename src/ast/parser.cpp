@@ -1748,10 +1748,18 @@ namespace Noctis
 	{
 		u64 startIdx = EatToken(TokenType::Enum).Idx();
 		EatToken(TokenType::LBrace);
-		StdVector<StdString> members;
+		StdPairVector<StdString, AstExprSPtr> members;
 		do
 		{
-			members.push_back(EatToken(TokenType::Iden).Text());
+			StdPair<StdString, AstExprSPtr> member;
+			member.first = EatToken(TokenType::Iden).Text();
+			if (PeekToken().Type() == TokenType::Eq)
+			{
+				EatToken();
+				member.second = ParseExpression();
+			}
+			
+			members.push_back(member);
 		}
 		while (TryEatToken(TokenType::Comma));
 		u64 endIdx = EatToken(TokenType::RBrace).Idx();
@@ -2601,20 +2609,26 @@ namespace Noctis
 	AstParamSPtr Parser::ParseParam(bool allowNoType)
 	{
 		u64 startIdx, endIdx;
-		StdPairVector<AstAttribsSPtr, StdString> idens;
+		StdVector<AstParamVarSPtr> vars;
 
 		AstAttribsSPtr attribs;
 		if (PeekToken().Type() != TokenType::Iden)
 		{
 			attribs = ParseAttributes();
-			startIdx = endIdx = attribs->ctx->startIdx;
-			idens.push_back(std::pair{ attribs, ParseIden() });
+			startIdx = attribs->ctx->startIdx;
+			u64 tmpIdx = m_TokIdx;
+			StdString iden = ParseIden();
+			endIdx = m_TokIdx - 1;
+			vars.emplace_back(new AstParamVar{ attribs, tmpIdx, std::move(iden), endIdx });
 		}
 		else
 		{
 			Token& tok = PeekToken();
-			startIdx = endIdx = tok.Idx();
-			idens.push_back(std::pair{ attribs, ParseIden() });
+			startIdx = tok.Idx();
+			u64 tmpIdx = m_TokIdx;
+			StdString iden = ParseIden();
+			endIdx = m_TokIdx - 1;
+			vars.emplace_back(new AstParamVar{ attribs, tmpIdx, std::move(iden), endIdx });
 		}
 
 		while (TryEatToken(TokenType::Comma))
@@ -2622,13 +2636,14 @@ namespace Noctis
 			attribs = nullptr;
 			if (PeekToken().Type() != TokenType::Iden)
 				attribs = ParseAttributes();
-			Token& tok = EatToken(TokenType::Iden);
-			endIdx = tok.Idx();
-			idens.push_back(std::pair{ attribs, tok.Text() });
+			u64 tmpIdx = m_TokIdx;
+			StdString iden = ParseIden();
+			endIdx = m_TokIdx - 1;
+			vars.emplace_back(new AstParamVar{ attribs, tmpIdx, std::move(iden), endIdx });
 		}
 
 		if (PeekToken().Type() != TokenType::Colon && allowNoType)
-			return AstParamSPtr{ new AstParam{ startIdx, std::move(idens), nullptr, false, endIdx } };
+			return AstParamSPtr{ new AstParam{ startIdx, std::move(vars), nullptr, false, endIdx } };
 		
 		EatToken(TokenType::Colon);
 		AstTypeSPtr type;
@@ -2651,7 +2666,7 @@ namespace Noctis
 			}
 		}
 
-		return AstParamSPtr{ new AstParam{ startIdx, std::move(idens), type, isVariadic, endIdx } };
+		return AstParamSPtr{ new AstParam{ startIdx, std::move(vars), type, isVariadic, endIdx } };
 	}
 
 	StdVector<AstArgSPtr> Parser::ParseArgs()

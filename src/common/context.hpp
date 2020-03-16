@@ -1,6 +1,7 @@
 #pragma once
 #include "options.hpp"
 #include "tokens/span.hpp"
+#include "type.hpp"
 
 namespace Noctis
 {
@@ -12,6 +13,8 @@ namespace Noctis
 	{
 		Options options;
 
+		TypeRegistry typeReg;
+		
 		SpanManager spanManager;
 		StdUnorderedMap<QualNameSPtr, ModuleSPtr> modules;
 

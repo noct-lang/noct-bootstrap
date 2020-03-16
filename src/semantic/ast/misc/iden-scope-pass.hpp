@@ -4,7 +4,7 @@
 
 namespace Noctis
 {
-	class IdenScopePass : public SemanticPass
+	class IdenScopePass : public AstSemanticPass
 	{
 	public:
 		IdenScopePass(Context* pCtx);
@@ -145,7 +145,7 @@ namespace Noctis
 		
 	private:
 		QualNameSPtr m_CurScope;
-		bool m_AllowVisit;
 		StdString m_FileNameHash;
+		AstTree* m_pTree;
 	};
 }

@@ -11,6 +11,7 @@
 #include "ast/parser.hpp"
 #include "ast/ast.hpp"
 #include "ast/ast-printer.hpp"
+#include "itr/itr-printer.hpp"
 #include "semantic/semantic-analysis.hpp"
 
 void ProcessBuild(Noctis::Context& context)
@@ -98,7 +99,7 @@ void ProcessBuild(Noctis::Context& context)
 	{
 		context.activeModule = pair.second;
 		
-		Noctis::SemanticAnalysis semAnalysis{ &context };
+		Noctis::AstSemanticAnalysis semAnalysis{ &context };
 
 		for (Noctis::AstTree& tree : pair.second->trees)
 		{
@@ -106,14 +107,19 @@ void ProcessBuild(Noctis::Context& context)
 			semAnalysis.Run(tree);
 			timer.Stop();
 
-			g_Logger.Log(Noctis::Format("Semantic analysis took %fms\n", timer.GetTimeMS()));
+			g_Logger.Log(Noctis::Format("AST semantic analysis took %fms\n", timer.GetTimeMS()));
 
 			if (context.options.GetBuildOptions().logAst)
 			{
 				Noctis::AstPrinter printer;
 				printer.Visit(tree);
 			}
+		}
 
+		if (context.options.GetBuildOptions().logLoweredITr)
+		{
+			Noctis::ITrPrinter printer{ &context };
+			printer.Print(&pair.second->itrModule);
 		}
 	}
 

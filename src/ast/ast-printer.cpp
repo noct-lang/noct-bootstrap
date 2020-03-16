@@ -66,14 +66,14 @@ namespace Noctis
 		PrintIndent();
 		g_Logger.Log("(identifiers)\n");
 		++m_Indent;
-		for (StdPair<AstAttribsSPtr, StdString>& iden : node.idens)
+		for (AstParamVarSPtr var : node.vars)
 		{
 			PrintIndent();
-			g_Logger.Log("(iden '%s')\n", iden.second.c_str());
-			if (iden.first)
+			g_Logger.Log("(iden '%s')\n", var->iden.c_str());
+			if (var->attribs)
 			{
 				++m_Indent;
-				Walk(*iden.first);
+				Walk(*var->attribs);
 				--m_Indent;
 			}
 		}
@@ -1326,7 +1326,8 @@ namespace Noctis
 	void AstPrinter::Visit(AstVisibilityAttrib& node)
 	{
 		PrintIndent();
-		g_Logger.Log("(compiler-attrib '%s'", node.kind.c_str());
+		StdString vis = node.kind.empty() ? "public" : node.kind;
+		g_Logger.Log("(visibility-attrib '%s'", vis.c_str());
 		PrintContextAndClose(node.ctx);
 	}
 
@@ -1555,9 +1556,7 @@ namespace Noctis
 		{
 			if (!subTok.subToks.empty())
 			{
-				++m_Indent;
 				PrintTokTree(subTok);
-				--m_Indent;
 			}
 			else
 			{
@@ -1578,10 +1577,10 @@ namespace Noctis
 
 	void AstPrinter::PrintIndent()
 	{
-		for (u32 i = 0; i < m_Indent; ++i)
-		{
-			g_Logger.Log("|   ");
-		}
+		for (u32 i = 0; i < m_Indent - 1; ++i)
+			g_Logger.Log(" |");
+		if (m_Indent > 0)
+			g_Logger.Log(" +");
 	}
 
 	void AstPrinter::PrintContextAndClose(AstContextPtr& ctx)

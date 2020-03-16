@@ -7,6 +7,8 @@
 #include <memory>
 #include <unordered_set>
 #include <stack>
+#include <array>
+#include <variant>
 
 using i8  = int8_t;
 using i16 = int16_t;
@@ -24,14 +26,21 @@ using f64 = double;
 using usize = uintptr_t;
 using isize = ptrdiff_t;
 
-
+template<typename T, usize N>
+using StdArray = std::array<T, N>;
 template<typename T>
 using StdVector = std::pmr::vector<T>;
 template<typename T>
 using StdStack = std::stack<T, std::pmr::deque<T>>;
 
+template<typename T>
+using StdDeque = std::pmr::deque<T>;
+
 template<typename T0, typename T1>
 using StdPair = std::pair<T0, T1>;
+
+template<typename... T>
+using StdVariant = std::variant<T...>;
 
 template<typename T0, typename T1>
 using StdPairVector = StdVector<StdPair<T0, T1>>;
@@ -48,11 +57,17 @@ using StdUnorderedSet = std::pmr::unordered_set<Key, Hash, KeyEq>;
 template<typename T>
 using StdSharedPtr = std::shared_ptr<T>;
 template<typename T>
+using StdWeakPtr = std::weak_ptr<T>;
+template<typename T>
 using StdUniquePtr = std::unique_ptr<T>;
 
 #define FWDECL_STRUCT_SPTR(name) \
 	struct name; \
 	using name##SPtr = StdSharedPtr<name>
+
+#define FWDECL_STRUCT_WPTR(name) \
+	struct name; \
+	using name##WPtr = StdWeakPtr<name>
 
 #define FWDECL_CLASS_SPTR(name) \
 	class name; \
@@ -77,3 +92,5 @@ using StdUniquePtr = std::unique_ptr<T>;
 	enumType& operator|=(enumType& e0, enumType e1) { e0 = enumType( u64(e0) | u64(e1)); return e0; } \
 	enumType& operator^=(enumType& e0, enumType e1) { e0 = enumType( u64(e0) ^ u64(e1)); return e0; } \
 	enumType& operator&=(enumType& e0, enumType e1) { e0 = enumType( u64(e0) & u64(e1)); return e0; }
+
+#define ENUM_IS_SET(a, b) (((a) & (b)) != (b))

@@ -1,16 +1,16 @@
 #pragma once
-#include "AST/ast-visitor.hpp"
+#include "ast/ast-visitor.hpp"
 #include "common/perf.hpp"
 
 namespace Noctis
 {
 	struct Context;
 	
-	class SemanticPass : public AstVisitor
+	class AstSemanticPass : public AstVisitor
 	{
 	public:
-		SemanticPass(const char* pName, Context* pCtx);
-		virtual ~SemanticPass();
+		AstSemanticPass(const char* pName, Context* pCtx);
+		virtual ~AstSemanticPass();
 
 		virtual void Process(AstTree& tree);
 

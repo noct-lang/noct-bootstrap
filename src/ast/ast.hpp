@@ -2,7 +2,6 @@
 #include "common/defs.hpp"
 #include "tokens/token.hpp"
 #include "common/qualname.hpp"
-#include "ast.hpp"
 
 namespace Noctis
 {
@@ -98,7 +97,6 @@ namespace Noctis
 		Closure,
 		Is,
 		Try,
-		Throw,
 		SpecKw,
 		CompRun,
 		MacroVar,
@@ -169,13 +167,23 @@ namespace Noctis
 	FWDECL_STRUCT_SPTR(AstGenericTypeParam);
 	FWDECL_STRUCT_SPTR(AstGenericValueParam);
 	FWDECL_STRUCT_SPTR(AstMacroPattern);
+
+	FWDECL_STRUCT_WPTR(ITrDef);
+	FWDECL_STRUCT_WPTR(ITrStmt);
+	FWDECL_STRUCT_WPTR(ITrExpr);
+	FWDECL_STRUCT_WPTR(ITrType);
+	FWDECL_STRUCT_WPTR(ITrPattern);
+	FWDECL_STRUCT_WPTR(ITrGenParam);
+	FWDECL_STRUCT_WPTR(ITrGenBound);
 	
 	struct AstStmt
 	{
 		AstStmt(AstStmtKind kind, u64 startIdx, u64 endIdx);
 		~AstStmt();
+		
 		AstStmtKind stmtKind;
 		AstContextPtr ctx;
+		ITrStmtWPtr itr;
 	};
 	using AstStmtSPtr = StdSharedPtr<AstStmt>;
 
@@ -184,6 +192,7 @@ namespace Noctis
 		AstDecl(AstDeclKind kind, u64 startIdx, u64 endIdx);
 
 		AstDeclKind declKind;
+		ITrDefWPtr defItr;
 	};
 	using AstDeclSPtr = StdSharedPtr<AstDecl>;
 
@@ -193,6 +202,7 @@ namespace Noctis
 
 		AstExprKind exprKind;
 		AstContextPtr ctx;
+		ITrExprWPtr itr;
 	};
 	using AstExprSPtr = StdSharedPtr<AstExpr>;
 
@@ -203,6 +213,7 @@ namespace Noctis
 		AstAttribsSPtr attribs;
 		AstTypeKind typeKind;
 		AstContextPtr ctx;
+		ITrTypeWPtr itr;
 	};
 	using AstTypeSPtr = StdSharedPtr<AstType>;
 
@@ -210,14 +221,25 @@ namespace Noctis
 	{
 		StdString filepath;
 		StdVector<AstStmtSPtr> nodes;
+		u64 genId = 0;
 	};
+
+	struct AstParamVar
+	{
+		AstParamVar(AstAttribsSPtr attribs, u64 startIdx, StdString&& iden, u64 endIdx);
+
+		AstAttribsSPtr attribs;
+		StdString iden;
+		AstContextPtr ctx;
+	};
+	using AstParamVarSPtr = StdSharedPtr<AstParamVar>;
 
 	struct AstParam
 	{
-		AstParam(u64 startIdx, StdPairVector<AstAttribsSPtr, StdString>&& idens,
+		AstParam(u64 startIdx, StdVector<AstParamVarSPtr>&& vars,
 			AstTypeSPtr type, bool isVariadic, u64 endIdx);
 
-		StdPairVector<AstAttribsSPtr, StdString> idens;
+		StdVector<AstParamVarSPtr> vars;
 		AstTypeSPtr type;
 		bool isVariadic;
 		AstContextPtr ctx;
@@ -440,7 +462,7 @@ namespace Noctis
 		StdVector<AstStmtSPtr> stmts;
 	};
 
-	enum class AstMethodReceiverKind
+	enum class AstMethodReceiverKind : u8
 	{
 		None,
 		Value,
@@ -1002,10 +1024,10 @@ namespace Noctis
 
 	struct AstInlineEnumType : public AstType
 	{
-		AstInlineEnumType(u64 startIdx, StdVector<StdString>&& members,
+		AstInlineEnumType(u64 startIdx, StdPairVector<StdString, AstExprSPtr>&& members,
 			u64 endIdx);
 
-		StdVector<StdString> members;
+		StdPairVector<StdString, AstExprSPtr> members;
 	};
 
 	struct AstCompoundInterfaceType : public AstType
@@ -1021,6 +1043,7 @@ namespace Noctis
 
 		AstPatternKind patternKind;
 		AstContextPtr ctx;
+		ITrPatternWPtr itr;
 	};
 
 	struct AstPlaceholderPattern : public AstPattern
@@ -1194,6 +1217,9 @@ namespace Noctis
 		StdVector<AstIdentifierTypeSPtr> implTypes;
 		AstTypeSPtr defType;
 		AstContextPtr ctx;
+
+		ITrGenParamWPtr itr;
+		ITrGenBoundWPtr itrBound;
 	};
 
 	struct AstGenericValueParam
@@ -1204,6 +1230,8 @@ namespace Noctis
 		AstTypeSPtr type;
 		AstExprSPtr defExpr;
 		AstContextPtr ctx;
+
+		ITrGenParamWPtr itr;
 	};
 
 	struct AstGenericTypeBound
@@ -1213,6 +1241,8 @@ namespace Noctis
 		AstTypeSPtr type;
 		AstTypeSPtr bound;
 		AstContextPtr ctx;
+
+		ITrGenBoundWPtr itr;
 	};
 	using AstGenericTypeBoundSPtr = StdSharedPtr<AstGenericTypeBound>;
 	

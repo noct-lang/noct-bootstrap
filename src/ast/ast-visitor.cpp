@@ -797,10 +797,10 @@ namespace Noctis
 
 	void AstVisitor::Walk(AstParam& node)
 	{
-		for (StdPair<AstAttribsSPtr, StdString>& iden : node.idens)
+		for (AstParamVarSPtr var : node.vars)
 		{
-			if (iden.first)
-				Visit(*iden.first);
+			if (var->attribs)
+				Visit(*var->attribs);
 		}
 		
 		if (node.type)
@@ -1668,15 +1668,21 @@ namespace Noctis
 	void AstVisitor::Walk(AstMacroInstStmt& node)
 	{
 		Visit(*node.qualName);
+		if (node.expandedStmt)
+			Visit(node.expandedStmt);
 	}
 
 	void AstVisitor::Walk(AstMacroInstExpr& node)
 	{
 		Visit(*node.qualName);
+		if (node.expandedExpr)
+			Visit(node.expandedExpr);
 	}
 
 	void AstVisitor::Walk(AstMacroInstPattern& node)
 	{
 		Visit(*node.qualName);
+		if (node.expandedPattern)
+			Visit(node.expandedPattern);
 	}
 }

@@ -72,12 +72,21 @@ namespace Noctis
 		ctx->endIdx = this->idens.back()->ctx->endIdx;
 	}
 
-	AstParam::AstParam(u64 startIdx, StdPairVector<AstAttribsSPtr, StdString>&& idens, AstTypeSPtr type,
+	AstParamVar::AstParamVar(AstAttribsSPtr attribs, u64 startIdx, StdString&& iden, u64 endIdx)
+		: attribs(attribs)
+		, iden(iden)
+		, ctx(new AstContext{})
+	{
+		ctx->startIdx = attribs ? attribs->ctx->startIdx : startIdx;
+		ctx->endIdx = endIdx;
+	}
+
+	AstParam::AstParam(u64 startIdx, StdVector<AstParamVarSPtr>&& vars, AstTypeSPtr type,
 	                   bool isVariadic, u64 endIdx)
-		: idens(std::move(idens))
+		: vars(std::move(vars))
 		, type(type)
 		, isVariadic(isVariadic)
-		, ctx(AstContextPtr{ new AstContext{} })
+		, ctx(new AstContext{})
 	{
 		ctx->startIdx = startIdx;
 		ctx->endIdx = endIdx;
@@ -736,7 +745,7 @@ namespace Noctis
 	{
 	}
 
-	AstInlineEnumType::AstInlineEnumType(u64 startIdx, StdVector<StdString>&& members, u64 endIdx)
+	AstInlineEnumType::AstInlineEnumType(u64 startIdx, StdPairVector<StdString, AstExprSPtr>&& members, u64 endIdx)
 		: AstType(nullptr, AstTypeKind::InlineStruct, startIdx, endIdx)
 		, members(std::move(members))
 	{
