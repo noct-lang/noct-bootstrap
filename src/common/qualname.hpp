@@ -7,22 +7,40 @@ namespace Noctis
 	FWDECL_CLASS_SPTR(Iden);
 	FWDECL_CLASS_SPTR(TypeDisambiguation);
 	FWDECL_CLASS_SPTR(QualName);
+
+	struct IdenGeneric
+	{
+		IdenGeneric();
+		
+		bool isType;
+		TypeHandle type;
+	};
 	
 	class Iden
 	{
 	public:
 
 		static IdenSPtr Create(StdStringView name);
+		static IdenSPtr Create(StdStringView name, u64 numGenerics);
+		static IdenSPtr Create(StdStringView name, u64 numGenerics, const StdVector<StdString>& paramNames);
+		static IdenSPtr Create(StdStringView name, const StdVector<IdenGeneric>& generics, TypeRegistry& typeReg);
 
 		const StdString& Name() { return m_Name; }
- 
+		StdVector<IdenGeneric>& Generics() { return m_Generics; }
+		StdVector<StdString>& ParamNames() { return m_ParamNames; }
+
+		StdString ToFuncSymName();
+		StdString ToString();
+
 	private:
-		Iden(StdString name);
+		Iden(StdString name, u64 numGenerics);
+		Iden(StdString name, StdVector<IdenGeneric> generics);
 		
 		StdString m_Name;
+		StdVector<IdenGeneric> m_Generics;
+		StdVector<StdString> m_ParamNames;
 
-
-		static StdUnorderedMap<StdString, IdenSPtr> s_Idens;
+		static StdUnorderedMap<StdString, StdUnorderedMap<u64, StdVector<IdenSPtr>>> s_Idens;
 		static StdString s_SearchString;
 	};
 
@@ -31,6 +49,8 @@ namespace Noctis
 	public:
 		static TypeDisambiguationSPtr Create(QualNameSPtr qualName, TypeHandle type);
 
+		QualNameSPtr QualName() { return m_QualName; }
+		TypeHandle Type() { return m_Type; }
 
 	private:
 		TypeDisambiguation(QualNameSPtr qualName, TypeHandle type);
@@ -55,8 +75,10 @@ namespace Noctis
 
 		StdString ToString();
 		StdVector<IdenSPtr> AllIdens();
+		QualNameSPtr GetSubName(QualNameSPtr base);
+		usize Depth();
 
-		IdenSPtr Iden() { return m_Iden; };
+		IdenSPtr Iden() { return m_Iden; }
 		QualNameSPtr Base() { return m_Base; }
 		TypeDisambiguationSPtr Disambiguation() { return m_Disambiguation; }
 		

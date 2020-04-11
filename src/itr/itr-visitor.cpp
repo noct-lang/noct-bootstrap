@@ -16,7 +16,7 @@ namespace Noctis
 
 	
 #define FOREACH_IMPL(Type) \
-	void ITrVisitor::Foreach(ITrVisitorDefKind kind, std::function<void(ITr##Type&)>& func) \
+	void ITrVisitor::Foreach(ITrVisitorDefKind kind, const std::function<void(ITr##Type&)>& func) \
 	{ \
 		for (ITrDefSPtr def : m_pMod->defMapping[u8(ITrDefKind::Type)]) \
 		{ \

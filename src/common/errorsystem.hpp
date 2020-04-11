@@ -1,5 +1,6 @@
 #pragma once
 #include "defs.hpp"
+#include "tokens/span.hpp"
 #include "utils.hpp"
 
 namespace Noctis
@@ -12,33 +13,33 @@ namespace Noctis
 
 		void Error(StdStringView text);
 		template<typename ...Args>
-		void Error(StdStringView format, Args&... args)
+		void Error(StdStringView format, const Args&... args)
 		{
 			StdString text = Format(format, args...);
 			Error(text);
 		}
 
 		// Line and column
-		void Error(u64 line, u64 column, StdStringView text);
 		template<typename ...Args>
-		void Error(u64 line, u64 column, StdStringView format, Args&... args)
+		void Error(u64 line, u64 column, StdStringView format, const Args&... args)
 		{
 			StdString text = Format(format, args...);
-			Error(line, column, text);
+			LogError(StdStringView{}, line, column, text);
 		}
 
 		// Span
-		void Error(const Span& span, StdStringView text);
 		template<typename ...Args>
-		void Error(const Span& span, StdStringView format, Args&... args)
+		void Error(const Span& span, StdStringView format, const Args&... args)
 		{
 			StdString text = Format(format, args...);
-			Error(span, text);
+			LogError(span.filePath, span.line, span.column, text);
 		}
 
 		void SetCurrentFile(const StdString& file);
 		
 	private:
+		void LogError(StdStringView filePath, u64 line, u64 column, StdStringView text);
+		
 		StdString m_CurFile;
 		
 	};

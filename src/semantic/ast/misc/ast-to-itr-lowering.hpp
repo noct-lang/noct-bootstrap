@@ -134,6 +134,8 @@ namespace Noctis
 		void Visit(AstGenericValueParam& node) override;
 		void Visit(AstGenericTypeBound& node) override;
 
+		void Visit(AstDeclSPtr& node) override;
+
 	private:
 		StdVector<ITrParamSPtr> GetParams(StdVector<AstParamSPtr>& astParams);
 		StdVector<ITrArgSPtr> GetArgs(StdVector<AstArgSPtr>& astArgs);
@@ -164,5 +166,7 @@ namespace Noctis
 		ITrExprSPtr m_NamedRet;
 		TypeHandle m_ImplType;
 		bool m_InFunc;
+		StdString m_TreeFilename;
+		AstDeclSPtr m_DeclNode;
 	};
 }

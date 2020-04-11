@@ -3,9 +3,9 @@
 
 namespace Noctis
 {
-	AstSemanticPass::AstSemanticPass(const char* pName, Context* pCtx)
+	AstSemanticPass::AstSemanticPass(StdStringView pName, Context* pCtx)
 		: AstVisitor()
-		, m_pName(pName)
+		, m_Name(pName)
 		, m_pCtx(pCtx)
 		, m_Timer(true)
 	{
@@ -14,11 +14,24 @@ namespace Noctis
 	AstSemanticPass::~AstSemanticPass()
 	{
 		m_Timer.Stop();
-		g_Logger.Log("%s took %fms\n", m_pName, m_Timer.GetTimeMS());
+		g_Logger.Log("%s took %fms\n", m_Name.data(), m_Timer.GetTimeMS());
 	}
 
 	void AstSemanticPass::Process(AstTree& tree)
 	{
 		Visit(tree);
+	}
+
+	ITrSemanticPass::ITrSemanticPass(StdStringView name, Context* pCtx)
+		: m_Name(name)
+		, m_pCtx(pCtx)
+		, m_Timer(true)
+	{
+	}
+
+	ITrSemanticPass::~ITrSemanticPass()
+	{
+		m_Timer.Stop();
+		g_Logger.Log("%s took %fms\n", m_Name.data(), m_Timer.GetTimeMS());
 	}
 }

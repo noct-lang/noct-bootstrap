@@ -3,6 +3,7 @@
 #include "common/type.hpp"
 #include "module/attributes.hpp"
 #include "module/operator.hpp"
+#include "tokens/span.hpp"
 #include "tokens/token.hpp"
 
 namespace Noctis
@@ -27,11 +28,14 @@ namespace Noctis
 	FWDECL_STRUCT_SPTR(AstParam);
 	FWDECL_STRUCT_SPTR(AstArg);
 	FWDECL_STRUCT_SPTR(AstStmt);
+	FWDECL_STRUCT_SPTR(AstDecl);
 	FWDECL_STRUCT_SPTR(AstExpr);
 	FWDECL_STRUCT_SPTR(AstType);
 	FWDECL_STRUCT_SPTR(AstPattern);
 	FWDECL_STRUCT_SPTR(AstAttribs);
 	FWDECL_STRUCT_SPTR(AstGenericDecl);
+	
+	FWDECL_STRUCT_SPTR(Symbol);
 
 	enum class ITrDefKind
 	{
@@ -173,8 +177,14 @@ namespace Noctis
 		ITrGenDeclSPtr genDecl;
 		u64 bodyIdx;
 
+		SymbolWPtr sym;
+
 		// Is the definition in the module, instead of being a sub definition in another definition
 		bool isModDef;
+
+		// Name of the file that contains the definition (needed to retrieve correct spans)
+		StdString fileName;
+		AstDeclSPtr astNode;
 	};
 	using ITrDefSPtr = StdSharedPtr<ITrDef>;
 
@@ -259,10 +269,10 @@ namespace Noctis
 
 	struct ITrImpl : ITrDef
 	{
-		ITrImpl(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, ITrTypeSPtr type, StdVector<ITrTypeSPtr>&& interfaces);
+		ITrImpl(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr scope, ITrTypeSPtr type, StdPairVector<QualNameSPtr, SpanId>&& interfaces);
 
 		ITrTypeSPtr type;
-		StdVector<ITrTypeSPtr> interfaces;
+		StdPairVector<QualNameSPtr, SpanId> interfaces;
 	};
 
 	struct ITrStmt
@@ -642,11 +652,12 @@ namespace Noctis
 
 	struct  ITrType
 	{
-		ITrType(TypeHandle handle, StdVector<ITrTypeSPtr>&& subTypes);
-		
-		AstTypeSPtr astNode;
-		TypeHandle handle;
+		ITrType(ITrAttribsSPtr attribs, TypeHandle handle, StdVector<ITrTypeSPtr>&& subTypes);
+
+		ITrAttribsSPtr attribs;
 		StdVector<ITrTypeSPtr> subTypes;
+		TypeHandle handle;
+		AstTypeSPtr astNode;
 	};
 
 	struct ITrPattern
@@ -797,6 +808,7 @@ namespace Noctis
 		ITrGenParam(bool isVar);
 		
 		bool isVar;
+		SymbolWPtr sym;
 	};
 
 	struct ITrGenTypeParam : ITrGenParam

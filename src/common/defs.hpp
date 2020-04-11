@@ -78,6 +78,7 @@ using StdUniquePtr = std::unique_ptr<T>;
 	using name##UPtr = StdSharedPtr<name>
 
 #define DECLARE_ENUM_FLAGS(enumType) \
+	enumType operator~(enumType e);\
 	enumType operator|(enumType e0, enumType e1);\
 	enumType operator^(enumType e0, enumType e1);\
 	enumType operator&(enumType e0, enumType e1);\
@@ -86,6 +87,7 @@ using StdUniquePtr = std::unique_ptr<T>;
 	enumType& operator&=(enumType& e0, enumType e1);
 
 #define DEFINE_ENUM_FLAGS(enumType)\
+	enumType operator~(enumType e) { return enumType( ~u64(e)); } \
 	enumType operator|(enumType e0, enumType e1) { return enumType( u64(e0) | u64(e1)); } \
 	enumType operator^(enumType e0, enumType e1) { return enumType( u64(e0) ^ u64(e1)); } \
 	enumType operator&(enumType e0, enumType e1) { return enumType( u64(e0) & u64(e1)); } \
@@ -93,4 +95,4 @@ using StdUniquePtr = std::unique_ptr<T>;
 	enumType& operator^=(enumType& e0, enumType e1) { e0 = enumType( u64(e0) ^ u64(e1)); return e0; } \
 	enumType& operator&=(enumType& e0, enumType e1) { e0 = enumType( u64(e0) & u64(e1)); return e0; }
 
-#define ENUM_IS_SET(a, b) (((a) & (b)) != (b))
+#define ENUM_IS_SET(a, b) (u64((a) & (b)) != 0)

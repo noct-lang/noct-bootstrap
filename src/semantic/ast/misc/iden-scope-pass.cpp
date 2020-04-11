@@ -794,8 +794,7 @@ namespace Noctis
 			if (generics)
 			{
 				AstGenericDecl* pGenerics = static_cast<AstGenericDecl*>(generics.get());
-				StdString idenStr = Format("%s__gen_%u", name.data(), pGenerics->params.size());
-				iden = Iden::Create(idenStr);
+				iden = Iden::Create(name, pGenerics->params.size());
 			}
 			else
 			{
@@ -829,6 +828,29 @@ namespace Noctis
 			++m_pTree->genId;
 			StdString idenStr = Format("__%s_%s_%u", scopeName.data(), m_FileNameHash.c_str(), genId);
 			IdenSPtr iden = Iden::Create(idenStr);
+			ctx->iden = iden;
+			ctx->scope = m_CurScope;
+			ctx->qualName = QualName::Create(m_CurScope, iden);
+		}
+		m_CurScope = ctx->qualName;
+	}
+
+	void IdenScopePass::FuncScope(AstContextPtr& ctx, StdStringView name, AstGenericDeclSPtr generics,
+		const StdVector<StdString>& paramNames)
+	{
+		if (!ctx->qualName)
+		{
+			IdenSPtr iden;
+			if (generics)
+			{
+				AstGenericDecl* pGenerics = static_cast<AstGenericDecl*>(generics.get());
+				iden = Iden::Create(name, pGenerics->params.size(), paramNames);
+			}
+			else
+			{
+				iden = Iden::Create(name, 0, paramNames);
+			}
+
 			ctx->iden = iden;
 			ctx->scope = m_CurScope;
 			ctx->qualName = QualName::Create(m_CurScope, iden);

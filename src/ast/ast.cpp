@@ -72,9 +72,10 @@ namespace Noctis
 		ctx->endIdx = this->idens.back()->ctx->endIdx;
 	}
 
-	AstParamVar::AstParamVar(AstAttribsSPtr attribs, u64 startIdx, StdString&& iden, u64 endIdx)
+	AstParamVar::AstParamVar(AstAttribsSPtr attribs, u64 startIdx, StdString&& label, StdString&& iden, u64 endIdx)
 		: attribs(attribs)
-		, iden(iden)
+		, label(std::move(label))
+		, iden(std::move(iden))
 		, ctx(new AstContext{})
 	{
 		ctx->startIdx = attribs ? attribs->ctx->startIdx : startIdx;

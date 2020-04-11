@@ -4,11 +4,12 @@
 #include "ast/macros/decl-macro-context-gen.hpp"
 #include "ast/macros/decl-macro-expansion.hpp"
 #include "ast/misc/ast-to-itr-lowering.hpp"
+#include "itr/attribute/simple-attribute-pass.hpp"
+#include "itr/types/type-collection.hpp"
 #include "semantic-utils.hpp"
 
 namespace Noctis
 {
-
 	template<typename T>
 	void RunAstSemanticPass(Context* pCtx, AstTree& tree)
 	{
@@ -43,5 +44,24 @@ namespace Noctis
 		RunAstSemanticPass<IdenScopePass>(m_pCtx, tree);
 
 		RunAstSemanticPass<AstToITrLowering>(m_pCtx, tree);
+	}
+
+	template<typename T>
+	void RunITrSemanticPass(Context* pCtx, ITrModule& mod)
+	{
+		static_assert(std::is_base_of_v<ITrSemanticPass, T>, "");
+		T pass{ pCtx };
+		pass.Process(mod);
+	}
+	
+	ITrSemanticAnalysis::ITrSemanticAnalysis(Context* pCtx)
+		: m_pCtx(pCtx)
+	{
+	}
+
+	void ITrSemanticAnalysis::Run(ITrModule& mod)
+	{
+		RunITrSemanticPass<SimpleAttributePass>(m_pCtx, mod);
+		RunITrSemanticPass<TypeCollection>(m_pCtx, mod);
 	}
 }

@@ -3,6 +3,7 @@
 
 namespace Noctis
 {
+	using SpanId = u64;
 
 	struct Span
 	{
@@ -12,6 +13,7 @@ namespace Noctis
 		const u64 endChar;
 		const u64 line;
 		const u64 column;
+		StdStringView filePath;
 	};
 
 	struct MultiSpan
@@ -28,15 +30,14 @@ namespace Noctis
 
 		SpanManager();
 
-		void SetCurFile(const StdString& filepath);
-
-		void AddSpan(Span span);
-		Span GetSpan(u64 idx) const;
-		MultiSpan GetSpan(u64 start, u64 end) const;
+		SpanId AddSpan(const StdString& filepath, Span span);
+		Span GetSpan(u64 id) const;
+		MultiSpan GetSpan(u64 startId, u64 endId) const;
 
 	private:
 
-		StdUnorderedMap<StdString, StdVector<Span>> m_Spans;
+		StdUnorderedSet<StdString> m_FileNames;
+		StdVector<Span> m_Spans;
 		StdString m_CurFile;
 	};
 	

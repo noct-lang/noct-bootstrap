@@ -2619,7 +2619,15 @@ namespace Noctis
 			u64 tmpIdx = m_TokIdx;
 			StdString iden = ParseIden();
 			endIdx = m_TokIdx - 1;
-			vars.emplace_back(new AstParamVar{ attribs, tmpIdx, std::move(iden), endIdx });
+
+			StdString label;
+			if (TryEatToken(TokenType::DblArrow))
+			{
+				label = iden;
+				iden = ParseIden();
+				endIdx = m_TokIdx - 1;
+			}
+			vars.emplace_back(new AstParamVar{ attribs, tmpIdx, std::move(label), std::move(iden), endIdx });
 		}
 		else
 		{
@@ -2628,7 +2636,15 @@ namespace Noctis
 			u64 tmpIdx = m_TokIdx;
 			StdString iden = ParseIden();
 			endIdx = m_TokIdx - 1;
-			vars.emplace_back(new AstParamVar{ attribs, tmpIdx, std::move(iden), endIdx });
+
+			StdString label;
+			if (TryEatToken(TokenType::DblArrow))
+			{
+				label = iden;
+				iden = ParseIden();
+				endIdx = m_TokIdx - 1;
+			}
+			vars.emplace_back(new AstParamVar{ attribs, tmpIdx, std::move(label), std::move(iden), endIdx });
 		}
 
 		while (TryEatToken(TokenType::Comma))
@@ -2639,7 +2655,15 @@ namespace Noctis
 			u64 tmpIdx = m_TokIdx;
 			StdString iden = ParseIden();
 			endIdx = m_TokIdx - 1;
-			vars.emplace_back(new AstParamVar{ attribs, tmpIdx, std::move(iden), endIdx });
+
+			StdString label;
+			if (TryEatToken(TokenType::DblArrow))
+			{
+				label = iden;
+				iden = ParseIden();
+				endIdx = m_TokIdx - 1;
+			}
+			vars.emplace_back(new AstParamVar{ attribs, tmpIdx, std::move(label), std::move(iden), endIdx });
 		}
 
 		if (PeekToken().Type() != TokenType::Colon && allowNoType)
@@ -2830,7 +2854,7 @@ namespace Noctis
 		static Token emptyTok{ TokenType::Unknown, "", u64(-1) };
 		if (m_TokIdx >= m_Tokens.size())
 		{
-			g_ErrorSystem.Error(0, 0, "Reached end of token stream");
+			g_ErrorSystem.Error("Reached end of token stream");
 			return emptyTok;
 		}
 		return m_Tokens[m_TokIdx++];
@@ -2842,7 +2866,7 @@ namespace Noctis
 
 		if (m_TokIdx >= m_Tokens.size())
 		{
-			g_ErrorSystem.Error(0, 0, "Reached end of token stream");
+			g_ErrorSystem.Error("Reached end of token stream");
 			return emptyTok;
 		}
 		
@@ -2866,7 +2890,7 @@ namespace Noctis
 		static Token emptyTok{ TokenType::Unknown, "", u64(-1) };
 		if (m_TokIdx >= m_Tokens.size())
 		{
-			g_ErrorSystem.Error(0, 0, "Reached end of token stream");
+			g_ErrorSystem.Error("Reached end of token stream");
 			return emptyTok;
 		}
 
@@ -2902,7 +2926,7 @@ namespace Noctis
 	{
 		if (m_TokIdx >= m_Tokens.size())
 		{
-			g_ErrorSystem.Error(0, 0, "Reached end of token stream");
+			g_ErrorSystem.Error("Reached end of token stream");
 			return false;
 		}
 

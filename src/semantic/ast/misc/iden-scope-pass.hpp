@@ -142,6 +142,7 @@ namespace Noctis
 		void GenericScope(AstContextPtr& ctx, StdStringView name, AstGenericDeclSPtr generics);
 		void IdenScope(AstContextPtr& ctx, StdStringView name);
 		void UnnamedScope(AstContextPtr& ctx, StdStringView scopeName);
+		void FuncScope(AstContextPtr& ctx, StdStringView scopeName, AstGenericDeclSPtr generics, const StdVector<StdString>& paramNames);
 		
 	private:
 		QualNameSPtr m_CurScope;

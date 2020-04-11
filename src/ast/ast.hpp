@@ -226,9 +226,10 @@ namespace Noctis
 
 	struct AstParamVar
 	{
-		AstParamVar(AstAttribsSPtr attribs, u64 startIdx, StdString&& iden, u64 endIdx);
+		AstParamVar(AstAttribsSPtr attribs, u64 startIdx, StdString&& label, StdString&& iden, u64 endIdx);
 
 		AstAttribsSPtr attribs;
+		StdString label;
 		StdString iden;
 		AstContextPtr ctx;
 	};

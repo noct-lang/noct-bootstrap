@@ -10,7 +10,7 @@ namespace Noctis
 	public:
 		ITrPrinter(Context* pCtx);
 
-		void Print(ITrModule* pMod);
+		void Print(ITrModule& pMod);
 		
 		void Visit(ITrStruct& node) override;
 		void Visit(ITrUnion& node) override;

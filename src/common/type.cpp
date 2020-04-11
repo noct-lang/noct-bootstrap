@@ -85,6 +85,13 @@ namespace Noctis
 	{
 	}
 
+	FuncType::FuncType(TypeMod mod, const StdVector<TypeHandle>& paramTypes, TypeHandle retType)
+		: Type(TypeKind::Func, mod)
+		, paramTypes(paramTypes)
+		, retType(retType)
+	{
+	}
+
 	TypeRegistry::TypeRegistry()
 		: m_BuiltinMapping()
 		, m_EmptyTupleHandle(TypeHandle(-1))
@@ -201,6 +208,66 @@ namespace Noctis
 		}
 		default: return "";
 		}
+	}
+
+	bool TypeRegistry::AreTypesEqual(TypeHandle first, TypeHandle second)
+	{
+		return GetType(first) == GetType(second);
+	}
+
+	bool TypeRegistry::CanPassTo(TypeHandle param, TypeHandle arg)
+	{
+		if (!AreTypesEqual(param, arg))
+		{
+			TypeHandle paramNoMod = Mod(TypeMod::None, param);
+			return AreTypesEqual(paramNoMod, arg);
+		}
+		return true;
+	}
+
+	bool TypeRegistry::CanPassToRec(TypeHandle rec, TypeHandle caller)
+	{
+		if (!AreTypesEqual(rec, caller))
+		{
+			TypeSPtr recType = GetType(rec);
+			TypeHandle recNoRef = recType->typeKind == TypeKind::Ref ? recType->AsRef().subType : rec;
+
+			if (!AreTypesEqual(recNoRef, caller))
+			{
+				TypeHandle recNoRefNoMod = Mod(TypeMod::None, recNoRef);
+				if (!AreTypesEqual(recNoRef, caller))
+					return false;
+			}
+		}
+		return true;
+	}
+
+	void TypeRegistry::SetIdenSym(QualNameSPtr qualName, SymbolWPtr sym)
+	{
+		auto it = m_IdenMapping.find(qualName);
+		if (it == m_IdenMapping.end())
+			it = m_IdenMapping.try_emplace(qualName, StdArray<TypeHandle, m_ModCount>{}).first;
+		for (u8 i = 0; i < u8(TypeMod::Count); ++i)
+		{
+			TypeHandle& handle = it->second[i];
+			if (handle == TypeHandle(-1))
+			{
+				TypeSPtr type{ new IdenType{ TypeMod(i), qualName } };
+				type->AsIden().sym = sym;
+				handle = TypeHandle(m_Types.size());
+				m_Types.push_back(type);
+			}
+			else
+			{
+				TypeSPtr type = m_Types[handle];
+				type->AsIden().sym = sym;
+			}
+		}
+	}
+
+	void TypeRegistry::SetAliasType(TypeHandle alias, TypeHandle type)
+	{
+		m_Types[alias] = m_Types[type];
 	}
 
 	TypeHandle TypeRegistry::Builtin(TypeMod mod, BuiltinTypeKind builtin)
@@ -368,46 +435,124 @@ namespace Noctis
 			return m_EmptyTupleHandle;
 		}
 
-		auto it = m_TupleMapping.find(subTypes[0]);
+		u64 count = u64(subTypes.size());
+		auto it = m_TupleMapping.find(count);
 		if (it == m_TupleMapping.end())
-			it = m_TupleMapping.insert(std::pair{ subTypes[0], StdUnorderedMap<u64, StdArray<TypeHandle, m_ModCount>>{} }).first;
+			it = m_TupleMapping.try_emplace(count, StdUnorderedMap<u64, StdVector<StdArray<TypeHandle, m_ModCount>>>{}).first;
 
-		auto subIt = it->second.find(u64(subTypes.size()));
+		auto subIt = it->second.find(subTypes[0]);
 		if (subIt == it->second.end())
+			subIt = it->second.try_emplace(subTypes[0], StdVector<StdArray<TypeHandle, m_ModCount>>{}).first;
+
+		for (StdArray<TypeHandle, m_ModCount> array : subIt->second)
 		{
-			subIt = it->second.insert(std::pair{ u64(subTypes.size()), StdArray<TypeHandle, m_ModCount>{} }).first;
-			subIt->second.fill(TypeHandle(-1));
+			TypeHandle handle = array[u8(mod)];
+			TypeSPtr type = GetType(handle);
+			TupleType& tupType = type->AsTuple();
+
+			bool found = true;
+			for (usize i = 1; i < count; ++i)
+			{
+				if (!AreTypesEqual(subTypes[i], tupType.subTypes[i]))
+				{
+					found = false;
+					break;
+				}
+			}
+
+			if (found)
+				return handle;
 		}
 
-		TypeHandle& handle = subIt->second[u8(mod)];
-		if (handle != TypeHandle(-1))
-			return handle;
-
-		handle = TypeHandle(m_Types.size());
+		TypeHandle handle = TypeHandle(m_Types.size());
 		m_Types.emplace_back(new TupleType{ mod, subTypes });
 
+		subIt->second.push_back({});
+		subIt->second.back().fill(TypeHandle(-1));
+		subIt->second.back()[u8(mod)] = handle;
+		
 		return handle;
 	}
 
 	TypeHandle TypeRegistry::Compound(TypeMod mod, const StdVector<TypeHandle>& subTypes)
 	{
-		auto it = m_CompoundMapping.find(subTypes[0]);
+		u64 count = u64(subTypes.size());
+		auto it = m_CompoundMapping.find(count);
 		if (it == m_CompoundMapping.end())
-			it = m_CompoundMapping.insert(std::pair{ subTypes[0], StdUnorderedMap<u64, StdArray<TypeHandle, m_ModCount>>{} }).first;
+			it = m_CompoundMapping.try_emplace(count, StdUnorderedMap<u64, StdVector<StdArray<TypeHandle, m_ModCount>>>{}).first;
 
-		auto subIt = it->second.find(u64(subTypes.size()));
+		auto subIt = it->second.find(subTypes[0]);
 		if (subIt == it->second.end())
+			subIt = it->second.try_emplace(subTypes[0], StdVector<StdArray<TypeHandle, m_ModCount>>{}).first;
+
+		for (StdArray<TypeHandle, m_ModCount> array : subIt->second)
 		{
-			subIt = it->second.insert(std::pair{ u64(subTypes.size()), StdArray<TypeHandle, m_ModCount>{} }).first;
-			subIt->second.fill(TypeHandle(-1));
+			TypeHandle handle = array[u8(mod)];
+			TypeSPtr type = GetType(handle);
+			TupleType& tupType = type->AsTuple();
+
+			bool found = true;
+			for (usize i = 1; i < count; ++i)
+			{
+				if (!AreTypesEqual(subTypes[i], tupType.subTypes[i]))
+				{
+					found = false;
+					break;
+				}
+			}
+
+			if (found)
+				return handle;
 		}
 
-		TypeHandle& handle = subIt->second[u8(mod)];
-		if (handle != TypeHandle(-1))
-			return handle;
+		TypeHandle handle = TypeHandle(m_Types.size());
+		m_Types.emplace_back(new TupleType{ mod, subTypes });
 
-		handle = TypeHandle(m_Types.size());
-		m_Types.emplace_back(new CompoundType{ mod, subTypes });
+		subIt->second.push_back({});
+		subIt->second.back().fill(TypeHandle(-1));
+		subIt->second.back()[u8(mod)] = handle;
+
+		return handle;
+	}
+
+	TypeHandle TypeRegistry::Func(TypeMod mod, const StdVector<TypeHandle>& params, TypeHandle ret)
+	{
+		u64 count = u64(params.size());
+		auto it = m_CompoundMapping.find(count);
+		if (it == m_CompoundMapping.end())
+			it = m_CompoundMapping.try_emplace(count, StdUnorderedMap<u64, StdVector<StdArray<TypeHandle, m_ModCount>>>{}).first;
+
+		TypeHandle checkType = !params.empty() ? params[0] : ret;
+		auto subIt = it->second.find(checkType);
+		if (subIt == it->second.end())
+			subIt = it->second.try_emplace(checkType, StdVector<StdArray<TypeHandle, m_ModCount>>{}).first;
+
+		for (StdArray<TypeHandle, m_ModCount> array : subIt->second)
+		{
+			TypeHandle handle = array[u8(mod)];
+			TypeSPtr type = GetType(handle);
+			FuncType& funcType = type->AsFunc();
+
+			bool found = true;
+			for (usize i = 1; i < count; ++i)
+			{
+				if (!AreTypesEqual(params[i], funcType.paramTypes[i]))
+				{
+					found = false;
+					break;
+				}
+			}
+
+			if (found && ret == funcType.retType)
+				return handle;
+		}
+
+		TypeHandle handle = TypeHandle(m_Types.size());
+		m_Types.emplace_back(new FuncType{ mod, params, ret });
+
+		subIt->second.push_back({});
+		subIt->second.back().fill(TypeHandle(-1));
+		subIt->second.back()[u8(mod)] = handle;
 
 		return handle;
 	}
@@ -468,6 +613,11 @@ namespace Noctis
 		{
 			CompoundType& tup = type->AsCompound();
 			return Compound(mod, tup.subTypes);
+		}
+		case TypeKind::Func:
+		{
+			FuncType& fn = type->AsFunc();
+			return Func(mod, fn.paramTypes, fn.retType);
 		}
 		default:
 			return TypeHandle(-1);

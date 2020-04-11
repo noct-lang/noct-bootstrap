@@ -103,7 +103,7 @@ namespace Noctis
 	{
 		Module,
 		Local,
-		Both
+		Any
 	};
 	
 	class ITrVisitor
@@ -112,22 +112,22 @@ namespace Noctis
 		ITrVisitor(bool walkDefs = false);
 		virtual ~ITrVisitor();
 
-		void SetModule(ITrModule* pMod) { m_pMod = pMod; }
+		void SetModule(ITrModule& mod) { m_pMod = &mod; }
 
-		void Foreach(ITrVisitorDefKind kind, std::function<void(ITrStruct&)>& func);
-		void Foreach(ITrVisitorDefKind kind, std::function<void(ITrUnion&)>& func);
-		void Foreach(ITrVisitorDefKind kind, std::function<void(ITrValEnum&)>& func);
-		void Foreach(ITrVisitorDefKind kind, std::function<void(ITrValEnumMember&)>& func);
-		void Foreach(ITrVisitorDefKind kind, std::function<void(ITrAdtEnum&)>& func);
-		void Foreach(ITrVisitorDefKind kind, std::function<void(ITrAdtEnumMember&)>& func);
-		void Foreach(ITrVisitorDefKind kind, std::function<void(ITrMarkerInterface&)>& func);
-		void Foreach(ITrVisitorDefKind kind, std::function<void(ITrWeakInterface&)>& func);
-		void Foreach(ITrVisitorDefKind kind, std::function<void(ITrStrongInterface&)>& func);
-		void Foreach(ITrVisitorDefKind kind, std::function<void(ITrTypealias&)>& func);
-		void Foreach(ITrVisitorDefKind kind, std::function<void(ITrTypedef&)>& func);
-		void Foreach(ITrVisitorDefKind kind, std::function<void(ITrVar&)>& func);
-		void Foreach(ITrVisitorDefKind kind, std::function<void(ITrFunc&)>& func);
-		void Foreach(ITrVisitorDefKind kind, std::function<void(ITrImpl&)>& func);
+		void Foreach(ITrVisitorDefKind kind, const std::function<void(ITrStruct&)>& func);
+		void Foreach(ITrVisitorDefKind kind, const std::function<void(ITrUnion&)>& func);
+		void Foreach(ITrVisitorDefKind kind, const std::function<void(ITrValEnum&)>& func);
+		void Foreach(ITrVisitorDefKind kind, const std::function<void(ITrValEnumMember&)>& func);
+		void Foreach(ITrVisitorDefKind kind, const std::function<void(ITrAdtEnum&)>& func);
+		void Foreach(ITrVisitorDefKind kind, const std::function<void(ITrAdtEnumMember&)>& func);
+		void Foreach(ITrVisitorDefKind kind, const std::function<void(ITrMarkerInterface&)>& func);
+		void Foreach(ITrVisitorDefKind kind, const std::function<void(ITrWeakInterface&)>& func);
+		void Foreach(ITrVisitorDefKind kind, const std::function<void(ITrStrongInterface&)>& func);
+		void Foreach(ITrVisitorDefKind kind, const std::function<void(ITrTypealias&)>& func);
+		void Foreach(ITrVisitorDefKind kind, const std::function<void(ITrTypedef&)>& func);
+		void Foreach(ITrVisitorDefKind kind, const std::function<void(ITrVar&)>& func);
+		void Foreach(ITrVisitorDefKind kind, const std::function<void(ITrFunc&)>& func);
+		void Foreach(ITrVisitorDefKind kind, const std::function<void(ITrImpl&)>& func);
 		
 		virtual void Visit(ITrStruct& node);
 		virtual void Visit(ITrUnion& node);

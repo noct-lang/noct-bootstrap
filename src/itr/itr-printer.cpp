@@ -15,13 +15,13 @@ namespace Noctis
 	{
 	}
 
-	void ITrPrinter::Print(ITrModule* pMod)
+	void ITrPrinter::Print(ITrModule& pMod)
 	{
 		SetModule(pMod);
 
 		g_Logger.Log("(itr-tree)\n");
 		m_Indent = 1;
-		for (StdVector<ITrDefSPtr>& defs : pMod->defMapping)
+		for (StdVector<ITrDefSPtr>& defs : pMod.defMapping)
 		{
 			for (ITrDefSPtr def : defs)
 			{

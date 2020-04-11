@@ -104,8 +104,8 @@ namespace Noctis
 	{
 	}
 
-	ITrImpl::ITrImpl(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, ITrTypeSPtr type, StdVector<ITrTypeSPtr>&& interfaces)
-		: ITrDef(ITrDefKind::Impl, attribs, genDecl, nullptr, true)
+	ITrImpl::ITrImpl(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr scope, ITrTypeSPtr type, StdPairVector<QualNameSPtr, SpanId>&& interfaces)
+		: ITrDef(ITrDefKind::Impl, attribs, genDecl, scope, true)
 		, type(type)
 		, interfaces(std::move(interfaces))
 	{
@@ -458,9 +458,10 @@ namespace Noctis
 	{
 	}
 
-	ITrType::ITrType(TypeHandle handle, StdVector<ITrTypeSPtr>&& subTypes)
-		: handle(handle)
+	ITrType::ITrType(ITrAttribsSPtr attribs, TypeHandle handle, StdVector<ITrTypeSPtr>&& subTypes)
+		: attribs(attribs)
 		, subTypes(std::move(subTypes))
+		, handle(handle)
 	{
 	}
 

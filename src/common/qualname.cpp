@@ -1,25 +1,160 @@
 #include "qualname.hpp"
 
+#include <utility>
+
+#include "utils.hpp"
+
 namespace Noctis
 {
-	StdUnorderedMap<StdString, IdenSPtr> Iden::s_Idens = {};
+	StdUnorderedMap<StdString, StdUnorderedMap<u64, StdVector<IdenSPtr>>> Iden::s_Idens = {};
 	StdString Iden::s_SearchString = {};
 
+	IdenGeneric::IdenGeneric()
+		: isType(true)
+		, type(TypeHandle(-1))
+	{
+	}
+
 	IdenSPtr Iden::Create(StdStringView name)
+	{
+		return Create(name, 0, StdVector<StdString>{});
+	}
+
+	IdenSPtr Iden::Create(StdStringView name, u64 numGenerics)
+	{
+		return Create(name, numGenerics, StdVector<StdString>{});
+	}
+
+	IdenSPtr Iden::Create(StdStringView name, u64 numGenerics, const StdVector<StdString>& paramNames)
 	{
 		// Use static string to as key, to try to decrease allocations
 		s_SearchString.assign(name);
 		auto it = s_Idens.find(s_SearchString);
-		if (it != s_Idens.end())
-			return it->second;
+		if (it == s_Idens.end())
+			it = s_Idens.try_emplace(s_SearchString, StdUnorderedMap<u64, StdVector<IdenSPtr>>{}).first;
 
-		IdenSPtr iden{ new Iden{ s_SearchString } };
-		s_Idens.try_emplace(s_SearchString, iden);
+		auto subIt = it->second.find(numGenerics);
+		if (subIt == it->second.end())
+			subIt = it->second.try_emplace(numGenerics, StdVector<IdenSPtr>{}).first;
+
+		for (IdenSPtr iden : subIt->second)
+		{
+			StdVector<StdString>& idenParamNames = iden->ParamNames();
+			if (paramNames == idenParamNames)
+				return iden;
+		}
+
+		IdenSPtr iden{ new Iden{ s_SearchString, numGenerics } };
+		subIt->second.push_back(iden);
 		return iden;
 	}
 
-	Iden::Iden(StdString name)
+	IdenSPtr Iden::Create(StdStringView name, const StdVector<IdenGeneric>& generics, TypeRegistry& typeReg)
+	{
+		if (generics.empty())
+			return Create(name);
+		
+		// Use static string to as key, to try to decrease allocations
+		s_SearchString.assign(name);
+		auto it = s_Idens.find(s_SearchString);
+		if (it == s_Idens.end())
+			it = s_Idens.try_emplace(s_SearchString, StdUnorderedMap<u64, StdVector<IdenSPtr>>{}).first;
+
+		u64 numGenerics = u64(generics.size());
+		
+		auto subIt = it->second.find(numGenerics);
+		if (subIt == it->second.end())
+			subIt = it->second.try_emplace(0, StdVector<IdenSPtr>{}).first;
+
+		for (IdenSPtr iden : subIt->second)
+		{
+			bool found = true;
+			StdVector<IdenGeneric>& idenGens = iden->Generics();
+			for (u64 i = 0; i < numGenerics; ++i)
+			{
+				if (idenGens[i].isType != generics[i].isType ||
+					!typeReg.AreTypesEqual(idenGens[i].type, generics[i].type))
+				{
+					found = false;
+					break;
+				}
+
+				if (!idenGens[i].isType)
+				{
+					// TODO: Value
+					
+				}
+			}
+
+			if (found)
+				return iden;
+		}
+
+		IdenSPtr iden{ new Iden{ s_SearchString, generics } };
+		subIt->second.push_back(iden);
+		return iden;
+	}
+
+	StdString Iden::ToFuncSymName()
+	{
+		StdString str = m_Name;
+		for (StdString& paramName : m_ParamNames)
+		{
+			str += "__" + paramName;
+		}
+		return str;
+	}
+
+	StdString Iden::ToString()
+	{
+		StdString str = m_Name;
+
+		if (!m_Generics.empty())
+		{
+			str += '<';
+			for (usize i = 0; i < m_Generics.size(); ++i)
+			{
+				if (i != 0)
+					str += ',';
+				
+				IdenGeneric& generic = m_Generics[i];
+				if (generic.isType)
+				{
+					// TODO
+				}
+				else
+				{
+					// TODO
+					str += ':';
+				}
+			}
+			str += '>';
+		}
+
+		if (!m_ParamNames.empty())
+		{
+			str += '(';
+			for (usize i = 0; i < m_ParamNames.size(); ++i)
+			{
+				if (i != 0)
+					str += ',';
+				str += m_ParamNames[i];
+			}
+			str += ')';
+		}
+
+		return str;
+	}
+
+	Iden::Iden(StdString name, u64 numGenerics)
 		: m_Name(std::move(name))
+	{
+		m_Generics.resize(numGenerics);
+	}
+
+	Iden::Iden(StdString name, StdVector<IdenGeneric> generics)
+		: m_Name(std::move(name))
+		, m_Generics(std::move(generics))
 	{
 	}
 
@@ -41,7 +176,7 @@ namespace Noctis
 	}
 
 	TypeDisambiguation::TypeDisambiguation(QualNameSPtr qualName, TypeHandle type)
-		: m_QualName(qualName)
+		: m_QualName(std::move(qualName))
 		, m_Type(type)
 	{
 	}
@@ -130,7 +265,7 @@ namespace Noctis
 		StdString name;
 		do
 		{
-			StdString str = "::" + qualName->Iden()->Name();
+			StdString str = "::" + qualName->Iden()->ToString();
 			name.insert(name.begin(), str.begin(), str.end());
 			qualName = qualName->Base().get();
 		}
@@ -152,14 +287,47 @@ namespace Noctis
 		return idens;
 	}
 
+	QualNameSPtr QualName::GetSubName(QualNameSPtr base)
+	{
+		StdVector<IdenSPtr> ownIdens = AllIdens();
+		StdVector<IdenSPtr> baseIdens = base->AllIdens();
+
+		if (ownIdens.size() <= baseIdens.size())
+			return nullptr;
+
+		usize size = baseIdens.size();
+		for (usize i = 0; i < size; ++i)
+		{
+			IdenSPtr ownIden = ownIdens[i];
+			IdenSPtr baseIden = baseIdens[i];
+
+			if (ownIden != baseIden)
+				return nullptr;
+		}
+
+		StdVector<IdenSPtr> newIdens;
+		newIdens.insert(newIdens.begin(), ownIdens.begin() + size, ownIdens.end());
+
+		return Create(newIdens);
+	}
+
+	usize QualName::Depth()
+	{
+		if (m_Disambiguation)
+			return m_Disambiguation->QualName()->Depth() + 1;
+		if (m_Base)
+			return m_Base->Depth() + 1;
+		return 0;
+	}
+
 	QualName::QualName(QualNameSPtr base, IdenSPtr iden)
-		: m_Base(base)
-		, m_Iden(iden)
+		: m_Base(std::move(base))
+		, m_Iden(std::move(iden))
 	{
 	}
 
 	QualName::QualName(TypeDisambiguationSPtr disambiguation)
-		: m_Disambiguation(disambiguation)
+		: m_Disambiguation(std::move(disambiguation))
 	{
 	}
 }

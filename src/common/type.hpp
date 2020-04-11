@@ -4,6 +4,7 @@
 namespace Noctis
 {
 	FWDECL_CLASS_SPTR(QualName);
+	FWDECL_STRUCT_WPTR(Symbol);
 	
 	enum class TypeKind : u8
 	{
@@ -15,7 +16,8 @@ namespace Noctis
 		Array,
 		Tuple,
 		Opt,
-		Compound
+		Compound,
+		Func
 	};
 
 	enum class BuiltinTypeKind : u8
@@ -43,10 +45,11 @@ namespace Noctis
 		Count,
 	};
 
-	enum class TypeMod
+	enum class TypeMod : u8
 	{
 		None,
 		Const,
+		Immutable,
 		Count,
 	};
 	StdStringView TypeModToString(TypeMod mod);
@@ -62,6 +65,7 @@ namespace Noctis
 	struct TupleType;
 	struct OptType;
 	struct CompoundType;
+	struct FuncType;
 
 	struct Type
 	{
@@ -76,6 +80,7 @@ namespace Noctis
 		TupleType& AsTuple() { return *reinterpret_cast<TupleType*>(this); }
 		OptType& AsOpt() { return *reinterpret_cast<OptType*>(this); }
 		CompoundType& AsCompound() { return *reinterpret_cast<CompoundType*>(this); }
+		FuncType& AsFunc() { return *reinterpret_cast<FuncType*>(this); }
 
 		TypeKind typeKind;
 		TypeMod mod;
@@ -94,6 +99,7 @@ namespace Noctis
 		IdenType(TypeMod mod, QualNameSPtr qualName);
 		
 		QualNameSPtr qualName;
+		SymbolWPtr sym;
 	};
 
 	struct PtrType : Type
@@ -149,6 +155,14 @@ namespace Noctis
 		StdVector<TypeHandle> subTypes;
 	};
 
+	struct FuncType : Type
+	{
+		FuncType(TypeMod mod, const StdVector<TypeHandle>& paramTypes, TypeHandle retType);
+
+		StdVector<TypeHandle> paramTypes;
+		TypeHandle retType;
+	};
+
 	class TypeRegistry
 	{
 	public:
@@ -158,6 +172,11 @@ namespace Noctis
 		TypeSPtr GetType(TypeHandle handle);
 		StdString ToString(TypeHandle handle);
 
+		bool AreTypesEqual(TypeHandle first, TypeHandle second);
+		bool CanPassTo(TypeHandle first, TypeHandle second);
+		bool CanPassToRec(TypeHandle first, TypeHandle second);
+		void SetIdenSym(QualNameSPtr qualName, SymbolWPtr sym);
+		void SetAliasType(TypeHandle alias, TypeHandle type);
 
 		TypeHandle Builtin(TypeMod mod, BuiltinTypeKind builtin);
 		TypeHandle Iden(TypeMod mod, QualNameSPtr qualName);
@@ -172,6 +191,7 @@ namespace Noctis
 		TypeHandle Tuple(TypeMod mod, const StdVector<TypeHandle>& subTypes);
 		TypeHandle Compound(TypeMod mod, const StdVector<TypeHandle>& subTypes);
 
+		TypeHandle Func(TypeMod mod, const StdVector<TypeHandle>& params, TypeHandle ret);
 
 		TypeHandle Mod(TypeMod mod, TypeHandle handle);
 
@@ -189,9 +209,9 @@ namespace Noctis
 		StdUnorderedMap<TypeHandle, StdUnorderedMap<u64, StdArray<TypeHandle, m_ModCount>>> m_ArrayMappingKnownSize;
 
 		TypeHandle m_EmptyTupleHandle;
-		StdUnorderedMap<TypeHandle, StdUnorderedMap<u64, StdArray<TypeHandle, m_ModCount>>> m_TupleMapping;
-		
-		StdUnorderedMap<TypeHandle, StdUnorderedMap<u64, StdArray<TypeHandle, m_ModCount>>> m_CompoundMapping;
+		StdUnorderedMap<u64, StdUnorderedMap<TypeHandle, StdVector<StdArray<TypeHandle, m_ModCount>>>> m_TupleMapping;
+		StdUnorderedMap<u64, StdUnorderedMap<TypeHandle, StdVector<StdArray<TypeHandle, m_ModCount>>>> m_CompoundMapping;
+		StdUnorderedMap<u64, StdUnorderedMap<TypeHandle, StdVector<StdArray<TypeHandle, m_ModCount>>>> m_FuncMapping;
 
 		StdVector<TypeSPtr> m_Types;
 		

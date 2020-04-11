@@ -16,8 +16,17 @@ namespace Noctis
 
 	private:
 		Context* m_pCtx;
+	};
 
-		StdVector<std::unique_ptr<AstSemanticPass>> m_Passes;
+	class ITrSemanticAnalysis
+	{
+	public:
+		ITrSemanticAnalysis(Context* pCtx);
+
+		void Run(ITrModule& mod);
+
+	private:
+		Context* m_pCtx;
 	};
 	
 }

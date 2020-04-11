@@ -20,32 +20,25 @@ namespace Noctis
 	{
 	}
 
-	void SpanManager::SetCurFile(const StdString& filepath)
+	SpanId SpanManager::AddSpan(const StdString& filepath, Span span)
 	{
-		m_CurFile = filepath;
+		auto it = m_FileNames.insert(filepath).first;
+		span.filePath = StdStringView{ *it };
+		SpanId id = SpanId(m_Spans.size());
+		m_Spans.push_back(std::move(span));
+		return id;
+	}
+	Span SpanManager::GetSpan(u64 id) const
+	{
+		if (id >= m_Spans.size())
+			return Span(u64(-1), u64(-1), 0, 0);
+		return m_Spans[id];
 	}
 
-	void SpanManager::AddSpan(Span span)
+	MultiSpan SpanManager::GetSpan(u64 startId, u64 endId) const
 	{
-		auto it = m_Spans.find(m_CurFile);
-		if (it == m_Spans.end())
-			it = m_Spans.insert(std::pair{ m_CurFile, StdVector<Span>{} }).first;
-
-		it->second.push_back(span);
-	}
-
-	Span SpanManager::GetSpan(u64 idx) const
-	{
-		auto it = m_Spans.find(m_CurFile);
-		if (it == m_Spans.end() || idx >= it->second.size())
-			return Span{ u64(-1), u64(-1), u64(-1), u64(-1) };
-		return it->second[idx];
-	}
-
-	MultiSpan SpanManager::GetSpan(u64 start, u64 end) const
-	{
-		Span startSpan = GetSpan(start);
-		Span endSpan = GetSpan(end);
+		Span startSpan = GetSpan(startId);
+		Span endSpan = GetSpan(endId);
 		return MultiSpan{ std::move(startSpan), std::move(endSpan) };
 	}
 }

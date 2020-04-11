@@ -26,7 +26,6 @@ void ProcessBuild(Noctis::Context& context)
 	const StdVector<StdString>& filepaths = context.options.GetBuildOptions().buildFiles;
 	for (const StdString& filepath : filepaths)
 	{
-		context.spanManager.SetCurFile(filepath);
 		g_ErrorSystem.SetCurrentFile(filepath);
 
 		StdString content;
@@ -40,7 +39,7 @@ void ProcessBuild(Noctis::Context& context)
 		
 		Noctis::Lexer lexer{ &context };
 
-		lexer.Lex(content);
+		lexer.Lex(filepath, content);
 		timer.Stop();
 
 		if (context.options.GetBuildOptions().logTokens)
@@ -90,7 +89,7 @@ void ProcessBuild(Noctis::Context& context)
 		auto it = modules.find(moduleQualName);
 		if (it == modules.end())
 		{
-			it = modules.insert(std::pair{ moduleQualName, Noctis::ModuleSPtr{ new Noctis::Module{} } }).first;
+			it = modules.insert(std::pair{ moduleQualName, Noctis::ModuleSPtr{ new Noctis::Module{ moduleQualName, &context } } }).first;
 		}
 		it->second->trees.push_back(astTree);		
 	}
@@ -99,12 +98,12 @@ void ProcessBuild(Noctis::Context& context)
 	{
 		context.activeModule = pair.second;
 		
-		Noctis::AstSemanticAnalysis semAnalysis{ &context };
+		Noctis::AstSemanticAnalysis astSemAnalysis{ &context };
 
 		for (Noctis::AstTree& tree : pair.second->trees)
 		{
 			timer.Start();
-			semAnalysis.Run(tree);
+			astSemAnalysis.Run(tree);
 			timer.Stop();
 
 			g_Logger.Log(Noctis::Format("AST semantic analysis took %fms\n", timer.GetTimeMS()));
@@ -119,8 +118,13 @@ void ProcessBuild(Noctis::Context& context)
 		if (context.options.GetBuildOptions().logLoweredITr)
 		{
 			Noctis::ITrPrinter printer{ &context };
-			printer.Print(&pair.second->itrModule);
+			printer.Print(pair.second->itrModule);
 		}
+
+		Noctis::ITrSemanticAnalysis itrSemAnalysis{ &context };
+		itrSemAnalysis.Run(pair.second->itrModule);
+
+		pair.second->symTable.Log();
 	}
 
 	buildTimer.Stop();
