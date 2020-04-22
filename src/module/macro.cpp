@@ -41,7 +41,7 @@ namespace Noctis
 		}
 	}
 
-	void MacroExtractedElem::PreParse(Context* pCtx)
+	void MacroExtractedElem::Parse(Context* pCtx)
 	{
 		switch (elemKind)
 		{
@@ -120,7 +120,7 @@ namespace Noctis
 		{
 			for (MacroExtractedElem& subElem : subElems)
 			{
-				subElem.PreParse(pCtx);
+				subElem.Parse(pCtx);
 			}
 			break;
 		}
@@ -128,7 +128,7 @@ namespace Noctis
 		{
 			for (MacroExtractedElem& subElem : subElems)
 			{
-				subElem.PreParse(pCtx);
+				subElem.Parse(pCtx);
 			}
 			break;
 		}
@@ -432,7 +432,8 @@ namespace Noctis
 		{
 			for (DeclMacro& declMacro : m_DeclMacros)
 			{
-				if (DoPatternsMatch(macro.pattern, declMacro.pattern))
+				if (declMacro.iden == macro.iden &&
+					DoPatternsMatch(macro.pattern, declMacro.pattern))
 					return false;
 			}
 
@@ -493,7 +494,7 @@ namespace Noctis
 	{
 		for (MacroExtractedElem& elem : m_ExtractedElems)
 		{
-			elem.PreParse(m_pCtx);
+			elem.Parse(m_pCtx);
 		}
 	}
 

@@ -898,6 +898,7 @@ namespace Noctis
 				case MacroVarKind::Expr:
 				{
 					EatToken();
+					elem.Parse(m_pCtx);
 					return elem.GetExpr();
 				}
 				case MacroVarKind::Toks:
@@ -1788,6 +1789,7 @@ namespace Noctis
 			{
 			case MacroVarKind::Patr:
 			{
+				elem.Parse(m_pCtx);
 				pattern = elem.GetPattern();
 				break;
 			}
@@ -2510,6 +2512,7 @@ namespace Noctis
 			case MacroVarKind::Qual:
 			{
 				EatToken();
+				elem.Parse(m_pCtx);
 				return elem.GetQualName();
 			}
 			case MacroVarKind::Iden:

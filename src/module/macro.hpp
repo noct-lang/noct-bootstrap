@@ -102,8 +102,10 @@ namespace Noctis
 		{
 		}
 
-		void PreParse(Context* pCtx);
+		void Parse(Context* pCtx);
 
+		// NOTE: When writing this in noct, make sure to copy nodes, instead of reparsing them to save time
+		//       Currently not done to not over-complicate the ast node code
 		AstQualNameSPtr GetQualName() { return *reinterpret_cast<AstQualNameSPtr*>(&node); }
 		AstTypeSPtr GetType() { return *reinterpret_cast<AstTypeSPtr*>(&node); }
 		AstPatternSPtr GetPattern() { return *reinterpret_cast<AstPatternSPtr*>(&node); }
