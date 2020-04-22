@@ -17,7 +17,8 @@
 void ProcessBuild(Noctis::Context& context)
 {
 	Noctis::Timer buildTimer(true);
-	
+
+	g_Logger.SetOutFile("log.txt");
 	g_Logger.Log("Processing build command\n");
 
 	StdUnorderedMap<Noctis::QualNameSPtr, Noctis::ModuleSPtr>& modules = context.modules;
@@ -124,7 +125,9 @@ void ProcessBuild(Noctis::Context& context)
 		Noctis::ITrSemanticAnalysis itrSemAnalysis{ &context };
 		itrSemAnalysis.Run(pair.second->itrModule);
 
+		g_Logger.SetCanWriteToStdOut(false);
 		pair.second->symTable.Log();
+		g_Logger.SetCanWriteToStdOut(true);
 	}
 
 	buildTimer.Stop();

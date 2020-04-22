@@ -6,6 +6,7 @@ namespace Noctis
 {
 	IdenScopePass::IdenScopePass(Context* pCtx)
 		: AstSemanticPass("iden-scope pass", pCtx)
+		, m_pTree(nullptr)
 	{
 	}
 
@@ -22,15 +23,13 @@ namespace Noctis
 	{
 		node.ctx->scope = m_CurScope;
 		Walk(node);
-		// TODO: Iden
 	}
 
 	void IdenScopePass::Visit(AstIden& node)
 	{
 		node.ctx->scope = m_CurScope;
 		Walk(node);
-		// TODO: Generic args
-		node.ctx->iden = Iden::Create(node.iden);
+		node.ctx->iden = Iden::Create(node.iden, u64(node.args.size()));
 	}
 
 	void IdenScopePass::Visit(AstQualName& node)
@@ -212,7 +211,7 @@ namespace Noctis
 
 	void IdenScopePass::Visit(AstIfStmt& node)
 	{
-		UnnamedScope(node.ctx, "block");
+		UnnamedScope(node.ctx, "if");
 		Walk(node);
 		m_CurScope = m_CurScope->Base();
 	}

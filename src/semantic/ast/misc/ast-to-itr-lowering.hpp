@@ -6,6 +6,10 @@ namespace Noctis
 {
 	enum class AstMethodReceiverKind : u8;
 	
+	FWDECL_STRUCT_SPTR(ITrIden);
+	FWDECL_STRUCT_SPTR(ITrTypeDisambiguation);
+	FWDECL_STRUCT_SPTR(ITrQualName);
+	
 	FWDECL_STRUCT_SPTR(ITrParam);
 	FWDECL_STRUCT_SPTR(ITrArg);
 	
@@ -25,6 +29,8 @@ namespace Noctis
 	public:
 		AstToITrLowering(Context* pCtx);
 
+		void Visit(AstTypeDisambiguation& node) override;
+		void Visit(AstIden& node) override;
 		void Visit(AstQualName& node) override;
 		void Visit(AstParam& node) override;
 		void Visit(AstArg& node) override;
@@ -168,5 +174,8 @@ namespace Noctis
 		bool m_InFunc;
 		StdString m_TreeFilename;
 		AstDeclSPtr m_DeclNode;
+		StdVector<ITrIdenSPtr> m_Idens;
+		ITrTypeDisambiguationSPtr m_TypeDisambiguation;
+		ITrQualNameSPtr m_QualName;
 	};
 }

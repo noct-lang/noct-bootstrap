@@ -86,9 +86,9 @@ namespace Noctis
 		QualName(QualNameSPtr base, IdenSPtr iden);
 		QualName(TypeDisambiguationSPtr disambiguation);
 
-		TypeDisambiguationSPtr m_Disambiguation;
-		QualNameSPtr m_Base;
 		IdenSPtr m_Iden;
+		QualNameSPtr m_Base;
+		TypeDisambiguationSPtr m_Disambiguation;
 		StdUnorderedMap<IdenSPtr, QualNameSPtr> m_Children;
 		
 		static StdUnorderedMap<IdenSPtr, QualNameSPtr> s_BaseNames;

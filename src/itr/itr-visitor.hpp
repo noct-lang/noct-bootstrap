@@ -50,7 +50,7 @@ namespace Noctis
 	struct ITrTernary;
 	struct ITrBinary;
 	struct ITrUnary;
-	struct ITrQualName;
+	struct ITrQualNameExpr;
 	struct ITrIndexSlice;
 	struct ITrAmbiguousCall;
 	struct ITrFuncCall;
@@ -165,7 +165,7 @@ namespace Noctis
 		virtual void Visit(ITrTernary& node);
 		virtual void Visit(ITrBinary& node);
 		virtual void Visit(ITrUnary& node);
-		virtual void Visit(ITrQualName& node);
+		virtual void Visit(ITrQualNameExpr& node);
 		virtual void Visit(ITrIndexSlice& node);
 		virtual void Visit(ITrExprSPtr& ptr, ITrAmbiguousCall& node);
 		virtual void Visit(ITrFuncCall& node);
@@ -260,7 +260,7 @@ namespace Noctis
 		void Walk(ITrTernary& node);
 		void Walk(ITrBinary& node);
 		void Walk(ITrUnary& node);
-		void Walk(ITrQualName& node);
+		void Walk(ITrQualNameExpr& node);
 		void Walk(ITrIndexSlice& node);
 		void Walk(ITrAmbiguousCall& node);
 		void Walk(ITrAdtTupleEnumInit& node);

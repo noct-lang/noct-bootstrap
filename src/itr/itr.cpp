@@ -10,6 +10,26 @@ namespace Noctis
 	{
 	}
 
+	ITrIden::ITrIden(IdenSPtr iden, StdPairVector<ITrTypeSPtr, ITrExprSPtr>&& assocArgs)
+		: iden(iden)
+		, assocArgs(std::move(assocArgs))
+	{
+	}
+
+	ITrTypeDisambiguation::ITrTypeDisambiguation(TypeDisambiguationSPtr disambiguation, ITrTypeSPtr assocType, ITrQualNameSPtr assocQualName)
+		: disambiguation(disambiguation)
+		, assocType(assocType)
+		, assocQualName(assocQualName)
+	{
+	}
+
+	ITrQualName::ITrQualName(QualNameSPtr qualName, ITrTypeDisambiguationSPtr assocDisambiguation, StdVector<ITrIdenSPtr>&& assocIdens)
+		: qualName(qualName)
+		, assocDisambiguation(assocDisambiguation)
+		, assocIdens(std::move(assocIdens))
+	{
+	}
+
 	ITrParam::ITrParam(ITrAttribsSPtr attribs, IdenSPtr iden, ITrTypeSPtr type)
 		: attribs(attribs)
 		, iden(iden)
@@ -120,9 +140,10 @@ namespace Noctis
 	{
 	}
 
-	ITrBlock::ITrBlock(StdVector<ITrStmtSPtr>&& stmts)
+	ITrBlock::ITrBlock(const StdString& scopeName, StdVector<ITrStmtSPtr>&& stmts)
 		: ITrStmt(ITrStmtKind::Block)
 		, stmts(std::move(stmts))
+		, scopeName(scopeName)
 	{
 	}
 
@@ -136,10 +157,11 @@ namespace Noctis
 	{
 	}
 
-	ITrLoop::ITrLoop(IdenSPtr label, StdVector<ITrStmtSPtr>&& stmts)
+	ITrLoop::ITrLoop(const StdString& scopeName, IdenSPtr label, StdVector<ITrStmtSPtr>&& stmts)
 		: ITrStmt(ITrStmtKind::Loop)
 		, label(label)
 		, stmts(stmts)
+		, scopeName(scopeName)
 	{
 	}
 
@@ -147,18 +169,19 @@ namespace Noctis
 	{
 	}
 
-	ITrSwitchCase::ITrSwitchCase(ITrPatternSPtr patterns, ITrExprSPtr expr, ITrBlockSPtr block)
+	ITrSwitchCase::ITrSwitchCase(ITrPatternSPtr pattern, ITrExprSPtr expr, ITrBlockSPtr block)
 		: pattern(pattern)
 		, expr(expr)
 		, block(block)
 	{
 	}
 
-	ITrSwitch::ITrSwitch(IdenSPtr label, ITrExprSPtr expr, StdVector<ITrSwitchCase>&& cases)
+	ITrSwitch::ITrSwitch(const StdString& scopeName, IdenSPtr label, ITrExprSPtr expr, StdVector<ITrSwitchCase>&& cases)
 		: ITrStmt(ITrStmtKind::Switch)
 		, label(label)
 		, expr(expr)
 		, cases(std::move(cases))
+		, scopeName(scopeName)
 	{
 	}
 
@@ -210,9 +233,9 @@ namespace Noctis
 	{
 	}
 
-	ITrUnsafe::ITrUnsafe(StdVector<ITrStmtSPtr>&& stmts)
+	ITrUnsafe::ITrUnsafe(ITrBlockSPtr block)
 		: ITrStmt(ITrStmtKind::Unsafe)
-		, stmts(std::move(stmts))
+		, block(block)
 	{
 	}
 
@@ -246,6 +269,7 @@ namespace Noctis
 	ITrExpr::ITrExpr(ITrExprKind kind)
 		: ITrStmt(ITrStmtKind::Expr) 
 		, exprKind(kind)
+		, typeHandle(TypeHandle(-1))
 	{
 	}
 
@@ -284,9 +308,10 @@ namespace Noctis
 	{
 	}
 
-	ITrQualName::ITrQualName(QualNameSPtr qualName)
+	ITrQualNameExpr::ITrQualNameExpr(ITrQualNameSPtr qualName)
 		: ITrExpr(ITrExprKind::QualName)
-		, qualName(qualName)
+		, qualName(qualName->qualName)
+		, itrQualName(qualName)
 	{
 	}
 
@@ -403,9 +428,10 @@ namespace Noctis
 	{
 	}
 
-	ITrBlockExpr::ITrBlockExpr(StdVector<ITrStmtSPtr> stmts)
+	ITrBlockExpr::ITrBlockExpr(const StdString& scopeName, StdVector<ITrStmtSPtr> stmts)
 		: ITrExpr(ITrExprKind::Block)
 		, stmts(std::move(stmts))
+		, scopeName(scopeName)
 	{
 	}
 
@@ -458,9 +484,10 @@ namespace Noctis
 	{
 	}
 
-	ITrType::ITrType(ITrAttribsSPtr attribs, TypeHandle handle, StdVector<ITrTypeSPtr>&& subTypes)
+	ITrType::ITrType(ITrAttribsSPtr attribs, TypeHandle handle, StdVector<ITrTypeSPtr>&& subTypes, ITrExprSPtr expr)
 		: attribs(attribs)
 		, subTypes(std::move(subTypes))
+		, expr(expr)
 		, handle(handle)
 	{
 	}

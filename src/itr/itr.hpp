@@ -10,10 +10,16 @@ namespace Noctis
 {
 	FWDECL_CLASS_SPTR(QualName);
 	FWDECL_CLASS_SPTR(Iden);
+	FWDECL_CLASS_SPTR(TypeDisambiguation);
 
 	FWDECL_STRUCT_SPTR(ITrArg);
 	FWDECL_STRUCT_SPTR(ITrParam);
+	FWDECL_STRUCT_SPTR(ITrQualName);
+	FWDECL_STRUCT_SPTR(ITrIden);
+	FWDECL_STRUCT_SPTR(ITrTypeDisambiguation);
 
+	FWDECL_STRUCT_WPTR(ITrDef);
+	
 	FWDECL_STRUCT_SPTR(ITrStmt);
 	FWDECL_STRUCT_SPTR(ITrLabel);
 	FWDECL_STRUCT_SPTR(ITrExpr);
@@ -137,12 +143,32 @@ namespace Noctis
 		EmptyMethod,
 		Closure
 	};
-	
-	struct ITrContext
+
+	struct ITrIden
 	{
+		ITrIden(IdenSPtr iden, StdPairVector<ITrTypeSPtr, ITrExprSPtr>&& assocArgs);
 		
+		StdPairVector<ITrTypeSPtr, ITrExprSPtr> assocArgs;
+		IdenSPtr iden;
 	};
-	using ITrContextUPtr = StdUniquePtr<ITrContext>;
+
+	struct ITrTypeDisambiguation
+	{
+		ITrTypeDisambiguation(TypeDisambiguationSPtr disambiguation, ITrTypeSPtr assocType, ITrQualNameSPtr assocQualName);
+		
+		ITrTypeSPtr assocType;
+		ITrQualNameSPtr assocQualName;
+		TypeDisambiguationSPtr disambiguation;
+	};
+
+	struct ITrQualName
+	{
+		ITrQualName(QualNameSPtr qualName, ITrTypeDisambiguationSPtr assocDisambiguation, StdVector<ITrIdenSPtr>&& assocIdens);
+
+		QualNameSPtr qualName;
+		ITrTypeDisambiguationSPtr assocDisambiguation;
+		StdVector<ITrIdenSPtr> assocIdens;
+	};
 
 	struct ITrParam
 	{
@@ -185,6 +211,7 @@ namespace Noctis
 		// Name of the file that contains the definition (needed to retrieve correct spans)
 		StdString fileName;
 		AstDeclSPtr astNode;
+		ITrDefWPtr ptr;
 	};
 	using ITrDefSPtr = StdSharedPtr<ITrDef>;
 
@@ -286,9 +313,10 @@ namespace Noctis
 
 	struct ITrBlock : ITrStmt
 	{
-		ITrBlock(StdVector<ITrStmtSPtr>&& stmts);
+		ITrBlock(const StdString& scopeName, StdVector<ITrStmtSPtr>&& stmts);
 
 		StdVector<ITrStmtSPtr> stmts;
+		StdString scopeName;
 	};
 	using ITrBlockSPtr = StdSharedPtr<ITrBlock>;
 
@@ -305,10 +333,11 @@ namespace Noctis
 
 	struct ITrLoop : ITrStmt
 	{
-		ITrLoop(IdenSPtr label, StdVector<ITrStmtSPtr>&& stmts);
+		ITrLoop(const StdString& scopeName, IdenSPtr label, StdVector<ITrStmtSPtr>&& stmts);
 
 		IdenSPtr label;
 		StdVector<ITrStmtSPtr> stmts;
+		StdString scopeName;
 	};
 
 	struct ITrSwitchCase
@@ -323,11 +352,12 @@ namespace Noctis
 	
 	struct ITrSwitch : ITrStmt
 	{
-		ITrSwitch(IdenSPtr label, ITrExprSPtr expr, StdVector<ITrSwitchCase>&& cases);
+		ITrSwitch(const StdString& scopeName, IdenSPtr label, ITrExprSPtr expr, StdVector<ITrSwitchCase>&& cases);
 
 		IdenSPtr label;
 		ITrExprSPtr expr;
 		StdVector<ITrSwitchCase> cases;
+		StdString scopeName;
 	};
 
 	struct ITrLabel : ITrStmt
@@ -387,9 +417,9 @@ namespace Noctis
 
 	struct ITrUnsafe : ITrStmt
 	{
-		ITrUnsafe(StdVector<ITrStmtSPtr>&& stmts);
+		ITrUnsafe(ITrBlockSPtr block);
 
-		StdVector<ITrStmtSPtr> stmts;
+		ITrBlockSPtr block;
 	};
 
 	struct ITrErrHandler : ITrStmt
@@ -429,6 +459,7 @@ namespace Noctis
 		virtual ~ITrExpr();
 
 		ITrExprKind exprKind;
+		TypeHandle typeHandle;
 	};
 	
 	struct ITrAssign : ITrExpr
@@ -466,11 +497,12 @@ namespace Noctis
 		ITrExprSPtr expr;
 	};
 
-	struct ITrQualName : ITrExpr
+	struct ITrQualNameExpr : ITrExpr
 	{
-		ITrQualName(QualNameSPtr qualName);
+		ITrQualNameExpr(ITrQualNameSPtr qualName);
 
 		QualNameSPtr qualName;
+		ITrQualNameSPtr itrQualName;
 	};
 
 	struct ITrIndexSlice : ITrExpr
@@ -588,9 +620,10 @@ namespace Noctis
 
 	struct ITrBlockExpr : ITrExpr
 	{
-		ITrBlockExpr(StdVector<ITrStmtSPtr> stmts);
+		ITrBlockExpr(const StdString& scopeName, StdVector<ITrStmtSPtr> stmts);
 
 		StdVector<ITrStmtSPtr> stmts;
+		StdString scopeName;
 	};
 
 	struct ITrUnsafeExpr : ITrExpr
@@ -652,10 +685,11 @@ namespace Noctis
 
 	struct  ITrType
 	{
-		ITrType(ITrAttribsSPtr attribs, TypeHandle handle, StdVector<ITrTypeSPtr>&& subTypes);
+		ITrType(ITrAttribsSPtr attribs, TypeHandle handle, StdVector<ITrTypeSPtr>&& subTypes, ITrExprSPtr expr = nullptr);
 
 		ITrAttribsSPtr attribs;
 		StdVector<ITrTypeSPtr> subTypes;
+		ITrExprSPtr expr;
 		TypeHandle handle;
 		AstTypeSPtr astNode;
 	};

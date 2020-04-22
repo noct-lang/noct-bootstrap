@@ -395,7 +395,7 @@ namespace Noctis
 		--m_Indent;
 	}
 
-	void ITrPrinter::Visit(ITrQualName& node)
+	void ITrPrinter::Visit(ITrQualNameExpr& node)
 	{
 		PrintIndent();
 		StdString name = node.qualName->ToString();

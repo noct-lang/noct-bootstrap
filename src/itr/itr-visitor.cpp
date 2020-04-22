@@ -228,7 +228,7 @@ namespace Noctis
 		Walk(node);
 	}
 
-	void ITrVisitor::Visit(ITrQualName& node)
+	void ITrVisitor::Visit(ITrQualNameExpr& node)
 	{
 		Walk(node);
 	}
@@ -506,7 +506,7 @@ namespace Noctis
 		case ITrExprKind::Ternary: Visit(*reinterpret_cast<ITrTernary*>(expr.get())); break;
 		case ITrExprKind::Binary: Visit(*reinterpret_cast<ITrBinary*>(expr.get())); break;
 		case ITrExprKind::Unary: Visit(*reinterpret_cast<ITrUnary*>(expr.get())); break;
-		case ITrExprKind::QualName: Visit(*reinterpret_cast<ITrQualName*>(expr.get())); break;
+		case ITrExprKind::QualName: Visit(*reinterpret_cast<ITrQualNameExpr*>(expr.get())); break;
 		case ITrExprKind::IndexSlice: Visit(*reinterpret_cast<ITrIndexSlice*>(expr.get())); break;
 		case ITrExprKind::AmbiguousCall: Visit(expr, *reinterpret_cast<ITrAmbiguousCall*>(expr.get())); break;
 		case ITrExprKind::FuncOrMethodCall: Visit(*reinterpret_cast<ITrFuncCall*>(expr.get())); break;
@@ -777,8 +777,7 @@ namespace Noctis
 
 	void ITrVisitor::Walk(ITrUnsafe& node)
 	{
-		for (ITrStmtSPtr stmt : node.stmts)
-			Visit(stmt);
+		Visit(*node.block);
 	}
 
 	void ITrVisitor::Walk(ITrErrHandler& node)
@@ -828,7 +827,7 @@ namespace Noctis
 		Visit(node.expr);
 	}
 
-	void ITrVisitor::Walk(ITrQualName& node)
+	void ITrVisitor::Walk(ITrQualNameExpr& node)
 	{
 	}
 
