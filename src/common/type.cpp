@@ -134,11 +134,13 @@ namespace Noctis
 			case BuiltinTypeKind::I32: return mod + "i32";
 			case BuiltinTypeKind::I64: return mod + "i64";
 			case BuiltinTypeKind::I128: return mod + "i128";
+			case BuiltinTypeKind::ISize: return mod + "isize";
 			case BuiltinTypeKind::U8: return mod + "u8";
 			case BuiltinTypeKind::U16: return mod + "u16";
 			case BuiltinTypeKind::U32: return mod + "u32";
 			case BuiltinTypeKind::U64: return mod + "u64";
 			case BuiltinTypeKind::U128: return mod + "u128";
+			case BuiltinTypeKind::USize: return mod + "usize";
 			case BuiltinTypeKind::F16: return mod + "f16";
 			case BuiltinTypeKind::F32: return mod + "f32";
 			case BuiltinTypeKind::F64: return mod + "f64";
@@ -217,29 +219,80 @@ namespace Noctis
 
 	bool TypeRegistry::CanPassTo(TypeHandle param, TypeHandle arg)
 	{
-		if (!AreTypesEqual(param, arg))
-		{
-			TypeHandle paramNoMod = Mod(TypeMod::None, param);
-			return AreTypesEqual(paramNoMod, arg);
-		}
-		return true;
-	}
+		if (AreTypesEqual(param, arg))
+			return true;
 
-	bool TypeRegistry::CanPassToRec(TypeHandle rec, TypeHandle caller)
-	{
-		if (!AreTypesEqual(rec, caller))
-		{
-			TypeSPtr recType = GetType(rec);
-			TypeHandle recNoRef = recType->typeKind == TypeKind::Ref ? recType->AsRef().subType : rec;
+		TypeSPtr paramType = GetType(param);
+		TypeSPtr argType = GetType(arg);
 
-			if (!AreTypesEqual(recNoRef, caller))
+		if (paramType->mod == TypeMod::Const &&
+				argType->mod == TypeMod::None &&
+				AreTypesEqual(param, Mod(TypeMod::Const, arg)))
+			return true;
+
+		if (paramType->typeKind == argType->typeKind)
+		{
+			switch (paramType->typeKind)
 			{
-				TypeHandle recNoRefNoMod = Mod(TypeMod::None, recNoRef);
-				if (!AreTypesEqual(recNoRef, caller))
-					return false;
+			case TypeKind::Builtin:
+			case TypeKind::Iden:
+			{
+				if (paramType->mod == TypeMod::None &&
+					argType->mod == TypeMod::Const &&
+					AreTypesEqual(param, Mod(TypeMod::None, arg)))
+					return true;
+			}
+			case TypeKind::Ptr:
+			{
+				TypeHandle paramSubTypeHandle = paramType->AsPtr().subType;
+				TypeHandle argSubTypeHandle = argType->AsPtr().subType;
+
+				TypeSPtr paramSubType = GetType(paramSubTypeHandle);
+				TypeSPtr argSubType = GetType(argSubTypeHandle);
+
+				if (paramSubType->mod == TypeMod::Const &&
+					argSubType->mod == TypeMod::None &&
+					AreTypesEqual(paramSubTypeHandle, Mod(TypeMod::Const, argSubTypeHandle)))
+					return true;
+			}
+			case TypeKind::Ref:
+			{
+				TypeHandle paramSubTypeHandle = paramType->AsRef().subType;
+				TypeHandle argSubTypeHandle = argType->AsRef().subType;
+
+				TypeSPtr paramSubType = GetType(paramSubTypeHandle);
+				TypeSPtr argSubType = GetType(argSubTypeHandle);
+
+				if (paramSubType->mod == TypeMod::Const &&
+					argSubType->mod == TypeMod::None &&
+					AreTypesEqual(paramSubTypeHandle, Mod(TypeMod::Const, argSubTypeHandle)))
+					return true;
+			}
+			case TypeKind::Slice:
+			{
+				TypeHandle paramSubTypeHandle = paramType->AsSlice().subType;
+				TypeHandle argSubTypeHandle = argType->AsSlice().subType;
+
+				TypeSPtr paramSubType = GetType(paramSubTypeHandle);
+				TypeSPtr argSubType = GetType(argSubTypeHandle);
+
+				if (paramSubType->mod == TypeMod::Const &&
+					argSubType->mod == TypeMod::None &&
+					AreTypesEqual(paramSubTypeHandle, Mod(TypeMod::Const, argSubTypeHandle)))
+					return true;
+			}
+			case TypeKind::Array:
+				// TODO
+				break;
+			case TypeKind::Tuple: break;
+			case TypeKind::Opt: break;
+			case TypeKind::Compound: break;
+			case TypeKind::Func: break;
+			default:;
 			}
 		}
-		return true;
+		
+		return false;
 	}
 
 	void TypeRegistry::SetIdenSym(QualNameSPtr qualName, SymbolWPtr sym)

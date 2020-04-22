@@ -48,8 +48,7 @@ namespace Noctis
 	enum class TypeMod : u8
 	{
 		None,
-		Const,
-		Immutable,
+		Const, 
 		Count,
 	};
 	StdStringView TypeModToString(TypeMod mod);
@@ -173,10 +172,11 @@ namespace Noctis
 		StdString ToString(TypeHandle handle);
 
 		bool AreTypesEqual(TypeHandle first, TypeHandle second);
-		bool CanPassTo(TypeHandle first, TypeHandle second);
-		bool CanPassToRec(TypeHandle first, TypeHandle second);
+		bool CanPassTo(TypeHandle param, TypeHandle arg);
 		void SetIdenSym(QualNameSPtr qualName, SymbolWPtr sym);
 		void SetAliasType(TypeHandle alias, TypeHandle type);
+
+		StdVector<TypeHandle> GetPossibleArgTypesFor(TypeHandle paramType, bool fromVar);
 
 		TypeHandle Builtin(TypeMod mod, BuiltinTypeKind builtin);
 		TypeHandle Iden(TypeMod mod, QualNameSPtr qualName);
