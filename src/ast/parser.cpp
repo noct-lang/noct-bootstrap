@@ -784,7 +784,7 @@ namespace Noctis
 		AstExprSPtr cond = ParseExpression(nullptr, true);
 		EatToken(TokenType::RParen);
 
-		AstStmtSPtr body = ParseStatement();
+		AstStmtSPtr body = ParseBlockStmt();
 		AstStmtSPtr elseBody;
 		if (TryEatToken(TokenType::Else))
 			elseBody = ParseStatement();
@@ -795,19 +795,17 @@ namespace Noctis
 	AstStmtSPtr Parser::ParseCompCondStmt()
 	{
 		u64 startIdx = EatToken(TokenType::SConditional).Idx();
-		EatToken(TokenType::LParen);
 		Token& cond = EatToken(TokenType::Iden);
 
 		Token cmp{ TokenType::Unknown, u64(-1) },
 			  val{ TokenType::Unknown, u64(-1) };
-		if (PeekToken().Type() != TokenType::RParen)
+		if (PeekToken().Type() != TokenType::LBrace)
 		{
 			cmp = EatToken();
 			val = EatToken();
 		}
 
-		EatToken(TokenType::RParen);
-		AstStmtSPtr body = ParseStatement();
+		AstStmtSPtr body = ParseBlockStmt();
 		AstStmtSPtr elseBody;
 		if (TryEatToken(TokenType::Else))
 			elseBody = ParseStatement();
@@ -817,19 +815,17 @@ namespace Noctis
 	AstStmtSPtr Parser::ParseCompDebugStmt()
 	{
 		u64 startIdx = EatToken(TokenType::SDebug).Idx();
-		EatToken(TokenType::LParen);
 		Token& cond = EatToken(TokenType::Iden);
 
 		Token cmp{ TokenType::Unknown, u64(-1) },
 			  val{ TokenType::Unknown, u64(-1) };
-		if (PeekToken().Type() != TokenType::RParen)
+		if (PeekToken().Type() != TokenType::LBrace)
 		{
 			cmp = EatToken();
 			val = EatToken();
 		}
 
-		EatToken(TokenType::RParen);
-		AstStmtSPtr body = ParseStatement();
+		AstStmtSPtr body = ParseBlockStmt();
 		AstStmtSPtr elseBody;
 		if (TryEatToken(TokenType::Else))
 			elseBody = ParseStatement();
@@ -1582,11 +1578,13 @@ namespace Noctis
 		case TokenType::I32:
 		case TokenType::I64:
 		case TokenType::I128:
+		case TokenType::ISize:
 		case TokenType::U8:
 		case TokenType::U16:
 		case TokenType::U32:
 		case TokenType::U64:
 		case TokenType::U128:
+		case TokenType::USize:
 		case TokenType::F16:
 		case TokenType::F32:
 		case TokenType::F64:
@@ -1634,7 +1632,23 @@ namespace Noctis
 			case MacroVarKind::Type:
 			{
 				EatToken();
-				return elem.GetType();
+				elem.Parse(m_pCtx);
+				AstTypeSPtr type = elem.GetType();
+				if (attribs)
+				{
+					if (type->attribs)
+					{
+						type->attribs->visibility = attribs->visibility;
+						type->attribs->simpleAttribs.insert(type->attribs->simpleAttribs.begin(), attribs->simpleAttribs.begin(), attribs->simpleAttribs.end());
+						type->attribs->compAttribs.insert(type->attribs->compAttribs.begin(), attribs->compAttribs.begin(), attribs->compAttribs.end());
+						type->attribs->userAttribs.insert(type->attribs->userAttribs.begin(), attribs->userAttribs.begin(), attribs->userAttribs.end());
+					}
+					else
+					{
+						type->attribs = attribs;
+					}
+				}
+				return type;
 			}
 			case MacroVarKind::Qual:
 			case MacroVarKind::Iden:
