@@ -15,7 +15,11 @@ namespace Noctis
 		void Run(AstTree& tree);
 
 	private:
+		template<typename T>
+		void RunPass();
+		
 		Context* m_pCtx;
+		AstTree* m_pTree;
 	};
 
 	class ITrSemanticAnalysis
@@ -25,9 +29,13 @@ namespace Noctis
 
 		void Run(ITrModule& mod);
 
+		
 	private:
+		template<typename T>
+		void RunPass();
+
 		Context* m_pCtx;
+		ITrModule* m_pMod;
 	};
-	
 }
  

@@ -5,27 +5,35 @@
 #include "ast/macros/decl-macro-expansion.hpp"
 #include "ast/misc/ast-to-itr-lowering.hpp"
 #include "itr/attribute/simple-attribute-pass.hpp"
+#include "itr/comptime/comptime-resolution.hpp"
+#include "itr/misc/function-processing.hpp"
 #include "itr/types/type-collection.hpp"
+#include "itr/types/type-inference.hpp"
+#include "itr/types/type-resolution.hpp"
+#include "module/module.hpp"
 #include "semantic-utils.hpp"
 
 namespace Noctis
 {
 	template<typename T>
-	void RunAstSemanticPass(Context* pCtx, AstTree& tree)
+	void AstSemanticAnalysis::RunPass()
 	{
 		static_assert(std::is_base_of_v<AstSemanticPass, T>, "");
-		T pass{ pCtx };
-		pass.Process(tree);
+		T pass{ m_pCtx };
+		pass.Process(*m_pTree);
 	}
 	
 	AstSemanticAnalysis::AstSemanticAnalysis(Context* pCtx)
 		: m_pCtx(pCtx)
+		, m_pTree(nullptr)
 	{
 	}
 
 	void AstSemanticAnalysis::Run(AstTree& tree)
 	{
-		RunAstSemanticPass<IdenScopePass>(m_pCtx, tree);
+		m_pTree = &tree;
+		
+		RunPass<IdenScopePass>();
 
 		{
 			StdUnorderedSet<QualNameSPtr> extractedImportMods = ExtractImportModules(tree, m_pCtx);
@@ -37,31 +45,47 @@ namespace Noctis
 
 		// TODO: Load modules
 
-		RunAstSemanticPass<DeclMacroContextGen>(m_pCtx, tree);
-		RunAstSemanticPass<DeclMacroExpansion>(m_pCtx, tree);
+		RunPass<DeclMacroContextGen>();
+		RunPass<DeclMacroExpansion>();
 
 		// Rerun for names inside expanded macros
-		RunAstSemanticPass<IdenScopePass>(m_pCtx, tree);
+		RunPass<IdenScopePass>();
 
-		RunAstSemanticPass<AstToITrLowering>(m_pCtx, tree);
+		RunPass<AstToITrLowering>();
 	}
 
-	template<typename T>
-	void RunITrSemanticPass(Context* pCtx, ITrModule& mod)
+	template <typename T>
+	void ITrSemanticAnalysis::RunPass()
 	{
 		static_assert(std::is_base_of_v<ITrSemanticPass, T>, "");
-		T pass{ pCtx };
-		pass.Process(mod);
+		T pass{ m_pCtx };
+		pass.Process(*m_pMod);
 	}
 	
 	ITrSemanticAnalysis::ITrSemanticAnalysis(Context* pCtx)
 		: m_pCtx(pCtx)
+		, m_pMod(nullptr)
 	{
 	}
 
 	void ITrSemanticAnalysis::Run(ITrModule& mod)
 	{
-		RunITrSemanticPass<SimpleAttributePass>(m_pCtx, mod);
-		RunITrSemanticPass<TypeCollection>(m_pCtx, mod);
+		m_pMod = &mod;
+		
+		RunPass<SimpleAttributePass>();
+		RunPass<TypeCollection>();
+
+		RunPass<ComptimeCollection>();
+
+
+		RunPass<TypealiasReplacing>();
+		
+		m_pCtx->activeModule->opTable.Collect(m_pCtx->activeModule->symTable);
+		
+		RunPass<LocalVarCollection>();
+		
+		
+		RunPass<TypeInference>();
+		
 	}
 }

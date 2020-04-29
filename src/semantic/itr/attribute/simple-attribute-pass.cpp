@@ -377,10 +377,11 @@ namespace Noctis
 	{
 		Walk(node);
 
+		TypeMod mod = TypeMod::None;
 		if (node.attribs)
 		{
 			Attribute attribs = node.attribs->attribs;
-			Attribute invalidMask = ~(Attribute::Const | Attribute::Immutable);
+			Attribute invalidMask = ~(Attribute::Const);
 			Attribute invalid = attribs & invalidMask;
 
 			if (invalid != Attribute::None)
@@ -401,13 +402,90 @@ namespace Noctis
 				g_ErrorSystem.Error(span, "'%s' can't be used together for a type modifier, only one of these is allowed per (sub)type", pName);
 			}
 
-			TypeMod mod = TypeMod::None;
 			if (ENUM_IS_SET(attribs, Attribute::Const))
 				mod = TypeMod::Const;
-			else if (ENUM_IS_SET(attribs, Attribute::Immutable))
-				mod = TypeMod::Immutable;
+		}
 
+		TypeHandle handle = node.handle;
+		TypeSPtr type = m_pCtx->typeReg.GetType(handle);
+		if (type->mod != TypeMod::None && mod == TypeMod::None)
+			mod = type->mod;
+		
+		switch (type->typeKind)
+		{
+		case TypeKind::Builtin:
+		{
 			node.handle = m_pCtx->typeReg.Mod(mod, node.handle);
+			break;
+		}
+		case TypeKind::Iden:
+		{
+			node.handle = m_pCtx->typeReg.Mod(mod, node.handle);
+			break;
+		}
+		case TypeKind::Ptr:
+		{
+			ITrTypeSPtr subType = node.subTypes[0];
+			node.handle = m_pCtx->typeReg.Ptr(mod, subType->handle);
+			break;
+		}
+		case TypeKind::Ref:
+		{
+			ITrTypeSPtr subType = node.subTypes[0];
+			node.handle = m_pCtx->typeReg.Ref(mod, subType->handle);
+			break;
+		}
+		case TypeKind::Slice:
+		{
+			ITrTypeSPtr subType = node.subTypes[0];
+			node.handle = m_pCtx->typeReg.Slice(mod, subType->handle);
+			break;
+		}
+		case TypeKind::Array:
+		{
+			ITrTypeSPtr subType = node.subTypes[0];
+			node.handle = m_pCtx->typeReg.Array(mod, subType->handle, node.expr);
+			break;
+		}
+		case TypeKind::Tuple:
+		{
+			StdVector<TypeHandle> handles;
+			for (ITrTypeSPtr subType : node.subTypes)
+			{
+				handles.push_back(subType->handle);
+			}
+			node.handle = m_pCtx->typeReg.Tuple(mod, handles);
+			break;
+		}
+		case TypeKind::Opt:
+		{
+			ITrTypeSPtr subType = node.subTypes[0];
+			node.handle = m_pCtx->typeReg.Opt(mod, subType->handle);
+			break;
+		}
+		case TypeKind::Compound:
+		{
+			StdVector<TypeHandle> handles;
+			for (ITrTypeSPtr subType : node.subTypes)
+			{
+				handles.push_back(subType->handle);
+			}
+			node.handle = m_pCtx->typeReg.Tuple(mod, handles);
+			break;
+		}
+		case TypeKind::Func:
+		{
+			StdVector<TypeHandle> handles;
+			for (ITrTypeSPtr subType : node.subTypes)
+			{
+				handles.push_back(subType->handle);
+			}
+			TypeHandle retType = handles.back();
+			handles.pop_back();
+			node.handle = m_pCtx->typeReg.Func(mod, handles, retType);
+			break;
+		}
+		default:;
 		}
 	}
 }

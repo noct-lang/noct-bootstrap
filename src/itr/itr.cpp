@@ -1,6 +1,7 @@
 #include "itr.hpp"
 
 #include "common/qualname.hpp"
+#include "module/function.hpp"
 
 namespace Noctis
 {
@@ -121,6 +122,7 @@ namespace Noctis
 		, funcKind(funcKind)
 		, params(std::move(params))
 		, retType(retType)
+		, ctx(new FuncContext{})
 	{
 	}
 

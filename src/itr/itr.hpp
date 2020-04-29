@@ -43,6 +43,8 @@ namespace Noctis
 	
 	FWDECL_STRUCT_SPTR(Symbol);
 
+	FWDECL_STRUCT_SPTR(FuncContext);
+
 	enum class ITrDefKind
 	{
 		//UnitTest,
@@ -292,6 +294,7 @@ namespace Noctis
 		ITrFuncKind funcKind;
 		StdVector<ITrParamSPtr> params;
 		ITrTypeSPtr retType;
+		FuncContextSPtr ctx;
 	};
 
 	struct ITrImpl : ITrDef

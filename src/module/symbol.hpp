@@ -38,6 +38,8 @@ namespace Noctis
 	FWDECL_STRUCT_SPTR(Symbol);
 	FWDECL_CLASS_SPTR(SymbolSubTable);
 	FWDECL_CLASS_SPTR(ScopedSymbolTable);
+
+	FWDECL_STRUCT_WPTR(ITrDef);
 	
 	struct Symbol
 	{
@@ -65,6 +67,8 @@ namespace Noctis
 		TypeHandle type;
 
 		Context* pCtx;
+
+		ITrDefWPtr associatedITr;
 		
 		SymbolKind kind;
 
@@ -83,6 +87,8 @@ namespace Noctis
 
 		SymbolSPtr Find(StdVector<IdenSPtr>& idens);
 		SymbolSPtr Find(StdVector<IdenSPtr>& idens, const StdVector<StdString>& argNames);
+		SymbolSPtr FindChild(QualNameSPtr implQualName, IdenSPtr iden);
+		SymbolSPtr FindChild(QualNameSPtr implQualName, IdenSPtr iden, const StdVector<StdString>& argNames);
 
 		void Log(u8 indent);
 

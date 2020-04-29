@@ -73,8 +73,9 @@ namespace Noctis
 		};
 
 		printIndent(indent);
+		StdString typeName = pCtx->typeReg.ToString(type);
 		const char* imported = isImported ? ", import" : "";
-		g_Logger.Log("(symbol '%s', kind='%s'%s)\n", name.c_str(), kindName.data(), imported);
+		g_Logger.Log("(symbol '%s', kind='%s', type='%s'%s)\n", name.c_str(), kindName.data(), typeName.c_str(), imported);
 
 		for (u8 i = 0; i < indent; ++i)
 			g_Logger.Log(" |");
@@ -83,10 +84,10 @@ namespace Noctis
 
 		if (!variants.empty())
 		{
-			printIndent(indent);
+			printIndent(indent + 1);
 			g_Logger.Log("(variants)\n");
 			for (SymbolSPtr variant : variants)
-				variant->Log(indent + 1);
+				variant->Log(indent + 2);
 		}
 
 		if (!impls.empty())
@@ -123,8 +124,8 @@ namespace Noctis
 			}
 		}
 
-		m_ImplSubtables.try_emplace(interfaceQualName, ScopedSymbolTableSPtr{ new ScopedSymbolTable{ m_pCtx } });
-		m_ImplSubtables.begin()->second->Add(symbol, idens);
+		auto it = m_ImplSubtables.try_emplace(interfaceQualName, ScopedSymbolTableSPtr{ new ScopedSymbolTable{ m_pCtx } }).first;
+		it->second->Add(symbol, idens);
 		return true;
 	}
 
@@ -190,6 +191,42 @@ namespace Noctis
 		return sym;
 	}
 
+	SymbolSPtr SymbolSubTable::FindChild(QualNameSPtr implQualName, IdenSPtr iden)
+	{
+		ScopedSymbolTableSPtr subTable;
+		if (implQualName)
+		{
+			auto it = m_ImplSubtables.find(implQualName);
+			if (it == m_ImplSubtables.end())
+				return nullptr;
+			subTable = it->second;
+		}
+		else
+		{
+			subTable = m_SubTable;
+		}
+		StdVector<IdenSPtr> idens{ iden };
+		return subTable->Find(idens);
+	}
+
+	SymbolSPtr SymbolSubTable::FindChild(QualNameSPtr implQualName, IdenSPtr iden, const StdVector<StdString>& argNames)
+	{
+		ScopedSymbolTableSPtr subTable;
+		if (implQualName)
+		{
+			auto it = m_ImplSubtables.find(implQualName);
+			if (it == m_ImplSubtables.end())
+				return nullptr;
+			subTable = it->second;
+		}
+		else
+		{
+			subTable = m_SubTable;
+		}
+		StdVector<IdenSPtr> idens{ iden };
+		return subTable->Find(idens, argNames);
+	}
+
 	void SymbolSubTable::Log(u8 indent)
 	{
 		m_SubTable->Log(indent);
@@ -198,7 +235,7 @@ namespace Noctis
 			for (u8 i = 1; i < indent; ++i)
 				g_Logger.Log(" |");
 			StdString implName = pair.first->ToString();
-			g_Logger.Log(" +(impl for '%s')", implName.c_str());
+			g_Logger.Log(" +(impl for '%s')\n", implName.c_str());
 			pair.second->Log(indent + 1);
 		}
 	}
@@ -410,8 +447,7 @@ namespace Noctis
 			if (it->second.size() == 1)
 			{
 				SymbolSPtr funcSym = it->second.begin()->second;
-				SymbolSPtr variant = funcSym->GetVariant(iden);
-				return variant->children->Find(idens, argNames);
+				return funcSym->GetVariant(iden);
 			}
 			
 			StdString funcName = iden->Name();

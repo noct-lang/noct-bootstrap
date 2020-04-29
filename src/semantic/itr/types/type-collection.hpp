@@ -21,8 +21,6 @@ namespace Noctis
 		void Visit(ITrValEnumMember& node) override;
 		void Visit(ITrAdtEnum& node) override;
 		void Visit(ITrAdtEnumMember& node) override;
-		void Visit(ITrWeakInterface& node) override;
-		void Visit(ITrStrongInterface& node) override;
 		void Visit(ITrTypealias& node) override;
 		void Visit(ITrTypedef& node) override;
 		void Visit(ITrFunc& node) override;

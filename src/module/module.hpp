@@ -17,6 +17,9 @@ namespace Noctis
 		ITrModule itrModule;
 
 		ModuleSymbolTable symTable;
+		StdUnorderedSet<SymbolSPtr> comptimeSymbols;
+
+		OperatorTable opTable;
 		
 		QualNameSPtr qualName;
 	};

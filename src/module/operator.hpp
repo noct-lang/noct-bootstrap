@@ -1,8 +1,13 @@
 #pragma once
 #include "common/defs.hpp"
+#include "common/type.hpp"
 
 namespace Noctis
 {
+	struct Context;
+	FWDECL_STRUCT_SPTR(Symbol);
+
+	class ModuleSymbolTable;
 
 	enum class OperatorKind : u8
 	{
@@ -40,18 +45,21 @@ namespace Noctis
 		BinOr,
 		BinXor,
 		BinAnd,
-		Eq,
-		Ne,
-		Lt,
-		Le,
-		Gt,
-		Ge,
+		
 		Range,
 		IncRange,
 		NullCoalesce,
 		Elvis,
 		In,
 		NotIn,
+
+		// Comparison
+		Eq,
+		Ne,
+		Lt,
+		Le,
+		Gt,
+		Ge,
 
 		// Assign
 		Assign,
@@ -73,7 +81,7 @@ namespace Noctis
 		NullCoalesceAssign,
 
 		// Special
-
+		Count,
 		Invalid = u8(-1)
 	};
 
@@ -83,5 +91,36 @@ namespace Noctis
 	bool IsAssign(OperatorKind op);
 
 	StdStringView GetOpName(OperatorKind op);
+
+	struct Operator
+	{
+		TypeHandle left = TypeHandle(-1);
+		TypeHandle right = TypeHandle(-1);
+		TypeHandle result = TypeHandle(-1);
+
+		SymbolSPtr sym;
+	};
+	
+	class OperatorTable
+	{
+	public:
+		OperatorTable(Context* pCtx);
+
+		void Collect(ModuleSymbolTable& table);
+
+		Operator& GetOperator(OperatorKind kind, TypeHandle expr);
+		Operator& GetOperator(OperatorKind kind, TypeHandle left, TypeHandle right);
+		
+
+	private:
+
+		void HandleBinaryOp(OperatorKind kind, SymbolSPtr impl, SymbolSPtr interfaceSym);
+		void HandleUnaryOp(OperatorKind kind, SymbolSPtr impl, SymbolSPtr interfaceSym);
+		
+		QualNameSPtr GetOpInterfaceQualName(OperatorKind kind);
+
+		StdArray<StdUnorderedMap<TypeSPtr, StdVector<Operator>>, u8(OperatorKind::Count)> m_OpSymbols;
+		Context* m_pCtx;
+	};
 	
 }
