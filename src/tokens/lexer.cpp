@@ -808,6 +808,8 @@ namespace Noctis
 		static StdUnorderedMap<StdStringView, TokenType> keywords =
 		{
 			{ "as", TokenType::As },
+			{ "as?", TokenType::AsQuestion },
+			{ "as!", TokenType::AsExclaim },
 			{ "break", TokenType::Break },
 			{ "cconst", TokenType::Comptime },
 			{ "const", TokenType::Const },

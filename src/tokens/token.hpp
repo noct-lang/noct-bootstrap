@@ -11,6 +11,8 @@ namespace Noctis
 		
 		// Keywords
 		As,
+		AsQuestion,
+		AsExclaim,
 		Break,
 		Comptime,
 		Const,

@@ -1204,6 +1204,8 @@ namespace Noctis
 				return ParseBlockExpr();
 			}
 			case TokenType::As:
+			case TokenType::AsQuestion:
+			case TokenType::AsExclaim:
 			{
 				if (!prev)
 				{
@@ -1447,16 +1449,22 @@ namespace Noctis
 
 	AstExprSPtr Parser::ParseCastExpr(AstExprSPtr expr)
 	{
-		u64 startIdx = EatToken(TokenType::As).Idx();
+		TokenType tokType = PeekToken().Type();
+		if (tokType == TokenType::AsQuestion ||
+			tokType == TokenType::AsExclaim)
+			EatToken();
+		else
+			EatToken(TokenType::As);
+		
 		AstTypeSPtr type = ParseType();
-		return AstExprSPtr{ new AstCastExpr{ startIdx, type, expr } };
+		return AstExprSPtr{ new AstCastExpr{ expr, tokType, type } };
 	}
 
 	AstExprSPtr Parser::ParseTransmuteExpr(AstExprSPtr expr)
 	{
-		u64 startIdx = EatToken(TokenType::Transmute).Idx();
+		EatToken(TokenType::Transmute);
 		AstTypeSPtr type = ParseType();
-		return AstExprSPtr{ new AstTransmuteExpr{ startIdx, type, expr } };
+		return AstExprSPtr{ new AstTransmuteExpr{ expr, type } };
 	}
 
 	AstExprSPtr Parser::ParseMoveExpr()
