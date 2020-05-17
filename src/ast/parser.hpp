@@ -97,8 +97,8 @@ namespace Noctis
 		AstExprSPtr ParseLiteralExpr();
 		AstExprSPtr ParseAggrInitExpr(AstQualNameExpr* qualName);
 		AstExprSPtr ParseArrayInitExpr();
-		AstExprSPtr ParseCastExpr();
-		AstExprSPtr ParseTransmuteExpr();
+		AstExprSPtr ParseCastExpr(AstExprSPtr expr);
+		AstExprSPtr ParseTransmuteExpr(AstExprSPtr expr);
 		AstExprSPtr ParseMoveExpr();
 		AstExprSPtr ParseBracketExpr();
 		AstExprSPtr ParseBlockExpr();

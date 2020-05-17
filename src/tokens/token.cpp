@@ -11,8 +11,8 @@ namespace Noctis
 		{
 		case TokenType::Unknown: return "__unknown__";
 			
+		case TokenType::As: return "as";
 		case TokenType::Break: return "break";
-		case TokenType::Cast: return "cast";
 		case TokenType::Comptime: return "comptime";
 		case TokenType::Const: return "const";
 		case TokenType::Continue: return "continue";

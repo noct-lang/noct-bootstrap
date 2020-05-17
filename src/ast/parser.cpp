@@ -533,7 +533,7 @@ namespace Noctis
 			{
 				StdVector<StdString> symIdens = ParseIdenList(TokenType::ColonColon);
 				StdString symAlias;
-				if (TryEatIdenToken("as"))
+				if (TryEatToken(TokenType::As))
 					symAlias = EatToken(TokenType::Iden).Text();
 				symbols.push_back(std::pair{ std::move(symIdens), std::move(symAlias) });
 			}
@@ -1203,9 +1203,9 @@ namespace Noctis
 				}
 				return ParseBlockExpr();
 			}
-			case TokenType::Cast:
+			case TokenType::As:
 			{
-				if (prev)
+				if (!prev)
 				{
 					Span span = m_pCtx->spanManager.GetSpan(tok.Idx());
 					const char* pTokName = GetTokenTypeName(tok.Type()).data();
@@ -1213,11 +1213,11 @@ namespace Noctis
 					EatToken();
 					break;
 				}
-				return ParseCastExpr();
+				return ParseCastExpr(prev);
 			}
 			case TokenType::Transmute:
 			{
-				if (prev)
+				if (!prev)
 				{
 					Span span = m_pCtx->spanManager.GetSpan(tok.Idx());
 					const char* pTokName = GetTokenTypeName(tok.Type()).data();
@@ -1225,7 +1225,7 @@ namespace Noctis
 					EatToken();
 					break;
 				}
-				return ParseTransmuteExpr();
+				return ParseTransmuteExpr(prev);
 			}
 			case TokenType::Move:
 			{
@@ -1445,23 +1445,17 @@ namespace Noctis
 		return AstExprSPtr{ new AstArrayInitExpr{ startIdx, std::move(exprs), endIdx } };
 	}
 
-	AstExprSPtr Parser::ParseCastExpr()
+	AstExprSPtr Parser::ParseCastExpr(AstExprSPtr expr)
 	{
-		u64 startIdx = EatToken(TokenType::Cast).Idx();
-		EatToken(TokenType::LParen);
+		u64 startIdx = EatToken(TokenType::As).Idx();
 		AstTypeSPtr type = ParseType();
-		EatToken(TokenType::RParen);
-		AstExprSPtr expr = ParseOperand(nullptr);
 		return AstExprSPtr{ new AstCastExpr{ startIdx, type, expr } };
 	}
 
-	AstExprSPtr Parser::ParseTransmuteExpr()
+	AstExprSPtr Parser::ParseTransmuteExpr(AstExprSPtr expr)
 	{
 		u64 startIdx = EatToken(TokenType::Transmute).Idx();
-		EatToken(TokenType::LParen);
 		AstTypeSPtr type = ParseType();
-		EatToken(TokenType::RParen);
-		AstExprSPtr expr = ParseOperand(nullptr);
 		return AstExprSPtr{ new AstTransmuteExpr{ startIdx, type, expr } };
 	}
 
@@ -2576,7 +2570,7 @@ namespace Noctis
 		{
 			u64 tmpIdx = EatToken(TokenType::Less).Idx();
 			AstTypeSPtr type = ParseType();
-			EatIdenToken("as");
+			EatToken(TokenType::As);
 			AstIdentifierTypeSPtr interface = ParseIdentifierType();
 			endIdx = EatToken(TokenType::Greater).Idx();
 			return AstQualIdenSPtr{ new AstTypeDisambiguation{ tmpIdx, type, interface, endIdx } };

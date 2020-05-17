@@ -5,13 +5,13 @@ namespace Noctis
 {
 	class SpanManager;
 
-	enum class TokenType
+	enum class TokenType : u8
 	{
 		Unknown,
 		
 		// Keywords
+		As,
 		Break,
-		Cast,
 		Comptime,
 		Const,
 		Continue,
