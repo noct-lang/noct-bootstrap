@@ -606,17 +606,18 @@ namespace Noctis
 	{
 	}
 
-	AstCastExpr::AstCastExpr(u64 startIdx, AstTypeSPtr type, AstExprSPtr expr)
-		: AstExpr(AstExprKind::Cast, startIdx, expr->ctx->endIdx)
-		, type(type)
+	AstCastExpr::AstCastExpr(AstExprSPtr expr, TokenType castType, AstTypeSPtr type)
+		: AstExpr(AstExprKind::Cast, expr->ctx->startIdx, type->ctx->endIdx)
 		, expr(expr)
+		, castType(castType)
+		, type(type)
 	{
 	}
 
-	AstTransmuteExpr::AstTransmuteExpr(u64 startIdx, AstTypeSPtr type, AstExprSPtr expr)
-		: AstExpr(AstExprKind::Transmute, startIdx, expr->ctx->endIdx)
-		, type(type)
+	AstTransmuteExpr::AstTransmuteExpr(AstExprSPtr expr, AstTypeSPtr type)
+		: AstExpr(AstExprKind::Transmute, expr->ctx->startIdx, type->ctx->endIdx)
 		, expr(expr)
+		, type(type)
 	{
 	}
 

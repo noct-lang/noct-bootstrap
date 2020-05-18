@@ -862,18 +862,19 @@ namespace Noctis
 
 	struct AstCastExpr : public AstExpr
 	{
-		AstCastExpr(u64 startIdx, AstTypeSPtr type, AstExprSPtr expr);
+		AstCastExpr(AstExprSPtr expr, TokenType castType, AstTypeSPtr type);
 
-		AstTypeSPtr type;
 		AstExprSPtr expr;
+		TokenType castType;
+		AstTypeSPtr type;
 	};
 
 	struct AstTransmuteExpr : public AstExpr
 	{
-		AstTransmuteExpr(u64 startIdx, AstTypeSPtr type, AstExprSPtr expr);
+		AstTransmuteExpr(AstExprSPtr expr, AstTypeSPtr type);
 
-		AstTypeSPtr type;
 		AstExprSPtr expr;
+		AstTypeSPtr type;
 	};
 
 	struct AstMoveExpr : public AstExpr
