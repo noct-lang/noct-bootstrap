@@ -17,7 +17,6 @@ namespace Noctis
 		void Visit(AstParam& node) override;
 		void Visit(AstArg& node) override;
 		
-		void Visit(AstModuleDecl& node) override;
 		void Visit(AstUnittestDecl& node) override;
 		void Visit(AstBenchmarkDecl& node) override;
 		void Visit(AstStructDecl& node) override;

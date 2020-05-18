@@ -11,6 +11,7 @@ namespace Noctis
 
 	IdenGeneric::IdenGeneric()
 		: isType(true)
+		, isSpecialized(false)
 		, type(TypeHandle(-1))
 	{
 	}
@@ -72,11 +73,14 @@ namespace Noctis
 			StdVector<IdenGeneric>& idenGens = iden->Generics();
 			for (u64 i = 0; i < numGenerics; ++i)
 			{
-				if (idenGens[i].isType != generics[i].isType ||
-					!typeReg.AreTypesEqual(idenGens[i].type, generics[i].type))
+				if (idenGens[i].isSpecialized || generics[i].isSpecialized)
 				{
-					found = false;
-					break;
+					if (idenGens[i].isType != generics[i].isType ||
+						!typeReg.AreTypesEqual(idenGens[i].type, generics[i].type))
+					{
+						found = false;
+						break;
+					}
 				}
 
 				if (!idenGens[i].isType)

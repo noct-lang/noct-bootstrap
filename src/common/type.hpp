@@ -170,13 +170,12 @@ namespace Noctis
 		bool IsType(TypeHandle handle, TypeKind kind);
 		TypeSPtr GetType(TypeHandle handle);
 		StdString ToString(TypeHandle handle);
+		StdString ToString(TypeSPtr type);
 
 		bool AreTypesEqual(TypeHandle first, TypeHandle second);
 		bool CanPassTo(TypeHandle param, TypeHandle arg);
 		void SetIdenSym(QualNameSPtr qualName, SymbolWPtr sym);
 		void SetAliasType(TypeHandle alias, TypeHandle type);
-
-		StdVector<TypeHandle> GetPossibleArgTypesFor(TypeHandle paramType, bool fromVar);
 
 		TypeHandle Builtin(TypeMod mod, BuiltinTypeKind builtin);
 		TypeHandle Iden(TypeMod mod, QualNameSPtr qualName);

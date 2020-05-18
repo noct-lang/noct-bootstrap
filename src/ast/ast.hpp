@@ -221,6 +221,7 @@ namespace Noctis
 	{
 		StdString filepath;
 		StdVector<AstStmtSPtr> nodes;
+		QualNameSPtr moduleScope;
 		u64 genId = 0;
 	};
 

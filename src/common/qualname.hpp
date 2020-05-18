@@ -13,6 +13,8 @@ namespace Noctis
 		IdenGeneric();
 		
 		bool isType;
+		bool isSpecialized;
+		IdenSPtr iden;
 		TypeHandle type;
 	};
 	

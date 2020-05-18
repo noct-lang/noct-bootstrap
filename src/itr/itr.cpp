@@ -422,11 +422,11 @@ namespace Noctis
 	{
 	}
 
-	ITrCast::ITrCast(bool isTransmute, ITrTypeSPtr type, ITrExprSPtr expr)
+	ITrCast::ITrCast(ITrCastKind castKind, ITrExprSPtr expr, ITrTypeSPtr type)
 		: ITrExpr(ITrExprKind::CastOrTransmute)
-		, isTransmute(isTransmute)
-		, type(type)
+		, castKind(castKind)
 		, expr(expr)
+		, type(type)
 	{
 	}
 

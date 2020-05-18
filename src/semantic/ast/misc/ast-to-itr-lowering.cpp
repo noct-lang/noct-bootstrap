@@ -28,7 +28,6 @@ namespace Noctis
 		assocArgs.reserve(node.args.size());
 		for (AstGenericArg& arg : node.args)
 		{
-			
 			if (arg.kind == GenericArgKind::Type)
 			{
 				AstVisitor::Visit(arg.type);
@@ -36,6 +35,7 @@ namespace Noctis
 				
 				IdenGeneric genArg;
 				genArg.isType = true;
+				genArg.isSpecialized = true;
 				genArg.type = type->handle;
 
 				generics.push_back(genArg);
@@ -46,6 +46,7 @@ namespace Noctis
 				AstVisitor::Visit(arg.expr);
 				IdenGeneric genArg;
 				genArg.isType = false;
+				genArg.isSpecialized = true;
 				
 				// TODO: Value arg
 
@@ -118,7 +119,7 @@ namespace Noctis
 		StdVector<ITrDefSPtr> subDefs = PopDefFrame();
 
 		ITrBodySPtr body{ new ITrBody{ std::move(subDefs), {} } };
-
+		
 		ITrAttribsSPtr attribs;
 		if (node.attribs)
 		{
@@ -130,6 +131,7 @@ namespace Noctis
 		{
 			genDecl = PopGenDecl();
 			genDecl->astNode = node.generics;
+			HandleGenerics(genDecl, node.ctx->qualName);
 		}
 		
 		ITrDefSPtr def{ new ITrStruct{ attribs, genDecl, node.ctx->qualName, IsModDef() } };
@@ -162,6 +164,7 @@ namespace Noctis
 		{
 			genDecl = PopGenDecl();
 			genDecl->astNode = node.generics;
+			HandleGenerics(genDecl, node.ctx->qualName);
 		}
 		ITrDefSPtr def{ new ITrUnion{ attribs, genDecl, node.ctx->qualName, IsModDef() } };
 		node.defItr = def;
@@ -256,6 +259,7 @@ namespace Noctis
 		{
 			genDecl = PopGenDecl();
 			genDecl->astNode = node.generics;
+			HandleGenerics(genDecl, node.ctx->qualName);
 		}
 		ITrDefSPtr def{ new ITrAdtEnum{ attribs, genDecl, enumQualName, IsModDef() } };
 		node.defItr = def;
@@ -344,6 +348,7 @@ namespace Noctis
 		{
 			genDecl = PopGenDecl();
 			genDecl->astNode = node.generics;
+			HandleGenerics(genDecl, node.ctx->qualName);
 		}
 		ITrDefSPtr def{ new ITrStrongInterface{ attribs, genDecl, node.ctx->qualName } };
 		node.defItr = def;
@@ -375,6 +380,7 @@ namespace Noctis
 		{
 			genDecl = PopGenDecl();
 			genDecl->astNode = node.generics;
+			HandleGenerics(genDecl, node.ctx->qualName);
 		}
 
 		ITrTypeSPtr type = node.type ? PopType() : nullptr;
@@ -408,6 +414,7 @@ namespace Noctis
 		{
 			genDecl = PopGenDecl();
 			genDecl->astNode = node.generics;
+			HandleGenerics(genDecl, node.ctx->qualName);
 		}
 
 		ITrTypeSPtr type = PopType();
@@ -487,6 +494,9 @@ namespace Noctis
 	void AstToITrLowering::Visit(AstFuncDecl& node)
 	{
 		// TODO: throws
+
+		bool prevInFunc = m_InFunc;
+		m_InFunc = true;
 		
 		ITrAttribsSPtr attribs;
 		if (node.attribs)
@@ -540,6 +550,8 @@ namespace Noctis
 		def->astNode = m_DeclNode;
 		mod.AddDefinition(def, body);
 		PushDef(def);
+
+		m_InFunc = prevInFunc;
 	}
 
 	void AstToITrLowering::Visit(AstMethodDecl& node)
@@ -1066,17 +1078,7 @@ namespace Noctis
 		tBlock->astNode = node.body;
 		
 		IdenSPtr cond = Iden::Create(node.cond.Text());
-		OperatorKind op;
-		switch (node.cmp.Type())
-		{
-		case TokenType::EqEq: op = OperatorKind::Eq; break;
-		case TokenType::ExclaimEq: op = OperatorKind::Ne; break;
-		case TokenType::Less: op = OperatorKind::Lt; break;
-		case TokenType::LessEq: op = OperatorKind::Le; break;
-		case TokenType::Greater: op = OperatorKind::Gt; break;
-		case TokenType::GreaterEq: op = OperatorKind::Ge; break;
-		default: op = OperatorKind::Invalid; break;
-		}
+		OperatorKind op = TokenTypeToOperator(node.cmp.Type());
 		u64 val = node.val.Unsigned();
 
 		ITrStmtSPtr stmt{ new ITrCompCond{ false, cond, op, val, tBlock, fBlock } };
@@ -1097,17 +1099,7 @@ namespace Noctis
 		tBlock->astNode = node.body;
 
 		IdenSPtr cond = Iden::Create(node.cond.Text());
-		OperatorKind op;
-		switch (node.cmp.Type())
-		{
-		case TokenType::EqEq: op = OperatorKind::Eq; break;
-		case TokenType::ExclaimEq: op = OperatorKind::Ne; break;
-		case TokenType::Less: op = OperatorKind::Lt; break;
-		case TokenType::LessEq: op = OperatorKind::Le; break;
-		case TokenType::Greater: op = OperatorKind::Gt; break;
-		case TokenType::GreaterEq: op = OperatorKind::Ge; break;
-		default: op = OperatorKind::Invalid; break;
-		}
+		OperatorKind op = TokenTypeToOperator(node.cmp.Type());
 		u64 val = node.val.Unsigned();
 
 		ITrStmtSPtr stmt{ new ITrCompCond{ true, cond, op, val, tBlock, fBlock } };
@@ -1115,28 +1107,7 @@ namespace Noctis
 
 	void AstToITrLowering::Visit(AstAssignExpr& node)
 	{
-		OperatorKind op;
-		switch (node.op)
-		{
-		case TokenType::Eq: op = OperatorKind::Assign; break;
-		case TokenType::PlusEq: op = OperatorKind::AddAssign; break;
-		case TokenType::MinusEq: op = OperatorKind::SubAssign; break;
-		case TokenType::AsteriskEq: op = OperatorKind::MulAssign; break;
-		case TokenType::SlashEq: op = OperatorKind::DivAssign; break;
-		case TokenType::PercentEq: op = OperatorKind::RemAssign; break;
-		case TokenType::TildeEq: op = OperatorKind::ConcatAssign; break;
-		case TokenType::LessLessEq: op = OperatorKind::LShlAssign; break;
-		case TokenType::LessLessLessEq: op = OperatorKind::AShlAssign; break;
-		case TokenType::LessLessAsteriskEq: op = OperatorKind::RotlAssign; break;
-		case TokenType::GreaterGreaterEq: op = OperatorKind::LShrAssign; break;
-		case TokenType::GreaterGreaterGreaterEq: op = OperatorKind::AShrAssign; break;
-		case TokenType::GreaterGreaterAsteriskEq: op = OperatorKind::RotrAssign; break;
-		case TokenType::OrEq: op = OperatorKind::BinOrAssign; break;
-		case TokenType::CaretEq: op = OperatorKind::BinXorAssign; break;
-		case TokenType::AndEq: op = OperatorKind::BinAndAssign; break;
-		case TokenType::QuestionQuestionEq: op = OperatorKind::NullCoalesceAssign; break;
-		default: return;
-		}
+		OperatorKind op = TokenTypeToOperator(node.op);
 
 		Walk(node);
 		ITrExprSPtr rExpr = PopExpr();
@@ -1169,40 +1140,7 @@ namespace Noctis
 	{
 		Walk(node);
 		
-		OperatorKind op;
-		switch (node.op)
-		{
-		case TokenType::Plus: op = OperatorKind::Add; break;
-		case TokenType::Minus: op = OperatorKind::Sub; break;
-		case TokenType::Asterisk: op = OperatorKind::Mul; break;
-		case TokenType::Slash: op = OperatorKind::Div; break;
-		case TokenType::Percent: op = OperatorKind::Rem; break;
-		case TokenType::Tilde: op = OperatorKind::Concat; break;
-		case TokenType::OrOr: op = OperatorKind::Or; break;
-		case TokenType::AndAnd: op = OperatorKind::And; break;
-		case TokenType::LessLess: op = OperatorKind::LShl; break;
-		case TokenType::LessLessLess: op = OperatorKind::AShl; break;
-		case TokenType::LessLessAsterisk: op = OperatorKind::Rotl; break;
-		case TokenType::GreaterGreater: op = OperatorKind::LShr; break;
-		case TokenType::GreaterGreaterGreater: op = OperatorKind::AShr; break;
-		case TokenType::GreaterGreaterAsterisk: op = OperatorKind::Rotr; break;
-		case TokenType::Or: op = OperatorKind::BinOr; break;
-		case TokenType::Caret: op = OperatorKind::BinXor; break;
-		case TokenType::And: op = OperatorKind::BinAnd; break;
-		case TokenType::EqEq: op = OperatorKind::Eq; break;
-		case TokenType::ExclaimEq: op = OperatorKind::Ne; break;
-		case TokenType::Less: op = OperatorKind::Lt; break;
-		case TokenType::LessEq: op = OperatorKind::Le; break;
-		case TokenType::Greater: op = OperatorKind::Gt; break;
-		case TokenType::GreaterEq: op = OperatorKind::Ge; break;
-		case TokenType::DotDot: op = OperatorKind::Range; break;
-		case TokenType::DotDotEq: op = OperatorKind::IncRange; break;
-		case TokenType::QuestionQuestion: op = OperatorKind::NullCoalesce; break;
-		case TokenType::QuestionColon: op = OperatorKind::Elvis; break;
-		case TokenType::In: op = OperatorKind::In; break;
-		case TokenType::NotIn: op = OperatorKind::NotIn; break;
-		default: return;
-		}
+		OperatorKind op = TokenTypeToOperator(node.op);
 
 		ITrExprSPtr rExpr = PopExpr();
 		rExpr->astNode = node.rExpr;
@@ -1216,14 +1154,7 @@ namespace Noctis
 
 	void AstToITrLowering::Visit(AstPostfixExpr& node)
 	{
-		OperatorKind op;
-		switch (node.op)
-		{
-		case TokenType::PlusPlus: op = OperatorKind::PostInc; break;
-		case TokenType::MinusMinus: op = OperatorKind::PostDec; break;
-		case TokenType::ExclaimExclaim: op = OperatorKind::NullPanic; break;
-		default: return;
-		}
+		OperatorKind op = TokenTypeToOperator(node.op, true, true);
 
 		Walk(node);
 		ITrExprSPtr expr = PopExpr();
@@ -1236,21 +1167,7 @@ namespace Noctis
 
 	void AstToITrLowering::Visit(AstPrefixExpr& node)
 	{
-		OperatorKind op;
-		switch (node.op)
-		{
-		case TokenType::Plus: op = OperatorKind::Pos; break;
-		case TokenType::PlusPlus: op = OperatorKind::PreInc; break;
-		case TokenType::Minus: op = OperatorKind::Neg; break;
-		case TokenType::MinusMinus: op = OperatorKind::PreDec; break;
-		case TokenType::Exclaim: op = OperatorKind::Not; break;
-		case TokenType::Tilde: op = OperatorKind::BinNeg; break;
-		case TokenType::Asterisk: op = OperatorKind::Deref; break;
-		case TokenType::And: op = OperatorKind::AddrOf; break;
-		case TokenType::ExclaimExclaim: op = OperatorKind::BoolConv; break;
-		default: return;
-		}
-
+		OperatorKind op = TokenTypeToOperator(node.op, false, true);
 		Walk(node);
 		ITrExprSPtr expr = PopExpr();
 		expr->astNode = node.expr;
@@ -1424,7 +1341,15 @@ namespace Noctis
 		ITrTypeSPtr type = PopType();
 		type->astNode = node.type;
 
-		expr = ITrExprSPtr{ new ITrCast{ false, type, expr } };
+		ITrCastKind castKind;
+		switch (node.castType)
+		{
+		case TokenType::AsQuestion: castKind = ITrCastKind::SafeCast; break;
+		case TokenType::AsExclaim: castKind = ITrCastKind::NullPanicCast; break;
+		default: castKind = ITrCastKind::Cast; break;
+		}
+
+		expr = ITrExprSPtr{ new ITrCast{ castKind, expr, type } };
 		node.itr = expr;
 		m_Exprs.push(expr);
 	}
@@ -1437,7 +1362,7 @@ namespace Noctis
 		ITrTypeSPtr type = PopType();
 		type->astNode = node.type;
 		
-		expr = ITrExprSPtr{ new ITrCast{ true, type, expr } };
+		expr = ITrExprSPtr{ new ITrCast{ ITrCastKind::Transmute, expr, type } };
 		node.itr = expr;
 		m_Exprs.push(expr);
 	}
@@ -1651,12 +1576,6 @@ namespace Noctis
 		Visit(*node.qualName);
 		QualNameSPtr qualName = node.qualName->ctx->qualName;
 
-		AstQualIdenSPtr lastIden = node.qualName->idens.back();
-		if (lastIden->qualIdenKind == AstQualIdenKind::Identifier)
-		{
-			
-		}
-		
 		TypeHandle handle = m_pCtx->typeReg.Iden(TypeMod::None, qualName);
 		ITrTypeSPtr type{ new ITrType{ attribs, handle, {} } };
 		node.itr = type;
@@ -2306,6 +2225,27 @@ namespace Noctis
 			args.push_back(arg);
 		}
 		return args;
+	}
+
+	void AstToITrLowering::HandleGenerics(ITrGenDeclSPtr genDecl, QualNameSPtr qualName)
+	{
+		// Update generic type argument names
+		for (usize i = 0; i < genDecl->params.size(); ++i)
+		{
+			ITrGenParamSPtr param = genDecl->params[i];
+			IdenGeneric& idenGen = qualName->Iden()->Generics()[i];
+			if (param->isVar)
+			{
+				ITrGenValParam& genParam = *reinterpret_cast<ITrGenValParam*>(param.get());
+				idenGen.iden = genParam.iden;
+				idenGen.type = genParam.type->handle;
+			}
+			else
+			{
+				ITrGenTypeParam& genParam = *reinterpret_cast<ITrGenTypeParam*>(param.get());
+				idenGen.iden = genParam.iden;
+			}
+		}
 	}
 
 	void AstToITrLowering::AddMethodReceiverToParams(AstMethodReceiverKind recKind, StdVector<ITrParamSPtr>& params)

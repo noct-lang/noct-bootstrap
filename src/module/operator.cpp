@@ -1,7 +1,7 @@
 #include "operator.hpp"
 
 
-
+#include "tokens/token.hpp"
 #include "common/context.hpp"
 #include "common/qualname.hpp"
 #include "symbol.hpp"
@@ -31,6 +31,64 @@ namespace Noctis
 			u8(op) <= u8(OperatorKind::NullCoalesceAssign);
 	}
 
+	OperatorKind TokenTypeToOperator(TokenType type, bool unary, bool postfix)
+	{
+		switch (type)
+		{
+		case TokenType::PlusPlus: return postfix ? OperatorKind::PostInc : OperatorKind::PreInc;
+		case TokenType::MinusMinus: return postfix ? OperatorKind::PostDec : OperatorKind::PreDec;
+		case TokenType::ExclaimExclaim: return postfix ? OperatorKind::NullPanic : OperatorKind::BoolConv;
+		case TokenType::Exclaim: return OperatorKind::Not;
+		case TokenType::Plus: return unary ? OperatorKind::Pos : OperatorKind::Add;
+		case TokenType::Minus: return unary ? OperatorKind::Neg : OperatorKind::Sub;
+		case TokenType::Asterisk: return unary ? OperatorKind::Deref : OperatorKind::Mul;
+		case TokenType::Slash: return OperatorKind::Div;
+		case TokenType::Percent: return OperatorKind::Rem;
+		case TokenType::Tilde: return unary ? OperatorKind::BinNeg : OperatorKind::Concat;
+		case TokenType::OrOr: return OperatorKind::Or;
+		case TokenType::AndAnd: return OperatorKind::And;
+		case TokenType::LessLess: return OperatorKind::LShl;
+		case TokenType::LessLessLess: return OperatorKind::AShl;
+		case TokenType::LessLessAsterisk: return OperatorKind::Rotl;
+		case TokenType::GreaterGreater: return OperatorKind::LShr;
+		case TokenType::GreaterGreaterGreater: return OperatorKind::AShr;
+		case TokenType::GreaterGreaterAsterisk: return OperatorKind::Rotr;
+		case TokenType::Or: return OperatorKind::BinOr;
+		case TokenType::Caret: return OperatorKind::BinXor;
+		case TokenType::And: return unary ? OperatorKind::RefOrAddrOf : OperatorKind::BinAnd;
+		case TokenType::DotDot: return OperatorKind::Range;
+		case TokenType::DotDotEq: return OperatorKind::IncRange;
+		case TokenType::QuestionQuestion: return OperatorKind::NullCoalesce;
+		case TokenType::QuestionColon: return OperatorKind::Elvis;
+		case TokenType::In: return OperatorKind::In;
+		case TokenType::NotIn: return OperatorKind::NotIn;
+		case TokenType::EqEq: return OperatorKind::Eq;
+		case TokenType::ExclaimEq: return OperatorKind::Ne;
+		case TokenType::Less: return OperatorKind::Lt;
+		case TokenType::LessEq: return OperatorKind::Le;
+		case TokenType::Greater: return OperatorKind::Gt;
+		case TokenType::GreaterEq: return OperatorKind::Ge;
+		case TokenType::Eq: return OperatorKind::Assign;
+		case TokenType::PlusEq: return OperatorKind::AddAssign;
+		case TokenType::MinusEq: return OperatorKind::SubAssign;
+		case TokenType::AsteriskEq: return OperatorKind::MulAssign;
+		case TokenType::SlashEq: return OperatorKind::DivAssign;
+		case TokenType::PercentEq: return OperatorKind::RemAssign;
+		case TokenType::TildeEq: return OperatorKind::ConcatAssign;
+		case TokenType::LessLessEq: return OperatorKind::LShlAssign;
+		case TokenType::LessLessLessEq: return OperatorKind::AShlAssign;
+		case TokenType::LessLessAsteriskEq: return OperatorKind::RotlAssign;
+		case TokenType::GreaterGreaterEq: return OperatorKind::LShrAssign;
+		case TokenType::GreaterGreaterGreaterEq: return OperatorKind::AShrAssign;
+		case TokenType::GreaterGreaterAsteriskEq: return OperatorKind::RotrAssign;
+		case TokenType::OrEq: return OperatorKind::BinOrAssign;
+		case TokenType::CaretEq: return OperatorKind::BinXorAssign;
+		case TokenType::AndEq: return OperatorKind::BinAndAssign;
+		case TokenType::QuestionQuestionEq: return OperatorKind::NullCoalesceAssign;
+		default: return OperatorKind::Invalid;
+		}
+	}
+
 	StdStringView GetOpName(OperatorKind op)
 	{
 		switch (op)
@@ -42,7 +100,7 @@ namespace Noctis
 		case OperatorKind::Not: return "!";
 		case OperatorKind::BinNeg: return "~";
 		case OperatorKind::Deref: return "*";
-		case OperatorKind::AddrOf: return "&";
+		case OperatorKind::RefOrAddrOf: return "&";
 		case OperatorKind::BoolConv: return "!!";
 		case OperatorKind::PostInc: return "++X";
 		case OperatorKind::PostDec: return "--X";
@@ -113,16 +171,16 @@ namespace Noctis
 			IdenSPtr funcIden = interfaceQualName->Iden();
 			if (interfaceSym)
 			{
-				for (SymbolSPtr impl : interfaceSym->impls)
+				for (StdPair<SymbolSPtr, bool>& pair : interfaceSym->impls)
 				{
-					HandleUnaryOp(kind, impl, interfaceSym);
+					HandleUnaryOp(kind, pair.first, interfaceSym);
 				}
 
 				for (SymbolSPtr variant : interfaceSym->variants)
 				{
-					for (SymbolSPtr impl : variant->impls)
+					for (StdPair<SymbolSPtr, bool>& pair : variant->impls)
 					{
-						HandleUnaryOp(kind, impl, variant);
+						HandleUnaryOp(kind, pair.first, variant);
 					}
 				}
 			}
@@ -136,16 +194,16 @@ namespace Noctis
 			IdenSPtr funcIden = interfaceQualName->Iden();
 			if (interfaceSym)
 			{
-				for (SymbolSPtr impl : interfaceSym->impls)
+				for (StdPair<SymbolSPtr, bool>& pair : interfaceSym->impls)
 				{
-					HandleBinaryOp(kind, impl, interfaceSym);
+					HandleBinaryOp(kind, pair.first, interfaceSym);
 				}
 
 				for (SymbolSPtr variant : interfaceSym->variants)
 				{
-					for (SymbolSPtr impl : variant->impls)
+					for (StdPair<SymbolSPtr, bool>& pair : variant->impls)
 					{
-						HandleBinaryOp(kind, impl, variant);
+						HandleBinaryOp(kind, pair.first, variant);
 					}
 				}
 			}
@@ -224,8 +282,17 @@ namespace Noctis
 
 		StdString funcName = interfaceSym->qualName->Iden()->Name();
 		funcName[0] = 'o';
+
+		IdenGeneric idenGen;
+		idenGen.isType = idenGen.isSpecialized = true;
+		idenGen.type = impl->type;
+		
 		IdenSPtr funcIden = Iden::Create(funcName);
-		SymbolSPtr funcSym = impl->children->FindChild(interfaceSym->qualName, funcIden, {});
+
+		IdenSPtr ifaceIden = Iden::Create(interfaceSym->qualName->Iden()->Name(), { idenGen }, m_pCtx->typeReg);
+		QualNameSPtr ifaceQualName = QualName::Create(interfaceSym->qualName->Base(), ifaceIden);
+		
+		SymbolSPtr funcSym = impl->children->FindChild(ifaceQualName, funcIden, {});
 
 		TypeSPtr funcType = m_pCtx->typeReg.GetType(funcSym->type);
 		Operator op;
@@ -233,6 +300,9 @@ namespace Noctis
 		op.right = rType;
 		op.result = funcType->AsFunc().retType;
 		op.sym = funcSym;
+
+		op.isBuiltin = m_pCtx->typeReg.IsType(op.left, TypeKind::Builtin) &&
+			m_pCtx->typeReg.IsType(op.right, TypeKind::Builtin);
 
 		StdUnorderedMap<TypeSPtr, StdVector<Operator>>& entry = m_OpSymbols[u8(kind)];
 		TypeSPtr type = m_pCtx->typeReg.GetType(op.left);

@@ -79,6 +79,16 @@ namespace Noctis
 		m_HasFile = true;
 	}
 
+	void Logger::Flush()
+	{
+		std::cout << std::flush;
+		
+		if (m_HasFile)
+		{
+			m_OutFile.flush();
+		}
+	}
+
 	Logger& GetLogger()
 	{
 		static Logger logger;

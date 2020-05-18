@@ -32,7 +32,12 @@ namespace Noctis
 	private:
 		StdStack<SymbolSPtr> m_Syms;
 		StdVector<SymbolSPtr> m_Interfaces;
+		
 		bool m_ProcessImplSym;
+
+		bool m_InImpl;
+		QualNameSPtr m_TypeQualName;
+		QualNameSPtr m_ImplQualName;
 	};
 
 }

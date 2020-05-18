@@ -16,6 +16,7 @@ namespace Noctis
 		usize hash = hasher(tree.filepath);
 		m_FileNameHash = Format("%llx", hash);
 		m_pTree = &tree;
+		m_CurScope = tree.moduleScope;
 		Walk(tree);
 	}
 
@@ -54,12 +55,6 @@ namespace Noctis
 	void IdenScopePass::Visit(AstArg& node)
 	{
 		node.ctx->scope = m_CurScope;
-		Walk(node);
-	}
-
-	void IdenScopePass::Visit(AstModuleDecl& node)
-	{
-		m_CurScope = QualName::Create(node.moduleIdens);
 		Walk(node);
 	}
 

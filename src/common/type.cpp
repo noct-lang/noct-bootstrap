@@ -116,8 +116,13 @@ namespace Noctis
 	StdString TypeRegistry::ToString(TypeHandle handle)
 	{
 		TypeSPtr type = GetType(handle);
+		return ToString(type);
+	}
+
+	StdString TypeRegistry::ToString(TypeSPtr type)
+	{
 		if (!type)
-			return "";
+			return "()";
 
 		StdString mod{ TypeModToString(type->mod) };
 		switch (type->typeKind)
@@ -145,7 +150,7 @@ namespace Noctis
 			case BuiltinTypeKind::F32: return mod + "f32";
 			case BuiltinTypeKind::F64: return mod + "f64";
 			case BuiltinTypeKind::F128: return mod + "f128";
-			default: return "";
+			default: return "__unknown__builtin__";
 			}
 		}
 		case TypeKind::Iden:
@@ -176,7 +181,7 @@ namespace Noctis
 				tmp = Format("[%ull]", arr.size);
 			else
 				tmp = "[...]";
-			
+
 			return mod + tmp + ToString(arr.subType);
 		}
 		case TypeKind::Tuple:
@@ -208,7 +213,7 @@ namespace Noctis
 			}
 			return tmp;
 		}
-		default: return "";
+		default: return "()";
 		}
 	}
 

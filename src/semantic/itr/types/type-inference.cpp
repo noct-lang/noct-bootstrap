@@ -11,34 +11,73 @@
 
 namespace Noctis
 {
+
 	TypeInference::TypeInference(Context* pCtx)
 		: ITrSemanticPass("type inference", pCtx)
+		, m_Prepass(false)
 	{
+	}
+
+	void TypeInference::SetPrepass()
+	{
+		m_Prepass = true;
+		m_Name = "func type prepass";
 	}
 
 	void TypeInference::Process(ITrModule& mod)
 	{
 		SetModule(mod);
-		
+
 		Foreach(ITrVisitorDefKind::Any, [&](ITrFunc& node)
 		{
-			ITrBodySPtr body = mod.GetBody(node);
-			if (!body)
-				return;
-
+			m_FuncScope = node.qualName;
 			m_FuncCtx = node.ctx;
-			StdVector<StdString> scopeNames{};
-			for (ITrParamSPtr param : node.params)
+
+			m_InterfaceQualname = nullptr;
+			SymbolSPtr parent = node.sym.lock()->parent.lock();
+			if (parent &&
+				parent->kind != SymbolKind::StrongInterface &&
+				parent->kind != SymbolKind::WeakInterface &&
+				!parent->impls.empty())
+				m_InterfaceQualname = parent->impls[0].first->qualName;
+
+			if (m_Prepass)
 			{
-				LocalVarDataSPtr localVar = m_FuncCtx->localVars.ActivateNextVar(m_ScopeNames, param->iden);
+				StdVector<TypeHandle> paramTypes;
+				paramTypes.reserve(node.params.size());
+				for (ITrParamSPtr param : node.params)
+				{
+					Visit(*param->type);
+					paramTypes.push_back(param->type->handle);
+				}
+
+				TypeHandle retType = TypeHandle(-1);
+				if (node.retType)
+				{
+					Visit(*node.retType);
+					retType = node.retType->handle;
+				}
+
+				TypeHandle type = m_pCtx->typeReg.Func(TypeMod::None, paramTypes, retType);
+				node.sym.lock()->type = type;
 			}
-			
-			for (ITrStmtSPtr stmt : body->stmts)
+			else
 			{
-				ITrVisitor::Visit(stmt);
+				ITrBodySPtr body = mod.GetBody(node);
+				if (!body)
+					return;
+
+				for (ITrParamSPtr param : node.params)
+				{
+					LocalVarDataSPtr localVar = m_FuncCtx->localVars.ActivateNextVar(m_ScopeNames, param->iden);
+				}
+
+				for (ITrStmtSPtr stmt : body->stmts)
+				{
+					ITrVisitor::Visit(stmt);
+				}
 			}
 		});
-		
 	}
 
 	void TypeInference::Visit(ITrBlock& node)
@@ -162,6 +201,7 @@ namespace Noctis
 
 		Operator& op = m_pCtx->activeModule->opTable.GetOperator(node.op, lTypeHandle, rTypeHandle);
 		node.typeHandle = op.result;
+		node.isBuiltinOp = op.isBuiltin;
 
 		if (!op.sym)
 		{
@@ -237,6 +277,93 @@ namespace Noctis
 
 	void TypeInference::Visit(ITrLiteral& node)
 	{
+		TypeRegistry& typeReg = m_pCtx->typeReg;
+		
+		switch (node.lit.Type())
+		{
+		case TokenType::CharLit:
+		{
+			node.typeHandle = typeReg.Builtin(TypeMod::Const, BuiltinTypeKind::Char);
+			break;
+		}
+		case TokenType::F16Lit:
+		{
+			node.typeHandle = typeReg.Builtin(TypeMod::Const, BuiltinTypeKind::F16);
+			break;
+		}
+		case TokenType::F32Lit:
+		{
+			node.typeHandle = typeReg.Builtin(TypeMod::Const, BuiltinTypeKind::F32);
+			break;
+		}
+		case TokenType::F64Lit:
+		{
+			node.typeHandle = typeReg.Builtin(TypeMod::Const, BuiltinTypeKind::F64);
+			break;
+		}
+		case TokenType::F128Lit:
+		{
+			node.typeHandle = typeReg.Builtin(TypeMod::Const, BuiltinTypeKind::F128);
+			break;
+		}
+		case TokenType::I8Lit:
+		{
+			node.typeHandle = typeReg.Builtin(TypeMod::Const, BuiltinTypeKind::I8);
+			break;
+		}
+		case TokenType::I16Lit:
+		{
+			node.typeHandle = typeReg.Builtin(TypeMod::Const, BuiltinTypeKind::I16);
+			break;
+		}
+		case TokenType::I32Lit:
+		{
+			node.typeHandle = typeReg.Builtin(TypeMod::Const, BuiltinTypeKind::I32);
+			break;
+		}
+		case TokenType::I64Lit:
+		{
+			node.typeHandle = typeReg.Builtin(TypeMod::Const, BuiltinTypeKind::I64);
+			break;
+		}
+		case TokenType::I128Lit:
+		{
+			node.typeHandle = typeReg.Builtin(TypeMod::Const, BuiltinTypeKind::I128);
+			break;
+		}
+		case TokenType::StringLit:
+		{
+			TypeHandle charType = typeReg.Builtin(TypeMod::Const, BuiltinTypeKind::Char);
+			node.typeHandle = typeReg.Slice(TypeMod::Const, charType);
+			break;
+		}
+		case TokenType::U8Lit:
+		{
+			node.typeHandle = typeReg.Builtin(TypeMod::Const, BuiltinTypeKind::U8);
+			break;
+		}
+		case TokenType::U16Lit:
+		{
+			node.typeHandle = typeReg.Builtin(TypeMod::Const, BuiltinTypeKind::U16);
+			break;
+		}
+		case TokenType::U32Lit:
+		{
+			node.typeHandle = typeReg.Builtin(TypeMod::Const, BuiltinTypeKind::U32);
+			break;
+		}
+		case TokenType::U64Lit:
+		{
+			node.typeHandle = typeReg.Builtin(TypeMod::Const, BuiltinTypeKind::U64);
+			break;
+		}
+		case TokenType::U128Lit:
+		{
+			node.typeHandle = typeReg.Builtin(TypeMod::Const, BuiltinTypeKind::U128);
+			break;
+		}
+		default: ;
+		}
 	}
 
 	void TypeInference::Visit(ITrAggrInit& node)
@@ -342,5 +469,84 @@ namespace Noctis
 		ITrVisitor::Visit(node);
 
 		node.typeHandle = node.expr->typeHandle;
+	}
+
+	void TypeInference::Visit(ITrType& node)
+	{
+		for (ITrTypeSPtr subType : node.subTypes)
+		{
+			Visit(*subType);
+		}
+		if (node.expr)
+			ITrVisitor::Visit(node.expr);
+		
+		TypeSPtr type = m_pCtx->typeReg.GetType(node.handle);
+		switch (type->typeKind)
+		{
+		case TypeKind::Builtin:
+			break;
+		case TypeKind::Iden:
+		{
+			QualNameSPtr scope = m_FuncScope; 
+			for (StdString& scopeName : m_ScopeNames)
+			{
+				scope = QualName::Create(m_FuncScope, Iden::Create(scopeName));
+			}
+
+			SymbolSPtr sym = m_pCtx->activeModule->symTable.Find(scope, type->AsIden().qualName, m_InterfaceQualname);
+			node.handle = sym->type;
+			break;
+		}
+		case TypeKind::Ptr:
+		{
+			node.handle = m_pCtx->typeReg.Ptr(type->mod, node.subTypes[0]->handle);
+			break;
+		}
+		case TypeKind::Ref:
+		{
+			node.handle = m_pCtx->typeReg.Ref(type->mod, node.subTypes[0]->handle);
+			break;
+		}
+		case TypeKind::Slice:
+		{
+			node.handle = m_pCtx->typeReg.Slice(type->mod, node.subTypes[0]->handle);
+			break;
+		}
+		case TypeKind::Array:
+		{
+			node.handle = m_pCtx->typeReg.Array(type->mod, node.subTypes[0]->handle, type->AsArray().size);
+			break;
+		}
+		case TypeKind::Tuple:
+		{
+			StdVector<TypeHandle> subTypes;
+			for (ITrTypeSPtr subType : node.subTypes)
+			{
+				subTypes.push_back(subType->handle);
+			}
+			
+			node.handle = m_pCtx->typeReg.Tuple(type->mod, subTypes);
+			break;
+		}
+		case TypeKind::Opt:
+		{
+			node.handle = m_pCtx->typeReg.Opt(type->mod, node.subTypes[0]->handle);
+			break;
+		}
+		case TypeKind::Func:
+		{
+			// TODO
+			//StdVector<TypeHandle> subTypes;
+			//for (ITrTypeSPtr subType : node.subTypes)
+			//{
+			//	subTypes.push_back(subType->handle);
+			//}
+			//
+			//node.handle = m_pCtx->typeReg.Func(type->mod, subTypes);
+			break;
+		}
+		default: ;
+		}
+		
 	}
 }

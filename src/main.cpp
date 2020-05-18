@@ -1,5 +1,6 @@
 #include <string_view>
 #include <sstream>
+#include <filesystem>
 #include "common/context.hpp"
 #include "common/logger.hpp"
 #include "common/errorsystem.hpp"
@@ -11,7 +12,9 @@
 #include "ast/parser.hpp"
 #include "ast/ast.hpp"
 #include "ast/ast-printer.hpp"
+#include "il/il-printer.hpp"
 #include "itr/itr-printer.hpp"
+#include "module/encode.hpp"
 #include "semantic/semantic-analysis.hpp"
 
 void ProcessBuild(Noctis::Context& context)
@@ -22,9 +25,54 @@ void ProcessBuild(Noctis::Context& context)
 	g_Logger.Log("Processing build command\n");
 
 	StdUnorderedMap<Noctis::QualNameSPtr, Noctis::ModuleSPtr>& modules = context.modules;
-	Noctis::Timer timer{ true };
 
-	const StdVector<StdString>& filepaths = context.options.GetBuildOptions().buildFiles;
+	const Noctis::BuildOptions& buildOptions = context.options.GetBuildOptions();
+	
+	Noctis::Timer timer{ true };
+	
+	const StdVector<StdString>& filepaths = buildOptions.buildFiles;
+
+	// Load all headers for all available modules
+	{
+		Noctis::ModuleDecode decode{ &context };
+		const StdVector<StdString>& modulePaths = buildOptions.modulePaths;
+
+		for (const StdString& modulePath : modulePaths)
+		{
+			std::filesystem::path path{ modulePath };
+
+			if (std::filesystem::is_directory(path))
+			{
+				for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(path))
+				{
+					if (entry.is_regular_file() && entry.path().extension() == ".nxm")
+					{
+						std::string s = entry.path().u8string();
+						StdString tmp;
+						tmp.insert(tmp.begin(), s.begin(), s.end());
+						Noctis::ModuleSPtr mod = decode.CreateModuleWithHeader(tmp);
+						context.modules.try_emplace(mod->qualName, mod);
+					}
+				}
+			}
+			else if (path.extension() == "nxm")
+			{
+				Noctis::ModuleSPtr mod = decode.CreateModuleWithHeader(modulePath);
+				context.modules.try_emplace(mod->qualName, mod);
+			}
+			else
+			{
+				g_ErrorSystem.Error("Invalid module path: %s\n", modulePath.c_str());
+			}
+			
+		}
+
+		// In self hosted version, the working directory should automatically be checked for modules
+	}
+
+	timer.Stop();
+	g_Logger.Log(Noctis::Format("Module discovery took %fms\n", timer.GetTimeMS()));
+
 	for (const StdString& filepath : filepaths)
 	{
 		g_ErrorSystem.SetCurrentFile(filepath);
@@ -43,7 +91,7 @@ void ProcessBuild(Noctis::Context& context)
 		lexer.Lex(filepath, content);
 		timer.Stop();
 
-		if (context.options.GetBuildOptions().logTokens)
+		if (buildOptions.logTokens)
 			lexer.LogTokens();
 
 		g_Logger.Log(Noctis::Format("Lexer took %fms\n", timer.GetTimeMS()));
@@ -56,9 +104,25 @@ void ProcessBuild(Noctis::Context& context)
 		astTree.filepath = filepath;
 		astTree.nodes = parser.Parse();
 
+		if (!astTree.nodes.empty())
+		{
+			Noctis::AstStmtSPtr firstStmt = astTree.nodes[0];
+			if (astTree.nodes[0]->stmtKind == Noctis::AstStmtKind::Decl)
+			{
+				Noctis::AstDecl& firstDecl = *static_cast<Noctis::AstDecl*>(firstStmt.get());
+				if (firstDecl.declKind == Noctis::AstDeclKind::Module)
+				{
+					Noctis::AstModuleDecl& modDecl = static_cast<Noctis::AstModuleDecl&>(firstDecl);
+					astTree.moduleScope = Noctis::QualName::Create(modDecl.moduleIdens);
+				}
+			}
+		}
+		if (!astTree.moduleScope)
+			astTree.moduleScope = buildOptions.moduleQualName;
+
 		timer.Stop();
 
-		if (context.options.GetBuildOptions().logParsedAst)
+		if (buildOptions.logParsedAst)
 		{
 			Noctis::AstPrinter printer;
 			printer.Visit(astTree);
@@ -79,7 +143,7 @@ void ProcessBuild(Noctis::Context& context)
 		}
 
 		if (!moduleQualName)
-			moduleQualName = context.options.GetBuildOptions().moduleQualName;
+			moduleQualName = buildOptions.moduleQualName;
 
 		if (!moduleQualName)
 		{
@@ -97,6 +161,9 @@ void ProcessBuild(Noctis::Context& context)
 
 	for (StdPair<const Noctis::QualNameSPtr, Noctis::ModuleSPtr>& pair : modules)
 	{
+		if (pair.second->isImported)
+			continue;
+		
 		context.activeModule = pair.second;
 		
 		Noctis::AstSemanticAnalysis astSemAnalysis{ &context };
@@ -109,14 +176,14 @@ void ProcessBuild(Noctis::Context& context)
 
 			g_Logger.Log(Noctis::Format("AST semantic analysis took %fms\n", timer.GetTimeMS()));
 
-			if (context.options.GetBuildOptions().logAst)
+			if (buildOptions.logAst)
 			{
 				Noctis::AstPrinter printer;
 				printer.Visit(tree);
 			}
 		}
 
-		if (context.options.GetBuildOptions().logLoweredITr)
+		if (buildOptions.logLoweredITr)
 		{
 			Noctis::ITrPrinter printer{ &context };
 			printer.Print(pair.second->itrModule);
@@ -127,7 +194,33 @@ void ProcessBuild(Noctis::Context& context)
 
 		g_Logger.SetCanWriteToStdOut(false);
 		pair.second->symTable.Log();
+		
+
+		{
+			Noctis::ILPrinter printer(&context);
+			for (Noctis::ILFuncDefSPtr func : pair.second->ilMod.funcs)
+			{
+				printer.Visit(*func);
+			}
+		}
 		g_Logger.SetCanWriteToStdOut(true);
+
+		{
+			Noctis::ModuleEncode encoder(&context);
+			StdVector<u8> encoded = encoder.Encode(*pair.second);
+
+			StdString path = pair.second->qualName->ToString();
+			path.erase(path.begin(), path.begin() + 2);
+			Noctis::StringReplace(path, "::", ".");
+			path += ".nxm";
+			std::ofstream out(path.c_str(), std::ios::binary);
+			if (out.is_open())
+			{
+				out.write((char*)encoded.data(), encoded.size());
+				out.close();
+			}
+		}
+		
 	}
 
 	buildTimer.Stop();

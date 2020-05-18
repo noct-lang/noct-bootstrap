@@ -35,6 +35,12 @@ namespace Noctis
 
 	bool ReadFileAsString(const StdString& filepath, StdString& content);
 
+	void StringReplace(StdString& str, const StdStringView toReplace, const StdStringView with);
+
+	StdString ExtractNullTermString(const StdVector<u8>& data, usize& idx);
+
+	StdVector<StdString> SplitString(const StdString& str, char splitOn);
+
 	// Calculated using Hamming weight
 	template<typename T>
 	u8 CountBits(T& val)

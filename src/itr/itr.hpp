@@ -490,6 +490,7 @@ namespace Noctis
 		OperatorKind op;
 		ITrExprSPtr lExpr;
 		ITrExprSPtr rExpr;
+		bool isBuiltinOp;
 	};
 
 	struct ITrUnary : ITrExpr
@@ -612,13 +613,21 @@ namespace Noctis
 		StdVector<ITrExprSPtr> exprs;
 	};
 
+	enum class ITrCastKind : u8
+	{
+		Cast,
+		SafeCast,
+		NullPanicCast,
+		Transmute
+	};
+
 	struct ITrCast : ITrExpr
 	{
-		ITrCast(bool isTransmute, ITrTypeSPtr type, ITrExprSPtr expr);
+		ITrCast(ITrCastKind castKind, ITrExprSPtr expr, ITrTypeSPtr type);
 		
-		bool isTransmute;
-		ITrTypeSPtr type;
+		ITrCastKind castKind;
 		ITrExprSPtr expr;
+		ITrTypeSPtr type;
 	};
 
 	struct ITrBlockExpr : ITrExpr

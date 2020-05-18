@@ -9,6 +9,7 @@ namespace Noctis
 	TypeCollection::TypeCollection(Context* pCtx)
 		: ITrSemanticPass("type collection", pCtx)
 		, m_ProcessImplSym(false)
+		, m_InImpl(false)
 	{
 		m_VisitDefs = true;
 	}
@@ -28,7 +29,7 @@ namespace Noctis
 			node.sym = sym;
 			sym->associatedITr = node.ptr;
 			sym->baseVariant = sym;
-			sym->self = sym;
+			sym->SetSelf(sym);
 
 			HandleGenerics(node.qualName, node.genDecl);
 
@@ -52,7 +53,7 @@ namespace Noctis
 			node.sym = sym;
 			sym->associatedITr = node.ptr;
 			sym->baseVariant = sym;
-			sym->self = sym;
+			sym->SetSelf(sym);
 
 			HandleGenerics(node.qualName, node.genDecl);
 
@@ -76,7 +77,7 @@ namespace Noctis
 			node.sym = sym;
 			sym->associatedITr = node.ptr;
 			sym->baseVariant = sym;
-			sym->self = sym;
+			sym->SetSelf(sym);
 
 			HandleGenerics(node.qualName, node.genDecl);
 
@@ -100,7 +101,7 @@ namespace Noctis
 			node.sym = sym;
 			sym->associatedITr = node.ptr;
 			sym->baseVariant = sym;
-			sym->self = sym;
+			sym->SetSelf(sym);
 
 			HandleGenerics(node.qualName, node.genDecl);
 
@@ -123,7 +124,7 @@ namespace Noctis
 			node.sym = sym;
 			sym->associatedITr = node.ptr;
 			sym->baseVariant = sym;
-			sym->self = sym;
+			sym->SetSelf(sym);
 
 			HandleGenerics(node.qualName, node.genDecl);
 
@@ -139,7 +140,7 @@ namespace Noctis
 			node.sym = sym;
 			sym->associatedITr = node.ptr;
 			sym->baseVariant = sym;
-			sym->self = sym;
+			sym->SetSelf(sym);
 
 			HandleGenerics(node.qualName, node.genDecl);
 
@@ -163,7 +164,7 @@ namespace Noctis
 			node.sym = sym;
 			sym->associatedITr = node.ptr;
 			sym->baseVariant = sym;
-			sym->self = sym;
+			sym->SetSelf(sym);
 
 			HandleGenerics(node.qualName, node.genDecl);
 
@@ -186,7 +187,7 @@ namespace Noctis
 			node.sym = sym;
 			sym->associatedITr = node.ptr;
 			sym->baseVariant = sym;
-			sym->self = sym;
+			sym->SetSelf(sym);
 
 			HandleGenerics(node.qualName, node.genDecl);
 
@@ -201,7 +202,7 @@ namespace Noctis
 			node.sym = sym;
 			sym->associatedITr = node.ptr;
 			sym->baseVariant = sym;
-			sym->self = sym;
+			sym->SetSelf(sym);
 
 			HandleGenerics(node.qualName, node.genDecl);
 
@@ -230,18 +231,9 @@ namespace Noctis
 			node.sym = sym;
 			sym->associatedITr = node.ptr;
 			sym->baseVariant = sym;
-			sym->self = sym;
+			sym->SetSelf(sym);
 
 			HandleGenerics(node.qualName, node.genDecl);
-
-			StdVector<TypeHandle> paramTypes;
-			paramTypes.reserve(node.params.size());
-			for (ITrParamSPtr param : node.params)
-			{
-				paramTypes.push_back(param->type->handle);
-			}
-			TypeHandle type = m_pCtx->typeReg.Func(TypeMod::None, paramTypes, node.retType->handle);
-			sym->type = type;
 
 			ITrBodySPtr body = mod.GetBody(node);
 			for (ITrDefSPtr def : body->defs)
@@ -268,10 +260,11 @@ namespace Noctis
 					QualNameSPtr qualName = QualName::Create(parent->qualName->Base(), idenType.qualName->Iden());
 					sym.reset(new Symbol{ m_pCtx, parent->kind, qualName });
 					sym->baseVariant = sym;
-					sym->self = sym;
+					sym->SetSelf(sym);
 					sym->type = m_pCtx->typeReg.Iden(TypeMod::None, qualName);
 					parent->variants.push_back(sym);
 				}
+				m_TypeQualName = sym->qualName;
 			}
 			else
 			{
@@ -280,10 +273,12 @@ namespace Noctis
 				{
 					sym.reset(new Symbol{ m_pCtx, SymbolKind::ImplType, nullptr });
 					sym->baseVariant = sym;
-					sym->self = sym;
+					sym->SetSelf(sym);
 					sym->type = typeHandle;
 					symTable.Add(sym);					
 				}
+				StdString typeName = m_pCtx->typeReg.ToString(sym->type);
+				m_TypeQualName = QualName::Create(Iden::Create(typeName));
 			}
 			m_Syms.push(sym);
 			node.sym = sym;
@@ -304,16 +299,20 @@ namespace Noctis
 					parent->variants.push_back(interfaceSym);
 				}
 				m_Interfaces.push_back(interfaceSym);
-				sym->impls.push_back(interfaceSym);
-				interfaceSym->impls.push_back(sym);
+				sym->impls.emplace_back(interfaceSym, false);
+				interfaceSym->impls.emplace_back(sym, false);
 			}
-			
+
+
+			m_InImpl = true;
+			m_ImplQualName = node.qualName;
 			ITrBodySPtr body = mod.GetBody(node);
 			for (ITrDefSPtr def : body->defs)
 			{
 				m_ProcessImplSym = true;
 				ITrVisitor::Visit(def);
 			}
+			m_InImpl = false;
 			
 			m_Syms.pop();
 			m_Interfaces.clear();
@@ -329,7 +328,7 @@ namespace Noctis
 		node.sym = sym;
 		sym->associatedITr = node.ptr;
 		sym->baseVariant = sym;
-		sym->self = sym;
+		sym->SetSelf(sym);
 
 		HandleGenerics(node.qualName, node.genDecl);
 
@@ -352,7 +351,7 @@ namespace Noctis
 		m_Syms.push(sym);
 		node.sym = sym;
 		sym->baseVariant = sym;
-		sym->self = sym;
+		sym->SetSelf(sym);
 
 		HandleGenerics(node.qualName, node.genDecl);
 
@@ -376,7 +375,7 @@ namespace Noctis
 		node.sym = sym;
 		sym->associatedITr = node.ptr;
 		sym->baseVariant = sym;
-		sym->self = sym;
+		sym->SetSelf(sym);
 
 		HandleGenerics(node.qualName, node.genDecl);
 
@@ -399,7 +398,7 @@ namespace Noctis
 		node.sym = sym;
 		sym->associatedITr = node.ptr;
 		sym->baseVariant = sym;
-		sym->self = sym;
+		sym->SetSelf(sym);
 		sym->type = m_Syms.top()->type;
 	}
 
@@ -411,7 +410,7 @@ namespace Noctis
 		node.sym = sym;
 		sym->associatedITr = node.ptr;
 		sym->baseVariant = sym;
-		sym->self = sym;
+		sym->SetSelf(sym);
 
 		HandleGenerics(node.qualName, node.genDecl);
 
@@ -434,24 +433,32 @@ namespace Noctis
 		node.sym = sym;
 		sym->associatedITr = node.ptr;
 		sym->baseVariant = sym;
-		sym->self = sym;
+		sym->SetSelf(sym);
 		sym->type = node.type ? node.type->handle : TypeHandle(-1);
 	}
 
 	void TypeCollection::Visit(ITrTypealias& node)
 	{
-		SymbolSPtr sym{ new Symbol{ m_pCtx, SymbolKind::Typealias, node.qualName } };
+		QualNameSPtr qualName = node.qualName;
+		if (m_ImplQualName)
+		{
+			QualNameSPtr subQualName = qualName->GetSubName(m_ImplQualName);
+			qualName = QualName::Create(m_TypeQualName, subQualName->AllIdens());
+			node.qualName = qualName;
+		}
+		
+		SymbolSPtr sym{ new Symbol{ m_pCtx, SymbolKind::Typealias, qualName } };
 		if (!HandleImpls(sym))
 			m_Syms.top()->children->AddChild(sym);
 		m_Syms.push(sym);
 		node.sym = sym;
 		sym->associatedITr = node.ptr;
 		sym->baseVariant = sym;
-		sym->self = sym;
+		sym->SetSelf(sym);
 
-		HandleGenerics(node.qualName, node.genDecl);
+		HandleGenerics(qualName, node.genDecl);
 
-		TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
+		TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, qualName);
 		sym->type = type;
 		
 		m_Syms.pop();
@@ -466,7 +473,7 @@ namespace Noctis
 		node.sym = sym;
 		sym->associatedITr = node.ptr;
 		sym->baseVariant = sym;
-		sym->self = sym;
+		sym->SetSelf(sym);
 
 		HandleGenerics(node.qualName, node.genDecl);
 
@@ -491,24 +498,23 @@ namespace Noctis
 			kind = SymbolKind::Closure; break;
 		}
 
-		SymbolSPtr sym{ new Symbol{ m_pCtx, kind, node.qualName } };
+		QualNameSPtr qualName = node.qualName;
+		if (m_ImplQualName)
+		{
+			QualNameSPtr subQualName = qualName->GetSubName(m_ImplQualName);
+			qualName = QualName::Create(m_TypeQualName, subQualName->AllIdens());
+			node.qualName = qualName;
+		}
+
+		SymbolSPtr sym{ new Symbol{ m_pCtx, kind, qualName } };
 		if (!HandleImpls(sym))
 			m_Syms.top()->children->AddChild(sym);
 		node.sym = sym;
 		sym->associatedITr = node.ptr;
 		sym->baseVariant = sym;
-		sym->self = sym;
+		sym->SetSelf(sym);
 
-		HandleGenerics(node.qualName, node.genDecl);
-
-		StdVector<TypeHandle> paramTypes;
-		paramTypes.reserve(node.params.size());
-		for (ITrParamSPtr param : node.params)
-		{
-			paramTypes.push_back(param->type->handle);
-		}
-		TypeHandle type = m_pCtx->typeReg.Func(TypeMod::None, paramTypes, node.retType->handle);
-		sym->type = type;
+		HandleGenerics(qualName, node.genDecl);
 	}
 
 	void TypeCollection::HandleGenerics(QualNameSPtr baseQualName, ITrGenDeclSPtr decl)
@@ -535,8 +541,8 @@ namespace Noctis
 			}
 			else
 			{
-				ITrGenValParam& valParam = *reinterpret_cast<ITrGenValParam*>(param.get());
-				QualNameSPtr qualName = QualName::Create(baseQualName, valParam.iden);
+				ITrGenTypeParam& typeParam = *reinterpret_cast<ITrGenTypeParam*>(param.get());
+				QualNameSPtr qualName = QualName::Create(baseQualName, typeParam.iden);
 
 				SymbolSPtr sym{ new Symbol{ m_pCtx, SymbolKind::GenVal, qualName } };
 				m_Syms.top()->children->AddChild(sym);
@@ -547,13 +553,14 @@ namespace Noctis
 
 				generics[i].isType = true;
 				generics[i].type = type;
+				generics[i].iden = qualName->Iden();
 			}
 		}
 	}
 
 	bool TypeCollection::HandleImpls(SymbolSPtr sym)
 	{
-		if (!m_ProcessImplSym)
+		if (!m_ProcessImplSym) 
 			return false;
 		
 		m_ProcessImplSym = false;
@@ -561,24 +568,26 @@ namespace Noctis
 		for (SymbolSPtr interface : m_Interfaces)
 		{
 			QualNameSPtr qualName = interface->qualName;
-			interface = interface->baseVariant.lock();
+			SymbolSPtr baseInterface = interface->baseVariant.lock();
 			SymbolSPtr child;
 			if (sym->kind == SymbolKind::Func ||
 				sym->kind == SymbolKind::Method)
 			{
 				IdenSPtr iden = sym->qualName->Iden();
 				StdVector<IdenSPtr> idens{ iden };
-				child = interface->children->Find(idens, iden->ParamNames());
+				child = baseInterface->children->Find(idens, iden->ParamNames());
 			}
 			else
 			{
 				StdVector<IdenSPtr> idens{ sym->qualName->Iden() };
-				child = interface->children->Find(idens);
+				child = baseInterface->children->Find(idens, nullptr);
 			}
 
 			if (child)
 			{
 				StdVector<IdenSPtr> idens{ sym->qualName->Iden() };
+				sym->impls.emplace_back(child, false);
+				sym->interface = interface;
 				m_Syms.top()->children->Add(qualName, sym, idens);
 				res = true;
 			}

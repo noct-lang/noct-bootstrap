@@ -78,4 +78,42 @@ namespace Noctis
 		ifs.close();
 		return true;
 	}
+
+	void StringReplace(StdString& str, const StdStringView toReplace, const StdStringView with)
+	{
+		usize pos = str.find(toReplace);
+		while (pos != StdString::npos)
+		{
+			str.erase(str.begin() + pos, str.begin() + pos + toReplace.length());
+			str.insert(str.begin() + pos, with.data(), with.data() + with.length());
+			pos = str.find(toReplace);
+		}
+	}
+
+	StdString ExtractNullTermString(const StdVector<u8>& data, usize& idx)
+	{
+		auto beginIt = data.begin() + idx;
+		auto endIt = std::find(beginIt, data.end(), 0);
+		idx = usize(endIt - data.begin()) + 1;
+
+		StdString str;
+		str.insert(str.begin(), beginIt, endIt);
+		return str;
+	}
+
+	StdVector<StdString> SplitString(const StdString& str, char splitOn)
+	{
+		usize begIdx = 0;
+		usize endIdx = str.find(splitOn);
+
+		StdVector<StdString> splits;
+		while (endIdx != StdString::npos)
+		{
+			splits.push_back(str.substr(begIdx, endIdx - begIdx));
+			begIdx = endIdx + 1;
+			endIdx = str.find(splitOn, begIdx);
+		}
+		splits.push_back(str.substr(begIdx));
+		return splits;
+	}
 }

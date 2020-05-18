@@ -4,6 +4,7 @@
 
 namespace Noctis
 {
+	enum class TokenType : u8;
 	struct Context;
 	FWDECL_STRUCT_SPTR(Symbol);
 
@@ -19,7 +20,7 @@ namespace Noctis
 		Not,
 		BinNeg,
 		Deref,
-		AddrOf,
+		RefOrAddrOf,
 		BoolConv,
 
 		// Unary postfix
@@ -90,7 +91,9 @@ namespace Noctis
 	bool IsBinary(OperatorKind op);
 	bool IsAssign(OperatorKind op);
 
+	OperatorKind TokenTypeToOperator(TokenType type, bool unary = false, bool postfix = false);
 	StdStringView GetOpName(OperatorKind op);
+	
 
 	struct Operator
 	{
@@ -99,6 +102,7 @@ namespace Noctis
 		TypeHandle result = TypeHandle(-1);
 
 		SymbolSPtr sym;
+		bool isBuiltin;
 	};
 	
 	class OperatorTable

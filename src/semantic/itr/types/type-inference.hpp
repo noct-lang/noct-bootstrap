@@ -3,12 +3,15 @@
 
 namespace Noctis
 {
+	FWDECL_CLASS_SPTR(QualName);
 	FWDECL_STRUCT_SPTR(FuncContext);
-	
+
+	// Function type inference prepass
 	class TypeInference : public Noctis::ITrSemanticPass
 	{
 	public:
 		TypeInference(Context* pCtx);
+		void SetPrepass();
 
 		void Process(ITrModule& mod) override;
 
@@ -42,9 +45,14 @@ namespace Noctis
 		void Visit(ITrSpecKw& node) override;
 		void Visit(ITrCompRun& node) override;
 
+		void Visit(ITrType& node) override;
+
 	private:
+		QualNameSPtr m_FuncScope;
 		StdVector<StdString> m_ScopeNames;
 		FuncContextSPtr m_FuncCtx;
+		QualNameSPtr m_InterfaceQualname;
+		bool m_Prepass;
 	};
 	
 }

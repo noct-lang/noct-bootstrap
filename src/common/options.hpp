@@ -21,11 +21,17 @@ namespace Noctis
 	{
 		QualNameSPtr moduleQualName;
 		StdVector<StdString> buildFiles;
+
+		StdVector<StdString> modulePaths;
 		
 		bool logTokens : 1;
 		bool logParsedAst : 1;
 		bool logAst : 1;
 		bool logLoweredITr : 1;
+
+
+		bool encodeIL : 1;
+		bool optIL : 1;
 	};
 	
 	class Options

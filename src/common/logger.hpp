@@ -69,6 +69,8 @@ namespace Noctis
 		void SetCanWriteToStdOut(bool canWrite) { m_CanWriteToStdOut = canWrite; };
 		void SetCanWriteToFile(bool canWrite) { m_CanWriteToFile = canWrite; };
 
+		void Flush();
+
 	private:
 
 		bool m_CanWriteToStdOut : 1;

@@ -146,6 +146,8 @@ namespace Noctis
 		StdVector<ITrParamSPtr> GetParams(StdVector<AstParamSPtr>& astParams);
 		StdVector<ITrArgSPtr> GetArgs(StdVector<AstArgSPtr>& astArgs);
 
+		void HandleGenerics(ITrGenDeclSPtr genDecl, QualNameSPtr qualName);
+
 		void AddMethodReceiverToParams(AstMethodReceiverKind recKind, StdVector<ITrParamSPtr>& params);
 		void GetNamedReturns(ITrTypeSPtr& retType, StdVector<ITrStmtSPtr> stmts, StdPairVector<StdString, AstTypeSPtr>& astNamedRets);
 

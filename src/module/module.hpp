@@ -2,11 +2,25 @@
 #include "common/defs.hpp"
 #include "macro.hpp"
 #include "ast/ast.hpp"
+#include "il/il.hpp"
 #include "itr/itr.hpp"
 #include "symbol.hpp"
 
 namespace Noctis
 {
+
+#pragma pack(push, 1)
+	struct ModuleHeader
+	{
+		char magic[4];
+		u8 version;
+		u8 reserved[3];
+		u64 size;
+		u32 idenSize;
+
+		u32 numSections;
+	};
+#pragma pack(pop)
 
 	struct Module
 	{
@@ -20,8 +34,15 @@ namespace Noctis
 		StdUnorderedSet<SymbolSPtr> comptimeSymbols;
 
 		OperatorTable opTable;
+
+		ILModule ilMod;
 		
 		QualNameSPtr qualName;
+
+		ModuleHeader header;
+		StdString filePath;
+		bool isDecoded : 1;
+		bool isImported : 1;
 	};
 	using ModuleSPtr = StdSharedPtr<Module>;
 	
