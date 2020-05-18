@@ -359,7 +359,7 @@ namespace Noctis
 		case OperatorKind::Not:					return QualName::Create({ "core", "ops", "OpNot" });
 		case OperatorKind::BinNeg:				return QualName::Create({ "core", "ops", "OpBinNeg" });
 		case OperatorKind::Deref:				return QualName::Create({ "core", "ops", "OpDeref" });
-		case OperatorKind::AddrOf:				return QualName::Create({ "core", "ops", "" }); // TODO
+		case OperatorKind::RefOrAddrOf:			return QualName::Create({ "core", "ops", "" }); // TODO
 		case OperatorKind::BoolConv:			return QualName::Create({ "core", "ops", "OpBoolConv" });
 		case OperatorKind::PostInc:				return QualName::Create({ "core", "ops", "OpInc" });
 		case OperatorKind::PostDec:				return QualName::Create({ "core", "ops", "OpDec" });
