@@ -167,9 +167,7 @@ namespace Noctis
 	{
 		u64 startIdx = EatToken(TokenType::Struct).Idx();
 
-		StdString iden;
-		if (PeekToken().Type() == TokenType::Iden || PeekToken().Type() == TokenType::MacroIden)
-			iden = ParseIden();
+		StdString iden = ParseIden();
 
 		AstGenericDeclSPtr generics = nullptr;
 		if (PeekToken().Type() == TokenType::Less)
@@ -190,9 +188,7 @@ namespace Noctis
 	{
 		u64 startIdx = EatToken(TokenType::Union).Idx();
 
-		StdString iden;
-		if (PeekToken().Type() == TokenType::Iden || PeekToken().Type() == TokenType::MacroIden)
-			iden = ParseIden();
+		StdString iden = ParseIden();
 
 		AstGenericDeclSPtr generics = nullptr;
 		if (PeekToken().Type() == TokenType::Less)
@@ -967,6 +963,7 @@ namespace Noctis
 			case TokenType::QuestionColon:
 			case TokenType::In:
 			case TokenType::NotIn:
+			case TokenType::Caret:
 			{
 				if (!expr)
 				{
@@ -1011,6 +1008,7 @@ namespace Noctis
 			case TokenType::CaretEq:
 			case TokenType::OrEq:
 			case TokenType::QuestionQuestionEq:
+			case TokenType::PercentEq:
 			{
 				if (!expr)
 				{
