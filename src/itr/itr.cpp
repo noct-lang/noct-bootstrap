@@ -122,6 +122,7 @@ namespace Noctis
 		, funcKind(funcKind)
 		, params(std::move(params))
 		, retType(retType)
+		, selfType(TypeHandle(-1))
 		, ctx(new FuncContext{})
 	{
 	}
@@ -396,8 +397,17 @@ namespace Noctis
 	{
 	}
 
-	ITrAggrInit::ITrAggrInit(ITrTypeSPtr type, StdVector<ITrArgSPtr>&& args)
-		: ITrExpr(ITrExprKind::AggrInit)
+	ITrStructInit::ITrStructInit(ITrTypeSPtr type, StdVector<ITrArgSPtr>&& args, bool hasDefInit, ITrExprSPtr defExpr)
+		: ITrExpr(ITrExprKind::StructInit)
+		, type(type)
+		, args(std::move(args))
+		, defExpr(defExpr)
+		, hasDefInit(hasDefInit)
+	{
+	}
+
+	ITrUnionInit::ITrUnionInit(ITrTypeSPtr type, StdVector<ITrArgSPtr>&& args)
+		: ITrExpr(ITrExprKind::AdtAggrEnumInit)
 		, type(type)
 		, args(std::move(args))
 	{
@@ -427,6 +437,7 @@ namespace Noctis
 		, castKind(castKind)
 		, expr(expr)
 		, type(type)
+		, castToTryCast(false)
 	{
 	}
 
@@ -528,7 +539,7 @@ namespace Noctis
 	{
 	}
 
-	ITrGenBound::ITrGenBound(ITrTypeSPtr type, ITrTypeSPtr bound)
+	ITrGenTypeBound::ITrGenTypeBound(IdenSPtr type, ITrTypeSPtr bound)
 		: type(type)
 		, bound(bound)
 	{

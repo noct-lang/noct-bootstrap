@@ -238,7 +238,7 @@ namespace Noctis
 		Walk(node);
 	}
 
-	void ITrVisitor::Visit(ITrExprSPtr& ptr, ITrAmbiguousCall& node)
+	void ITrVisitor::Visit(ITrExprSPtr& ptr, ITrAmbiguousCall node)
 	{
 		Walk(node);
 	}
@@ -268,12 +268,17 @@ namespace Noctis
 		Walk(node);
 	}
 
-	void ITrVisitor::Visit(ITrExprSPtr& ptr, ITrAmbiguousAggrInit& node)
+	void ITrVisitor::Visit(ITrExprSPtr& ptr, ITrAmbiguousAggrInit node)
 	{
 		Walk(node);
 	}
 
-	void ITrVisitor::Visit(ITrAggrInit& node)
+	void ITrVisitor::Visit(ITrStructInit& node)
+	{
+		Walk(node);
+	}
+
+	void ITrVisitor::Visit(ITrUnionInit& node)
 	{
 		Walk(node);
 	}
@@ -368,7 +373,7 @@ namespace Noctis
 		Walk(node);
 	}
 
-	void ITrVisitor::Visit(ITrGenBound& node)
+	void ITrVisitor::Visit(ITrGenTypeBound& node)
 	{
 		Walk(node);
 	}
@@ -515,7 +520,8 @@ namespace Noctis
 		case ITrExprKind::TupleAccess: Visit(*reinterpret_cast<ITrTupleAccess*>(expr.get())); break;
 		case ITrExprKind::Literal: Visit(*reinterpret_cast<ITrLiteral*>(expr.get())); break;
 		case ITrExprKind::AmbiguousAggrInit: Visit(expr, *reinterpret_cast<ITrAmbiguousAggrInit*>(expr.get())); break;
-		case ITrExprKind::AggrInit: Visit(*reinterpret_cast<ITrAggrInit*>(expr.get())); break;
+		case ITrExprKind::StructInit: Visit(*reinterpret_cast<ITrStructInit*>(expr.get())); break;
+		case ITrExprKind::UnionInit: Visit(*reinterpret_cast<ITrUnionInit*>(expr.get())); break;
 		case ITrExprKind::TupleInit: Visit(*reinterpret_cast<ITrTupleInit*>(expr.get())); break;
 		case ITrExprKind::ArrayInit: Visit(*reinterpret_cast<ITrArrayInit*>(expr.get())); break;
 		case ITrExprKind::AdtAggrEnumInit: Visit(*reinterpret_cast<ITrAdtAggrEnumInit*>(expr.get())); break;
@@ -889,7 +895,18 @@ namespace Noctis
 		}
 	}
 
-	void ITrVisitor::Walk(ITrAggrInit& node)
+	void ITrVisitor::Walk(ITrStructInit& node)
+	{
+		Visit(*node.type);
+		for (ITrArgSPtr arg : node.args)
+		{
+			Visit(arg->expr);
+		}
+		if (node.defExpr)
+			Visit(node.defExpr);
+	}
+
+	void ITrVisitor::Walk(ITrUnionInit& node)
 	{
 		Visit(*node.type);
 		for (ITrArgSPtr arg : node.args)
@@ -1091,7 +1108,7 @@ namespace Noctis
 			else
 				Visit(*reinterpret_cast<ITrGenTypeParam*>(param.get()));
 		}
-		for (ITrGenBoundSPtr bound : node.bounds)
+		for (ITrGenTypeBoundSPtr bound : node.bounds)
 		{
 			Visit(*bound);
 		}
@@ -1110,9 +1127,8 @@ namespace Noctis
 			Visit(node.defExpr);
 	}
 
-	void ITrVisitor::Walk(ITrGenBound& node)
+	void ITrVisitor::Walk(ITrGenTypeBound& node)
 	{
-		Visit(*node.type);
 		Visit(*node.bound);
 	}
 }

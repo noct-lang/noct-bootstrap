@@ -104,7 +104,8 @@ namespace Noctis
 		TupleAccess,
 		Literal,
 		AmbiguousAggrInit,
-		AggrInit,
+		StructInit,
+		UnionInit,
 		AdtAggrEnumInit,
 		TupleInit,
 		ArrayInit,
@@ -294,6 +295,7 @@ namespace Noctis
 		ITrFuncKind funcKind;
 		StdVector<ITrParamSPtr> params;
 		ITrTypeSPtr retType;
+		TypeHandle selfType;
 		FuncContextSPtr ctx;
 	};
 
@@ -454,8 +456,6 @@ namespace Noctis
 		ITrExprSPtr init;
 	};
 
-	
-
 	struct ITrExpr : ITrStmt
 	{
 		ITrExpr(ITrExprKind kind);
@@ -463,6 +463,7 @@ namespace Noctis
 
 		ITrExprKind exprKind;
 		TypeHandle typeHandle;
+		SymbolSPtr sym;
 	};
 	
 	struct ITrAssign : ITrExpr
@@ -472,6 +473,8 @@ namespace Noctis
 		OperatorKind op;
 		ITrExprSPtr lExpr;
 		ITrExprSPtr rExpr;
+
+		Operator operator_;
 	};
 
 	struct ITrTernary : ITrExpr
@@ -490,7 +493,8 @@ namespace Noctis
 		OperatorKind op;
 		ITrExprSPtr lExpr;
 		ITrExprSPtr rExpr;
-		bool isBuiltinOp;
+		
+		Operator operator_;
 	};
 
 	struct ITrUnary : ITrExpr
@@ -499,6 +503,8 @@ namespace Noctis
 
 		OperatorKind op;
 		ITrExprSPtr expr;
+
+		Operator operator_;
 	};
 
 	struct ITrQualNameExpr : ITrExpr
@@ -574,7 +580,7 @@ namespace Noctis
 		Token lit;
 	};
 
-	// Can be ITrAggrInit or ITrAdtEnumAggrInit
+	// Can be ITrStructInit, ITrUnionInit or ITrAdtEnumAggrInit
 	struct ITrAmbiguousAggrInit : ITrExpr
 	{
 		ITrAmbiguousAggrInit(ITrTypeSPtr type, StdVector<ITrArgSPtr>&& args);
@@ -583,9 +589,21 @@ namespace Noctis
 		StdVector<ITrArgSPtr> args;
 	};
 
-	struct ITrAggrInit : ITrExpr
+	struct ITrStructInit : ITrExpr
 	{
-		ITrAggrInit(ITrTypeSPtr type, StdVector<ITrArgSPtr>&& args);
+		ITrStructInit(ITrTypeSPtr type, StdVector<ITrArgSPtr>&& args, bool hasDefInit, ITrExprSPtr defExpr);
+
+		ITrTypeSPtr type;
+		StdVector<ITrArgSPtr> args;
+		ITrExprSPtr defExpr;
+		bool hasDefInit;
+
+		StdVector<u32> argOrder;
+	};
+
+	struct ITrUnionInit : ITrExpr
+	{
+		ITrUnionInit(ITrTypeSPtr type, StdVector<ITrArgSPtr>&& args);
 
 		ITrTypeSPtr type;
 		StdVector<ITrArgSPtr> args;
@@ -597,6 +615,8 @@ namespace Noctis
 
 		ITrTypeSPtr type;
 		StdVector<ITrArgSPtr> args;
+
+		StdVector<u32> argOrder;
 	};
 
 	struct ITrTupleInit : ITrExpr
@@ -628,6 +648,9 @@ namespace Noctis
 		ITrCastKind castKind;
 		ITrExprSPtr expr;
 		ITrTypeSPtr type;
+
+		Operator operator_;
+		bool castToTryCast;
 	};
 
 	struct ITrBlockExpr : ITrExpr
@@ -840,12 +863,12 @@ namespace Noctis
 	};
 
 	FWDECL_STRUCT_SPTR(ITrGenParam);
-	FWDECL_STRUCT_SPTR(ITrGenBound);
+	FWDECL_STRUCT_SPTR(ITrGenTypeBound);
 	
 	struct ITrGenDecl
 	{
 		StdVector<ITrGenParamSPtr> params;
-		StdVector<ITrGenBoundSPtr> bounds;
+		StdVector<ITrGenTypeBoundSPtr> bounds;
 		AstGenericDeclSPtr astNode;
 	};
 
@@ -874,11 +897,11 @@ namespace Noctis
 		ITrExprSPtr defExpr;
 	};
 
-	struct ITrGenBound
+	struct ITrGenTypeBound
 	{
-		ITrGenBound(ITrTypeSPtr type, ITrTypeSPtr bound);
+		ITrGenTypeBound(IdenSPtr type, ITrTypeSPtr bound);
 		
-		ITrTypeSPtr type;
+		IdenSPtr type;
 		ITrTypeSPtr bound;
 	};
 

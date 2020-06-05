@@ -411,7 +411,7 @@ namespace Noctis
 		--m_Indent;
 	}
 
-	void ITrPrinter::Visit(ITrExprSPtr& ptr, ITrAmbiguousCall& node)
+	void ITrPrinter::Visit(ITrExprSPtr& ptr, ITrAmbiguousCall node)
 	{
 		PrintIndent();
 		g_Logger.Log("(ambiguous-call)\n");
@@ -555,7 +555,7 @@ namespace Noctis
 		}
 	}
 
-	void ITrPrinter::Visit(ITrExprSPtr& ptr, ITrAmbiguousAggrInit& node)
+	void ITrPrinter::Visit(ITrExprSPtr& ptr, ITrAmbiguousAggrInit node)
 	{
 		PrintIndent();
 		g_Logger.Log("(ambiguous-aggr-init)\n");
@@ -576,7 +576,7 @@ namespace Noctis
 		--m_Indent;
 	}
 
-	void ITrPrinter::Visit(ITrAggrInit& node)
+	void ITrPrinter::Visit(ITrStructInit& node)
 	{
 		PrintIndent();
 		g_Logger.Log("(aggr-init)\n");
@@ -1050,7 +1050,7 @@ namespace Noctis
 		--m_Indent;
 	}
 
-	void ITrPrinter::Visit(ITrGenBound& node)
+	void ITrPrinter::Visit(ITrGenTypeBound& node)
 	{
 		PrintIndent();
 		g_Logger.Log("(gen-bound)\n");

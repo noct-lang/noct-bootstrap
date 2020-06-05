@@ -50,14 +50,14 @@ namespace Noctis
 		void Visit(ITrUnary& node) override;
 		void Visit(ITrQualNameExpr& node) override;
 		void Visit(ITrIndexSlice& node) override;
-		void Visit(ITrExprSPtr& ptr, ITrAmbiguousCall& node) override;
+		void Visit(ITrExprSPtr& ptr, ITrAmbiguousCall node) override;
 		void Visit(ITrFuncCall& node) override;
 		void Visit(ITrAdtTupleEnumInit& node) override;
 		void Visit(ITrMemberAccess& node) override;
 		void Visit(ITrTupleAccess& node) override;
 		void Visit(ITrLiteral& node) override;
-		void Visit(ITrExprSPtr& ptr, ITrAmbiguousAggrInit& node) override;
-		void Visit(ITrAggrInit& node) override;
+		void Visit(ITrExprSPtr& ptr, ITrAmbiguousAggrInit node) override;
+		void Visit(ITrStructInit& node) override;
 		void Visit(ITrAdtAggrEnumInit& node) override;
 		void Visit(ITrTupleInit& node) override;
 		void Visit(ITrArrayInit& node) override;
@@ -95,7 +95,7 @@ namespace Noctis
 		void Visit(ITrGenDecl& node) override;
 		void Visit(ITrGenTypeParam& node) override;
 		void Visit(ITrGenValParam& node) override;
-		void Visit(ITrGenBound& node) override;
+		void Visit(ITrGenTypeBound& node) override;
 
 		void Visit(ITrBodySPtr& body) override;
 

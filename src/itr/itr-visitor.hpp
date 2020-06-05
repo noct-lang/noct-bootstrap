@@ -59,7 +59,8 @@ namespace Noctis
 	struct ITrTupleAccess;
 	struct ITrLiteral;
 	struct ITrAmbiguousAggrInit;
-	struct ITrAggrInit;
+	struct ITrStructInit;
+	struct ITrUnionInit;
 	struct ITrAdtAggrEnumInit;
 	struct ITrTupleInit;
 	struct ITrArrayInit;
@@ -97,7 +98,7 @@ namespace Noctis
 	struct ITrGenDecl;
 	struct ITrGenTypeParam;
 	struct ITrGenValParam;
-	struct ITrGenBound;
+	struct ITrGenTypeBound;
 
 	enum class ITrVisitorDefKind : u8
 	{
@@ -167,14 +168,15 @@ namespace Noctis
 		virtual void Visit(ITrUnary& node);
 		virtual void Visit(ITrQualNameExpr& node);
 		virtual void Visit(ITrIndexSlice& node);
-		virtual void Visit(ITrExprSPtr& ptr, ITrAmbiguousCall& node);
+		virtual void Visit(ITrExprSPtr& ptr, ITrAmbiguousCall node);
 		virtual void Visit(ITrFuncCall& node);
 		virtual void Visit(ITrAdtTupleEnumInit& node);
 		virtual void Visit(ITrMemberAccess& node);
 		virtual void Visit(ITrTupleAccess& node);
 		virtual void Visit(ITrLiteral& node);
-		virtual void Visit(ITrExprSPtr& ptr, ITrAmbiguousAggrInit& node);
-		virtual void Visit(ITrAggrInit& node);
+		virtual void Visit(ITrExprSPtr& ptr, ITrAmbiguousAggrInit node);
+		virtual void Visit(ITrStructInit& node);
+		virtual void Visit(ITrUnionInit& node);
 		virtual void Visit(ITrAdtAggrEnumInit& node);
 		virtual void Visit(ITrTupleInit& node);
 		virtual void Visit(ITrArrayInit& node);
@@ -212,7 +214,7 @@ namespace Noctis
 		virtual void Visit(ITrGenDecl& node);
 		virtual void Visit(ITrGenTypeParam& node);
 		virtual void Visit(ITrGenValParam& node);
-		virtual void Visit(ITrGenBound& node);
+		virtual void Visit(ITrGenTypeBound& node);
 		
 
 		virtual void Visit(ITrDefSPtr& def);
@@ -269,7 +271,8 @@ namespace Noctis
 		void Walk(ITrTupleAccess& node);
 		void Walk(ITrLiteral& node);
 		void Walk(ITrAmbiguousAggrInit& node);
-		void Walk(ITrAggrInit& node);
+		void Walk(ITrStructInit& node);
+		void Walk(ITrUnionInit& node);
 		void Walk(ITrAdtAggrEnumInit& node);
 		void Walk(ITrTupleInit& node);
 		void Walk(ITrArrayInit& node);
@@ -307,7 +310,7 @@ namespace Noctis
 		void Walk(ITrGenDecl& node);
 		void Walk(ITrGenTypeParam& node);
 		void Walk(ITrGenValParam& node);
-		void Walk(ITrGenBound& node);
+		void Walk(ITrGenTypeBound& node);
 
 		ITrModule* m_pMod;
 		bool m_VisitDefs;
