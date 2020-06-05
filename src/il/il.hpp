@@ -5,19 +5,9 @@
 
 namespace Noctis
 {
-	FWDECL_STRUCT_SPTR(ILIfElse);
-
 	enum class ILKind : u8
 	{
 		Block = 0x01,
-		If = 0x02,
-		Else = 0x03,
-		Loop = 0x04,
-		Switch = 0x05,
-		Label = 0x08,
-		Goto = 0x09,
-		ReturnNoVal = 0x0A,
-		ReturnVal = 0x0B,
 		
 		Assign = 0x40,
 		PrimAssign = 0x41,
@@ -32,14 +22,23 @@ namespace Noctis
 		FuncCallRet = 0x51,
 		MethodCallNoRet = 0x52,
 		MethodCallRet = 0x53,
-		MemberAccess = 0x54,
-		TupleAccess = 0x55,
+		IndirectCallNoRet = 0x54,
+		IndirectCallRet = 0x55,
+		MemberAccess = 0x56,
+		TupleAccess = 0x57,
 
-		AggrInit = 0x60,
-		ValEnumInit = 0x61,
-		AdtEnumInit = 0x62,
-		TupInit = 0x63,
-		ArrInit = 0x64,
+		StructInit = 0x60,
+		UnionInit = 0x61,
+		ValEnumInit = 0x62,
+		AdtEnumInit = 0x63,
+		TupInit = 0x64,
+		ArrInit = 0x65,
+
+		If = 0x70,
+		Switch = 0x71,
+		Goto = 0x72,
+		ReturnNoVal = 0x73,
+		ReturnVal = 0x74,
 
 
 		FuncDef = 0xF0,
@@ -110,60 +109,44 @@ namespace Noctis
 	};
 	using ILElemSPtr = StdSharedPtr<ILElem>;
 
+	struct ILTerminal : ILElem
+	{
+		ILTerminal(ILKind kind);
+	};
+	using ILTerminalSPtr = StdSharedPtr<ILTerminal>;
+
 	struct ILBlock : public ILElem
 	{
 		ILBlock(u32 label);
 
 		u32 label;
 		StdVector<ILElemSPtr> elems;
+		ILTerminalSPtr terminal;
 	};
 
-	struct ILIfElse : public ILElem
+	struct ILIf : public ILTerminal
 	{
-		ILIfElse();
-		
-		StdVector<ILElemSPtr> elems;
-	};
-
-	struct ILIf : public ILElem
-	{
-		ILIf(ILVar cond);
+		ILIf(ILVar cond, u32 trueLabel, u32 falseLabel);
 
 		ILVar cond;
-		StdVector<ILElemSPtr> elems;
-		ILIfElse elseElem;
+		u32 trueLabel;
+		u32 falseLabel;
 	};
 
-	struct ILLoop : public ILElem
-	{
-		ILLoop(u32 beginLabel,u32 endLabel);
-
-		u32 beginLabel;
-		u32 endLabel;
-		StdVector<ILElemSPtr> elems;
-	};
-
-	struct ILSwitch : public ILElem
+	struct ILSwitch : public ILTerminal
 	{
 		// TODO
 		ILSwitch();
 	};
 
-	struct ILLabel : public ILElem
-	{
-		ILLabel(u32 label);
-		
-		u32 label;
-	};
-
-	struct ILGoto : public ILElem
+	struct ILGoto : public ILTerminal
 	{
 		ILGoto(u32 label);
 
 		u32 label;
 	};
 
-	struct ILReturn : public ILElem
+	struct ILReturn : public ILTerminal
 	{
 		ILReturn();
 		ILReturn(ILVar var);
@@ -235,8 +218,8 @@ namespace Noctis
 
 	struct ILFuncCall : public ILElem
 	{
-		ILFuncCall(const StdString& func, const StdVector<ILVar>& params);
-		ILFuncCall(ILVar dst, const StdString& func, const StdVector<ILVar>& params);
+		ILFuncCall(const StdString& func, const StdVector<ILVar>& args);
+		ILFuncCall(ILVar dst, const StdString& func, const StdVector<ILVar>& args);
 
 		ILVar dst;
 		StdString func;
@@ -251,6 +234,16 @@ namespace Noctis
 		ILVar dst;
 		ILVar caller;
 		StdString func;
+		StdVector<ILVar> args;
+	};
+
+	struct ILIndirectCall : public ILElem
+	{
+		ILIndirectCall(ILVar func, const StdVector<ILVar>& args);
+		ILIndirectCall(ILVar dst, ILVar func, const StdVector<ILVar>& args);
+
+		ILVar dst;
+		ILVar func;
 		StdVector<ILVar> args;
 	};
 
@@ -272,9 +265,17 @@ namespace Noctis
 		u16 index;
 	};
 
-	struct ILAggrInit : public ILElem
+	struct ILStructInit : public ILElem
 	{
-		ILAggrInit(ILVar dst, const StdVector<ILVar>& args);
+		ILStructInit(ILVar dst, const StdVector<ILVar>& args);
+
+		ILVar dst;
+		StdVector<ILVar> args;
+	};
+
+	struct ILUnionInit : public ILElem
+	{
+		ILUnionInit(ILVar dst, const StdVector<ILVar>& args);
 
 		ILVar dst;
 		StdVector<ILVar> args;
@@ -323,7 +324,7 @@ namespace Noctis
 		StdVector<ILVar> localVars;
 		StdVector<ILVar> tmpVars;
 
-		StdVector<ILElemSPtr> elems;
+		StdVector<ILBlock> blocks;
 
 		TypeHandle retType;
 	};

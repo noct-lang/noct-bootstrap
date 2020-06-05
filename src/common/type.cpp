@@ -60,8 +60,12 @@ namespace Noctis
 		{
 			IdenType& idenType = AsIden();
 			SymbolSPtr sym = idenType.sym.lock();
-			// TODO
+			if (!sym)
+				break;
 			
+			sym->CalculateSizeAlignOffset();
+			alignment = sym->aligment;
+			size = sym->size;
 			break;
 		}
 		case TypeKind::Ptr: size = alignment = 8; break; // TODO: arch specific size

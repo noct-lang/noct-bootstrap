@@ -32,10 +32,7 @@ namespace Noctis
 		void Visit(ILFuncDef& node) override;
 		void Visit(ILBlock& node) override;
 		void Visit(ILIf& node) override;
-		void Visit(ILIfElse& node) override;
-		void Visit(ILLoop& node) override;
 		void Visit(ILSwitch& node) override;
-		void Visit(ILLabel& node) override;
 		void Visit(ILGoto& node) override;
 		void Visit(ILReturn& node) override;
 		void Visit(ILAssign& node) override;
@@ -47,9 +44,11 @@ namespace Noctis
 		void Visit(ILTransmute& node) override;
 		void Visit(ILFuncCall& node) override;
 		void Visit(ILMethodCall& node) override;
+		void Visit(ILIndirectCall& node) override;
 		void Visit(ILMemberAccess& node) override;
 		void Visit(ILTupleAccess& node) override;
-		void Visit(ILAggrInit& node) override;
+		void Visit(ILStructInit& node) override;
+		void Visit(ILUnionInit& node) override;
 		void Visit(ILValEnumInit& node) override;
 		void Visit(ILAdtEnumInit& node) override;
 		void Visit(ILTupInit& node) override;
@@ -97,14 +96,11 @@ namespace Noctis
 		
 		void DecodeFunc();
 
+		ILBlock DecodeBlock();
 		ILElemSPtr DecodeElem();
 
-		ILElemSPtr DecodeBlock();
 		ILElemSPtr DecodeIf();
-		ILIfElse DecodeElse();
-		ILElemSPtr DecodeLoop();
 		ILElemSPtr DecodeSwitch();
-		ILElemSPtr DecodeLabel();
 		ILElemSPtr DecodeGoto();
 		ILElemSPtr DecodeReturn(bool hasVal);
 		ILElemSPtr DecodeAssign();
@@ -117,9 +113,11 @@ namespace Noctis
 		ILElemSPtr DecodeCompIntrin();
 		ILElemSPtr DecodeFuncCall(bool hasRet);
 		ILElemSPtr DecodeMethodCall(bool hasRet);
+		ILElemSPtr DecodeIndirectCall(bool hasRet);
 		ILElemSPtr DecodeMemberAccess();
 		ILElemSPtr DecodeTupleAccess();
-		ILElemSPtr DecodeAggrInit();
+		ILElemSPtr DecodeStructInit();
+		ILElemSPtr DecodeUnionInit();
 		ILElemSPtr DecodeValEnumInit();
 		ILElemSPtr DecodeAdtEnumInit();
 		ILElemSPtr DecodeTupInit();

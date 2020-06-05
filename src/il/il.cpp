@@ -37,54 +37,43 @@ namespace Noctis
 	{
 	}
 
+	ILTerminal::ILTerminal(ILKind kind)
+		: ILElem(kind)
+	{
+	}
+
 	ILBlock::ILBlock(u32 label)
 		: ILElem(ILKind::Block)
 		, label(label)
 	{
 	}
 
-	ILIfElse::ILIfElse()
-		: ILElem(ILKind::Else)
-	{
-	}
-
-	ILIf::ILIf(ILVar cond)
-		: ILElem(ILKind::If)
+	ILIf::ILIf(ILVar cond, u32 trueLabel, u32 falseLabel)
+		: ILTerminal(ILKind::If)
 		, cond(std::move(cond))
-	{
-	}
-
-	ILLoop::ILLoop(u32 beginLabel, u32 endLabel)
-		: ILElem(ILKind::Loop)
-		, beginLabel(beginLabel)
-		, endLabel(endLabel)
+		, trueLabel(trueLabel)
+		, falseLabel(falseLabel)
 	{
 	}
 
 	ILSwitch::ILSwitch()
-		: ILElem(ILKind::Switch)
-	{
-	}
-
-	ILLabel::ILLabel(u32 label)
-		: ILElem(ILKind::Label)
-		, label(label)
+		: ILTerminal(ILKind::Switch)
 	{
 	}
 
 	ILGoto::ILGoto(u32 label)
-		: ILElem(ILKind::Goto)
+		: ILTerminal(ILKind::Goto)
 		, label(label)
 	{
 	}
 
 	ILReturn::ILReturn()
-		: ILElem(ILKind::ReturnNoVal)
+		: ILTerminal(ILKind::ReturnNoVal)
 	{
 	}
 
 	ILReturn::ILReturn(ILVar var)
-		: ILElem(ILKind::ReturnVal)
+		: ILTerminal(ILKind::ReturnVal)
 		, var(std::move(var))
 	{
 	}
@@ -144,22 +133,22 @@ namespace Noctis
 	{
 	}
 
-	ILFuncCall::ILFuncCall(const StdString& func, const StdVector<ILVar>& params)
+	ILFuncCall::ILFuncCall(const StdString& func, const StdVector<ILVar>& args)
 		: ILElem(ILKind::FuncCallNoRet)
 		, func(func)
-		, args(params)
+		, args(args)
 	{
 	}
 
-	ILFuncCall::ILFuncCall(ILVar dst, const StdString& func, const StdVector<ILVar>& params)
+	ILFuncCall::ILFuncCall(ILVar dst, const StdString& func, const StdVector<ILVar>& args)
 		: ILElem(ILKind::FuncCallRet)
 		, dst(std::move(dst))
 		, func(func)
-		, args(params)
+		, args(args)
 	{
 	}
 
-	ILMethodCall::ILMethodCall(ILVar caller, const StdString& func, const StdVector<ILVar>& params)
+	ILMethodCall::ILMethodCall(ILVar caller, const StdString& func, const StdVector<ILVar>& args)
 		: ILElem(ILKind::MethodCallNoRet)
 		, caller(caller)
 		, func(func)
@@ -171,6 +160,21 @@ namespace Noctis
 		: ILElem(ILKind::MethodCallNoRet)
 		, dst(std::move(dst))
 		, caller(caller)
+		, func(func)
+		, args(args)
+	{
+	}
+
+	ILIndirectCall::ILIndirectCall(ILVar func, const StdVector<ILVar>& args)
+		: ILElem(ILKind::IndirectCallNoRet)
+		, func(func)
+		, args(args)
+	{
+	}
+
+	ILIndirectCall::ILIndirectCall(ILVar dst, ILVar func, const StdVector<ILVar>& args)
+		: ILElem(ILKind::IndirectCallRet)
+		, dst(dst)
 		, func(func)
 		, args(args)
 	{
@@ -192,8 +196,15 @@ namespace Noctis
 	{
 	}
 
-	ILAggrInit::ILAggrInit(ILVar dst, const StdVector<ILVar>& args)
-		: ILElem(ILKind::AggrInit)
+	ILStructInit::ILStructInit(ILVar dst, const StdVector<ILVar>& args)
+		: ILElem(ILKind::StructInit)
+		, dst(std::move(dst))
+		, args(args)
+	{
+	}
+
+	ILUnionInit::ILUnionInit(ILVar dst, const StdVector<ILVar>& args)
+		: ILElem(ILKind::UnionInit)
 		, dst(std::move(dst))
 		, args(args)
 	{

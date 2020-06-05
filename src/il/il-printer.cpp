@@ -35,20 +35,29 @@ namespace Noctis
 
 		StdString retTypeName = m_pCtx->typeReg.ToString(node.retType);
 		g_Logger.Log(") -> %s {\n", retTypeName.c_str());
-		for (ILElemSPtr elem : node.elems)
+
+		for (ILVar& var : node.localVars)
 		{
-			ILVisitor::Visit(*elem);
+			PrintIndent();
+			g_Logger.Log("local ");
+			LogVar(var);
+			g_Logger.Log("\n");
+		}
+
+		
+		for (ILBlock& block : node.blocks)
+		{
+			Visit(block);
 		}
 		g_Logger.Log("}\n");
-
-		// TODO: only flush once per module
-		g_Logger.Flush();
 	}
 
 	void ILPrinter::Visit(ILBlock& node)
 	{
 		PrintIndent();
-		g_Logger.Log("{\n");
+		g_Logger.Log("bb%u:\n", node.label);
+		PrintIndent();
+		g_Logger.Log("{\n", node.label);
 
 		++m_Indent;
 		ILVisitor::Visit(node);
@@ -75,46 +84,9 @@ namespace Noctis
 		g_Logger.Log("}\n");
 	}
 
-	void ILPrinter::Visit(ILIfElse& node)
-	{
-		PrintIndent();
-		g_Logger.Log("else\n");
-		PrintIndent();
-		g_Logger.Log("{\n");
-		
-		++m_Indent;
-		ILVisitor::Visit(node);
-		--m_Indent;
-		
-		PrintIndent();
-		g_Logger.Log("}\n");
-	}
-
-	void ILPrinter::Visit(ILLoop& node)
-	{
-		PrintIndent();
-		g_Logger.Log("%u: loop\n", node.beginLabel);
-		PrintIndent();
-		g_Logger.Log("{\n");
-		
-		++m_Indent;
-		ILVisitor::Visit(node);
-		--m_Indent;
-		
-		PrintIndent();
-		g_Logger.Log("}\n");
-		PrintIndent();
-		g_Logger.Log("%u:\n", node.endLabel);
-	}
 
 	void ILPrinter::Visit(ILSwitch& node)
 	{
-	}
-
-	void ILPrinter::Visit(ILLabel& node)
-	{
-		PrintIndent();
-		g_Logger.Log("%u:\n", node.label);
 	}
 
 	void ILPrinter::Visit(ILGoto& node)
@@ -205,8 +177,10 @@ namespace Noctis
 	{
 		PrintIndent();
 		LogVar(node.dst);
-		g_Logger.Log(" = cast(%%s) ");
+		g_Logger.Log(" = ");
 		LogVar(node.src);
+		StdString typeName = m_pCtx->typeReg.ToString(node.dst.type);
+		g_Logger.Log(" as %s", typeName.c_str());
 		g_Logger.Log("\n");
 	}
 
@@ -234,38 +208,178 @@ namespace Noctis
 
 	void ILPrinter::Visit(ILFuncCall& node)
 	{
+		PrintIndent();
+		if (node.kind == ILKind::FuncCallRet)
+		{
+			LogVar(node.dst);
+			g_Logger.Log(" = ");
+		}
+
+		g_Logger.Log("call %s(", node.func.c_str());
+
+		usize argCnt = node.args.size();
+		for (usize i = 0; i < argCnt; ++i)
+		{
+			if (i != 0)
+				g_Logger.Log(", ");
+			LogVar(node.args[i]);
+		}
+
+		g_Logger.Log(")\n");
 	}
 
 	void ILPrinter::Visit(ILMethodCall& node)
 	{
+		PrintIndent();
+		if (node.kind == ILKind::FuncCallRet)
+		{
+			LogVar(node.dst);
+			g_Logger.Log(" = ");
+		}
+
+		g_Logger.Log("call (");
+		LogVar(node.caller);
+		g_Logger.Log(").%s(", node.func.c_str());
+
+		usize argCnt = node.args.size();
+		for (usize i = 0; i < argCnt; ++i)
+		{
+			if (i != 0)
+				g_Logger.Log(", ");
+			LogVar(node.args[i]);
+		}
+
+		g_Logger.Log(")\n");
+	}
+
+	void ILPrinter::Visit(ILIndirectCall& node)
+	{
+		PrintIndent();
+		if (node.kind == ILKind::FuncCallRet)
+		{
+			LogVar(node.dst);
+			g_Logger.Log(" = ");
+		}
+
+		g_Logger.Log("call ");
+		LogVar(node.func);
+		g_Logger.Log(" (");
+
+		usize argCnt = node.args.size();
+		for (usize i = 0; i < argCnt; ++i)
+		{
+			if (i != 0)
+				g_Logger.Log(", ");
+			LogVar(node.args[i]);
+		}
+
+		g_Logger.Log(")\n");
 	}
 
 	void ILPrinter::Visit(ILMemberAccess& node)
 	{
+		PrintIndent();
+		LogVar(node.dst);
+		g_Logger.Log(" = (");
+		LogVar(node.src);
+		g_Logger.Log(").%s\n", node.name.c_str());
 	}
 
 	void ILPrinter::Visit(ILTupleAccess& node)
 	{
+		PrintIndent();
+		LogVar(node.dst);
+		g_Logger.Log(" = (");
+		LogVar(node.src);
+		g_Logger.Log(").%u\n", node.index);
 	}
 
-	void ILPrinter::Visit(ILAggrInit& node)
+	void ILPrinter::Visit(ILStructInit& node)
 	{
+		PrintIndent();
+		LogVar(node.dst);
+		StdString typeName = m_pCtx->typeReg.ToString(node.dst.type);
+		g_Logger.Log(" = struct %s {", typeName.c_str());
+		usize argCnt = node.args.size();
+		for (usize i = 0; i < argCnt; ++i)
+		{
+			if (i != 0)
+				g_Logger.Log(", ");
+			LogVar(node.args[i]);
+		}
+		g_Logger.Log("}\n");
+	}
+
+	void ILPrinter::Visit(ILUnionInit& node)
+	{
+		PrintIndent();
+		LogVar(node.dst);
+		StdString typeName = m_pCtx->typeReg.ToString(node.dst.type);
+		g_Logger.Log(" = union %s {", typeName.c_str());
+		usize argCnt = node.args.size();
+		for (usize i = 0; i < argCnt; ++i)
+		{
+			if (i != 0)
+				g_Logger.Log(", ");
+			LogVar(node.args[i]);
+		}
+		g_Logger.Log("}\n");
 	}
 
 	void ILPrinter::Visit(ILValEnumInit& node)
 	{
+		PrintIndent();
+		LogVar(node.dst);
+		StdString typeName = m_pCtx->typeReg.ToString(node.dst.type);
+		g_Logger.Log(" = val_enum %s\n", node.member);
 	}
 
 	void ILPrinter::Visit(ILAdtEnumInit& node)
 	{
+		PrintIndent();
+		LogVar(node.dst);
+		StdString typeName = m_pCtx->typeReg.ToString(node.dst.type);
+		g_Logger.Log(" = adt_enum %s {", node.member);
+		usize argCnt = node.args.size();
+		for (usize i = 0; i < argCnt; ++i)
+		{
+			if (i != 0)
+				g_Logger.Log(", ");
+			LogVar(node.args[i]);
+		}
+		g_Logger.Log("}\n");
 	}
 
 	void ILPrinter::Visit(ILTupInit& node)
 	{
+		PrintIndent();
+		LogVar(node.dst);
+		StdString typeName = m_pCtx->typeReg.ToString(node.dst.type);
+		g_Logger.Log(" = (");
+		usize argCnt = node.args.size();
+		for (usize i = 0; i < argCnt; ++i)
+		{
+			if (i != 0)
+				g_Logger.Log(", ");
+			LogVar(node.args[i]);
+		}
+		g_Logger.Log(")\n");
 	}
 
 	void ILPrinter::Visit(ILArrInit& node)
 	{
+		PrintIndent();
+		LogVar(node.dst);
+		StdString typeName = m_pCtx->typeReg.ToString(node.dst.type);
+		g_Logger.Log(" = [");
+		usize argCnt = node.args.size();
+		for (usize i = 0; i < argCnt; ++i)
+		{
+			if (i != 0)
+				g_Logger.Log(", ");
+			LogVar(node.args[i]);
+		}
+		g_Logger.Log("]\n");
 	}
 
 	void ILPrinter::PrintIndent()
@@ -371,7 +485,7 @@ namespace Noctis
 			case ILLitType::Char:
 			{
 				i8 val = *reinterpret_cast<i8*>(var.litData.data());
-				g_Logger.Log("%c:char", val);
+				g_Logger.Log("'%c':char", val);
 				break;
 			}
 			case ILLitType::String:

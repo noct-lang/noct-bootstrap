@@ -295,7 +295,10 @@ namespace Noctis
 			// params
 			for (ITrParamSPtr param : node.params)
 			{
-				Attribute attribs = node.attribs->attribs;
+				if (!param->attribs)
+					continue;
+				
+				Attribute attribs = param->attribs->attribs;
 				Attribute invalidMask = ~(Attribute::Comptime | Attribute::Lazy | Attribute::Move);
 				Attribute invalid = attribs & invalidMask;
 				if (invalid != Attribute::None)
@@ -470,7 +473,7 @@ namespace Noctis
 			{
 				handles.push_back(subType->handle);
 			}
-			node.handle = m_pCtx->typeReg.Tuple(mod, handles);
+			node.handle = m_pCtx->typeReg.Compound(mod, handles);
 			break;
 		}
 		case TypeKind::Func:

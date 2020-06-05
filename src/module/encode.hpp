@@ -22,6 +22,8 @@ namespace Noctis
 		TypeParent, // symbols with types as parent
 		InterfaceImpl, // Interface implementations per symbol
 		Variants,
+		InterfaceExt,
+		MemberOrder,
 	};
 
 	class ModuleEncode
@@ -34,6 +36,8 @@ namespace Noctis
 	private:
 
 		u32 GetOrAddName(const StdString& name);
+
+		void EncodeImportSection();
 		
 		void EncodeSymSection();
 		void EncodeSLnkSection();
@@ -42,15 +46,22 @@ namespace Noctis
 		void WriteData(StdVector<u8>& insertTo, const T& data);
 		void WriteName(StdVector<u8>& insertTo, const StdString& name);
 
+		const StdString& GetMangledQualName(QualNameSPtr qualName);
+		const StdString& GetMangledType(TypeHandle type);
+
 		Context* m_pCtx;
 		Module* m_pMod;
 
 		u32 m_CurNameId;
 		StdVector<u8> m_NameSection;
 		StdUnorderedMap<StdString, u32> m_NameMapping;
-		
+
+		StdVector<u8> m_ImportSection;
 		StdVector<u8> m_SymSection;
 		StdVector<u8> m_SLnkSection;
+
+		StdUnorderedMap<QualNameSPtr, StdString> m_QualNameMangleCache;
+		StdUnorderedMap<TypeSPtr, StdString> m_TypeMangleCache;
 	};
 
 
@@ -72,7 +83,9 @@ namespace Noctis
 		void Decode(Module& mod);
 
 	private:
+		void Reset();
 
+		void DecodeImport(const ModuleSectionHeader& header);
 		void DecodeName(const ModuleSectionHeader& header);
 		void DecodeSyms(const ModuleSectionHeader& header);
 		void DecodeSLnk(const ModuleSectionHeader& header);
@@ -84,6 +97,9 @@ namespace Noctis
 		const T& ReadData();
 		const StdString& ReadName();
 
+		QualNameSPtr GetQualNameFromMangle(const StdString& mangle);
+		TypeHandle GetTypeFromMangle(const StdString& mangle);
+
 		Context* m_pCtx;
 		Module* m_pMod;
 
@@ -94,6 +110,9 @@ namespace Noctis
 
 		StdUnorderedMap<QualNameSPtr, SymbolSPtr> m_Syms;
 		StdUnorderedMap<QualNameSPtr, StdUnorderedMap<QualNameSPtr, SymbolSPtr>> m_ImplSyms;
+
+		StdUnorderedMap<StdString, QualNameSPtr> m_QualNameMangleCache;
+		StdUnorderedMap<StdString, TypeHandle> m_TypeMangleCache;
 	};
 
 	template <typename T>

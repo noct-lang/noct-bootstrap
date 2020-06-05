@@ -12,10 +12,22 @@
 #include "ast/parser.hpp"
 #include "ast/ast.hpp"
 #include "ast/ast-printer.hpp"
+#include "common/name-mangling.hpp"
+#include "il/il-interp.hpp"
 #include "il/il-printer.hpp"
 #include "itr/itr-printer.hpp"
 #include "module/encode.hpp"
 #include "semantic/semantic-analysis.hpp"
+
+//
+// build "../noct/src/core/ops/arith.nx"
+// build "../noct/src/core/convert.nx" -I "./"
+// build "../noct/src/core/error.nx"
+// build "../noct/src/core/result.nx" -I "./"
+//
+// build test.nx -I "./"
+// interpret main -I "./"
+//
 
 void ProcessBuild(Noctis::Context& context)
 {
@@ -31,47 +43,6 @@ void ProcessBuild(Noctis::Context& context)
 	Noctis::Timer timer{ true };
 	
 	const StdVector<StdString>& filepaths = buildOptions.buildFiles;
-
-	// Load all headers for all available modules
-	{
-		Noctis::ModuleDecode decode{ &context };
-		const StdVector<StdString>& modulePaths = buildOptions.modulePaths;
-
-		for (const StdString& modulePath : modulePaths)
-		{
-			std::filesystem::path path{ modulePath };
-
-			if (std::filesystem::is_directory(path))
-			{
-				for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(path))
-				{
-					if (entry.is_regular_file() && entry.path().extension() == ".nxm")
-					{
-						std::string s = entry.path().u8string();
-						StdString tmp;
-						tmp.insert(tmp.begin(), s.begin(), s.end());
-						Noctis::ModuleSPtr mod = decode.CreateModuleWithHeader(tmp);
-						context.modules.try_emplace(mod->qualName, mod);
-					}
-				}
-			}
-			else if (path.extension() == "nxm")
-			{
-				Noctis::ModuleSPtr mod = decode.CreateModuleWithHeader(modulePath);
-				context.modules.try_emplace(mod->qualName, mod);
-			}
-			else
-			{
-				g_ErrorSystem.Error("Invalid module path: %s\n", modulePath.c_str());
-			}
-			
-		}
-
-		// In self hosted version, the working directory should automatically be checked for modules
-	}
-
-	timer.Stop();
-	g_Logger.Log(Noctis::Format("Module discovery took %fms\n", timer.GetTimeMS()));
 
 	for (const StdString& filepath : filepaths)
 	{
@@ -230,6 +201,48 @@ void ProcessBuild(Noctis::Context& context)
 	g_Logger.Log(Noctis::Format("build took %fms\n", buildTimer.GetTimeMS()));
 }
 
+void ProcessInterpret(Noctis::Context& context)
+{
+	const Noctis::InterpretOptions& interpOptions = context.options.GetInterpretOptions();
+
+
+	Noctis::QualNameSPtr toInterp = interpOptions.moduleToInterpret;
+
+	auto it = context.modules.find(toInterp);
+	if (it == context.modules.end())
+	{
+		g_ErrorSystem.Error("Could not interpret module '', since it cannot be located\n");
+		return;
+	}
+	Noctis::Module& mod = *it->second;
+
+	Noctis::Timer timer{ true };
+	
+	// Decode module to interpret (also decodes required imports)
+	Noctis::ModuleDecode decode(&context);
+	decode.Decode(mod);
+
+	timer.Stop();
+	g_Logger.Log(Noctis::Format("decoding modules took %fms\n", timer.GetTimeMS()));
+	timer.Start();
+	
+	context.typeReg.CalculateSizeAlign();
+
+	timer.Stop();
+	g_Logger.Log(Noctis::Format("calculating sizes took %fms\n", timer.GetTimeMS()));
+	
+	StdString qualNameMangle = Noctis::NameMangling::Mangle(&context, toInterp);
+	StdString mainFuncName = "_NF" + qualNameMangle + "6__mainFZZ";
+
+	timer.Start();
+	
+	Noctis::ILInterp interp{ &context };
+	interp.Interp(mainFuncName);
+
+	timer.Stop();
+	g_Logger.Log(Noctis::Format("interpreting took %fms\n", timer.GetTimeMS()));
+}
+
 int main(int argc, char* argv[])
 {
 	Noctis::Context context;
@@ -238,12 +251,59 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
+	Noctis::Timer timer{ true };
+
+	// Load all headers for all available modules
+	{
+		Noctis::ModuleDecode decode{ &context };
+
+		const StdVector<StdString> modulePaths = context.options.ModulePaths();
+		for (const StdString& modulePath : modulePaths)
+		{
+			std::filesystem::path path{ modulePath };
+
+			if (std::filesystem::is_directory(path))
+			{
+				for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(path))
+				{
+					if (entry.is_regular_file() && entry.path().extension() == ".nxm")
+					{
+						std::string s = entry.path().u8string();
+						StdString tmp;
+						tmp.insert(tmp.begin(), s.begin(), s.end());
+						Noctis::ModuleSPtr mod = decode.CreateModuleWithHeader(tmp);
+						context.modules.try_emplace(mod->qualName, mod);
+					}
+				}
+			}
+			else if (path.extension() == "nxm")
+			{
+				Noctis::ModuleSPtr mod = decode.CreateModuleWithHeader(modulePath);
+				context.modules.try_emplace(mod->qualName, mod);
+			}
+			else
+			{
+				g_ErrorSystem.Error("Invalid module path: %s\n", modulePath.c_str());
+			}
+
+		}
+
+		// In self hosted version, the working directory should automatically be checked for modules
+	}
+
+	timer.Stop();
+	g_Logger.Log(Noctis::Format("Module discovery took %fms\n", timer.GetTimeMS()));
+
 	switch (context.options.Mode())
 	{
 	case Noctis::ToolMode::Build:
 		ProcessBuild(context);
 		break;
-	case Noctis::ToolMode::Run: break;
+	case Noctis::ToolMode::Interpret:
+		ProcessInterpret(context);
+		break;
+	case Noctis::ToolMode::Run:
+		break;
 	default: ;
 	}
 

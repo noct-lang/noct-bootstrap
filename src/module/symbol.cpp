@@ -72,12 +72,12 @@ namespace Noctis
 		{
 		case SymbolKind::Struct:
 		{
-			children->Foreach([this](SymbolSPtr sym, QualNameSPtr) {
-				if (sym->qualName->Base() != qualName)
-					return;
+			for (SymbolWPtr symW : orderedVarChildren)
+			{
+				SymbolSPtr sym = symW.lock();
 
 				sym->CalculateSizeAlignOffset();
-				sym->offset = sym->size;
+				sym->offset = size;
 
 				if (aligment < sym->aligment)
 					aligment = sym->aligment;
@@ -85,14 +85,15 @@ namespace Noctis
 				u64 alignMask = sym->aligment - 1;
 				u16 alignOffset = u16(size & alignMask);
 				size += alignOffset == 0 ? 0 : sym->aligment - alignOffset;
-			});
+				size += sym->size;
+			}
 			break;
 		}
 		case SymbolKind::Union:
 		{
-			children->Foreach([this](SymbolSPtr sym, QualNameSPtr) {
-				if (sym->qualName->Base() != qualName)
-					return;
+			for (SymbolWPtr symW : orderedVarChildren) 
+			{
+				SymbolSPtr sym = symW.lock();
 
 				sym->CalculateSizeAlignOffset();
 				sym->offset = 0;
@@ -101,7 +102,7 @@ namespace Noctis
 					aligment = sym->aligment;
 				if (size < sym->size)
 					size = sym->size;
-			});
+			}
 			break;
 		}
 		case SymbolKind::ValEnum: break; // TODO

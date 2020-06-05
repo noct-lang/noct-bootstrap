@@ -92,7 +92,7 @@ namespace Noctis
 		idAndMangle |= (nameId & 0x00FF'FFFF) << 8;
 		
 		WriteData(idAndMangle);
-		WriteData(u32(node.elems.size()));
+		WriteData(u32(node.blocks.size()));
 
 		WriteData(u16(node.params.size()));
 		for (ILVar& var : node.params)
@@ -106,9 +106,9 @@ namespace Noctis
 			EncodeType(var.type);
 		}
 
-		for (ILElemSPtr elem : node.elems)
+		for (ILBlock& block : node.blocks)
 		{
-			ILVisitor::Visit(*elem);
+			Visit(block);
 		}
 
 		// Insert func size
@@ -120,8 +120,8 @@ namespace Noctis
 
 	void ILEncode::Visit(ILBlock& node)
 	{
-		u32 idAndLabel = u8(node.kind) << 24;
-		idAndLabel |= node.label & 0x00FF'FFFF;
+		u32 idAndLabel = u8(node.kind);
+		idAndLabel |= (node.label & 0x00FF'FFFF) << 8;
 		WriteData(idAndLabel);
 		WriteData(u32(node.elems.size()));
 
@@ -129,61 +129,26 @@ namespace Noctis
 		{
 			ILVisitor::Visit(*elem);
 		}
+		ILVisitor::Visit(*node.terminal);
 	}
 
 	void ILEncode::Visit(ILIf& node)
 	{
-		WriteData(u8(node.kind));
-		WriteData(u32(node.elems.size()));
+		u32 trueLabelAndId = u32(node.kind);
+		trueLabelAndId |= (node.trueLabel & 0x00FF'FFFF) << 8;
+		WriteData(trueLabelAndId);
+		WriteData(node.falseLabel);
 		EncodeVar(node.cond);
-		for (ILElemSPtr elem : node.elems)
-		{
-			ILVisitor::Visit(*elem);
-		}
-
-		if (!node.elseElem.elems.empty())
-			Visit(node.elseElem);
-	}
-
-	void ILEncode::Visit(ILIfElse& node)
-	{
-		WriteData(u8(node.kind));
-		WriteData(u32(node.elems.size()));
-		for (ILElemSPtr elem : node.elems)
-		{
-			ILVisitor::Visit(*elem);
-		}
-	}
-
-	void ILEncode::Visit(ILLoop& node)
-	{
-		u32 idAndLabel = u8(node.kind) << 24;
-		idAndLabel |= node.beginLabel & 0x00FF'FFFF;
-		WriteData(idAndLabel);
-		u32 labelAndRes = ( node.beginLabel & 0x00FF'FFFF) << 8;
-		WriteData(labelAndRes);
-		WriteData(u32(node.elems.size()));
-		for (ILElemSPtr elem : node.elems)
-		{
-			ILVisitor::Visit(*elem);
-		}
 	}
 
 	void ILEncode::Visit(ILSwitch& node)
 	{
 	}
 
-	void ILEncode::Visit(ILLabel& node)
-	{
-		u32 idAndLabel = u8(node.kind) << 24;
-		idAndLabel |= node.label & 0x00FF'FFFF;
-		WriteData(idAndLabel);
-	}
-
 	void ILEncode::Visit(ILGoto& node)
 	{
-		u32 idAndLabel = u8(node.kind) << 24;
-		idAndLabel |= node.label & 0x00FF'FFFF;
+		u32 idAndLabel = u32(node.kind);
+		idAndLabel |= (node.label & 0x00FF'FFFF) << 8;
 		WriteData(idAndLabel);
 	}
 
@@ -283,6 +248,22 @@ namespace Noctis
 		}
 	}
 
+	void ILEncode::Visit(ILIndirectCall& node)
+	{
+		WriteData(u8(node.kind));
+		WriteData(u8(node.args.size()));
+
+		if (node.kind == ILKind::IndirectCallRet)
+			EncodeVarAndType(node.dst);
+
+		EncodeVar(node.func);
+
+		for (ILVar& arg : node.args)
+		{
+			EncodeVar(arg);
+		}
+	}
+
 	void ILEncode::Visit(ILMemberAccess& node)
 	{
 		WriteData(u8(node.kind));
@@ -300,7 +281,18 @@ namespace Noctis
 		EncodeVar(node.src);
 	}
 
-	void ILEncode::Visit(ILAggrInit& node)
+	void ILEncode::Visit(ILStructInit& node)
+	{
+		WriteData(u8(node.kind));
+		WriteData(u8(node.args.size()));
+		EncodeVarAndType(node.dst);
+		for (ILVar& arg : node.args)
+		{
+			EncodeVar(arg);
+		}
+	}
+
+	void ILEncode::Visit(ILUnionInit& node)
 	{
 		WriteData(u8(node.kind));
 		WriteData(u8(node.args.size()));
@@ -587,7 +579,7 @@ namespace Noctis
 
 		ILFuncDefSPtr def{ new ILFuncDef{ mangle } };
 
-		u32 stmtCount = ReadData<u32>();
+		u32 blockCount = ReadData<u32>();
 		u32 funcSize = ReadData<u32>();
 		u16 paramCount = ReadData<u16>();
 
@@ -610,13 +602,32 @@ namespace Noctis
 			m_IdTypeMapping.push_back(type);
 		}
 
-		for (u32 i = 0; i < stmtCount; ++i)
+		for (u32 i = 0; i < blockCount; ++i)
 		{
-			ILElemSPtr elem = DecodeElem();
-			def->elems.push_back(elem);
+			ILBlock block = DecodeBlock();
+			def->blocks.push_back(std::move(block));
 		}
 		
 		m_pMod->funcs.push_back(def);
+	}
+
+	ILBlock ILDecode::DecodeBlock()
+	{
+		u32 idAndLabel = ReadData<u32>();
+
+		// TODO: Check block def id
+
+		u32 label = (idAndLabel & 0xFFFF'FF00) >> 8;
+		ILBlock block{ label };
+
+		u32 elemCount = ReadData<u32>();
+		for (u32 i = 0; i < elemCount; ++i)
+		{
+			block.elems.push_back(DecodeElem());
+		}
+		ILElemSPtr term = DecodeElem();
+		block.terminal = *reinterpret_cast<ILTerminalSPtr*>(&term);
+		return block;
 	}
 
 	ILElemSPtr ILDecode::DecodeElem()
@@ -624,11 +635,8 @@ namespace Noctis
 		ILKind kind = ILKind(ReadData<u8>());
 		switch (kind)
 		{
-		case ILKind::Block: return DecodeBlock();
 		case ILKind::If: return DecodeIf();
-		case ILKind::Loop: return DecodeLoop();
 		case ILKind::Switch: return DecodeSwitch();
-		case ILKind::Label: return DecodeLabel();
 		case ILKind::Goto: return DecodeGoto();
 		case ILKind::ReturnNoVal: return DecodeReturn(false);
 		case ILKind::ReturnVal: return DecodeReturn(true);
@@ -646,7 +654,7 @@ namespace Noctis
 		case ILKind::MethodCallRet: return DecodeMethodCall(true);
 		case ILKind::MemberAccess: return DecodeMemberAccess();
 		case ILKind::TupleAccess: return DecodeTupleAccess();
-		case ILKind::AggrInit: return DecodeAggrInit();
+		case ILKind::StructInit: return DecodeStructInit();
 		case ILKind::ValEnumInit: return DecodeValEnumInit();
 		case ILKind::AdtEnumInit: return DecodeAdtEnumInit();
 		case ILKind::TupInit: return DecodeTupInit();
@@ -655,79 +663,19 @@ namespace Noctis
 		}
 	}
 
-	ILElemSPtr ILDecode::DecodeBlock()
-	{
-		u32 label = ReadData<u32>(3);
-		u32 elemCount = ReadData<u32>();
-		ILBlock* pBlock = new ILBlock{ label };
-
-		for (u32 i = 0; i < elemCount; ++i)
-		{
-			pBlock->elems.push_back(DecodeElem());
-		}
-		return ILElemSPtr{ pBlock };
-	}
-
 	ILElemSPtr ILDecode::DecodeIf()
 	{
-		u32 elemCount = ReadData<u32>();
-		ILVar cond = DecodeVar(false);
-		ILIf* pIf = new ILIf{ cond };
-
-		for (u32 i = 0; i < elemCount; ++i)
-		{
-			pIf->elems.push_back(DecodeElem());
-		}
-
-		if (ILKind((*m_pByteCode)[m_BCPos]) == ILKind::Else)
-		{
-			++m_BCPos;
-			pIf->elseElem = DecodeElse();
-		}
-		
-		return ILElemSPtr{ pIf };
-	}
-
-	ILIfElse ILDecode::DecodeElse()
-	{
-		u32 elemCount = ReadData<u32>();
-		ILIfElse ifElse;
-
-		for (u32 i = 0; i < elemCount; ++i)
-		{
-			ifElse.elems.push_back(DecodeElem());
-		}
-		return ifElse;
-	}
-
-	ILElemSPtr ILDecode::DecodeLoop()
-	{
-		u32 beginLabel = ReadData<u32>(3);
-		u32 endLabel = ReadData<u32>(3);
-
-		// Read reserved byte
+		u32 trueLabel = ReadData<u32>(3);
+		u32 falseLabel = ReadData<u32>(3);
 		(void)ReadData<u8>();
-		
-		u32 elemCount = ReadData<u32>();
-		ILLoop* pBlock = new ILLoop{ beginLabel, endLabel };
-
-		for (u32 i = 0; i < elemCount; ++i)
-		{
-			pBlock->elems.push_back(DecodeElem());
-		}
-		return ILElemSPtr{ pBlock };
+		ILVar cond = DecodeVar(false);
+		return ILElemSPtr{ new ILIf{ cond, trueLabel, falseLabel } };
 	}
 
 	ILElemSPtr ILDecode::DecodeSwitch()
 	{
 		// TODO
 		return nullptr;
-	}
-
-	ILElemSPtr ILDecode::DecodeLabel()
-	{
-		u32 label = ReadData<u32>(3);
-		return ILElemSPtr{ new ILLabel{ label } };
 	}
 
 	ILElemSPtr ILDecode::DecodeGoto()
@@ -849,6 +797,26 @@ namespace Noctis
 		return ILElemSPtr{ new ILMethodCall{ caller, name, args } };
 	}
 
+	ILElemSPtr ILDecode::DecodeIndirectCall(bool hasRet)
+	{
+		u8 numArgs = ReadData<u8>();
+
+		ILVar dst;
+		if (hasRet)
+			dst = DecodeVar(true);
+
+		ILVar func = DecodeVar(false);
+		StdVector<ILVar> args;
+		for (u8 i = 0; i < numArgs; ++i)
+		{
+			args.push_back(DecodeVar(false));
+		}
+
+		if (hasRet)
+			return ILElemSPtr{ new ILIndirectCall{ dst, func, args } };
+		return ILElemSPtr{ new ILIndirectCall{ func, args } };
+	}
+
 	ILElemSPtr ILDecode::DecodeMemberAccess()
 	{
 		u32 nameId = ReadData<u32>();
@@ -866,7 +834,7 @@ namespace Noctis
 		return ILElemSPtr{ new ILTupleAccess{ dst, src, index } };
 	}
 
-	ILElemSPtr ILDecode::DecodeAggrInit()
+	ILElemSPtr ILDecode::DecodeStructInit()
 	{
 		u8 argCount = ReadData<u8>();
 		ILVar dst = DecodeVar(true);
@@ -875,7 +843,19 @@ namespace Noctis
 		{
 			args.push_back(DecodeVar(false));
 		}
-		return ILElemSPtr{ new ILAggrInit{ dst, args } };
+		return ILElemSPtr{ new ILStructInit{ dst, args } };
+	}
+
+	ILElemSPtr ILDecode::DecodeUnionInit()
+	{
+		u8 argCount = ReadData<u8>();
+		ILVar dst = DecodeVar(true);
+		StdVector<ILVar> args;
+		for (u8 i = 0; i < argCount; ++i)
+		{
+			args.push_back(DecodeVar(false));
+		}
+		return ILElemSPtr{ new ILUnionInit{ dst, args } };
 	}
 
 	ILElemSPtr ILDecode::DecodeValEnumInit()
@@ -1052,7 +1032,7 @@ namespace Noctis
 				}
 			}
 
-			TypeHandle type = TypeHandle(-1);
+			TypeHandle type;
 			if (typeStored)
 			{
 				type = DecodeType();

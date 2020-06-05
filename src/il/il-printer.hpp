@@ -17,10 +17,7 @@ namespace Noctis
 		void Visit(ILFuncDef& node) override;
 		void Visit(ILBlock& node) override;
 		void Visit(ILIf& node) override;
-		void Visit(ILIfElse& node) override;
-		void Visit(ILLoop& node) override;
 		void Visit(ILSwitch& node) override;
-		void Visit(ILLabel& node) override;
 		void Visit(ILGoto& node) override;
 		void Visit(ILReturn& node) override;
 		void Visit(ILAssign& node) override;
@@ -32,9 +29,11 @@ namespace Noctis
 		void Visit(ILTransmute& node) override;
 		void Visit(ILFuncCall& node) override;
 		void Visit(ILMethodCall& node) override;
+		void Visit(ILIndirectCall& node) override;
 		void Visit(ILMemberAccess& node) override;
 		void Visit(ILTupleAccess& node) override;
-		void Visit(ILAggrInit& node) override;
+		void Visit(ILStructInit& node) override;
+		void Visit(ILUnionInit& node) override;
 		void Visit(ILValEnumInit& node) override;
 		void Visit(ILAdtEnumInit& node) override;
 		void Visit(ILTupInit& node) override;

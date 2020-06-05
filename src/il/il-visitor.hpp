@@ -2,6 +2,7 @@
 
 namespace Noctis
 {
+	struct ILUnionInit;
 	struct ILElem;
 	struct ILAssign;
 	struct ILPrimAssign;
@@ -12,19 +13,17 @@ namespace Noctis
 	struct ILTransmute;
 	struct ILFuncCall;
 	struct ILMethodCall;
+	struct ILIndirectCall;
 	struct ILMemberAccess;
 	struct ILTupleAccess;
-	struct ILAggrInit;
+	struct ILStructInit;
 	struct ILValEnumInit;
 	struct ILAdtEnumInit;
 	struct ILTupInit;
 	struct ILArrInit;
 	struct ILReturn;
 	struct ILGoto;
-	struct ILLabel;
 	struct ILSwitch;
-	struct ILLoop;
-	struct ILIfElse;
 	struct ILIf;
 	struct ILBlock;
 	struct ILFuncDef;
@@ -43,10 +42,7 @@ namespace Noctis
 
 		virtual void Visit(ILBlock& node);
 		virtual void Visit(ILIf& node);
-		virtual void Visit(ILIfElse& node);
-		virtual void Visit(ILLoop& node);
 		virtual void Visit(ILSwitch& node);
-		virtual void Visit(ILLabel& node);
 		virtual void Visit(ILGoto& node);
 		virtual void Visit(ILReturn& node);
 		virtual void Visit(ILAssign& node);
@@ -58,9 +54,11 @@ namespace Noctis
 		virtual void Visit(ILTransmute& node);
 		virtual void Visit(ILFuncCall& node);
 		virtual void Visit(ILMethodCall& node);
+		virtual void Visit(ILIndirectCall& node);
 		virtual void Visit(ILMemberAccess& node);
 		virtual void Visit(ILTupleAccess& node);
-		virtual void Visit(ILAggrInit& node);
+		virtual void Visit(ILStructInit& node);
+		virtual void Visit(ILUnionInit& node);
 		virtual void Visit(ILValEnumInit& node);
 		virtual void Visit(ILAdtEnumInit& node);
 		virtual void Visit(ILTupInit& node);

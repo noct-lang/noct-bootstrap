@@ -18,10 +18,7 @@ namespace Noctis
 		{
 		case ILKind::Block: Visit(static_cast<ILBlock&>(elem)); break;
 		case ILKind::If: Visit(static_cast<ILIf&>(elem)); break;
-		case ILKind::Else: Visit(static_cast<ILIfElse&>(elem)); break;
-		case ILKind::Loop: Visit(static_cast<ILLoop&>(elem)); break;
 		case ILKind::Switch: Visit(static_cast<ILSwitch&>(elem)); break;
-		case ILKind::Label: Visit(static_cast<ILLabel&>(elem)); break;
 		case ILKind::Goto: Visit(static_cast<ILGoto&>(elem)); break;
 		case ILKind::ReturnNoVal: Visit(static_cast<ILReturn&>(elem)); break;
 		case ILKind::ReturnVal: Visit(static_cast<ILReturn&>(elem)); break;
@@ -38,9 +35,12 @@ namespace Noctis
 		case ILKind::FuncCallRet: Visit(static_cast<ILFuncCall&>(elem)); break;
 		case ILKind::MethodCallNoRet: Visit(static_cast<ILMethodCall&>(elem)); break;
 		case ILKind::MethodCallRet: Visit(static_cast<ILMethodCall&>(elem)); break;
+		case ILKind::IndirectCallNoRet: Visit(static_cast<ILIndirectCall&>(elem)); break;
+		case ILKind::IndirectCallRet: Visit(static_cast<ILIndirectCall&>(elem)); break;
 		case ILKind::MemberAccess: Visit(static_cast<ILMemberAccess&>(elem)); break;
 		case ILKind::TupleAccess: Visit(static_cast<ILTupleAccess&>(elem)); break;
-		case ILKind::AggrInit: Visit(static_cast<ILAggrInit&>(elem)); break;
+		case ILKind::StructInit: Visit(static_cast<ILStructInit&>(elem)); break;
+		case ILKind::UnionInit: Visit(static_cast<ILUnionInit&>(elem)); break;
 		case ILKind::ValEnumInit: Visit(static_cast<ILValEnumInit&>(elem)); break;
 		case ILKind::AdtEnumInit: Visit(static_cast<ILAdtEnumInit&>(elem)); break;
 		case ILKind::TupInit: Visit(static_cast<ILTupInit&>(elem)); break;
@@ -60,39 +60,16 @@ namespace Noctis
 		{
 			Visit(*elem);
 		}
+		Visit(*node.terminal);
 	}
 
 	void ILVisitor::Visit(ILIf& node)
 	{
-		for (ILElemSPtr elem : node.elems)
-		{
-			Visit(*elem);
-		}
-	}
-
-	void ILVisitor::Visit(ILIfElse& node)
-	{
-		for (ILElemSPtr elem : node.elems)
-		{
-			Visit(*elem);
-		}
-	}
-
-	void ILVisitor::Visit(ILLoop& node)
-	{
-		for (ILElemSPtr elem : node.elems)
-		{
-			Visit(*elem);
-		}
 	}
 
 	void ILVisitor::Visit(ILSwitch& node)
 	{
 		// TODO
-	}
-
-	void ILVisitor::Visit(ILLabel& node)
-	{
 	}
 
 	void ILVisitor::Visit(ILGoto& node)
@@ -139,6 +116,10 @@ namespace Noctis
 	{
 	}
 
+	void ILVisitor::Visit(ILIndirectCall& node)
+	{
+	}
+
 	void ILVisitor::Visit(ILMemberAccess& node)
 	{
 	}
@@ -147,7 +128,11 @@ namespace Noctis
 	{
 	}
 
-	void ILVisitor::Visit(ILAggrInit& node)
+	void ILVisitor::Visit(ILStructInit& node)
+	{
+	}
+
+	void ILVisitor::Visit(ILUnionInit& node)
 	{
 	}
 
