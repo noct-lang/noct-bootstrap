@@ -147,6 +147,8 @@ namespace Noctis
 			TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
 			sym->type = type;
 
+			m_TypeQualName = node.qualName;
+
 			ITrBodySPtr body = mod.GetBody(node);
 			for (ITrDefSPtr def : body->defs)
 			{
@@ -170,6 +172,8 @@ namespace Noctis
 
 			TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
 			sym->type = type;
+
+			m_TypeQualName = node.qualName;
 
 			ITrBodySPtr body = mod.GetBody(node);
 			for (ITrDefSPtr def : body->defs)
@@ -514,7 +518,29 @@ namespace Noctis
 		sym->baseVariant = sym;
 		sym->SetSelf(sym);
 
+		if (m_TypeQualName)
+		{
+			TypeHandle selfType = m_pCtx->typeReg.Iden(TypeMod::None, m_TypeQualName);
+			node.selfType = selfType;
+		}
+
 		HandleGenerics(qualName, node.genDecl);
+	}
+
+	void TypeCollection::Visit(ITrVar& node)
+	{
+		Walk(node);
+		
+		SymbolSPtr parent = m_Syms.top();
+
+		SymbolSPtr sym{ new Symbol{ m_pCtx, SymbolKind::Var, node.qualName } };
+		sym->associatedITr = node.ptr;
+		sym->baseVariant = sym;
+		sym->SetSelf(sym);
+		sym->type = node.type->handle;
+
+		parent->children->AddChild(sym);
+		parent->orderedVarChildren.push_back(sym);
 	}
 
 	void TypeCollection::HandleGenerics(QualNameSPtr baseQualName, ITrGenDeclSPtr decl)

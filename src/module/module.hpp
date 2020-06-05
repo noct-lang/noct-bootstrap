@@ -18,10 +18,12 @@ namespace Noctis
 		u64 size;
 		u32 idenSize;
 
-		u32 numSections;
+		u8 numSections;
 	};
 #pragma pack(pop)
 
+	FWDECL_STRUCT_SPTR(Module);
+	
 	struct Module
 	{
 		Module(QualNameSPtr qualName, Context* pCtx);
@@ -32,6 +34,8 @@ namespace Noctis
 
 		ModuleSymbolTable symTable;
 		StdUnorderedSet<SymbolSPtr> comptimeSymbols;
+
+		StdUnorderedMap<QualNameSPtr, ModuleSPtr> imports;
 
 		OperatorTable opTable;
 
@@ -44,6 +48,5 @@ namespace Noctis
 		bool isDecoded : 1;
 		bool isImported : 1;
 	};
-	using ModuleSPtr = StdSharedPtr<Module>;
 	
 }

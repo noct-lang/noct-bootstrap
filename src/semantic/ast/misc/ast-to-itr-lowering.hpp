@@ -149,7 +149,7 @@ namespace Noctis
 		void HandleGenerics(ITrGenDeclSPtr genDecl, QualNameSPtr qualName);
 
 		void AddMethodReceiverToParams(AstMethodReceiverKind recKind, StdVector<ITrParamSPtr>& params);
-		void GetNamedReturns(ITrTypeSPtr& retType, StdVector<ITrStmtSPtr> stmts, StdPairVector<StdString, AstTypeSPtr>& astNamedRets);
+		void GetNamedReturns(ITrTypeSPtr& retType, StdVector<ITrStmtSPtr> stmts, StdPairVector<StdVector<StdString>, AstTypeSPtr>& astNamedRets);
 
 		void PushDefFrame();
 		void PushDef(ITrDefSPtr def);

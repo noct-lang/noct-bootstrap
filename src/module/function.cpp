@@ -2,6 +2,20 @@
 
 namespace Noctis
 {
+	LocalVarData::LocalVarData(IdenSPtr iden)
+		: iden(iden)
+		, type(TypeHandle(-1))
+		, isParam(false)
+	{
+	}
+
+	LocalVarData::LocalVarData(IdenSPtr iden, TypeHandle type, bool isParam)
+		: iden(iden)
+		, type(type)
+		, isParam(isParam)
+	{
+	}
+
 	void LocalVarScope::AddLocalVarDeclSPtr(const StdVector<StdString>& scopeNames, LocalVarDataSPtr var, u64 curDepth)
 	{
 		if (!scopeNames.empty() && curDepth != scopeNames.size() - 1)
@@ -16,6 +30,8 @@ namespace Noctis
 		if (it == vars.end())
 			it = vars.try_emplace(var->iden, std::pair{ 0, StdVector<LocalVarDataSPtr>{} }).first;
 		it->second.second.push_back(var);
+
+		linearMapping.push_back(var);
 	}
 
 	LocalVarDataSPtr LocalVarScope::ActivateNextVar(const StdVector<StdString>& scopeNames, IdenSPtr iden, u64 curDepth)
@@ -65,5 +81,18 @@ namespace Noctis
 		if (it != curMapping.end())
 			return it->second;
 		return nullptr;
+	}
+
+	void LocalVarScope::Foreach(const std::function<void(LocalVarDataSPtr varData)>& lambda)
+	{
+		for (LocalVarDataSPtr var : linearMapping)
+		{
+			lambda(var);
+		}
+
+		for (StdPair<const StdString, LocalVarScopeSPtr>& pair : subScopes)
+		{
+			pair.second->Foreach(lambda);
+		}
 	}
 }

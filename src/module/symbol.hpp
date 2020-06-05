@@ -51,13 +51,18 @@ namespace Noctis
 		SymbolSPtr GetVariant(IdenSPtr iden);
 		bool IsBaseVariant();
 
-		void Log(u8 indent);
+		TypeHandle SelfType();
+		
+		void CalculateSizeAlignOffset();
+		
+		void Log(u8 indent, bool includeImports);
 		
 		QualNameSPtr qualName;
 
 
 		SymbolSubTableSPtr children;
 		SymbolWPtr parent;
+		StdVector<SymbolWPtr> orderedVarChildren;
 
 		// Interfaces that are implemented or types that implement the interface
 		// The boolean tells if the implemenation comes from an imported module (required for ImplType Symbols)
@@ -71,6 +76,10 @@ namespace Noctis
 		u16 funcDefaultStart;
 
 		TypeHandle type;
+
+		u64 size;
+		u16 aligment;
+		u64 offset;
 
 		StdString mangledName;
 
@@ -102,7 +111,7 @@ namespace Noctis
 
 		void Foreach(const std::function<void(SymbolSPtr, QualNameSPtr)>& lambda);
 
-		void Log(u8 indent);
+		void Log(u8 indent, bool includeImports);
 
 	private:
 		friend class ModuleSymbolTable;
@@ -127,15 +136,18 @@ namespace Noctis
 		SymbolSPtr Find(TypeSPtr type);
 
 		void Merge(ModuleSymbolTable& src);
+		void AddImport(QualNameSPtr qualName);
 
 		void Foreach(const std::function<void(SymbolSPtr, QualNameSPtr)>& lambda);
 
-		void Log();
+		void Log(bool includeImports);
 		
 	private:
 		ScopedSymbolTableSPtr m_ScopedTable;
 		StdUnorderedMap<TypeSPtr, SymbolSPtr> m_TypeSymbols;
 		StdUnorderedMap<IdenSPtr, SymbolSPtr> m_TypeNameSymbols;
+
+		StdVector<QualNameSPtr> m_ImportedModuleNames;
 
 		Context* m_pCtx;
 	};
@@ -156,7 +168,7 @@ namespace Noctis
 
 		void Merge(ScopedSymbolTableSPtr src);
 
-		void Log(u8 indent);
+		void Log(u8 indent, bool includeImports);
 
 	private:
 		friend class ModuleSymbolTable;

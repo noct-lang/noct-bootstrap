@@ -156,6 +156,12 @@ void ProcessBuild(Noctis::Context& context)
 		{
 			it = modules.insert(std::pair{ moduleQualName, Noctis::ModuleSPtr{ new Noctis::Module{ moduleQualName, &context } } }).first;
 		}
+		else if (it->second->isImported)
+		{
+			// If a previous version of the module is already discovered, make sure that we will replace it
+			it->second->isImported = false;
+			//it->second.reset(new Noctis::Module{ moduleQualName, &context });
+		}
 		it->second->trees.push_back(astTree);		
 	}
 
@@ -193,15 +199,12 @@ void ProcessBuild(Noctis::Context& context)
 		itrSemAnalysis.Run(pair.second->itrModule);
 
 		g_Logger.SetCanWriteToStdOut(false);
-		pair.second->symTable.Log();
+		pair.second->symTable.Log(false);
 		
 
 		{
 			Noctis::ILPrinter printer(&context);
-			for (Noctis::ILFuncDefSPtr func : pair.second->ilMod.funcs)
-			{
-				printer.Visit(*func);
-			}
+			printer.Print(pair.second->ilMod);
 		}
 		g_Logger.SetCanWriteToStdOut(true);
 

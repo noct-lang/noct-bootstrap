@@ -83,7 +83,17 @@ namespace Noctis::NameMangling
 					{
 						mangled += "T";
 						mangled += Mangle(pCtx, generic.iden);
-						// TODO: contraints
+
+						if (!generic.typeConstraints.empty())
+						{
+							mangled += "C";
+							for (TypeHandle constraint : generic.typeConstraints)
+							{
+								mangled += Mangle(pCtx, constraint);
+							}
+							mangled += "Z";
+						}
+						
 						mangled += "Z";
 					}
 				}
@@ -202,6 +212,16 @@ namespace Noctis::NameMangling
 				mangled += Mangle(pCtx, funcType.retType);
 
 			return mod + mangled + "Z";
+		}
+		case TypeKind::Compound:
+		{
+			CompoundType& tupType = type->AsCompound();
+			StdString mangled;
+			for (TypeHandle subType : tupType.subTypes)
+			{
+				mangled += Mangle(pCtx, subType);
+			}
+			return mangled;
 		}
 		default: return "";
 		}

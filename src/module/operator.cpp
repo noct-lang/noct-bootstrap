@@ -167,8 +167,12 @@ namespace Noctis
 		{
 			OperatorKind kind = OperatorKind(i);
 			QualNameSPtr interfaceQualName = GetOpInterfaceQualName(kind);
+
+			// Skip non-overloadable
+			if (!interfaceQualName)
+				continue;
+			
 			SymbolSPtr interfaceSym = table.Find(nullptr, interfaceQualName);
-			IdenSPtr funcIden = interfaceQualName->Iden();
 			if (interfaceSym)
 			{
 				for (StdPair<SymbolSPtr, bool>& pair : interfaceSym->impls)
@@ -186,12 +190,16 @@ namespace Noctis
 			}
 		}
 		
-		for (u8 i = u8(OperatorKind::Add); i < u8(OperatorKind::NotIn); ++i)
+		for (u8 i = u8(OperatorKind::Add); i <= u8(OperatorKind::BinAnd); ++i)
 		{
 			OperatorKind kind = OperatorKind(i);
 			QualNameSPtr interfaceQualName = GetOpInterfaceQualName(kind);
+
+			// Skip non-overloadable
+			if (!interfaceQualName)
+				continue;
+			
 			SymbolSPtr interfaceSym = table.Find(nullptr, interfaceQualName);
-			IdenSPtr funcIden = interfaceQualName->Iden();
 			if (interfaceSym)
 			{
 				for (StdPair<SymbolSPtr, bool>& pair : interfaceSym->impls)
@@ -207,6 +215,123 @@ namespace Noctis
 					}
 				}
 			}
+		}
+
+		for (u8 i = u8(OperatorKind::AddAssign); i <= u8(OperatorKind::BinAndAssign); ++i)
+		{
+			OperatorKind kind = OperatorKind(i);
+			QualNameSPtr interfaceQualName = GetOpInterfaceQualName(kind);
+
+			// Skip non-overloadable
+			if (!interfaceQualName)
+				continue;
+
+			SymbolSPtr interfaceSym = table.Find(nullptr, interfaceQualName);
+			if (interfaceSym)
+			{
+				for (StdPair<SymbolSPtr, bool>& pair : interfaceSym->impls)
+				{
+					HandleBinaryOp(kind, pair.first, interfaceSym);
+				}
+
+				for (SymbolSPtr variant : interfaceSym->variants)
+				{
+					for (StdPair<SymbolSPtr, bool>& pair : variant->impls)
+					{
+						HandleBinaryOp(kind, pair.first, variant);
+					}
+				}
+			}
+		}
+
+		// Casting
+		{
+			QualNameSPtr baseQualName = QualName::Create(StdVector<StdString>{ "core", "convert" });
+
+			{
+				QualNameSPtr interfaceQualName = QualName::Create(baseQualName, Iden::Create("From"));
+				SymbolSPtr interfaceSym = table.Find(nullptr, interfaceQualName);
+
+				if (interfaceSym)
+				{
+					for (StdPair<SymbolSPtr, bool>& pair : interfaceSym->impls)
+					{
+						HandleFromOp(false, pair.first, interfaceSym);
+					}
+
+					for (SymbolSPtr variant : interfaceSym->variants)
+					{
+						for (StdPair<SymbolSPtr, bool>& pair : variant->impls)
+						{
+							HandleFromOp(false, pair.first, variant);
+						}
+					}
+				}
+			}
+
+			{
+				QualNameSPtr interfaceQualName = QualName::Create(baseQualName, Iden::Create("TryFrom"));
+				SymbolSPtr interfaceSym = table.Find(nullptr, interfaceQualName);
+
+				if (interfaceSym)
+				{
+					for (StdPair<SymbolSPtr, bool>& pair : interfaceSym->impls)
+					{
+						HandleFromOp(true, pair.first, interfaceSym);
+					}
+
+					for (SymbolSPtr variant : interfaceSym->variants)
+					{
+						for (StdPair<SymbolSPtr, bool>& pair : variant->impls)
+						{
+							HandleFromOp(true, pair.first, variant);
+						}
+					}
+				}
+			}
+
+			{
+				QualNameSPtr interfaceQualName = QualName::Create(baseQualName, Iden::Create("To"));
+				SymbolSPtr interfaceSym = table.Find(nullptr, interfaceQualName);
+
+				if (interfaceSym)
+				{
+					for (StdPair<SymbolSPtr, bool>& pair : interfaceSym->impls)
+					{
+						HandleToOp(false, pair.first, interfaceSym);
+					}
+
+					for (SymbolSPtr variant : interfaceSym->variants)
+					{
+						for (StdPair<SymbolSPtr, bool>& pair : variant->impls)
+						{
+							HandleToOp(false, pair.first, variant);
+						}
+					}
+				}
+			}
+
+			{
+				QualNameSPtr interfaceQualName = QualName::Create(baseQualName, Iden::Create("TryTo"));
+				SymbolSPtr interfaceSym = table.Find(nullptr, interfaceQualName);
+
+				if (interfaceSym)
+				{
+					for (StdPair<SymbolSPtr, bool>& pair : interfaceSym->impls)
+					{
+						HandleToOp(true, pair.first, interfaceSym);
+					}
+
+					for (SymbolSPtr variant : interfaceSym->variants)
+					{
+						for (StdPair<SymbolSPtr, bool>& pair : variant->impls)
+						{
+							HandleToOp(true, pair.first, variant);
+						}
+					}
+				}
+			}
+			
 		}
 	}
 
@@ -277,7 +402,6 @@ namespace Noctis
 
 	void OperatorTable::HandleBinaryOp(OperatorKind kind, SymbolSPtr impl, SymbolSPtr interfaceSym)
 	{
-		TypeSPtr lType = m_pCtx->typeReg.GetType(impl->type);
 		TypeHandle rType = interfaceSym->qualName->Iden()->Generics()[0].type;
 
 		StdString funcName = interfaceSym->qualName->Iden()->Name();
@@ -325,8 +449,6 @@ namespace Noctis
 
 	void OperatorTable::HandleUnaryOp(OperatorKind kind, SymbolSPtr impl, SymbolSPtr interfaceSym)
 	{
-		TypeSPtr lType = m_pCtx->typeReg.GetType(impl->type);
-
 		StdString funcName = interfaceSym->qualName->Iden()->Name();
 		funcName[0] = 'o';
 		IdenSPtr funcIden = Iden::Create(funcName);
@@ -348,6 +470,99 @@ namespace Noctis
 			it->second.push_back(op);
 	}
 
+	void OperatorTable::HandleFromOp(bool isTry, SymbolSPtr impl, SymbolSPtr interfaceSym)
+	{
+		TypeHandle fromType = interfaceSym->qualName->Iden()->Generics()[0].type;
+		StdString funcName = interfaceSym->qualName->Iden()->Name();
+
+		IdenGeneric idenGen;
+		idenGen.isType = idenGen.isSpecialized = true;
+		idenGen.type = impl->type;
+
+		IdenSPtr funcIden = Iden::Create(funcName);
+
+		IdenSPtr ifaceIden = Iden::Create(interfaceSym->qualName->Iden()->Name(), { idenGen }, m_pCtx->typeReg);
+		QualNameSPtr ifaceQualName = QualName::Create(interfaceSym->qualName->Base(), ifaceIden);
+
+		SymbolSPtr funcSym = impl->children->FindChild(ifaceQualName, funcIden, {});
+
+		TypeSPtr funcType = m_pCtx->typeReg.GetType(funcSym->type);
+		Operator op;
+		op.left = fromType;
+		op.right = impl->type;
+		op.result = funcType->AsFunc().retType;
+		op.sym = funcSym;
+
+		op.isBuiltin = m_pCtx->typeReg.IsType(op.left, TypeKind::Builtin) &&
+			m_pCtx->typeReg.IsType(op.right, TypeKind::Builtin);
+
+		OperatorKind kind = isTry ? OperatorKind::TryCast : OperatorKind::Cast;
+		StdUnorderedMap<TypeSPtr, StdVector<Operator>>& entry = m_OpSymbols[u8(kind)];
+		TypeSPtr type = m_pCtx->typeReg.GetType(op.left);
+		auto it = entry.find(type);
+		if (it == entry.end())
+			it = entry.try_emplace(type, StdVector<Operator>{}).first;
+
+		bool found = false;
+		for (Operator& tmpOp : it->second)
+		{
+			if (m_pCtx->typeReg.AreTypesEqual(tmpOp.right, op.right))
+			{
+				found = true;
+				break;
+			}
+		}
+		if (!found)
+			it->second.push_back(op);
+	}
+
+	void OperatorTable::HandleToOp(bool isTry, SymbolSPtr impl, SymbolSPtr interfaceSym)
+	{
+		TypeHandle toType = interfaceSym->qualName->Iden()->Generics()[0].type;
+
+		StdString funcName = interfaceSym->qualName->Iden()->Name();
+
+		IdenGeneric idenGen;
+		idenGen.isType = idenGen.isSpecialized = true;
+		idenGen.type = impl->type;
+
+		IdenSPtr funcIden = Iden::Create(funcName);
+
+		IdenSPtr ifaceIden = Iden::Create(interfaceSym->qualName->Iden()->Name(), { idenGen }, m_pCtx->typeReg);
+		QualNameSPtr ifaceQualName = QualName::Create(interfaceSym->qualName->Base(), ifaceIden);
+
+		SymbolSPtr funcSym = impl->children->FindChild(ifaceQualName, funcIden, {});
+
+		TypeSPtr funcType = m_pCtx->typeReg.GetType(funcSym->type);
+		Operator op;
+		op.left = impl->type;
+		op.right = toType;
+		op.result = funcType->AsFunc().retType;
+		op.sym = funcSym;
+
+		op.isBuiltin = m_pCtx->typeReg.IsType(op.left, TypeKind::Builtin) &&
+			m_pCtx->typeReg.IsType(op.right, TypeKind::Builtin);
+
+		OperatorKind kind = isTry ? OperatorKind::TryCast : OperatorKind::Cast;
+		StdUnorderedMap<TypeSPtr, StdVector<Operator>>& entry = m_OpSymbols[u8(kind)];
+		TypeSPtr type = m_pCtx->typeReg.GetType(op.left);
+		auto it = entry.find(type);
+		if (it == entry.end())
+			it = entry.try_emplace(type, StdVector<Operator>{}).first;
+
+		bool found = false;
+		for (Operator& tmpOp : it->second)
+		{
+			if (m_pCtx->typeReg.AreTypesEqual(tmpOp.right, op.right))
+			{
+				found = true;
+				break;
+			}
+		}
+		if (!found)
+			it->second.push_back(op);
+	}
+
 	QualNameSPtr OperatorTable::GetOpInterfaceQualName(OperatorKind kind)
 	{
 		switch (kind)
@@ -359,7 +574,7 @@ namespace Noctis
 		case OperatorKind::Not:					return QualName::Create({ "core", "ops", "OpNot" });
 		case OperatorKind::BinNeg:				return QualName::Create({ "core", "ops", "OpBinNeg" });
 		case OperatorKind::Deref:				return QualName::Create({ "core", "ops", "OpDeref" });
-		case OperatorKind::RefOrAddrOf:			return QualName::Create({ "core", "ops", "" }); // TODO
+		case OperatorKind::RefOrAddrOf:			return nullptr; // Not overloadable
 		case OperatorKind::BoolConv:			return QualName::Create({ "core", "ops", "OpBoolConv" });
 		case OperatorKind::PostInc:				return QualName::Create({ "core", "ops", "OpInc" });
 		case OperatorKind::PostDec:				return QualName::Create({ "core", "ops", "OpDec" });
@@ -370,8 +585,8 @@ namespace Noctis
 		case OperatorKind::Div:					return QualName::Create({ "core", "ops", "OpDiv" });
 		case OperatorKind::Rem:					return QualName::Create({ "core", "ops", "OpRem" });
 		case OperatorKind::Concat:				return QualName::Create({ "core", "ops", "OpConcat" });
-		case OperatorKind::Or:					return QualName::Create({ "core", "ops", "" }); // TODO
-		case OperatorKind::And:					return QualName::Create({ "core", "ops", "" }); // TODO
+		case OperatorKind::Or:					return nullptr; // Not overloadable
+		case OperatorKind::And:					return nullptr; // Not overloadable
 		case OperatorKind::LShl:				return QualName::Create({ "core", "ops", "OpShl" });
 		case OperatorKind::AShl:				return QualName::Create({ "core", "ops", "OpAShl" });
 		case OperatorKind::Rotl:				return QualName::Create({ "core", "ops", "OpRotl" });
@@ -381,19 +596,19 @@ namespace Noctis
 		case OperatorKind::BinOr:				return QualName::Create({ "core", "ops", "OpBinOr" });
 		case OperatorKind::BinXor:				return QualName::Create({ "core", "ops", "OpBinXor" });
 		case OperatorKind::BinAnd:				return QualName::Create({ "core", "ops", "OpBinAnd" });
-		case OperatorKind::Eq:					return QualName::Create({ "core", "ops", "OpEq" });
-		case OperatorKind::Ne:					return QualName::Create({ "core", "ops", "OpEq" });
-		case OperatorKind::Lt:					return QualName::Create({ "core", "ops", "OpPartialEq" });
-		case OperatorKind::Le:					return QualName::Create({ "core", "ops", "OpPartialEq" });
-		case OperatorKind::Gt:					return QualName::Create({ "core", "ops", "OpPartialEq" });
-		case OperatorKind::Ge:					return QualName::Create({ "core", "ops", "OpPartialEq" });
+		case OperatorKind::Eq:					return QualName::Create({ "core", "ops", "OpPartialEq" });
+		case OperatorKind::Ne:					return QualName::Create({ "core", "ops", "OpPartialEq" });
+		case OperatorKind::Lt:					return QualName::Create({ "core", "ops", "OpPartialOrd" });
+		case OperatorKind::Le:					return QualName::Create({ "core", "ops", "OpPartialOrd" });
+		case OperatorKind::Gt:					return QualName::Create({ "core", "ops", "OpPartialOrd" });
+		case OperatorKind::Ge:					return QualName::Create({ "core", "ops", "OpPartialOrd" });
 		case OperatorKind::Range:				return QualName::Create({ "core", "ops", "OpRange" });
 		case OperatorKind::IncRange:			return QualName::Create({ "core", "ops", "OpRange" });
-		case OperatorKind::NullCoalesce:		return QualName::Create({ "core", "ops", "" }); // TODO
-		case OperatorKind::Elvis:				return QualName::Create({ "core", "ops", "" }); // TODO
+		case OperatorKind::NullCoalesce:		return nullptr; // Not overloadable
+		case OperatorKind::Elvis:				return nullptr; // Not overloadable
 		case OperatorKind::In:					return QualName::Create({ "core", "ops", "OpContains" });
 		case OperatorKind::NotIn:				return QualName::Create({ "core", "ops", "OpContains" });
-		case OperatorKind::Assign:				return QualName::Create({ "core", "ops", "" });// TODO
+		case OperatorKind::Assign:				return nullptr; // Not overloadable
 		case OperatorKind::AddAssign:			return QualName::Create({ "core", "ops", "OpAddAssign" });
 		case OperatorKind::SubAssign:			return QualName::Create({ "core", "ops", "OpSubAssign" });
 		case OperatorKind::MulAssign:			return QualName::Create({ "core", "ops", "OpMulAssign" });
@@ -408,8 +623,8 @@ namespace Noctis
 		case OperatorKind::RotrAssign:			return QualName::Create({ "core", "ops", "OpRotrAssign" });
 		case OperatorKind::BinOrAssign:			return QualName::Create({ "core", "ops", "OpBinOrAssign" });
 		case OperatorKind::BinXorAssign:		return QualName::Create({ "core", "ops", "OpBinXorAssign" });
-		case OperatorKind::BinAndAssign:		return QualName::Create({ "core", "ops", "rPBinAndAssign" });
-		case OperatorKind::NullCoalesceAssign:	return QualName::Create({ "core", "ops", "" }); // TODO
+		case OperatorKind::BinAndAssign:		return QualName::Create({ "core", "ops", "OpBinAndAssign" });
+		case OperatorKind::NullCoalesceAssign:	return nullptr; // Not overloadable
 		case OperatorKind::Invalid:				return nullptr;
 		default:								return nullptr;
 		}

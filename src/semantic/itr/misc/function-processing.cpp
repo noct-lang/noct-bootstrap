@@ -25,9 +25,7 @@ namespace Noctis
 			StdVector<StdString> scopeNames{};
 			for (ITrParamSPtr param : node.params)
 			{
-				LocalVarDataSPtr var{ new LocalVarData{} };
-				var->iden = param->iden;
-				var->type = param->type->handle;
+				LocalVarDataSPtr var{ new LocalVarData{ param->iden, param->type->handle, true } };
 				m_FuncCtx->localVars.AddLocalVarDeclSPtr(m_ScopeNames, var);
 			}
 
@@ -63,8 +61,7 @@ namespace Noctis
 	{
 		for (IdenSPtr iden : node.idens)
 		{
-			LocalVarDataSPtr var{ new LocalVarData{} };
-			var->iden = iden;
+			LocalVarDataSPtr var{ new LocalVarData{ iden } };
 			m_FuncCtx->localVars.AddLocalVarDeclSPtr(m_ScopeNames, var);
 		}
 	}

@@ -65,10 +65,13 @@ namespace Noctis
 	struct OptType;
 	struct CompoundType;
 	struct FuncType;
+	class TypeRegistry;
 
 	struct Type
 	{
 		Type(TypeKind kind, TypeMod mod);
+
+		void CalculateSizeAlign(TypeRegistry& typeReg);
 
 		BuiltinType& AsBuiltin() { return *reinterpret_cast<BuiltinType*>(this); }
 		IdenType& AsIden() { return *reinterpret_cast<IdenType*>(this); }
@@ -83,6 +86,9 @@ namespace Noctis
 
 		TypeKind typeKind;
 		TypeMod mod;
+
+		u64 size;
+		u16 alignment;
 	};
 	using TypeSPtr = StdSharedPtr<Type>;
 
@@ -90,6 +96,9 @@ namespace Noctis
 	{
 		BuiltinType(TypeMod mod, BuiltinTypeKind builtin);
 
+		bool IsSigned() const;
+		bool IsFp() const;
+		
 		BuiltinTypeKind builtin;
 	};
 	
@@ -138,6 +147,7 @@ namespace Noctis
 		TupleType(TypeMod mod, const StdVector<TypeHandle>& subTypes);
 
 		StdVector<TypeHandle> subTypes;
+		StdVector<u64> offsets;
 	};
 
 	struct OptType : Type
@@ -176,6 +186,8 @@ namespace Noctis
 		bool CanPassTo(TypeHandle param, TypeHandle arg);
 		void SetIdenSym(QualNameSPtr qualName, SymbolWPtr sym);
 		void SetAliasType(TypeHandle alias, TypeHandle type);
+
+		void CalculateSizeAlign();
 
 		TypeHandle Builtin(TypeMod mod, BuiltinTypeKind builtin);
 		TypeHandle Iden(TypeMod mod, QualNameSPtr qualName);

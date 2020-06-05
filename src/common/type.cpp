@@ -1,5 +1,7 @@
 #include "type.hpp"
 
+
+#include "module/symbol.hpp"
 #include "qualname.hpp"
 #include "utils.hpp"
 
@@ -17,13 +19,135 @@ namespace Noctis
 	Type::Type(TypeKind kind, TypeMod mod)
 		: typeKind(kind)
 		, mod(mod)
+		, size(0)
+		, alignment(0)
 	{
+	}
+
+	void Type::CalculateSizeAlign(TypeRegistry& typeReg)
+	{
+		switch (typeKind)
+		{
+		case TypeKind::Builtin:
+		{
+			BuiltinType& builtin = AsBuiltin();
+			switch (builtin.builtin)
+			{
+			case BuiltinTypeKind::Bool:  size = alignment = 1;  break;
+			case BuiltinTypeKind::Char:  size = alignment = 4;  break;
+			case BuiltinTypeKind::I8:    size = alignment = 1;  break;
+			case BuiltinTypeKind::I16:   size = alignment = 2;  break;
+			case BuiltinTypeKind::I32:   size = alignment = 4;  break;
+			case BuiltinTypeKind::I64:   size = alignment = 8;  break;
+			case BuiltinTypeKind::I128:  size = alignment = 16; break;
+			case BuiltinTypeKind::ISize: size = alignment = 8;  break; // TODO: arch specific size
+			case BuiltinTypeKind::U8:    size = alignment = 1;  break;
+			case BuiltinTypeKind::U16:   size = alignment = 2;  break;
+			case BuiltinTypeKind::U32:   size = alignment = 3;  break;
+			case BuiltinTypeKind::U64:   size = alignment = 4;  break;
+			case BuiltinTypeKind::U128:  size = alignment = 16; break; 
+			case BuiltinTypeKind::USize: size = alignment = 8;  break; // TODO: arch specific size
+			case BuiltinTypeKind::F16:   size = alignment = 2;  break;
+			case BuiltinTypeKind::F32:   size = alignment = 4;  break;
+			case BuiltinTypeKind::F64:   size = alignment = 8;  break;
+			case BuiltinTypeKind::F128:  size = alignment = 16; break;
+			default: ;
+			}
+			
+			break;
+		}
+		case TypeKind::Iden:
+		{
+			IdenType& idenType = AsIden();
+			SymbolSPtr sym = idenType.sym.lock();
+			// TODO
+			
+			break;
+		}
+		case TypeKind::Ptr: size = alignment = 8; break; // TODO: arch specific size
+		case TypeKind::Ref: size = alignment = 8; break; // TODO: arch specific size
+		case TypeKind::Slice: size = alignment = 16; break; // TODO: arch specific size
+		case TypeKind::Array:
+		{
+			TypeSPtr subType = typeReg.GetType(AsArray().subType);
+			if (subType->size == 0)
+				subType->CalculateSizeAlign(typeReg);
+
+			alignment = subType->alignment;
+			size = subType->size * AsArray().size;
+
+			break;
+		}
+		case TypeKind::Tuple:
+		{
+			TupleType& tup = AsTuple();
+			
+			for (TypeHandle subHandle : AsTuple().subTypes)
+			{
+				TypeSPtr subType = typeReg.GetType(subHandle);
+				if (subType->size == 0)
+					subType->CalculateSizeAlign(typeReg);
+
+				if (alignment < subType->alignment)
+					alignment = subType->alignment;
+				
+				u64 alignOffset = (alignment + size) & (subType->alignment - 1);
+				size += alignOffset == 0 ? 0 : subType->alignment - alignOffset;
+				tup.offsets.push_back(size);
+				size += subType->size;
+			}
+			break;
+		}
+		case TypeKind::Opt:
+		{
+			TypeSPtr subType = typeReg.GetType(AsOpt().subType);
+			if (subType->size == 0)
+				subType->CalculateSizeAlign(typeReg);
+
+			alignment = subType->alignment;
+			size = subType->size + 1; // TODO: is this correct?
+			
+			break;
+		}
+		case TypeKind::Func: size = alignment = 8; break; // TODO: arch specific size
+		default: ;
+		}
 	}
 
 	BuiltinType::BuiltinType(TypeMod mod, BuiltinTypeKind builtin)
 		: Type(TypeKind::Builtin, mod)
 		, builtin(builtin)
 	{
+	}
+
+	bool BuiltinType::IsSigned() const
+	{
+		switch (builtin)
+		{
+		case BuiltinTypeKind::I8:
+		case BuiltinTypeKind::I16:
+		case BuiltinTypeKind::I32:
+		case BuiltinTypeKind::I64:
+		case BuiltinTypeKind::I128:
+		case BuiltinTypeKind::ISize:
+			return true;
+		default:
+			return false;
+		}
+	}
+
+	bool BuiltinType::IsFp() const
+	{
+		switch (builtin)
+		{
+		case BuiltinTypeKind::F16:
+		case BuiltinTypeKind::F32:
+		case BuiltinTypeKind::F64:
+		case BuiltinTypeKind::F128:
+			return true;
+		default:
+			return false;
+		}
 	}
 
 	IdenType::IdenType(TypeMod mod, QualNameSPtr qualName)
@@ -156,7 +280,9 @@ namespace Noctis
 		case TypeKind::Iden:
 		{
 			IdenType& iden = type->AsIden();
-			return mod + iden.qualName->ToString();
+			StdString idenName = iden.qualName->ToString();
+			idenName.erase(idenName.begin(), idenName.begin() + 2);
+			return mod + idenName;
 		}
 		case TypeKind::Ptr:
 		{
@@ -326,6 +452,15 @@ namespace Noctis
 	void TypeRegistry::SetAliasType(TypeHandle alias, TypeHandle type)
 	{
 		m_Types[alias] = m_Types[type];
+	}
+
+	void TypeRegistry::CalculateSizeAlign()
+	{
+		for (TypeSPtr type : m_Types)
+		{
+			if (!type->size)
+				type->CalculateSizeAlign(*this);
+		}
 	}
 
 	TypeHandle TypeRegistry::Builtin(TypeMod mod, BuiltinTypeKind builtin)
@@ -547,12 +682,12 @@ namespace Noctis
 		{
 			TypeHandle handle = array[u8(mod)];
 			TypeSPtr type = GetType(handle);
-			TupleType& tupType = type->AsTuple();
+			CompoundType& compType = type->AsCompound();
 
 			bool found = true;
 			for (usize i = 1; i < count; ++i)
 			{
-				if (!AreTypesEqual(subTypes[i], tupType.subTypes[i]))
+				if (!AreTypesEqual(subTypes[i], compType.subTypes[i]))
 				{
 					found = false;
 					break;
@@ -564,7 +699,7 @@ namespace Noctis
 		}
 
 		TypeHandle handle = TypeHandle(m_Types.size());
-		m_Types.emplace_back(new TupleType{ mod, subTypes });
+		m_Types.emplace_back(new CompoundType{ mod, subTypes });
 
 		subIt->second.push_back({});
 		subIt->second.back().fill(TypeHandle(-1));
@@ -576,9 +711,9 @@ namespace Noctis
 	TypeHandle TypeRegistry::Func(TypeMod mod, const StdVector<TypeHandle>& params, TypeHandle ret)
 	{
 		u64 count = u64(params.size());
-		auto it = m_CompoundMapping.find(count);
-		if (it == m_CompoundMapping.end())
-			it = m_CompoundMapping.try_emplace(count, StdUnorderedMap<u64, StdVector<StdArray<TypeHandle, m_ModCount>>>{}).first;
+		auto it = m_FuncMapping.find(count);
+		if (it == m_FuncMapping.end())
+			it = m_FuncMapping.try_emplace(count, StdUnorderedMap<u64, StdVector<StdArray<TypeHandle, m_ModCount>>>{}).first;
 
 		TypeHandle checkType = !params.empty() ? params[0] : ret;
 		auto subIt = it->second.find(checkType);

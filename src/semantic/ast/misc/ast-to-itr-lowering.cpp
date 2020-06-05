@@ -251,12 +251,14 @@ namespace Noctis
 		ITrAttribsSPtr attribs;
 		if (node.attribs)
 		{
+			Visit(*node.attribs);
 			attribs = PopAttribs();
 			attribs->astNode = node.attribs;
 		}
 		ITrGenDeclSPtr genDecl;
 		if (node.generics)
 		{
+			Visit(*node.generics);
 			genDecl = PopGenDecl();
 			genDecl->astNode = node.generics;
 			HandleGenerics(genDecl, node.ctx->qualName);
@@ -955,7 +957,7 @@ namespace Noctis
 	{
 		Walk(node);
 		ITrExprSPtr expr = PopExpr();
-		ITrStmtSPtr stmt = *reinterpret_cast<ITrStmtSPtr*>(expr.get());
+		ITrStmtSPtr stmt = *reinterpret_cast<ITrStmtSPtr*>(&expr);
 		node.itr = stmt;
 		m_Stmts.push(stmt);
 	}
@@ -1284,11 +1286,19 @@ namespace Noctis
 	{
 		Walk(node);
 
+		ITrExprSPtr defExpr;
+		if (node.defExpr)
+			defExpr = PopExpr();
+
 		StdVector<ITrArgSPtr> args = GetArgs(node.args);
 		ITrTypeSPtr type = PopType();
 		type->astNode = node.type;
-		
-		ITrExprSPtr expr{ new ITrAmbiguousAggrInit{ type, std::move(args) } };
+
+		ITrExprSPtr expr;
+		if (node.hasDefInit || defExpr)
+			expr.reset(new ITrStructInit{ type, std::move(args), node.hasDefInit, defExpr });
+		else
+			expr.reset(new ITrAmbiguousAggrInit{ type, std::move(args) });
 		node.itr = expr;
 		m_Exprs.push(expr);
 	}
@@ -1299,7 +1309,7 @@ namespace Noctis
 		
 		StdVector<ITrExprSPtr> exprs;
 		usize size = node.exprs.size();
-		exprs.reserve(size);
+		exprs.resize(size);
 		for (usize i = size; i > 0;)
 		{
 			--i;
@@ -2110,7 +2120,7 @@ namespace Noctis
 			StdVector<TypeHandle> subTypesHandles;
 			StdVector<ITrTypeSPtr> subTypes;
 			usize size = node.implTypes.size();
-			subTypesHandles.reserve(size);
+			subTypesHandles.resize(size);
 			subTypes.resize(size);
 			for (usize i = size; i > 0;)
 			{
@@ -2124,11 +2134,7 @@ namespace Noctis
 			TypeHandle handle = m_pCtx->typeReg.Compound(TypeMod::None, subTypesHandles);
 			ITrTypeSPtr interfaces{ new ITrType{ nullptr, handle, std::move(subTypes) } };
 
-			QualNameSPtr qualName = QualName::Create(node.ctx->qualName, iden);
-			handle = m_pCtx->typeReg.Iden(TypeMod::None, qualName);
-			ITrTypeSPtr type{ new ITrType{ nullptr, handle, {} } };
-
-			ITrGenBoundSPtr bound{ new ITrGenBound{ type, std::move(interfaces) } };
+			ITrGenTypeBoundSPtr bound{ new ITrGenTypeBound{ iden, std::move(interfaces) } };
 			node.itrBound = bound;
 			m_GenDecl->bounds.push_back(bound);
 		}
@@ -2160,10 +2166,11 @@ namespace Noctis
 		Walk(node);
 		ITrTypeSPtr boundType = PopType();
 		boundType->astNode = node.bound;
-		ITrTypeSPtr type = PopType();
-		type->astNode = node.type;
+		
+		AstIdentifierType& idenType = *reinterpret_cast<AstIdentifierType*>(node.type.get());
+		IdenSPtr typeIden = idenType.qualName->ctx->iden;
 
-		ITrGenBoundSPtr bound{ new ITrGenBound{ type, boundType } };
+		ITrGenTypeBoundSPtr bound{ new ITrGenTypeBound{ typeIden, boundType } };
 		node.itr = bound;
 		m_GenDecl->bounds.push_back(bound);
 	}
@@ -2211,9 +2218,10 @@ namespace Noctis
 		StdVector<ITrArgSPtr> args;
 		usize size = astArgs.size();
 		args.reserve(size);
-		for (AstArgSPtr astArg : astArgs)
+		for (usize i = astArgs.size(); i > 0; --i)
 		{
-			Walk(*astArg);
+			AstArgSPtr astArg = astArgs[i - 1];
+			
 			ITrExprSPtr expr = PopExpr();
 			expr->astNode = astArg->expr;
 
@@ -2224,11 +2232,14 @@ namespace Noctis
 			arg->astNode = astArg;
 			args.push_back(arg);
 		}
+		std::reverse(args.begin(), args.end());
 		return args;
 	}
 
 	void AstToITrLowering::HandleGenerics(ITrGenDeclSPtr genDecl, QualNameSPtr qualName)
 	{
+		StdVector<ITrGenTypeBoundSPtr>& bounds = genDecl->bounds;
+		
 		// Update generic type argument names
 		for (usize i = 0; i < genDecl->params.size(); ++i)
 		{
@@ -2275,24 +2286,27 @@ namespace Noctis
 		}
 	}
 
-	void AstToITrLowering::GetNamedReturns(ITrTypeSPtr& retType, StdVector<ITrStmtSPtr> stmts, StdPairVector<StdString, AstTypeSPtr>& astNamedRets)
+	void AstToITrLowering::GetNamedReturns(ITrTypeSPtr& retType, StdVector<ITrStmtSPtr> stmts, StdPairVector<StdVector<StdString>, AstTypeSPtr>& astNamedRets)
 	{
 		StdVector<TypeHandle> subTypesHandles;
 		StdVector<ITrTypeSPtr> subTypes;
 		StdVector<ITrExprSPtr> retSubExprs;
-		for (StdPair<StdString, AstTypeSPtr> namedRet : astNamedRets)
+		for (StdPair<StdVector<StdString>, AstTypeSPtr>& namedRet : astNamedRets)
 		{
 			AstVisitor::Visit(namedRet.second);
 			ITrTypeSPtr tmp = PopType();
 			tmp->astNode = namedRet.second;
 
-			subTypesHandles.push_back(tmp->handle);
-			subTypes.push_back(tmp);
+			for (StdString& name : namedRet.first)
+			{
+				subTypesHandles.push_back(tmp->handle);
+				subTypes.push_back(tmp);
 
-			IdenSPtr iden = Iden::Create(namedRet.first);
-			stmts.emplace_back(new ITrLocalVar{ nullptr,  { iden }, tmp, nullptr });
-			ITrQualNameSPtr itrQualName{ new ITrQualName{ QualName::Create(iden), nullptr, StdVector<ITrIdenSPtr>{} }};
-			retSubExprs.emplace_back(new ITrQualNameExpr{ itrQualName });
+				IdenSPtr iden = Iden::Create(name);
+				stmts.emplace_back(new ITrLocalVar{ nullptr,  { iden }, tmp, nullptr });
+				ITrQualNameSPtr itrQualName{ new ITrQualName{ QualName::Create(iden), nullptr, StdVector<ITrIdenSPtr>{} } };
+				retSubExprs.emplace_back(new ITrQualNameExpr{ itrQualName });
+			}
 		}
 
 		m_NamedRet = ITrExprSPtr{ new ITrTupleInit{ std::move(retSubExprs) } };

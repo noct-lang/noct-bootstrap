@@ -24,6 +24,7 @@ namespace Noctis
 		args::Group toolmodeGroup{ parser, "Toolmodes" };
 
 		args::Command buildCommand{ toolmodeGroup, "build", "Build command", std::bind(&Options::ParseBuild, this, std::placeholders::_1) };
+		args::Command interpretCommand{ toolmodeGroup, "interpret", "Interpret command", std::bind(&Options::ParseInterpret, this, std::placeholders::_1) };
 
 		args::HelpFlag help{ parser, "help", "Show help", { 'h', "help" } };
 		args::ValueFlag<u8> tabWidth{ parser, "tab-width", "Width of a tab (in spaces)", { "tab-width" }, 4 };
@@ -58,7 +59,6 @@ namespace Noctis
 	{
 		args::PositionalList<StdString> buildFiles{ parser, "File names", "File names" };
 		args::ValueFlag<StdString> moduleIdens{ parser, "Module name", "Module name if no module is defined in source", { "module-name" }, "main" };
-		args::ValueFlagList<StdString> modulePaths{ parser, "module paths", "Available module paths", { 'I' } };
 		args::Flag logTokens{ parser, "log tokens", "Log tokens", { "log-tokens" } };
 		args::Flag logParsedAst{ parser, "log parsed ast", "Log parsed ast", { "log-parsed-ast" } };
 		args::Flag logAst{ parser, "log ast", "Log ast", { "log-ast" } };
@@ -67,17 +67,22 @@ namespace Noctis
 		args::Flag noIL{ parser, "no IL", "Don't encode IL", {"no-il"} };
 		args::Flag optIL{ parser, "optional IL", "IL is not encoded in a module, but optionally linked", {"optional-il"} };
 
+		args::ValueFlagList<StdString> modulePaths{ parser, "module paths", "Available module paths", { 'I' } };
+
 
 		parser.Parse();
 
 		m_ToolMode = ToolMode::Build;
+
+		m_ModulePaths.assign(modulePaths.begin(), modulePaths.end());
 
 		StdString tempModuleIdens = moduleIdens.Get();
 		StdVector<StdString> splitTempModuleIdens = SplitString(tempModuleIdens, '.');
 		m_BuildOptions.moduleQualName = QualName::Create(splitTempModuleIdens);
 		
 		m_BuildOptions.buildFiles.assign(buildFiles.begin(), buildFiles.end());
-		m_BuildOptions.modulePaths.assign(modulePaths.begin(), modulePaths.end());
+		
+		
 		
 		m_BuildOptions.logTokens = logTokens.Get();
 		m_BuildOptions.logParsedAst = logParsedAst.Get();
@@ -86,5 +91,23 @@ namespace Noctis
 		m_BuildOptions.encodeIL = !noIL.Get();
 		m_BuildOptions.optIL = optIL.Get();
 		
+	}
+
+	void Options::ParseInterpret(args::Subparser& parser)
+	{
+		args::Positional<StdString> toInterpret{ parser, "Module", "Module to interpret" };
+
+		args::ValueFlagList<StdString> modulePaths{ parser, "module paths", "Available module paths", { 'I' } };
+
+
+		parser.Parse();
+
+		m_ToolMode = ToolMode::Interpret;
+
+		m_ModulePaths.assign(modulePaths.begin(), modulePaths.end());
+
+		StdString tempModuleIdens = toInterpret.Get();
+		StdVector<StdString> splitTempModuleIdens = SplitString(tempModuleIdens, '.');
+		m_InterpretOptions.moduleToInterpret = QualName::Create(splitTempModuleIdens);
 	}
 }

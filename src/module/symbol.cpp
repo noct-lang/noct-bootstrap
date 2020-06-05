@@ -12,6 +12,9 @@ namespace Noctis
 		, children(new SymbolSubTable{ pCtx })
 		, funcDefaultStart(u16(-1))
 		, type(TypeHandle(-1))
+		, size(0)
+		, aligment(0)
+		, offset(0)
 		, pCtx(pCtx)
 		, kind(kind)
 		, isImported(false)
@@ -44,8 +47,96 @@ namespace Noctis
 		return self.lock() == baseVariant.lock();
 	}
 
-	void Symbol::Log(u8 indent)
+	TypeHandle Symbol::SelfType()
 	{
+		switch (kind)
+		{
+		case SymbolKind::ValEnum:
+		case SymbolKind::AdtEnum:
+		case SymbolKind::Typedef:
+		case SymbolKind::Typealias:
+			return pCtx->typeReg.Iden(TypeMod::None, qualName);
+		case SymbolKind::ValEnumMember:
+		case SymbolKind::AdtEnumMember:
+			return pCtx->typeReg.Iden(TypeMod::None, qualName->Base());
+		default: return type;
+		}
+	}
+
+	void Symbol::CalculateSizeAlignOffset()
+	{
+		if (size != 0)
+			return;
+
+		switch (kind)
+		{
+		case SymbolKind::Struct:
+		{
+			children->Foreach([this](SymbolSPtr sym, QualNameSPtr) {
+				if (sym->qualName->Base() != qualName)
+					return;
+
+				sym->CalculateSizeAlignOffset();
+				sym->offset = sym->size;
+
+				if (aligment < sym->aligment)
+					aligment = sym->aligment;
+
+				u64 alignMask = sym->aligment - 1;
+				u16 alignOffset = u16(size & alignMask);
+				size += alignOffset == 0 ? 0 : sym->aligment - alignOffset;
+			});
+			break;
+		}
+		case SymbolKind::Union:
+		{
+			children->Foreach([this](SymbolSPtr sym, QualNameSPtr) {
+				if (sym->qualName->Base() != qualName)
+					return;
+
+				sym->CalculateSizeAlignOffset();
+				sym->offset = 0;
+
+				if (aligment < sym->aligment)
+					aligment = sym->aligment;
+				if (size < sym->size)
+					size = sym->size;
+			});
+			break;
+		}
+		case SymbolKind::ValEnum: break; // TODO
+		case SymbolKind::ValEnumMember: break; // TODO
+		case SymbolKind::AdtEnum: break; // TODO
+		case SymbolKind::AdtEnumMember: break; // TODO
+		case SymbolKind::MarkerInterface: break; // TODO
+		case SymbolKind::WeakInterface: break; // TODO
+		case SymbolKind::StrongInterface: break; // TODO
+		case SymbolKind::Typealias: break; // TODO
+		case SymbolKind::Typedef: break; // TODO
+		case SymbolKind::Func: break; // TODO
+		case SymbolKind::Method: break; // TODO
+		case SymbolKind::Closure: break; // TODO
+		case SymbolKind::Var:
+		{
+			TypeSPtr actType = pCtx->typeReg.GetType(type);
+			if (!actType->size)
+				actType->CalculateSizeAlign(pCtx->typeReg);
+			
+			size = actType->size;
+			aligment = actType->alignment;
+			break;
+		}
+		default: ;
+		}
+		
+		
+	}
+
+	void Symbol::Log(u8 indent, bool includeImports)
+	{
+		if (isImported && !includeImports)
+			return;
+		
 		StdString name = qualName ? qualName->ToString() : pCtx->typeReg.ToString(type);
 		StdStringView kindName;
 		bool isInterface = false;
@@ -86,14 +177,14 @@ namespace Noctis
 		for (u8 i = 0; i < indent; ++i)
 			g_Logger.Log(" |");
 		g_Logger.Log(" +(children)\n");
-		children->Log(indent + 1);
+		children->Log(indent + 1, includeImports);
 
 		if (!variants.empty())
 		{
 			printIndent(indent + 1);
 			g_Logger.Log("(variants)\n");
 			for (SymbolSPtr variant : variants)
-				variant->Log(indent + 2);
+				variant->Log(indent + 2, includeImports);
 		}
 
 		if (!impls.empty())
@@ -264,16 +355,16 @@ namespace Noctis
 		}
 	}
 
-	void SymbolSubTable::Log(u8 indent)
+	void SymbolSubTable::Log(u8 indent, bool includeImports)
 	{
-		m_SubTable->Log(indent);
+		m_SubTable->Log(indent, includeImports);
 		for (StdPair<QualNameSPtr, ScopedSymbolTableSPtr> pair : m_ImplSubtables)
 		{
 			for (u8 i = 1; i < indent; ++i)
 				g_Logger.Log(" |");
 			StdString implName = pair.first->ToString();
 			g_Logger.Log(" +(impl for '%s')\n", implName.c_str());
-			pair.second->Log(indent + 1);
+			pair.second->Log(indent + 1, includeImports);
 		}
 	}
 
@@ -325,6 +416,11 @@ namespace Noctis
 			scopeIdens.pop_back();
 		}
 		possibleQualNames.push_back(qualname);
+
+		for (QualNameSPtr baseName : m_ImportedModuleNames)
+		{
+			possibleQualNames.push_back(QualName::Create(baseName, idens));
+		}
 
 		for (QualNameSPtr possibleQualName : possibleQualNames)
 		{
@@ -398,6 +494,11 @@ namespace Noctis
 		}
 	}
 
+	void ModuleSymbolTable::AddImport(QualNameSPtr qualName)
+	{
+		m_ImportedModuleNames.push_back(qualName);
+	}
+
 	void ModuleSymbolTable::Foreach(const std::function<void(SymbolSPtr, QualNameSPtr)>& lambda)
 	{
 		m_ScopedTable->Foreach(lambda, nullptr);
@@ -408,14 +509,14 @@ namespace Noctis
 		}
 	}
 
-	void ModuleSymbolTable::Log()
+	void ModuleSymbolTable::Log(bool includeImports)
 	{
 		g_Logger.Log("(module sym-table)\n");
-		m_ScopedTable->Log(1);
+		m_ScopedTable->Log(1, includeImports);
 
 		for (StdPair<TypeSPtr, SymbolSPtr> pair : m_TypeSymbols)
 		{
-			pair.second->Log(1);
+			pair.second->Log(1, includeImports);
 		}
 
 		g_Logger.Flush();
@@ -441,8 +542,8 @@ namespace Noctis
 				auto funcsIt = m_Functions.find(name);
 				if (funcsIt == m_Functions.end())
 				{
-					m_Functions.try_emplace(name, StdUnorderedMap<StdString, SymbolSPtr>{});
-					m_Functions.begin()->second.try_emplace(funcName, sym);
+					funcsIt = m_Functions.try_emplace(name, StdUnorderedMap<StdString, SymbolSPtr>{}).first;
+					funcsIt->second.try_emplace(funcName, sym);
 					return true;
 				}
 				else
@@ -531,6 +632,8 @@ namespace Noctis
 			if (subIt != funcIt->second.end())
 			{
 				SymbolSPtr variant = subIt->second->GetVariant(iden);
+				if (idens.empty())
+					return variant;
 				return variant->children->Find(idens, interfaceName);
 			}
 		}
@@ -674,18 +777,18 @@ namespace Noctis
 		}
 	}
 
-	void ScopedSymbolTable::Log(u8 indent)
+	void ScopedSymbolTable::Log(u8 indent, bool includeImports)
 	{
 		for (StdPair<StdString, SymbolSPtr> pair : m_Symbols)
 		{
-			pair.second->Log(indent + 1);
+			pair.second->Log(indent + 1, includeImports);
 		}
 
 		for (StdPair<const StdString, StdUnorderedMap<StdString, SymbolSPtr>>& basePair : m_Functions)
 		{
 			for (StdPair<const StdString, SymbolSPtr>& pair : basePair.second)
 			{
-				pair.second->Log(indent + 1);
+				pair.second->Log(indent + 1, includeImports);
 			}
 		}
 
@@ -694,7 +797,7 @@ namespace Noctis
 			for (u8 i = 1; i < indent; ++i)
 				g_Logger.Log(" |");
 			g_Logger.Log(" +(sub-table '%s')\n", pair.first.c_str());
-			pair.second->Log(indent + 1);
+			pair.second->Log(indent + 1, includeImports);
 		}
 	}
 }

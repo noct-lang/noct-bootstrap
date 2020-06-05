@@ -4,12 +4,15 @@
 
 namespace Noctis
 {
+	struct ILModule;
 	struct ILVar;
 
 	class ILPrinter : public ILVisitor
 	{
 	public:
 		ILPrinter(Context* pCtx);
+
+		void Print(ILModule& mod);
 
 		void Visit(ILFuncDef& node) override;
 		void Visit(ILBlock& node) override;

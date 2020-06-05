@@ -24,6 +24,8 @@ namespace Noctis
 		void Visit(ITrTypealias& node) override;
 		void Visit(ITrTypedef& node) override;
 		void Visit(ITrFunc& node) override;
+
+		void Visit(ITrVar& node) override;
 		
 
 		void HandleGenerics(QualNameSPtr baseQualName, ITrGenDeclSPtr decl);

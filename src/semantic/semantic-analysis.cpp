@@ -7,7 +7,6 @@
 #include "common/errorsystem.hpp"
 #include "il/il-gen.hpp"
 #include "itr/attribute/simple-attribute-pass.hpp"
-#include "itr/comptime/comptime-resolution.hpp"
 #include "itr/misc/function-processing.hpp"
 #include "itr/misc/misc-passes.hpp"
 #include "itr/types/type-collection.hpp"
@@ -57,16 +56,16 @@ namespace Noctis
 				if (!mod->isDecoded)
 				{
 					decode.Decode(*mod);
-					mod->isDecoded = false;
 				}
 				
 				m_pCtx->modules.try_emplace(modQualName, mod);
-
+				m_pCtx->activeModule->imports.try_emplace(modQualName, mod);
 				m_pCtx->activeModule->symTable.Merge(mod->symTable);
+
+				// TODO: only when not a static import
+				m_pCtx->activeModule->symTable.AddImport(modQualName);
 			}
 		}
-
-		// TODO: Load modules
 
 		RunPass<DeclMacroContextGen>();
 		RunPass<DeclMacroExpansion>();
@@ -108,6 +107,7 @@ namespace Noctis
 		}
 		
 		m_pCtx->activeModule->opTable.Collect(m_pCtx->activeModule->symTable);
+		m_pCtx->typeReg.CalculateSizeAlign();
 		
 		RunPass<LocalVarCollection>();
 		

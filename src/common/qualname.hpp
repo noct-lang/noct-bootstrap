@@ -16,6 +16,8 @@ namespace Noctis
 		bool isSpecialized;
 		IdenSPtr iden;
 		TypeHandle type;
+
+		StdVector<TypeHandle> typeConstraints;
 	};
 	
 	class Iden
@@ -31,8 +33,8 @@ namespace Noctis
 		StdVector<IdenGeneric>& Generics() { return m_Generics; }
 		StdVector<StdString>& ParamNames() { return m_ParamNames; }
 
-		StdString ToFuncSymName();
-		StdString ToString();
+		StdString ToFuncSymName() const;
+		StdString ToString() const;
 
 	private:
 		Iden(StdString name, u64 numGenerics);
@@ -75,13 +77,15 @@ namespace Noctis
 		static QualNameSPtr Create(const StdVector<IdenSPtr>& idens);
 		static QualNameSPtr Create(QualNameSPtr first, const StdVector<IdenSPtr>& idens);
 
-		StdString ToString();
+		StdString ToString() const;
 		StdVector<IdenSPtr> AllIdens();
 		QualNameSPtr GetSubName(QualNameSPtr base);
 		usize Depth();
 
 		IdenSPtr Iden() { return m_Iden; }
+		const IdenSPtr Iden() const { return m_Iden; }
 		QualNameSPtr Base() { return m_Base; }
+		const QualNameSPtr Base() const { return m_Base; }
 		TypeDisambiguationSPtr Disambiguation() { return m_Disambiguation; }
 		
 	private:

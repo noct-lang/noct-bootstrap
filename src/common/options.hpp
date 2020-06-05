@@ -14,6 +14,7 @@ namespace Noctis
 	{
 		None,
 		Build,
+		Interpret,
 		Run
 	};
 
@@ -22,8 +23,6 @@ namespace Noctis
 		QualNameSPtr moduleQualName;
 		StdVector<StdString> buildFiles;
 
-		StdVector<StdString> modulePaths;
-		
 		bool logTokens : 1;
 		bool logParsedAst : 1;
 		bool logAst : 1;
@@ -32,6 +31,11 @@ namespace Noctis
 
 		bool encodeIL : 1;
 		bool optIL : 1;
+	};
+
+	struct InterpretOptions
+	{
+		QualNameSPtr moduleToInterpret;
 	};
 	
 	class Options
@@ -43,17 +47,23 @@ namespace Noctis
 
 		ToolMode Mode() const { return m_ToolMode; }
 		u8 TabWidth() const { return m_TabWidth; }
+		const StdVector<StdString>& ModulePaths() const { return m_ModulePaths; }
 
 		const BuildOptions& GetBuildOptions() const { return m_BuildOptions; }
+		const InterpretOptions& GetInterpretOptions() const { return m_InterpretOptions; }
 		
 	private:
 
 		void ParseBuild(args::Subparser& parser);
+		void ParseInterpret(args::Subparser& parser);
 
 		ToolMode m_ToolMode;
 		u8 m_TabWidth;
 
+		StdVector<StdString> m_ModulePaths;
+
 		BuildOptions m_BuildOptions;
+		InterpretOptions m_InterpretOptions;
 	};
 	
 }

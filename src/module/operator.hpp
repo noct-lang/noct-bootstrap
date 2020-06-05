@@ -81,6 +81,10 @@ namespace Noctis
 		BinAndAssign,
 		NullCoalesceAssign,
 
+		// Cast
+		Cast,
+		TryCast,
+
 		// Special
 		Count,
 		Invalid = u8(-1)
@@ -102,7 +106,7 @@ namespace Noctis
 		TypeHandle result = TypeHandle(-1);
 
 		SymbolSPtr sym;
-		bool isBuiltin;
+		bool isBuiltin = false;
 	};
 	
 	class OperatorTable
@@ -120,6 +124,8 @@ namespace Noctis
 
 		void HandleBinaryOp(OperatorKind kind, SymbolSPtr impl, SymbolSPtr interfaceSym);
 		void HandleUnaryOp(OperatorKind kind, SymbolSPtr impl, SymbolSPtr interfaceSym);
+		void HandleFromOp(bool isTry, SymbolSPtr impl, SymbolSPtr interfaceSym);
+		void HandleToOp(bool isTry, SymbolSPtr impl, SymbolSPtr interfaceSym);
 		
 		QualNameSPtr GetOpInterfaceQualName(OperatorKind kind);
 

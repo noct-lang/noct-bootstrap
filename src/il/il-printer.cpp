@@ -13,6 +13,15 @@ namespace Noctis
 	{
 	}
 
+	void ILPrinter::Print(ILModule& mod)
+	{
+		for (ILFuncDefSPtr funcDef : mod.funcs)
+		{
+			Visit(*funcDef);
+		}
+		g_Logger.Flush();
+	}
+
 	void ILPrinter::Visit(ILFuncDef& node)
 	{
 		g_Logger.Log("func %s (", node.mangleName.c_str());

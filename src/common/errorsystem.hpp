@@ -35,6 +35,15 @@ namespace Noctis
 			LogError(span.filePath, span.line, span.column, text);
 		}
 
+		// MultiSpan
+		template<typename ...Args>
+		void Error(const MultiSpan& span, StdStringView format, const Args&... args)
+		{
+			StdString text = Format(format, args...);
+			const Span& tmp = span.start;
+			LogError(tmp.filePath, tmp.line, tmp.column, text);
+		}
+
 		void SetCurrentFile(const StdString& file);
 		
 	private:

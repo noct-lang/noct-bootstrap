@@ -99,17 +99,17 @@ namespace Noctis
 		return iden;
 	}
 
-	StdString Iden::ToFuncSymName()
+	StdString Iden::ToFuncSymName() const
 	{
 		StdString str = m_Name;
-		for (StdString& paramName : m_ParamNames)
+		for (const StdString& paramName : m_ParamNames)
 		{
 			str += "__" + paramName;
 		}
 		return str;
 	}
 
-	StdString Iden::ToString()
+	StdString Iden::ToString() const
 	{
 		StdString str = m_Name;
 
@@ -121,7 +121,7 @@ namespace Noctis
 				if (i != 0)
 					str += ',';
 				
-				IdenGeneric& generic = m_Generics[i];
+				const IdenGeneric& generic = m_Generics[i];
 				if (generic.isType)
 				{
 					// TODO
@@ -263,9 +263,9 @@ namespace Noctis
 		return tmp;
 	}
 
-	StdString QualName::ToString()
+	StdString QualName::ToString() const
 	{
-		QualName* qualName = this;
+		const QualName* qualName = this;
 		StdString name;
 		do
 		{
