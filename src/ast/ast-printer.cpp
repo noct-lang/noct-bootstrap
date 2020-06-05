@@ -301,11 +301,15 @@ namespace Noctis
 			++m_Indent;
 			if (node.retType)
 				AstVisitor::Visit(node.retType);
-			for (StdPair<StdString, AstTypeSPtr>& namedRet : node.namedRet)
+			for (StdPair<StdVector<StdString>, AstTypeSPtr>& namedRet : node.namedRet)
 			{
 				PrintIndent();
-				g_Logger.Log("(named-return '%s')\n", namedRet.first.c_str());
+				g_Logger.Log("(named-return)\n");
 				++m_Indent;
+				for (StdString& name : namedRet.first)
+				{
+					g_Logger.Log("(name '%s')\n", name.c_str());
+				}
 				AstVisitor::Visit(namedRet.second);
 				--m_Indent;
 			}
@@ -365,11 +369,15 @@ namespace Noctis
 			++m_Indent;
 			if (node.retType)
 				AstVisitor::Visit(node.retType);
-			for (StdPair<StdString, AstTypeSPtr>& namedRet : node.namedRet)
+			for (StdPair<StdVector<StdString>, AstTypeSPtr>& namedRet : node.namedRet)
 			{
 				PrintIndent();
-				g_Logger.Log("(named-return '%s')\n", namedRet.first.c_str());
+				g_Logger.Log("(named-return)\n");
 				++m_Indent;
+				for (StdString& name : namedRet.first)
+				{
+					g_Logger.Log("(name '%s')\n", name.c_str());
+				}
 				AstVisitor::Visit(namedRet.second);
 				--m_Indent;
 			}

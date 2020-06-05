@@ -1,5 +1,4 @@
 #include "ast.hpp"
-#include "ast-visitor.hpp"
 #include "common/logger.hpp"
 #include "tokens/token.hpp"
 
@@ -252,7 +251,7 @@ namespace Noctis
 
 	AstFuncDecl::AstFuncDecl(AstAttribsSPtr attribs, u64 startIdx, StdString&& iden, AstGenericDeclSPtr generics,
 		StdVector<AstParamSPtr>&& params, bool throws, AstTypeSPtr errorType, AstTypeSPtr retType,
-		StdPairVector<StdString, AstTypeSPtr>&& namedRet, AstGenericWhereClauseSPtr whereClause,
+		StdPairVector<StdVector<StdString>, AstTypeSPtr>&& namedRet, AstGenericWhereClauseSPtr whereClause,
 		StdVector<AstStmtSPtr>&& stmts, u64 endIdx)
 		: AstDecl(AstDeclKind::Func, attribs ? attribs->ctx->startIdx : startIdx, endIdx)
 		, attribs(attribs)
@@ -270,7 +269,7 @@ namespace Noctis
 
 	AstMethodDecl::AstMethodDecl(AstAttribsSPtr attribs, u64 startIdx, AstMethodReceiverKind rec, StdString&& iden,
 		AstGenericDeclSPtr generics, StdVector<AstParamSPtr>&& params, bool throws, AstTypeSPtr errorType, AstTypeSPtr retType,
-		StdPairVector<StdString, AstTypeSPtr>&& namedRet, AstGenericWhereClauseSPtr whereClause,
+		StdPairVector<StdVector<StdString>, AstTypeSPtr>&& namedRet, AstGenericWhereClauseSPtr whereClause,
 	    StdVector<AstStmtSPtr>&& stmts, u64 endIdx)
 		: AstDecl(AstDeclKind::Method, attribs ? attribs->ctx->startIdx : startIdx, endIdx)
 		, attribs(attribs)
@@ -587,10 +586,13 @@ namespace Noctis
 	{
 	}
 
-	AstAggrInitExpr::AstAggrInitExpr(u64 startIdx, AstTypeSPtr type, StdVector<AstArgSPtr>&& args, u64 rBraceTokIdx)
-		: AstExpr(AstExprKind::AggrInit, startIdx, rBraceTokIdx)
+	AstAggrInitExpr::AstAggrInitExpr(u64 startIdx, AstTypeSPtr type, StdVector<AstArgSPtr>&& args, bool hasDefInit,
+		AstExprSPtr defExpr, u64 endIdx)
+		: AstExpr(AstExprKind::AggrInit, startIdx, endIdx)
 		, type(type)
 		, args(std::move(args))
+		, defExpr(defExpr)
+		, hasDefInit(hasDefInit)
 	{
 	}
 

@@ -17,7 +17,7 @@ namespace Noctis
 	enum class AstStmtKind : u8
 	{
 		Decl,
-		Import,
+		Import, 
 		Block,
 		If,
 		Loop,
@@ -174,7 +174,7 @@ namespace Noctis
 	FWDECL_STRUCT_WPTR(ITrType);
 	FWDECL_STRUCT_WPTR(ITrPattern);
 	FWDECL_STRUCT_WPTR(ITrGenParam);
-	FWDECL_STRUCT_WPTR(ITrGenBound);
+	FWDECL_STRUCT_WPTR(ITrGenTypeBound);
 	
 	struct AstStmt
 	{
@@ -449,7 +449,7 @@ namespace Noctis
 		AstFuncDecl(AstAttribsSPtr attribs, u64 startIdx, StdString&& iden,
 			AstGenericDeclSPtr generics, StdVector<AstParamSPtr>&& params, bool thorws,
 			AstTypeSPtr errorType, AstTypeSPtr retType,
-			StdPairVector<StdString, AstTypeSPtr>&& namedRet, AstGenericWhereClauseSPtr whereClause,
+			StdPairVector<StdVector<StdString>, AstTypeSPtr>&& namedRet, AstGenericWhereClauseSPtr whereClause,
 			StdVector<AstStmtSPtr>&& stmts, u64 endIdx);
 
 		AstAttribsSPtr attribs;
@@ -459,7 +459,7 @@ namespace Noctis
 		bool throws;
 		AstTypeSPtr errorType;
 		AstTypeSPtr retType;
-		StdPairVector<StdString, AstTypeSPtr> namedRet;
+		StdPairVector<StdVector<StdString>, AstTypeSPtr> namedRet;
 		AstGenericWhereClauseSPtr whereClause;
 		StdVector<AstStmtSPtr> stmts;
 	};
@@ -477,7 +477,7 @@ namespace Noctis
 		AstMethodDecl(AstAttribsSPtr attribs, u64 startIdx, AstMethodReceiverKind rec,
 			StdString&& iden, AstGenericDeclSPtr generics, StdVector<AstParamSPtr>&& params, 
 			bool throws, AstTypeSPtr errorType, AstTypeSPtr retType, 
-			StdPairVector<StdString, AstTypeSPtr>&& namedRet, AstGenericWhereClauseSPtr whereClause,
+			StdPairVector<StdVector<StdString>, AstTypeSPtr>&& namedRet, AstGenericWhereClauseSPtr whereClause,
 			StdVector<AstStmtSPtr>&& stmts, u64 endIdx);
 
 		AstAttribsSPtr attribs;
@@ -488,7 +488,7 @@ namespace Noctis
 		bool throws;
 		AstTypeSPtr errorType;
 		AstTypeSPtr retType;
-		StdPairVector<StdString, AstTypeSPtr> namedRet;
+		StdPairVector<StdVector<StdString>, AstTypeSPtr> namedRet;
 		AstGenericWhereClauseSPtr whereClause;
 		StdVector<AstStmtSPtr> stmts;
 	};
@@ -841,10 +841,12 @@ namespace Noctis
 	// Can be: struct, union, ADT enum member
 	struct AstAggrInitExpr : public AstExpr
 	{
-		AstAggrInitExpr(u64 startIdx, AstTypeSPtr type, StdVector<AstArgSPtr>&& args, u64 endIdx);
+		AstAggrInitExpr(u64 startIdx, AstTypeSPtr type, StdVector<AstArgSPtr>&& args, bool hasDefInit, AstExprSPtr defExpr, u64 endIdx);
 
 		AstTypeSPtr type;
 		StdVector<AstArgSPtr> args;
+		AstExprSPtr defExpr;
+		bool hasDefInit;
 	};
 
 	struct AstTupleInitExpr : public AstExpr
@@ -1222,7 +1224,7 @@ namespace Noctis
 		AstContextPtr ctx;
 
 		ITrGenParamWPtr itr;
-		ITrGenBoundWPtr itrBound;
+		ITrGenTypeBoundWPtr itrBound;
 	};
 
 	struct AstGenericValueParam
@@ -1245,7 +1247,7 @@ namespace Noctis
 		AstTypeSPtr bound;
 		AstContextPtr ctx;
 
-		ITrGenBoundWPtr itr;
+		ITrGenTypeBoundWPtr itr;
 	};
 	using AstGenericTypeBoundSPtr = StdSharedPtr<AstGenericTypeBound>;
 	

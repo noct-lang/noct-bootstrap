@@ -705,7 +705,7 @@ namespace Noctis
 		case AstExprKind::TupleAccess: Visit(*static_cast<AstTupleAccessExpr*>(node.get())); break;
 		case AstExprKind::Literal: Visit(*static_cast<AstLiteralExpr*>(node.get())); break;
 		case AstExprKind::AggrInit: Visit(*static_cast<AstAggrInitExpr*>(node.get())); break;
-		case AstExprKind::TupleInit: Visit(*static_cast<AstTupleAccessExpr*>(node.get())); break;
+		case AstExprKind::TupleInit: Visit(*static_cast<AstTupleInitExpr*>(node.get())); break;
 		case AstExprKind::ArrayInit: Visit(*static_cast<AstArrayInitExpr*>(node.get())); break;
 		case AstExprKind::Cast: Visit(*static_cast<AstCastExpr*>(node.get())); break;
 		case AstExprKind::Transmute: Visit(*static_cast<AstTransmuteExpr*>(node.get())); break;
@@ -953,7 +953,7 @@ namespace Noctis
 			Visit(node.errorType);
 		if (node.retType)
 			Visit(node.retType);
-		for (StdPair<StdString, AstTypeSPtr>& namedRet : node.namedRet)
+		for (StdPair<StdVector<StdString>, AstTypeSPtr>& namedRet : node.namedRet)
 		{
 			Visit(namedRet.second);
 		}
@@ -979,7 +979,7 @@ namespace Noctis
 			Visit(node.errorType);
 		if (node.retType)
 			Visit(node.retType);
-		for (StdPair<StdString, AstTypeSPtr>& namedRet : node.namedRet)
+		for (StdPair<StdVector<StdString>, AstTypeSPtr>& namedRet : node.namedRet)
 		{
 			Visit(namedRet.second);
 		}
@@ -1269,10 +1269,13 @@ namespace Noctis
 
 	void AstVisitor::Walk(AstAggrInitExpr& node)
 	{
+		Visit(node.type);
 		for (AstArgSPtr arg : node.args)
 		{
 			Visit(*arg);
 		}
+		if (node.defExpr)
+			Visit(node.defExpr);
 	}
 
 	void AstVisitor::Walk(AstTupleInitExpr& node)

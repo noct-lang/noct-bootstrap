@@ -1270,7 +1270,7 @@ namespace Noctis
 		}
 		else
 		{
-			val = u32(m_Content[m_Index]);
+			val = u32(m_Content[m_Index + 1]);
 		}
 
 		m_Index += charSize + 1;

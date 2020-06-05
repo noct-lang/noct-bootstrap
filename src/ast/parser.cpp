@@ -431,22 +431,27 @@ namespace Noctis
 		}
 		
 		AstTypeSPtr retType;
-		StdPairVector<StdString, AstTypeSPtr> namedRets;
+		StdPairVector<StdVector<StdString>, AstTypeSPtr> namedRets;
 		if (TryEatToken(TokenType::Arrow))
 		{
-			if (PeekToken(2).Type() == TokenType::Colon)
+			if (PeekToken().Type() == TokenType::LBrace)
 			{
-				EatToken(TokenType::LParen);
+				EatToken(TokenType::LBrace);
 				do
 				{
-					StdString retIden = EatToken(TokenType::Iden).Text();
+					StdVector<StdString> retNames;
+					do
+					{
+						retNames.push_back(ParseIden());
+					}
+					while (TryEatToken(TokenType::Comma));
 					EatToken(TokenType::Colon);
 					AstTypeSPtr type = ParseType();
-					namedRets.push_back(std::pair{ std::move(retIden), type });
+					namedRets.push_back(std::pair{ std::move(retNames), type });
 				}
 				while (TryEatToken(TokenType::Comma));
 				
-				EatToken(TokenType::RParen);
+				EatToken(TokenType::RBrace);
 			}
 			else
 			{	
@@ -1426,10 +1431,24 @@ namespace Noctis
 	{
 		AstTypeSPtr type = AstTypeSPtr{ new AstIdentifierType{ nullptr, qualName->qualName } };
 		EatToken(TokenType::LBrace);
-		StdVector<AstArgSPtr> args = ParseArgs();
-		EatToken(TokenType::RParen);
+		StdVector<AstArgSPtr> args;
+		do
+		{
+			args.push_back(ParseArg());
+		} while (PeekToken(1).Type() != TokenType::DotDot && TryEatToken(TokenType::Comma));
+
+		bool hasDefInit = false;
+		AstExprSPtr defExpr;
+		if (TryEatToken(TokenType::Comma))
+		{
+			EatToken(TokenType::DotDot);
+			hasDefInit = PeekToken().Type() == TokenType::RBrace;
+			if (!hasDefInit)
+				defExpr = ParseExpression();
+		}
+		
 		u64 endIdx = EatToken(TokenType::RBrace).Idx();
-		return AstExprSPtr{ new AstAggrInitExpr{ qualName->ctx->startIdx, type, std::move(args), endIdx } };
+		return AstExprSPtr{ new AstAggrInitExpr{ qualName->ctx->startIdx, type, std::move(args), hasDefInit, defExpr, endIdx } };
 	}
 
 	AstExprSPtr Parser::ParseArrayInitExpr()
@@ -2734,6 +2753,7 @@ namespace Noctis
 			Token& tok = EatToken();
 			startIdx = tok.Idx();
 			iden = tok.Text();
+			EatToken(TokenType::Colon);
 			expr = ParseExpression();
 		}
 		else
