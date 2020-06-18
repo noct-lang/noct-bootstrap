@@ -1141,7 +1141,7 @@ namespace Noctis
 			{
 				if (m_Index + 1 < size)
 				{
-					usize end = m_Content.find_first_of(" \t\r\n", m_Index);
+					usize end = m_Content.find_first_not_of("0123456789", m_Index + 1);
 					StdStringView value = m_Content.substr(m_Index + 1, end - m_Index - 1);
 
 					if (value == "8")
@@ -1178,7 +1178,7 @@ namespace Noctis
 			{
 				if (m_Index + 1 < size)
 				{
-					usize end = m_Content.find_first_of(" \t\r\n", m_Index);
+					usize end = m_Content.find_first_not_of("0123456789", m_Index+ 1);
 					StdStringView value = m_Content.substr(m_Index + 1, end - m_Index - 1);
 
 					if (value == "8")
@@ -1215,7 +1215,7 @@ namespace Noctis
 			{
 				if (m_Index + 1 < size)
 				{
-					usize end = m_Content.find_first_of(" \t\r\n", m_Index);
+					usize end = m_Content.find_first_not_of("0123456789", m_Index + 1);
 					StdStringView value = m_Content.substr(m_Index + 1, end - m_Index - 1);
 
 					if (value == "16")
