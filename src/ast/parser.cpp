@@ -256,6 +256,11 @@ namespace Noctis
 					}
 					adtMembers.push_back(std::pair{ memberIden, type });
 				}
+				else
+				{
+					valueMembers.push_back(std::pair{ memberIden, nullptr });
+					adtMembers.push_back(std::pair{ memberIden, nullptr });
+				}
 			}
 			while (TryEatToken(TokenType::Comma) && PeekToken().Type() != TokenType::RBrace);
 		}
