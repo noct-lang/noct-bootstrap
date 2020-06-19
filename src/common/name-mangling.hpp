@@ -16,6 +16,7 @@ namespace Noctis::NameMangling
 
 	StdString Mangle(Context* pCtx, QualNameSPtr qualName);
 	StdString Mangle(Context* pCtx, IdenSPtr iden);
+	StdString MangleFuncIden(Context* pCtx, IdenSPtr iden);
 
 	StdString Mangle(Context* pCtx, TypeHandle type);
 	StdString Mangle(Context* pCtx, TypeSPtr type);

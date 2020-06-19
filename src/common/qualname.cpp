@@ -46,6 +46,7 @@ namespace Noctis
 		}
 
 		IdenSPtr iden{ new Iden{ s_SearchString, numGenerics } };
+		iden->m_ParamNames = paramNames;
 		subIt->second.push_back(iden);
 		return iden;
 	}
@@ -95,6 +96,60 @@ namespace Noctis
 		}
 
 		IdenSPtr iden{ new Iden{ s_SearchString, generics } };
+		subIt->second.push_back(iden);
+		return iden;
+	}
+
+	IdenSPtr Iden::Create(StdStringView name, const StdVector<IdenGeneric>& generics, TypeRegistry& typeReg,
+		const StdVector<StdString>& paramNames)
+	{
+		if (generics.empty())
+			return Create(name, 0, paramNames);
+
+		// Use static string to as key, to try to decrease allocations
+		s_SearchString.assign(name);
+		auto it = s_Idens.find(s_SearchString);
+		if (it == s_Idens.end())
+			it = s_Idens.try_emplace(s_SearchString, StdUnorderedMap<u64, StdVector<IdenSPtr>>{}).first;
+
+		u64 numGenerics = u64(generics.size());
+
+		auto subIt = it->second.find(numGenerics);
+		if (subIt == it->second.end())
+			subIt = it->second.try_emplace(0, StdVector<IdenSPtr>{}).first;
+
+		for (IdenSPtr iden : subIt->second)
+		{
+			bool found = true;
+			StdVector<IdenGeneric>& idenGens = iden->Generics();
+			for (u64 i = 0; i < numGenerics; ++i)
+			{
+				if (idenGens[i].isSpecialized || generics[i].isSpecialized)
+				{
+					if (idenGens[i].isType != generics[i].isType ||
+						!typeReg.AreTypesEqual(idenGens[i].type, generics[i].type))
+					{
+						found = false;
+						break;
+					}
+				}
+
+				if (!idenGens[i].isType)
+				{
+					// TODO: Value
+
+				}
+
+				StdVector<StdString>& idenParamNames = iden->ParamNames();
+				found &= paramNames == idenParamNames;
+			}
+
+			if (found)
+				return iden;
+		}
+
+		IdenSPtr iden{ new Iden{ s_SearchString, generics } };
+		iden->m_ParamNames = paramNames;
 		subIt->second.push_back(iden);
 		return iden;
 	}

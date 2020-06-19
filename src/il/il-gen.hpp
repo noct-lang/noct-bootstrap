@@ -47,7 +47,6 @@ namespace Noctis
 		
 		void Visit(ITrFuncCall& node) override;
 		
-		//void Visit(ITrAdtTupleEnumInit& node) override;
 		
 		void Visit(ITrMemberAccess& node) override;
 		void Visit(ITrTupleAccess& node) override;
@@ -57,11 +56,11 @@ namespace Noctis
 		void Visit(ITrStructInit& node) override;
 		void Visit(ITrUnionInit& node) override;
 		
-		//void Visit(ITrAdtAggrEnumInit& node) override;
+		void Visit(ITrAdtTupleEnumInit& node) override;
+		void Visit(ITrAdtAggrEnumInit& node) override;
 		
 		void Visit(ITrTupleInit& node) override;
-		
-		//void Visit(ITrArrayInit& node) override;
+		void Visit(ITrArrayInit& node) override;
 		
 		void Visit(ITrCast& node) override;
 		

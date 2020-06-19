@@ -203,10 +203,10 @@ namespace Noctis
 	{
 	}
 
-	ILUnionInit::ILUnionInit(ILVar dst, const StdVector<ILVar>& args)
+	ILUnionInit::ILUnionInit(ILVar dst, ILVar arg)
 		: ILElem(ILKind::UnionInit)
 		, dst(std::move(dst))
-		, args(args)
+		, arg(std::move(arg))
 	{
 	}
 

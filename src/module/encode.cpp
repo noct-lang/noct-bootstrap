@@ -210,6 +210,15 @@ namespace Noctis
 			{
 			case SymbolKind::ValEnumMember:
 			case SymbolKind::AdtEnumMember:
+			{
+				TypeHandle type = sym->type;
+				if (type == TypeHandle(-1))
+					type = m_pCtx->typeReg.Iden(TypeMod::None, sym->qualName->Base());
+
+				const StdString& mangledType = GetMangledType(type);
+				WriteName(m_SymSection, mangledType);
+				break;
+			}
 			case SymbolKind::Typedef:
 			case SymbolKind::Func:
 			case SymbolKind::Method:

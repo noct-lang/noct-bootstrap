@@ -147,5 +147,7 @@ namespace Noctis
 		QualNameSPtr m_CurScope;
 		StdString m_FileNameHash;
 		AstTree* m_pTree;
+
+		StdString m_InlinePrefix;
 	};
 }

@@ -58,7 +58,7 @@ namespace Noctis
 			return pCtx->typeReg.Iden(TypeMod::None, qualName);
 		case SymbolKind::ValEnumMember:
 		case SymbolKind::AdtEnumMember:
-			return pCtx->typeReg.Iden(TypeMod::None, qualName->Base());
+			return pCtx->typeReg.Iden(TypeMod::None, qualName/*->Base()*/);
 		default: return type;
 		}
 	}
@@ -192,6 +192,9 @@ namespace Noctis
 		{
 			for (StdPair<SymbolSPtr, bool>& pair : impls)
 			{
+				if (pair.second)
+					continue;
+				
 				printIndent(indent + 1);
 				SymbolSPtr impl = pair.first;
 				StdString tmp = impl->kind == SymbolKind::ImplType ? pCtx->typeReg.ToString(impl->type) : impl->qualName->ToString();
@@ -628,8 +631,17 @@ namespace Noctis
 		auto funcIt = m_Functions.find(name);
 		if (funcIt != m_Functions.end())
 		{
-			StdString funcStr = iden->ToFuncSymName();
-			auto subIt = funcIt->second.find(funcStr);
+			StdUnorderedMap<StdString, SymbolSPtr>::iterator subIt;
+			if (iden->ParamNames().empty() && funcIt->second.size() == 1)
+			{
+				subIt = funcIt->second.begin();
+			}
+			else
+			{
+				StdString funcStr = iden->ToFuncSymName();
+				subIt = funcIt->second.find(funcStr);
+			}
+			
 			if (subIt != funcIt->second.end())
 			{
 				SymbolSPtr variant = subIt->second->GetVariant(iden);

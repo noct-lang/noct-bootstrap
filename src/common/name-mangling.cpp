@@ -57,9 +57,10 @@ namespace Noctis::NameMangling
 
 	StdString Mangle(Context* pCtx, IdenSPtr iden)
 	{
+		StdString name = iden->ToFuncSymName();
 		if (iden->Generics().empty())
 		{
-			const StdString& name = iden->Name();
+			
 			u32 len = u32(name.length());
 			return Format("%u%s", len, name.c_str());
 		}
@@ -94,6 +95,72 @@ namespace Noctis::NameMangling
 							mangled += "Z";
 						}
 						
+						mangled += "Z";
+					}
+				}
+				else
+				{
+					if (generic.isSpecialized)
+					{
+						mangled += "W";
+						// TODO
+						mangled += "Z";
+					}
+					else
+					{
+						mangled += "V";
+						mangled += Mangle(pCtx, generic.iden);
+						mangled += Mangle(pCtx, generic.type);
+						// TODO: contraints
+						mangled += "Z";
+					}
+				}
+			}
+
+
+			return mangled;
+		}
+	}
+
+	StdString MangleFuncIden(Context* pCtx, IdenSPtr iden)
+	{
+		if (iden->Generics().empty())
+		{
+			const StdString& name = iden->ToFuncSymName();
+			u32 len = u32(name.length());
+			return Format("%u%s", len, name.c_str());
+		}
+		else
+		{
+			const StdString& name = iden->ToFuncSymName();
+			u32 len = u32(name.length());
+			StdString mangled = Format("%u%sG", len, name.c_str());
+
+			for (IdenGeneric& generic : iden->Generics())
+			{
+				if (generic.isType)
+				{
+					if (generic.isSpecialized)
+					{
+						mangled += "U";
+						mangled += Mangle(pCtx, generic.type);
+						mangled += "Z";
+					}
+					else
+					{
+						mangled += "T";
+						mangled += Mangle(pCtx, generic.iden);
+
+						if (!generic.typeConstraints.empty())
+						{
+							mangled += "C";
+							for (TypeHandle constraint : generic.typeConstraints)
+							{
+								mangled += Mangle(pCtx, constraint);
+							}
+							mangled += "Z";
+						}
+
 						mangled += "Z";
 					}
 				}

@@ -411,7 +411,7 @@ namespace Noctis
 		}
 
 		
-		StdString iden = ParseIden();;
+		StdString iden = ParseIden();
 
 		AstGenericDeclSPtr generics;
 		if (PeekToken().Type() == TokenType::Less)
@@ -2385,9 +2385,8 @@ namespace Noctis
 		{
 			AstMacroPatternSPtr pattern = ParseMacroPattern();
 			EatToken(TokenType::RParen);
-			EatToken(TokenType::LBrace);
 			TokenTree body = ParseTokenTree();
-			u64 endIdx = EatToken(TokenType::RBrace).Idx();
+			u64 endIdx = body.subToks.back().tok.Idx();
 			return AstDeclSPtr{ new AstDeclMacro{ startIdx, std::move(iden), pattern, std::move(body), endIdx } };
 		}
 

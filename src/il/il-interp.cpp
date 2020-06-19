@@ -315,7 +315,7 @@ namespace Noctis
 		case ILKind::If: Interp(static_cast<ILIf&>(elem)); break;
 		case ILKind::Switch: break;
 		case ILKind::Goto: break;
-		case ILKind::ReturnNoVal: return true;
+		case ILKind::ReturnNoVal: break;
 		case ILKind::ReturnVal: Interp(static_cast<ILReturn&>(elem)); return true;
 		case ILKind::Assign: Interp(static_cast<ILAssign&>(elem)); break;
 		case ILKind::PrimAssign: Interp(static_cast<ILPrimAssign&>(elem)); break;
@@ -336,8 +336,7 @@ namespace Noctis
 		case ILKind::ValEnumInit: break;
 		case ILKind::AdtEnumInit: break;
 		case ILKind::TupInit: Interp(static_cast<ILTupInit&>(elem)); break;
-		case ILKind::ArrInit: break;
-		case ILKind::FuncDef: break;
+		case ILKind::ArrInit: Interp(static_cast<ILArrInit&>(elem)); break;
 		default: ;
 		}
 
@@ -832,6 +831,25 @@ namespace Noctis
 
 			u8* srcAddr = GetSrcAddr(stackFrame, arg);
 			memcpy(writeAddr, srcAddr, srcSize);
+		}
+	}
+
+	void ILInterp::Interp(ILArrInit& init)
+	{
+		ILInterpStackFrame& stackFrame = m_Frames.top();
+
+		ILInterpVar& dst = stackFrame.GetVar(m_pCtx, init.dst);
+		u8* dstAddr = GetDstAddr(stackFrame, dst);
+
+		ArrayType& arrType = m_pCtx->typeReg.GetType(init.dst.type)->AsArray();
+		TypeSPtr subType = m_pCtx->typeReg.GetType(arrType.subType);
+
+		u64 curOffset = 0;
+		for (ILVar& arg : init.args)
+		{
+			u8* srcAddr = GetSrcAddr(stackFrame, arg);
+			memcpy(dstAddr + curOffset, srcAddr, subType->size);
+			curOffset += subType->size;
 		}
 	}
 

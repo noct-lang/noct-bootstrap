@@ -316,13 +316,7 @@ namespace Noctis
 		LogVar(node.dst);
 		StdString typeName = m_pCtx->typeReg.ToString(node.dst.type);
 		g_Logger.Log(" = union %s {", typeName.c_str());
-		usize argCnt = node.args.size();
-		for (usize i = 0; i < argCnt; ++i)
-		{
-			if (i != 0)
-				g_Logger.Log(", ");
-			LogVar(node.args[i]);
-		}
+		LogVar(node.arg);
 		g_Logger.Log("}\n");
 	}
 
@@ -331,7 +325,7 @@ namespace Noctis
 		PrintIndent();
 		LogVar(node.dst);
 		StdString typeName = m_pCtx->typeReg.ToString(node.dst.type);
-		g_Logger.Log(" = val_enum %s\n", node.member);
+		g_Logger.Log(" = val_enum %s\n", node.member.c_str());
 	}
 
 	void ILPrinter::Visit(ILAdtEnumInit& node)
@@ -339,7 +333,7 @@ namespace Noctis
 		PrintIndent();
 		LogVar(node.dst);
 		StdString typeName = m_pCtx->typeReg.ToString(node.dst.type);
-		g_Logger.Log(" = adt_enum %s {", node.member);
+		g_Logger.Log(" = adt_enum %s {", node.member.c_str());
 		usize argCnt = node.args.size();
 		for (usize i = 0; i < argCnt; ++i)
 		{

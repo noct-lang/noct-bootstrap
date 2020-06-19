@@ -71,7 +71,7 @@ namespace Noctis
 
 		void Interp(ILStructInit& init);
 		void Interp(ILTupInit& init);
-
+		void Interp(ILArrInit& init);
 		
 		void Interp(ILFuncCall& call);
 		

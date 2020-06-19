@@ -16,14 +16,14 @@ namespace Noctis
 		PrimCast = 0x44,
 		Ternary = 0x45,
 		Transmute = 0x46,
-		CompIntrin = 0x47,
+		CompIntrin = 0x47, // TODO
 
 		FuncCallNoRet = 0x50,
 		FuncCallRet = 0x51,
 		MethodCallNoRet = 0x52,
 		MethodCallRet = 0x53,
-		IndirectCallNoRet = 0x54,
-		IndirectCallRet = 0x55,
+		IndirectCallNoRet = 0x54, // TODO
+		IndirectCallRet = 0x55, // TODO
 		MemberAccess = 0x56,
 		TupleAccess = 0x57,
 
@@ -275,10 +275,10 @@ namespace Noctis
 
 	struct ILUnionInit : public ILElem
 	{
-		ILUnionInit(ILVar dst, const StdVector<ILVar>& args);
+		ILUnionInit(ILVar dst, ILVar args);
 
 		ILVar dst;
-		StdVector<ILVar> args;
+		ILVar arg;
 	};
 
 	struct ILValEnumInit : public ILElem

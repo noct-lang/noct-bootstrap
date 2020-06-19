@@ -298,6 +298,7 @@ namespace Noctis
 
 		Operator& op = m_pCtx->activeModule->opTable.GetOperator(node.op, exprTypeHandle);
 		node.typeHandle = op.result;
+		node.operator_ = op;
 
 		if (!op.sym)
 		{
@@ -334,7 +335,7 @@ namespace Noctis
 		{
 			MultiSpan span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx, std::get<AstExprSPtr>(node.astNode)->ctx->endIdx);
 			StdString varName = qualName->ToString();
-			g_ErrorSystem.Error(span, "Cannot find '%s'", varName);
+			g_ErrorSystem.Error(span, "Cannot find '%s'", varName.c_str());
 			return;
 		}
 		
@@ -353,21 +354,133 @@ namespace Noctis
 		if (node.expr->sym)
 		{
 			SymbolSPtr sym = node.expr->sym;
-			if (sym->kind == SymbolKind::ValEnum)
+			if (sym->kind == SymbolKind::AdtEnumMember)
 			{
-				// TODO
+				auto astNode = node.astNode;
+				ptr.reset(new ITrAdtTupleEnumInit{ node.expr, std::move(node.args) });
+				ptr->sym = sym;
+				ptr->typeHandle = sym->parent.lock()->SelfType();
+				ptr->astNode = astNode;
 			}
 			else
 			{
+				auto astNode = node.astNode;
 				ptr.reset(new ITrFuncCall{ node.expr, std::move(node.args) });
 				ptr->sym = sym;
 				ptr->typeHandle = sym->SelfType();
+				ptr->astNode = astNode;
 			}
 		}
 		else
 		{
 			// TODO
 		}
+	}
+
+	// TODO: named args
+	void TypeInference::Visit(ITrFuncCall& node)
+	{
+		// Should only have method calls
+
+		Walk(node);
+
+		StdVector<StdString> paramNames;
+		for (ITrArgSPtr arg : node.args)
+		{
+			if (arg->iden)
+				paramNames.push_back(arg->iden->Name());
+			else
+				paramNames.push_back("");
+		}
+		
+		
+		if (node.isMethod)
+		{
+			paramNames.insert(paramNames.begin(), "self");
+			IdenSPtr searchIden = Iden::Create(node.iden->Name(), node.iden->Generics(), m_pCtx->typeReg, paramNames);
+			
+			TypeSPtr type = m_pCtx->typeReg.GetType(node.callerOrFunc->typeHandle);
+
+			
+			SymbolSPtr callerSym, methodSym;
+			if (type->typeKind == TypeKind::Ref)
+			{
+				callerSym = m_pCtx->activeModule->symTable.Find(type);
+				if (callerSym)
+					methodSym = callerSym->children->FindChild(nullptr, searchIden);
+
+				if (!methodSym && type->mod != TypeMod::Const)
+				{
+					TypeHandle constHandle = m_pCtx->typeReg.Mod(TypeMod::Const, node.callerOrFunc->typeHandle);
+					TypeSPtr constType = m_pCtx->typeReg.GetType(constHandle);
+					callerSym = m_pCtx->activeModule->symTable.Find(type);
+					if (callerSym)
+						methodSym = callerSym->children->FindChild(nullptr, searchIden);
+				}
+
+				if (!methodSym)
+				{
+					if (type->typeKind == TypeKind::Iden)
+					{
+						callerSym = m_pCtx->activeModule->symTable.Find(GetCurScope(), type->AsIden().qualName);
+					}
+					else
+					{
+						callerSym = m_pCtx->activeModule->symTable.Find(type);
+					}
+
+					methodSym = callerSym->children->FindChild(nullptr, searchIden);
+				}
+			}
+			else
+			{
+				if (type->typeKind == TypeKind::Iden)
+					callerSym = m_pCtx->activeModule->symTable.Find(GetCurScope(), type->AsIden().qualName);
+				else
+					callerSym = m_pCtx->activeModule->symTable.Find(type);
+				
+				if (callerSym)
+					methodSym = callerSym->children->FindChild(nullptr, searchIden);
+
+				if (!methodSym)
+				{
+					TypeHandle refHandle = m_pCtx->typeReg.Ref(TypeMod::None, node.callerOrFunc->typeHandle);
+					TypeSPtr refType = m_pCtx->typeReg.GetType(refHandle);
+					callerSym = m_pCtx->activeModule->symTable.Find(refType);
+					if (callerSym)
+						methodSym = callerSym->children->FindChild(nullptr, searchIden);
+
+					if (!methodSym)
+					{
+						TypeHandle constHandle = m_pCtx->typeReg.Mod(TypeMod::Const, node.callerOrFunc->typeHandle);
+						TypeSPtr constType = m_pCtx->typeReg.GetType(constHandle);
+						callerSym = m_pCtx->activeModule->symTable.Find(type);
+						if (callerSym)
+							methodSym = callerSym->children->FindChild(nullptr, searchIden);
+					}
+				}
+			}
+
+			if (!methodSym && type->typeKind == TypeKind::Ptr)
+			{
+				// TODO: Deref
+			}
+
+			if (!methodSym)
+			{
+				Span span = m_pCtx->spanManager.GetSpan(std::get<AstStmtSPtr>(node.astNode)->ctx->startIdx);
+				StdString methodName = node.iden->Name();
+				StdString callerTypeName = m_pCtx->typeReg.ToString(type);
+				g_ErrorSystem.Error(span, "Cannot find method '%s' with caller '%s'\n", methodName.c_str(), callerTypeName.c_str());
+			}
+
+
+
+			node.sym = methodSym;
+			FuncType& funcType = m_pCtx->typeReg.GetType(methodSym->type)->AsFunc();
+			node.typeHandle = funcType.retType;
+		}
+		
 	}
 
 	void TypeInference::Visit(ITrAdtTupleEnumInit& node)
@@ -552,12 +665,6 @@ namespace Noctis
 	{
 		Walk(node);
 
-		//StdVector<TypeHandle> subTypes;
-		//for (ITrExprSPtr expr : node.args)
-		//{
-		//	subTypes.push_back(expr->typeHandle);
-		//}
-
 		TypeSPtr objType = m_pCtx->typeReg.GetType(node.type->handle);
 		if (objType->typeKind != TypeKind::Iden)
 		{
@@ -583,18 +690,24 @@ namespace Noctis
 				g_ErrorSystem.Error(span, "'%s' needs to be initialized with parenthesis\n", node.args.size());
 				return;
 			}
+
+			auto astNode = ptr->astNode;
 			ptr.reset(new ITrAdtAggrEnumInit{ node.type, std::move(node.args) });
-			ptr->typeHandle = sym->SelfType();
+			ptr->typeHandle = sym->parent.lock()->SelfType();
 			ptr->sym = sym;
+			ptr->astNode = astNode;
 			checkAggrArgs = m_pCtx->typeReg.IsType(sym->type, TypeKind::Iden);
 
 			ITrAdtAggrEnumInit& adtNode = *reinterpret_cast<ITrAdtAggrEnumInit*>(ptr.get());
 
+			IdenType& idenType = type->AsIden();
+			SymbolSPtr structSym = idenType.sym.lock();
+
 			StdVector<SymbolSPtr> children;
-			children.reserve(sym->orderedVarChildren.size());
+			children.reserve(structSym->orderedVarChildren.size());
 			StdUnorderedMap<StdString, u32> childrenNameMapping;
 
-			for (SymbolWPtr childW : sym->orderedVarChildren)
+			for (SymbolWPtr childW : structSym->orderedVarChildren)
 			{
 				SymbolSPtr child = childW.lock();
 
@@ -610,7 +723,7 @@ namespace Noctis
 			if (adtNode.args.size() > children.size())
 			{
 				Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(adtNode.astNode)->ctx->startIdx);
-				g_ErrorSystem.Error(span, "Found more arguments then expected, expected %u, found %u\n", adtNode.args.size(), children.size());
+				g_ErrorSystem.Error(span, "Found more arguments then expected, found %u, expected %u\n", adtNode.args.size(), children.size());
 				return;
 			}
 
@@ -626,7 +739,7 @@ namespace Noctis
 					else if (!hasIden)
 					{
 						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(adtNode.astNode)->ctx->startIdx);
-						g_ErrorSystem.Error(span, "Cannot mix named and unnamed arguments when initializing an aggregate\n");
+						g_ErrorSystem.Error(span, "Cannot mix named and unnamed arguments when initializing an adt enum\n");
 						return;
 					}
 
@@ -635,7 +748,7 @@ namespace Noctis
 					{
 						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(adtNode.astNode)->ctx->startIdx);
 						const StdString& name = arg->iden->Name();
-						g_ErrorSystem.Error(span, "The aggregate does not contain any variable named '%s'\n", name.c_str());
+						g_ErrorSystem.Error(span, "The adt enum does not contain any variable named '%s'\n", name.c_str());
 						return;
 					}
 
@@ -667,7 +780,7 @@ namespace Noctis
 					if (hasIden && i != 0)
 					{
 						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(adtNode.astNode)->ctx->startIdx);
-						g_ErrorSystem.Error(span, "Cannot mix named and unnamed arguments when initializing an aggregate\n");
+						g_ErrorSystem.Error(span, "Cannot mix named and unnamed arguments when initializing an adt enum\n");
 						return;
 					}
 
@@ -687,7 +800,7 @@ namespace Noctis
 			u32 argCount;
 			if (hasIden)
 			{
-				u32 argCount = 0;
+				argCount = 0;
 				for (TypeHandle argType : argTypes)
 				{
 					argCount += u32(argType != TypeHandle(-1));
@@ -700,16 +813,72 @@ namespace Noctis
 
 			if (argCount < children.size())
 			{
-				Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(adtNode.astNode)->ctx->startIdx);
-				g_ErrorSystem.Error(span, "Not all arguments have been initialized\n");
-				return;
+				if (node.hasDefInit)
+				{
+					QualNameSPtr defInterfaceQualName = QualName::Create(StdVector<StdString>{ "core", "default", "Default" });
+
+					bool implsDefault = false;
+					for (StdPair<SymbolSPtr, bool>& pair : sym->impls)
+					{
+						if (pair.first->qualName == defInterfaceQualName)
+						{
+							implsDefault = true;
+							break;
+						}
+					}
+
+					if (!implsDefault)
+					{
+						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
+						StdString symName = sym->qualName->ToString();
+						g_ErrorSystem.Error(span, "'%s' does not implement 'core.default.Default' or 'std.default.Default'\n", symName.c_str());
+					}
+				}
+				else if (node.defExpr)
+				{
+					TypeHandle defType = node.defExpr->typeHandle;
+					defType = m_pCtx->typeReg.Mod(TypeMod::None, defType);
+
+					bool validDef = false;
+					if (!m_pCtx->typeReg.AreTypesEqual(defType, sym->type))
+					{
+						TypeSPtr type = m_pCtx->typeReg.GetType(defType);
+						if (type->typeKind == TypeKind::Ref)
+						{
+							defType = type->AsRef().subType;
+							defType = m_pCtx->typeReg.Mod(TypeMod::None, defType);
+
+							validDef = m_pCtx->typeReg.AreTypesEqual(defType, sym->type);
+						}
+					}
+					else
+					{
+						validDef = true;
+					}
+
+					if (!validDef)
+					{
+						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
+						StdString typeName = m_pCtx->typeReg.ToString(defType);
+						g_ErrorSystem.Error(span, "cannot initialize unspecified members from an expression with type '%s'\n", typeName.c_str());
+					}
+
+				}
+				else
+				{
+					Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
+					g_ErrorSystem.Error(span, "Not all arguments have been initialized\n");
+					return;
+				}
 			}
 		}
 		else if (sym->kind == SymbolKind::Struct)
 		{
+			auto astNode = ptr->astNode;
 			ptr.reset(new ITrStructInit{ node.type, std::move(node.args), false, nullptr });
 			ptr->typeHandle = sym->SelfType();
 			ptr->sym = sym;
+			ptr->astNode = astNode;
 			checkAggrArgs = true;
 
 			ITrStructInit& structNode = *reinterpret_cast<ITrStructInit*>(ptr.get());
@@ -734,7 +903,7 @@ namespace Noctis
 			if (structNode.args.size() > children.size())
 			{
 				Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(structNode.astNode)->ctx->startIdx);
-				g_ErrorSystem.Error(span, "Found more arguments then expected, expected %u, found %u\n", structNode.args.size(), children.size());
+				g_ErrorSystem.Error(span, "Found more arguments then expected, found %u, expected %u\n", structNode.args.size(), children.size());
 				return;
 			}
 
@@ -750,7 +919,7 @@ namespace Noctis
 					else if (!hasIden)
 					{
 						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(structNode.astNode)->ctx->startIdx);
-						g_ErrorSystem.Error(span, "Cannot mix named and unnamed arguments when initializing an aggregate\n");
+						g_ErrorSystem.Error(span, "Cannot mix named and unnamed arguments when initializing a structure\n");
 						return;
 					}
 
@@ -759,7 +928,7 @@ namespace Noctis
 					{
 						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(structNode.astNode)->ctx->startIdx);
 						const StdString& name = arg->iden->Name();
-						g_ErrorSystem.Error(span, "The aggregate does not contain any variable named '%s'\n", name.c_str());
+						g_ErrorSystem.Error(span, "The structure does not contain any variable named '%s'\n", name.c_str());
 						return;
 					}
 
@@ -791,7 +960,7 @@ namespace Noctis
 					if (hasIden && i != 0)
 					{
 						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(structNode.astNode)->ctx->startIdx);
-						g_ErrorSystem.Error(span, "Cannot mix named and unnamed arguments when initializing an aggregate\n");
+						g_ErrorSystem.Error(span, "Cannot mix named and unnamed arguments when initializing a structure\n");
 						return;
 					}
 
@@ -824,16 +993,72 @@ namespace Noctis
 
 			if (argCount < children.size())
 			{
-				Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(structNode.astNode)->ctx->startIdx);
-				g_ErrorSystem.Error(span, "Not all arguments have been initialized\n");
-				return;
+				if (node.hasDefInit)
+				{
+					QualNameSPtr defInterfaceQualName = QualName::Create(StdVector<StdString>{ "core", "default", "Default" });
+
+					bool implsDefault = false;
+					for (StdPair<SymbolSPtr, bool>& pair : sym->impls)
+					{
+						if (pair.first->qualName == defInterfaceQualName)
+						{
+							implsDefault = true;
+							break;
+						}
+					}
+
+					if (!implsDefault)
+					{
+						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
+						StdString symName = sym->qualName->ToString();
+						g_ErrorSystem.Error(span, "'%s' does not implement 'core.default.Default' or 'std.default.Default'\n", symName.c_str());
+					}
+				}
+				else if (node.defExpr)
+				{
+					TypeHandle defType = node.defExpr->typeHandle;
+					defType = m_pCtx->typeReg.Mod(TypeMod::None, defType);
+
+					bool validDef = false;
+					if (!m_pCtx->typeReg.AreTypesEqual(defType, sym->type))
+					{
+						TypeSPtr type = m_pCtx->typeReg.GetType(defType);
+						if (type->typeKind == TypeKind::Ref)
+						{
+							defType = type->AsRef().subType;
+							defType = m_pCtx->typeReg.Mod(TypeMod::None, defType);
+
+							validDef = m_pCtx->typeReg.AreTypesEqual(defType, sym->type);
+						}
+					}
+					else
+					{
+						validDef = true;
+					}
+
+					if (!validDef)
+					{
+						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
+						StdString typeName = m_pCtx->typeReg.ToString(defType);
+						g_ErrorSystem.Error(span, "cannot initialize unspecified members from an expression with type '%s'\n", typeName.c_str());
+					}
+
+				}
+				else
+				{
+					Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
+					g_ErrorSystem.Error(span, "Not all arguments have been initialized\n");
+					return;
+				}
 			}
 		}
 		else if (sym->kind == SymbolKind::Union)
 		{
+			auto astNode = ptr->astNode;
 			ptr.reset(new ITrUnionInit{ node.type, std::move(node.args) });
 			ptr->typeHandle = sym->SelfType();
 			ptr->sym = sym;
+			ptr->astNode = astNode;
 
 			ITrUnionInit& unionNode = *reinterpret_cast<ITrUnionInit*>(ptr.get());
 
@@ -895,7 +1120,7 @@ namespace Noctis
 				{
 					Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(unionNode.astNode)->ctx->startIdx);
 					const StdString& name = arg->iden->Name();
-					g_ErrorSystem.Error(span, "Nesting of anonymous structures is not available in the bootstrap compiler or no member with the name '%s' exists\n", name.c_str());
+					g_ErrorSystem.Error(span, "No member with the name '%s' exists\n", name.c_str());
 					return;
 				}
 			}
@@ -910,184 +1135,8 @@ namespace Noctis
 		{
 			Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
 			StdString typeName = m_pCtx->typeReg.ToString(objType);
-			g_ErrorSystem.Error(span, "'%s' is not an aggregate or a adt-enum\n", node.args.size());
+			g_ErrorSystem.Error(span, "'%s' is not an aggregate or a adt-enum\n", typeName.c_str());
 			return;
-		}
-	}
-
-	void TypeInference::Visit(ITrStructInit& node)
-	{
-		Walk(node);
-
-		TypeSPtr objType = m_pCtx->typeReg.GetType(node.type->handle);
-		if (objType->typeKind != TypeKind::Iden)
-		{
-			Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
-			StdString typeName = m_pCtx->typeReg.ToString(objType);
-			g_ErrorSystem.Error(span, "'%s' is not a valid type in an aggregate initializer\n", node.args.size());
-			return;
-		}
-
-		IdenType& idenType = objType->AsIden();
-		SymbolSPtr sym = m_pCtx->activeModule->symTable.Find(GetCurScope(), idenType.qualName);
-
-		// Collect children
-		StdVector<SymbolSPtr> children;
-		children.reserve(sym->orderedVarChildren.size());
-		StdUnorderedMap<StdString, u32> childrenNameMapping;
-
-		for (SymbolWPtr childW : sym->orderedVarChildren)
-		{
-			SymbolSPtr child = childW.lock();
-
-			childrenNameMapping.try_emplace(child->qualName->Iden()->Name(), u32(children.size()));
-			children.push_back(child);
-		}
-
-		bool hasIden = false;
-
-		StdVector<TypeHandle> argTypes;
-		argTypes.resize(children.size(), TypeHandle(-1));
-
-		if (node.args.size() > children.size())
-		{
-			Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
-			g_ErrorSystem.Error(span, "Found more arguments then expected, expected %u, found %u\n", node.args.size(), children.size());
-			return;
-		}
-		
-		for (usize i = 0; i < node.args.size(); ++i)
-		{
-			ITrArgSPtr arg = node.args[i];
-			if (arg->iden)
-			{
-				if (i == 0)
-				{
-					hasIden = true;
-				}
-				else if (!hasIden)
-				{
-					Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
-					g_ErrorSystem.Error(span, "Cannot mix named and unnamed arguments when initializing an aggregate\n");
-					return;
-				}
-
-				auto it = childrenNameMapping.find(arg->iden->Name());
-				if (it == childrenNameMapping.end())
-				{
-					Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
-					const StdString& name = arg->iden->Name();
-					g_ErrorSystem.Error(span, "The aggregate does not contain any variable named '%s'\n", name.c_str());
-					return;
-				}
-
-				u32 idx = it->second;
-				if (argTypes[idx] != TypeHandle(-1))
-				{
-					Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
-					const StdString& name = arg->iden->Name();
-					g_ErrorSystem.Error(span, "Variable '%s' has already been assigned\n", name.c_str());
-					return;
-				}
-
-				argTypes[idx] = arg->expr->typeHandle;
-				node.argOrder.push_back(idx);
-			}
-			else
-			{
-				if (hasIden && i != 0)
-				{
-					Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
-					g_ErrorSystem.Error(span, "Cannot mix named and unnamed arguments when initializing an aggregate\n");
-					return;
-				}
-
-				TypeHandle expected = children[i]->type;
-				TypeHandle argType = arg->expr->typeHandle;
-				if (!m_pCtx->typeReg.CanPassTo(expected, argType))
-				{
-					Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(arg->expr->astNode)->ctx->startIdx);
-					StdString expectedName = m_pCtx->typeReg.ToString(expected);
-					StdString argName = m_pCtx->typeReg.ToString(argType);
-					g_ErrorSystem.Error(span, "Cannot pass '%s' to '%s'\n", argName.c_str(), expectedName.c_str());
-					return;
-				}
-			}
-		}
-
-		u32 argCount;
-		if (hasIden)
-		{
-			u32 argCount = 0;
-			for (TypeHandle argType : argTypes)
-			{
-				argCount += u32(argCount != TypeHandle(-1));
-			}
-		}
-		else
-		{
-			argCount = u32(node.args.size());
-		}
-
-		if (argCount < children.size())
-		{
-			if (node.hasDefInit)
-			{
-				QualNameSPtr defInterfaceQualName = QualName::Create(StdVector<StdString>{ "core", "default", "Default" });
-
-				bool implsDefault = false;
-				for (StdPair<SymbolSPtr, bool>& pair : sym->impls)
-				{
-					if (pair.first->qualName == defInterfaceQualName)
-					{
-						implsDefault = true;
-						break;
-					}
-				}
-
-				if (!implsDefault)
-				{
-					Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
-					StdString symName = sym->qualName->ToString();
-					g_ErrorSystem.Error(span, "'%s' does not implement 'core.default.Default' or 'std.default.Default'\n", symName.c_str());
-				}
-			}
-			else if (node.defExpr)
-			{
-				TypeHandle defType = node.defExpr->typeHandle;
-				defType = m_pCtx->typeReg.Mod(TypeMod::None, defType);
-
-				bool validDef = false;
-				if (!m_pCtx->typeReg.AreTypesEqual(defType, sym->type))
-				{
-					TypeSPtr type = m_pCtx->typeReg.GetType(defType);
-					if (type->typeKind == TypeKind::Ref)
-					{
-						defType = type->AsRef().subType;
-						defType = m_pCtx->typeReg.Mod(TypeMod::None, defType);
-
-						validDef = m_pCtx->typeReg.AreTypesEqual(defType, sym->type);
-					}
-				}
-				else
-				{
-					validDef = true;
-				}
-
-				if (!validDef)
-				{
-					Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
-					StdString typeName = m_pCtx->typeReg.ToString(defType);
-					g_ErrorSystem.Error(span, "cannot initialize unspecified members from an expression with type '%s'\n", typeName.c_str());
-				}
-				
-			}
-			else
-			{
-				Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
-				g_ErrorSystem.Error(span, "Not all arguments have been initialized\n");
-				return;
-			}
 		}
 	}
 
@@ -1106,6 +1155,25 @@ namespace Noctis
 
 	void TypeInference::Visit(ITrArrayInit& node)
 	{
+		Walk(node);
+		
+		TypeHandle type = TypeHandle(-1);
+		for (ITrExprSPtr expr : node.exprs)
+		{
+			if (type == TypeHandle(-1))
+			{
+				type = expr->typeHandle;
+			}
+			else if (!m_pCtx->typeReg.AreTypesEqual(expr->typeHandle, type))
+			{
+				Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
+				StdString type0Name = m_pCtx->typeReg.ToString(type);
+				StdString type1Name = m_pCtx->typeReg.ToString(expr->typeHandle);
+				g_ErrorSystem.Error(span, "An array connot contain values of different types, found '%s' and '%s'", type0Name.c_str(), type1Name.c_str());
+			}
+		}
+
+		node.typeHandle = type;
 	}
 
 	void TypeInference::Visit(ITrCast& node)
@@ -1278,12 +1346,6 @@ namespace Noctis
 			break;
 		case TypeKind::Iden:
 		{
-			QualNameSPtr scope = m_Scope; 
-			for (StdString& scopeName : m_ScopeNames)
-			{
-				scope = QualName::Create(m_Scope, Iden::Create(scopeName));
-			}
-
 			QualNameSPtr qualName = type->AsIden().qualName;
 			if (qualName->Iden()->Name() == "Self" &&
 				m_SelfType != TypeHandle(-1))
@@ -1292,7 +1354,7 @@ namespace Noctis
 				qualName = type->AsIden().qualName;
 			}
 
-			SymbolSPtr sym = m_pCtx->activeModule->symTable.Find(scope, qualName, m_InterfaceQualname);
+			SymbolSPtr sym = m_pCtx->activeModule->symTable.Find(GetCurScope(), qualName, m_InterfaceQualname);
 			node.handle = sym->SelfType();
 
 			break;

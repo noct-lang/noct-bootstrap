@@ -105,19 +105,8 @@ namespace Noctis
 			if (member.second)
 			{
 				if (member.second->typeKind == AstTypeKind::InlineStruct)
-				{
-					AstInlineStructType& structType = *static_cast<AstInlineStructType*>(member.second.get());
-					IdenScope(node.ctx, node.iden + "__struct");
-					for (std::pair<StdVector<StdString>, AstTypeSPtr>& structMember : structType.members)
-					{
-						AstVisitor::Visit(structMember.second);
-					}
-					m_CurScope = m_CurScope->Base();
-				}
-				else
-				{
-					AstVisitor::Visit(member.second);
-				}
+					m_InlinePrefix = member.first;
+				AstVisitor::Visit(member.second);
 			}
 		}
 		m_CurScope = m_CurScope->Base();
@@ -557,7 +546,15 @@ namespace Noctis
 
 	void IdenScopePass::Visit(AstInlineStructType& node)
 	{
-		UnnamedScope(node.ctx, "inl_struct");
+		if (!m_InlinePrefix.empty())
+		{
+			IdenScope(node.ctx, m_InlinePrefix + "__struct");
+			m_InlinePrefix.clear();
+		}
+		else
+		{
+			UnnamedScope(node.ctx, "inl_struct");
+		}
 		Walk(node);
 		m_CurScope = m_CurScope->Base();
 	}

@@ -35,6 +35,7 @@ namespace Noctis
 			StdString mangleName = node.sym.lock()->mangledName;
 			m_Def.reset(new ILFuncDef{ mangleName });
 			m_pILMod->names.insert(mangleName);
+			m_FuncScope = node.qualName;
 
 			// params
 			for (ITrParamSPtr param : node.params)
@@ -332,10 +333,28 @@ namespace Noctis
 			}
 
 			m_TmpVars.push(var);
-			return;
 		}
+		else
+		{
+			SymbolSPtr sym = m_pCtx->activeModule->symTable.Find(GetCurScope(), node.qualName);
 
-		m_TmpVars.push(ILVar{ ILVarKind::Copy, 0, TypeHandle(-1) });
+			if (sym->kind == SymbolKind::ValEnumMember)
+			{
+				ILVar dst = CreateDstVar(node.typeHandle);
+				ILElemSPtr elem{ new ILValEnumInit{ dst, node.qualName->Iden()->Name() } };
+				m_pCurBlock->elems.push_back(elem);
+			}
+			else if (sym->kind == SymbolKind::AdtEnumMember)
+			{
+				ILVar dst = CreateDstVar(node.typeHandle);
+				ILElemSPtr elem{ new ILAdtEnumInit{ dst, node.qualName->Iden()->Name(), {} } };
+				m_pCurBlock->elems.push_back(elem);
+			}
+			else
+			{
+				// TODO: Global var
+			}
+		}
 	}
 
 	void ILGen::Visit(ITrFuncCall& node)
@@ -356,11 +375,9 @@ namespace Noctis
 		{
 			ILVar caller = PopTmpVar();
 
-			const StdString& name = node.sym->qualName->Iden()->Name();
-			TypeSPtr type = m_pCtx->typeReg.GetType(node.typeHandle);
+			const StdString& name = node.sym->qualName->Iden()->ToFuncSymName();
 
-			TypeHandle retType = type->AsFunc().retType;
-			if (retType != TypeHandle(-1))
+			if (node.typeHandle != TypeHandle(-1))
 			{
 				ILVar dst = CreateDstVar(node.typeHandle);
 				elem.reset(new ILMethodCall{ dst, caller, name, args });
@@ -595,7 +612,26 @@ namespace Noctis
 
 			if (unorderedArgs.size() < node.sym->orderedVarChildren.size())
 			{
-				// TODO
+				if (!node.defExpr)
+				{
+					defVar = CreateDstVar(node.typeHandle);
+
+					// TODO: Gen Default
+				}
+
+				for (usize i = 0; i < node.sym->orderedVarChildren.size(); ++i)
+				{
+					if (args[i].kind == ILVarKind::Lit ||
+						args[i].type != TypeHandle(-1))
+						continue;
+					
+					SymbolSPtr child = node.sym->orderedVarChildren[i].lock();
+					ILVar tmpDst = CreateDstVar(child->type);
+					ILElemSPtr tmpElem{ new ILMemberAccess{ tmpDst, defVar, child->qualName->Iden()->Name() } };
+					m_pCurBlock->elems.push_back(tmpElem);
+
+					args[i] = tmpDst;
+				}
 			}
 		}
 		else
@@ -603,7 +639,22 @@ namespace Noctis
 			args = unorderedArgs;
 			if (args.size() < node.sym->orderedVarChildren.size())
 			{
-				// TODO
+				if (!node.defExpr)
+				{
+					defVar = CreateDstVar(node.typeHandle);
+
+					// TODO: Gen Default
+				}
+				
+				for (usize i = args.size(); i < node.sym->orderedVarChildren.size(); ++i)
+				{
+					SymbolSPtr child = node.sym->orderedVarChildren[i].lock();
+					ILVar tmpDst = CreateDstVar(child->type);
+					ILElemSPtr tmpElem{ new ILMemberAccess{ tmpDst, defVar, child->qualName->Iden()->Name() } };
+					m_pCurBlock->elems.push_back(tmpElem);
+
+					args.push_back(tmpDst);
+				}
 			}
 		}
 
@@ -615,6 +666,120 @@ namespace Noctis
 
 	void ILGen::Visit(ITrUnionInit& node)
 	{
+		Walk(node);
+
+		ILVar arg = PopTmpVar();
+		ILVar dst = CreateDstVar(node.typeHandle);
+		ILElemSPtr elem{ new ILUnionInit { dst, arg } };
+		m_pCurBlock->elems.push_back(elem);
+	}
+
+	void ILGen::Visit(ITrAdtTupleEnumInit& node)
+	{
+		StdVector<ILVar> args;
+		for (ITrArgSPtr arg : node.args)
+		{
+			ITrVisitor::Visit(arg->expr);
+			args.push_back(PopTmpVar());
+		}
+
+		IdenType& idenType = m_pCtx->typeReg.GetType(node.sym->type)->AsIden();
+		SymbolSPtr structSym = idenType.sym.lock();
+		
+		ILVar dst = CreateDstVar(node.typeHandle);
+		ILElemSPtr elem{ new ILAdtEnumInit{ dst, node.sym->qualName->Iden()->Name(), args } };
+		m_pCurBlock->elems.push_back(elem);
+	}
+
+	void ILGen::Visit(ITrAdtAggrEnumInit& node)
+	{
+		Walk(node);
+
+		ILVar defVar;
+		if (node.defExpr)
+			defVar = PopTmpVar();
+
+		StdVector<ILVar> unorderedArgs;
+		bool namedArgs = false;
+		for (usize i = 0; i < node.args.size(); ++i)
+		{
+			if (i == 0)
+				namedArgs = !!node.args[i]->iden;
+
+			unorderedArgs.push_back(PopTmpVar());
+		}
+		std::reverse(unorderedArgs.begin(), unorderedArgs.end());
+
+		IdenType& idenType = m_pCtx->typeReg.GetType(node.sym->type)->AsIden();
+		SymbolSPtr structSym = idenType.sym.lock();
+
+		StdVector<ILVar> args;
+		if (namedArgs)
+		{
+			args.resize(structSym->orderedVarChildren.size());
+
+			for (usize i = 0; i < unorderedArgs.size(); ++i)
+			{
+				u32 idx = node.argOrder[i];
+				args[idx] = unorderedArgs[i];
+			}
+
+			if (unorderedArgs.size() < structSym->orderedVarChildren.size())
+			{
+				if (!node.defExpr)
+				{
+					defVar = CreateDstVar(node.typeHandle);
+
+					// TODO: Gen Default
+				}
+
+				for (usize i = 0; i < structSym->orderedVarChildren.size(); ++i)
+				{
+					if (args[i].kind == ILVarKind::Lit ||
+						args[i].type != TypeHandle(-1))
+						continue;
+
+					SymbolSPtr child = structSym->orderedVarChildren[i].lock();
+					ILVar tmpDst = CreateDstVar(child->type);
+					ILElemSPtr tmpElem{ new ILMemberAccess{ tmpDst, defVar, child->qualName->Iden()->Name() } };
+					m_pCurBlock->elems.push_back(tmpElem);
+
+					args[i] = tmpDst;
+				}
+			}
+		}
+		else
+		{
+			args = unorderedArgs;
+			if (args.size() < structSym->orderedVarChildren.size())
+			{
+				if (!node.defExpr)
+				{
+					defVar = CreateDstVar(node.typeHandle);
+
+					// TODO: Gen Default
+				}
+
+				for (usize i = args.size(); i < structSym->orderedVarChildren.size(); ++i)
+				{
+					SymbolSPtr child = structSym->orderedVarChildren[i].lock();
+					ILVar tmpDst = CreateDstVar(child->type);
+					ILElemSPtr tmpElem{ new ILMemberAccess{ tmpDst, defVar, child->qualName->Iden()->Name() } };
+					m_pCurBlock->elems.push_back(tmpElem);
+
+					args.push_back(tmpDst);
+				}
+			}
+		}
+
+		ILVar tmpStruct = CreateDstVar(structSym->type);
+		ILElemSPtr structElem{ new ILStructInit{ tmpStruct, args } };
+		m_pCurBlock->elems.push_back(structElem);
+		tmpStruct = PopTmpVar();
+
+		ILVar dst = CreateDstVar(node.typeHandle);
+		ILElemSPtr elem{ new ILAdtEnumInit{ dst, node.sym->qualName->Iden()->Name(), { tmpStruct } } };
+		m_pCurBlock->elems.push_back(elem);
 	}
 
 	void ILGen::Visit(ITrTupleInit& node)
@@ -631,6 +796,21 @@ namespace Noctis
 		ILVar dst = CreateDstVar(node.typeHandle);
 		
 		ILElemSPtr elem{ new ILTupInit{ dst, args } };
+		m_pCurBlock->elems.push_back(elem);
+	}
+
+	void ILGen::Visit(ITrArrayInit& node)
+	{
+		Walk(node);
+		
+		StdVector<ILVar> args;
+		for (usize i = 0; i < node.exprs.size(); ++i)
+			args.push_back(PopTmpVar());
+		std::reverse(args.begin(), args.end());
+
+		ILVar dst = CreateDstVar(node.typeHandle);
+		
+		ILElemSPtr elem{ new ILArrInit{ dst, args } };
 		m_pCurBlock->elems.push_back(elem);
 	}
 

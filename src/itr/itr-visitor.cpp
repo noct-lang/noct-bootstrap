@@ -515,7 +515,7 @@ namespace Noctis
 		case ITrExprKind::IndexSlice: Visit(*reinterpret_cast<ITrIndexSlice*>(expr.get())); break;
 		case ITrExprKind::AmbiguousCall: Visit(expr, *reinterpret_cast<ITrAmbiguousCall*>(expr.get())); break;
 		case ITrExprKind::FuncOrMethodCall: Visit(*reinterpret_cast<ITrFuncCall*>(expr.get())); break;
-		case ITrExprKind::AdtTupleEnumInit: Visit(*reinterpret_cast<ITrAdtTupleEnumPattern*>(expr.get())); break;
+		case ITrExprKind::AdtTupleEnumInit: Visit(*reinterpret_cast<ITrAdtTupleEnumInit*>(expr.get())); break;
 		case ITrExprKind::MemberAccess: Visit(*reinterpret_cast<ITrMemberAccess*>(expr.get())); break;
 		case ITrExprKind::TupleAccess: Visit(*reinterpret_cast<ITrTupleAccess*>(expr.get())); break;
 		case ITrExprKind::Literal: Visit(*reinterpret_cast<ITrLiteral*>(expr.get())); break;

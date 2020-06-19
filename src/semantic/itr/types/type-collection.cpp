@@ -35,6 +35,8 @@ namespace Noctis
 
 			TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
 			sym->type = type;
+			IdenType& idenType = m_pCtx->typeReg.GetType(type)->AsIden();
+			idenType.sym = sym;
 
 			ITrBodySPtr body = mod.GetBody(node);
 			for (ITrDefSPtr def : body->defs)
@@ -59,6 +61,8 @@ namespace Noctis
 
 			TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
 			sym->type = type;
+			IdenType& idenType = m_pCtx->typeReg.GetType(type)->AsIden();
+			idenType.sym = sym;
 
 			ITrBodySPtr body = mod.GetBody(node);
 			for (ITrDefSPtr def : body->defs)
@@ -83,6 +87,8 @@ namespace Noctis
 
 			TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
 			sym->type = type;
+			IdenType& idenType = m_pCtx->typeReg.GetType(type)->AsIden();
+			idenType.sym = sym;
 
 			ITrBodySPtr body = mod.GetBody(node);
 			for (ITrDefSPtr def : body->defs)
@@ -107,6 +113,8 @@ namespace Noctis
 
 			TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
 			sym->type = type;
+			IdenType& idenType = m_pCtx->typeReg.GetType(type)->AsIden();
+			idenType.sym = sym;
 
 			ITrBodySPtr body = mod.GetBody(node);
 			for (ITrDefSPtr def : body->defs)
@@ -130,6 +138,8 @@ namespace Noctis
 
 			TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
 			sym->type = type;
+			IdenType& idenType = m_pCtx->typeReg.GetType(type)->AsIden();
+			idenType.sym = sym;
 		});
 
 		Foreach(ITrVisitorDefKind::Module, [&, this](ITrWeakInterface& node)
@@ -146,6 +156,8 @@ namespace Noctis
 
 			TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
 			sym->type = type;
+			IdenType& idenType = m_pCtx->typeReg.GetType(type)->AsIden();
+			idenType.sym = sym;
 
 			m_TypeQualName = node.qualName;
 
@@ -172,6 +184,8 @@ namespace Noctis
 
 			TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
 			sym->type = type;
+			IdenType& idenType = m_pCtx->typeReg.GetType(type)->AsIden();
+			idenType.sym = sym;
 
 			m_TypeQualName = node.qualName;
 
@@ -197,6 +211,8 @@ namespace Noctis
 
 			TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
 			sym->type = type;
+			IdenType& idenType = m_pCtx->typeReg.GetType(type)->AsIden();
+			idenType.sym = sym;
 		});
 
 		Foreach(ITrVisitorDefKind::Module, [&, this](ITrTypedef& node)
@@ -212,6 +228,8 @@ namespace Noctis
 
 			TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
 			sym->type = type;
+			IdenType& idenType = m_pCtx->typeReg.GetType(type)->AsIden();
+			idenType.sym = sym;
 		});
 
 		Foreach(ITrVisitorDefKind::Module, [&, this](ITrFunc& node)
@@ -338,6 +356,8 @@ namespace Noctis
 
 		TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
 		sym->type = type;
+		IdenType& idenType = m_pCtx->typeReg.GetType(type)->AsIden();
+		idenType.sym = sym;
 
 		ITrBodySPtr body = m_pMod->GetBody(node);
 		for (ITrDefSPtr def : body->defs)
@@ -361,6 +381,8 @@ namespace Noctis
 
 		TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
 		sym->type = type;
+		IdenType& idenType = m_pCtx->typeReg.GetType(type)->AsIden();
+		idenType.sym = sym;
 
 		ITrBodySPtr body = m_pMod->GetBody(node);
 		for (ITrDefSPtr def : body->defs)
@@ -385,6 +407,8 @@ namespace Noctis
 
 		TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
 		sym->type = type;
+		IdenType& idenType = m_pCtx->typeReg.GetType(type)->AsIden();
+		idenType.sym = sym;
 
 		ITrBodySPtr body = m_pMod->GetBody(node);
 		for (ITrDefSPtr def : body->defs)
@@ -420,6 +444,8 @@ namespace Noctis
 
 		TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
 		sym->type = type;
+		IdenType& idenType = m_pCtx->typeReg.GetType(type)->AsIden();
+		idenType.sym = sym;
 
 		ITrBodySPtr body = m_pMod->GetBody(node);
 		for (ITrDefSPtr def : body->defs)
@@ -432,13 +458,26 @@ namespace Noctis
 
 	void TypeCollection::Visit(ITrAdtEnumMember& node)
 	{
-		SymbolSPtr sym{ new Symbol{ m_pCtx, SymbolKind::ValEnumMember, node.qualName } };
+		SymbolSPtr sym{ new Symbol{ m_pCtx, SymbolKind::AdtEnumMember, node.qualName } };
 		m_Syms.top()->children->AddChild(sym);
 		node.sym = sym;
 		sym->associatedITr = node.ptr;
 		sym->baseVariant = sym;
 		sym->SetSelf(sym);
-		sym->type = node.type ? node.type->handle : TypeHandle(-1);
+
+		if (node.type)
+		{
+			sym->type = node.type->handle;
+
+			if (node.type->bodyIdx != u64(-1))
+			{
+				ITrBodySPtr body = m_pMod->GetBody(node.type->bodyIdx);
+				for (ITrDefSPtr def : body->defs)
+				{
+					ITrVisitor::Visit(def);
+				}
+			}
+		}
 	}
 
 	void TypeCollection::Visit(ITrTypealias& node)
@@ -464,6 +503,8 @@ namespace Noctis
 
 		TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, qualName);
 		sym->type = type;
+		IdenType& idenType = m_pCtx->typeReg.GetType(type)->AsIden();
+		idenType.sym = sym;
 		
 		m_Syms.pop();
 	}
@@ -483,6 +524,8 @@ namespace Noctis
 
 		TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
 		sym->type = type;
+		IdenType& idenType = m_pCtx->typeReg.GetType(type)->AsIden();
+		idenType.sym = sym;
 		
 		m_Syms.pop();
 	}
@@ -508,6 +551,22 @@ namespace Noctis
 			QualNameSPtr subQualName = qualName->GetSubName(m_ImplQualName);
 			qualName = QualName::Create(m_TypeQualName, subQualName->AllIdens());
 			node.qualName = qualName;
+		}
+
+		if (!node.params.empty())
+		{
+			StdVector<StdString> paramNames;
+			paramNames.reserve(node.params.size());
+			for (ITrParamSPtr param : node.params)
+			{
+				if (param->label)
+					paramNames.push_back(param->label->Name());
+				else
+					paramNames.push_back(param->iden->Name());
+			}
+
+			IdenSPtr newIden = Iden::Create(qualName->Iden()->Name(), qualName->Iden()->Generics(), m_pCtx->typeReg, paramNames);
+			qualName = QualName::Create(qualName->Base(), newIden);
 		}
 
 		SymbolSPtr sym{ new Symbol{ m_pCtx, kind, qualName } };
@@ -576,6 +635,8 @@ namespace Noctis
 
 				TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, qualName);
 				sym->type = type;
+				IdenType& idenType = m_pCtx->typeReg.GetType(type)->AsIden();
+				idenType.sym = sym;
 
 				generics[i].isType = true;
 				generics[i].type = type;

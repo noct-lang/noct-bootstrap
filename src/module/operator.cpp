@@ -460,6 +460,8 @@ namespace Noctis
 		op.result = funcType->AsFunc().retType;
 		op.sym = funcSym;
 
+		op.isBuiltin = m_pCtx->typeReg.IsType(op.left, TypeKind::Builtin);
+
 		StdUnorderedMap<TypeSPtr, StdVector<Operator>>& entry = m_OpSymbols[u8(kind)];
 		TypeSPtr type = m_pCtx->typeReg.GetType(op.left);
 		auto it = entry.find(type);

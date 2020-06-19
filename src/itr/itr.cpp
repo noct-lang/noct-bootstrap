@@ -31,8 +31,9 @@ namespace Noctis
 	{
 	}
 
-	ITrParam::ITrParam(ITrAttribsSPtr attribs, IdenSPtr iden, ITrTypeSPtr type)
+	ITrParam::ITrParam(ITrAttribsSPtr attribs, IdenSPtr label, IdenSPtr iden, ITrTypeSPtr type)
 		: attribs(attribs)
+		, label(label)
 		, iden(iden)
 		, type(type)
 	{
@@ -390,10 +391,12 @@ namespace Noctis
 	{
 	}
 
-	ITrAmbiguousAggrInit::ITrAmbiguousAggrInit(ITrTypeSPtr type, StdVector<ITrArgSPtr>&& args)
+	ITrAmbiguousAggrInit::ITrAmbiguousAggrInit(ITrTypeSPtr type, StdVector<ITrArgSPtr>&& args, bool hasDefInit, ITrExprSPtr defExpr)
 		: ITrExpr(ITrExprKind::AmbiguousAggrInit)
 		, type(type)
 		, args(std::move(args))
+		, defExpr(defExpr)
+		, hasDefInit(hasDefInit)
 	{
 	}
 
@@ -407,7 +410,7 @@ namespace Noctis
 	}
 
 	ITrUnionInit::ITrUnionInit(ITrTypeSPtr type, StdVector<ITrArgSPtr>&& args)
-		: ITrExpr(ITrExprKind::AdtAggrEnumInit)
+		: ITrExpr(ITrExprKind::UnionInit)
 		, type(type)
 		, args(std::move(args))
 	{
@@ -417,6 +420,7 @@ namespace Noctis
 		: ITrExpr(ITrExprKind::AdtAggrEnumInit)
 		, type(type)
 		, args(std::move(args))
+		, hasDefInit(false)
 	{
 	}
 
@@ -502,6 +506,7 @@ namespace Noctis
 		, subTypes(std::move(subTypes))
 		, expr(expr)
 		, handle(handle)
+		, bodyIdx(u64(-1))
 	{
 	}
 
@@ -659,9 +664,20 @@ namespace Noctis
 		bodies.push_back(body);
 	}
 
+	u64 ITrModule::AddBody(ITrBodySPtr body)
+	{
+		u64 tmp = u64(bodies.size());
+		bodies.push_back(body);
+		return tmp;
+	}
+
 	ITrBodySPtr ITrModule::GetBody(ITrDef& def)
 	{
-		u64 idx = def.bodyIdx;
+		return GetBody(def.bodyIdx);
+	}
+
+	ITrBodySPtr ITrModule::GetBody(u64 idx)
+	{
 		if (idx >= bodies.size())
 			return nullptr;
 		return bodies[idx];

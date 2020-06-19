@@ -295,12 +295,8 @@ namespace Noctis
 	void ILEncode::Visit(ILUnionInit& node)
 	{
 		WriteData(u8(node.kind));
-		WriteData(u8(node.args.size()));
 		EncodeVarAndType(node.dst);
-		for (ILVar& arg : node.args)
-		{
-			EncodeVar(arg);
-		}
+		EncodeVar(node.arg);
 	}
 
 	void ILEncode::Visit(ILValEnumInit& node)
@@ -848,14 +844,9 @@ namespace Noctis
 
 	ILElemSPtr ILDecode::DecodeUnionInit()
 	{
-		u8 argCount = ReadData<u8>();
 		ILVar dst = DecodeVar(true);
-		StdVector<ILVar> args;
-		for (u8 i = 0; i < argCount; ++i)
-		{
-			args.push_back(DecodeVar(false));
-		}
-		return ILElemSPtr{ new ILUnionInit{ dst, args } };
+		ILVar arg = DecodeVar(false);
+		return ILElemSPtr{ new ILUnionInit{ dst, arg } };
 	}
 
 	ILElemSPtr ILDecode::DecodeValEnumInit()

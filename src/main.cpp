@@ -20,7 +20,7 @@
 #include "semantic/semantic-analysis.hpp"
 
 //
-// build "../noct/src/core/ops/arith.nx"
+// build "../noct/src/core/ops/arith.nx" "../noct/src/core/ops/boolconv.nx"
 // build "../noct/src/core/convert.nx" -I "./"
 // build "../noct/src/core/error.nx"
 // build "../noct/src/core/result.nx" -I "./"

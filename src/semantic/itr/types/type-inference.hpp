@@ -29,12 +29,12 @@ namespace Noctis
 		void Visit(ITrQualNameExpr& node) override;
 		void Visit(ITrIndexSlice& node) override;
 		void Visit(ITrExprSPtr& ptr, ITrAmbiguousCall node) override;
+		void Visit(ITrFuncCall& node) override;
 		void Visit(ITrAdtTupleEnumInit& node) override;
 		void Visit(ITrMemberAccess& node) override;
 		void Visit(ITrTupleAccess& node) override;
 		void Visit(ITrLiteral& node) override;
 		void Visit(ITrExprSPtr& ptr, ITrAmbiguousAggrInit node) override;
-		void Visit(ITrStructInit& node) override;
 		void Visit(ITrTupleInit& node) override;
 		void Visit(ITrArrayInit& node) override;
 		void Visit(ITrCast& node) override;
@@ -50,7 +50,9 @@ namespace Noctis
 
 		void Visit(ITrType& node) override;
 
-	private:
+		// TODO: Patterns
+
+	private: 
 		void HandleGenerics(ITrGenDeclSPtr decl, IdenSPtr iden);
 		
 		QualNameSPtr GetCurScope();

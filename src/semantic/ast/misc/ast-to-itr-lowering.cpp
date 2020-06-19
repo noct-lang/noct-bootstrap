@@ -1169,7 +1169,7 @@ namespace Noctis
 
 	void AstToITrLowering::Visit(AstPrefixExpr& node)
 	{
-		OperatorKind op = TokenTypeToOperator(node.op, false, true);
+		OperatorKind op = TokenTypeToOperator(node.op, true, false);
 		Walk(node);
 		ITrExprSPtr expr = PopExpr();
 		expr->astNode = node.expr;
@@ -1294,11 +1294,7 @@ namespace Noctis
 		ITrTypeSPtr type = PopType();
 		type->astNode = node.type;
 
-		ITrExprSPtr expr;
-		if (node.hasDefInit || defExpr)
-			expr.reset(new ITrStructInit{ type, std::move(args), node.hasDefInit, defExpr });
-		else
-			expr.reset(new ITrAmbiguousAggrInit{ type, std::move(args) });
+		ITrExprSPtr expr{ new ITrAmbiguousAggrInit{ type, std::move(args), node.hasDefInit, defExpr } };
 		node.itr = expr;
 		m_Exprs.push(expr);
 	}
@@ -1750,6 +1746,9 @@ namespace Noctis
 		def->astNode = m_DeclNode;
 		mod.AddDefinition(def, body);
 
+		ITrBodySPtr typeBody{ new ITrBody{ { def }, {} } };
+		u64 bodyId = mod.AddBody(typeBody);
+		
 		ITrAttribsSPtr attribs;
 		if (node.attribs)
 		{
@@ -1759,6 +1758,7 @@ namespace Noctis
 
 		TypeHandle handle = m_pCtx->typeReg.Iden(TypeMod::None, node.ctx->qualName);
 		ITrTypeSPtr type{ new ITrType{ attribs, handle, {} } };
+		type->bodyIdx = bodyId;
 		m_Types.push(type);
 	}
 
@@ -2202,9 +2202,13 @@ namespace Noctis
 					attribs->astNode = paramVar->attribs;
 				}
 
+				IdenSPtr label;
+				if (!paramVar->label.empty())
+					label = Iden::Create(paramVar->label);
+
 				IdenSPtr iden = Iden::Create(paramVar->iden);
 				
-				ITrParamSPtr param{ new ITrParam{ attribs, iden, type } };
+				ITrParamSPtr param{ new ITrParam{ attribs, label, iden, type } };
 				param->astNode = astParam;
 				param->astVarNode = paramVar;
 				params.push_back(param);
@@ -2278,7 +2282,7 @@ namespace Noctis
 		}
 		case AstMethodReceiverKind::Value:
 		{
-			ITrParamSPtr recParam{ new ITrParam{ nullptr, Iden::Create("self"), recType } };
+			ITrParamSPtr recParam{ new ITrParam{ nullptr, nullptr, Iden::Create("self"), recType } };
 			params.insert(params.begin(), recParam);
 			break;
 		}

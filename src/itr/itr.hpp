@@ -175,9 +175,10 @@ namespace Noctis
 
 	struct ITrParam
 	{
-		ITrParam(ITrAttribsSPtr attribs, IdenSPtr iden, ITrTypeSPtr type);
+		ITrParam(ITrAttribsSPtr attribs, IdenSPtr label, IdenSPtr iden, ITrTypeSPtr type);
 
 		ITrAttribsSPtr attribs;
+		IdenSPtr label;
 		IdenSPtr iden;
 		ITrTypeSPtr type;
 		AstParamSPtr astNode;
@@ -583,10 +584,12 @@ namespace Noctis
 	// Can be ITrStructInit, ITrUnionInit or ITrAdtEnumAggrInit
 	struct ITrAmbiguousAggrInit : ITrExpr
 	{
-		ITrAmbiguousAggrInit(ITrTypeSPtr type, StdVector<ITrArgSPtr>&& args);
+		ITrAmbiguousAggrInit(ITrTypeSPtr type, StdVector<ITrArgSPtr>&& args, bool hasDefInit, ITrExprSPtr defExpr);
 
 		ITrTypeSPtr type;
 		StdVector<ITrArgSPtr> args;
+		ITrExprSPtr defExpr;
+		bool hasDefInit;
 	};
 
 	struct ITrStructInit : ITrExpr
@@ -615,6 +618,8 @@ namespace Noctis
 
 		ITrTypeSPtr type;
 		StdVector<ITrArgSPtr> args;
+		ITrExprSPtr defExpr;
+		bool hasDefInit;
 
 		StdVector<u32> argOrder;
 	};
@@ -727,6 +732,7 @@ namespace Noctis
 		ITrExprSPtr expr;
 		TypeHandle handle;
 		AstTypeSPtr astNode;
+		u64 bodyIdx;
 	};
 
 	struct ITrPattern
@@ -918,8 +924,10 @@ namespace Noctis
 	{
 		void AddDefinition(ITrDefSPtr def);
 		void AddDefinition(ITrDefSPtr def, ITrBodySPtr body);
+		u64 AddBody(ITrBodySPtr body);
 
 		ITrBodySPtr GetBody(ITrDef& def);
+		ITrBodySPtr GetBody(u64 idx);
 
 		StdArray<StdVector<ITrDefSPtr>, u8(ITrDefKind::Count)> defMapping;
 		StdVector<ITrBodySPtr> bodies;
