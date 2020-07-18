@@ -194,7 +194,8 @@ namespace Noctis
 		AstArgSPtr astNode;
 	};
 
-	
+
+	FWDECL_STRUCT_SPTR(ITrDef);
 	
 	struct ITrDef
 	{
@@ -210,14 +211,17 @@ namespace Noctis
 		SymbolWPtr sym;
 
 		// Is the definition in the module, instead of being a sub definition in another definition
-		bool isModDef;
+		bool isModDef : 1;
+
+		bool isDummyDef : 1;
 
 		// Name of the file that contains the definition (needed to retrieve correct spans)
 		StdString fileName;
 		AstDeclSPtr astNode;
 		ITrDefWPtr ptr;
+
+		ITrDefSPtr impl;
 	};
-	using ITrDefSPtr = StdSharedPtr<ITrDef>;
 
 	struct ITrStruct : ITrDef
 	{
@@ -260,7 +264,9 @@ namespace Noctis
 
 	struct ITrStrongInterface : ITrDef
 	{
-		ITrStrongInterface(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr qualName);
+		ITrStrongInterface(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr qualName, StdPairVector<QualNameSPtr, SpanId>&& implInterfaces);
+
+		StdPairVector<QualNameSPtr, SpanId> implInterfaces;
 	};
 
 	struct ITrWeakInterface : ITrDef

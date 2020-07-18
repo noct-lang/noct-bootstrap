@@ -337,7 +337,7 @@ namespace Noctis
 		case AstMethodReceiverKind::None: rec = "none"; break;
 		case AstMethodReceiverKind::Value: rec = "self"; break;
 		case AstMethodReceiverKind::Ref: rec = "&self"; break;
-		case AstMethodReceiverKind::ConstRef: rec = "&const self"; break;
+		case AstMethodReceiverKind::MutRef: rec = "&mut self"; break;
 		default: rec = "";
 		}
 		
@@ -405,7 +405,7 @@ namespace Noctis
 		case AstMethodReceiverKind::None: rec = "none"; break;
 		case AstMethodReceiverKind::Value: rec = "self"; break;
 		case AstMethodReceiverKind::Ref: rec = "&self"; break;
-		case AstMethodReceiverKind::ConstRef: rec = "&const self"; break;
+		case AstMethodReceiverKind::MutRef: rec = "&mut self"; break;
 		default: rec = "";
 		}
 

@@ -205,6 +205,7 @@ namespace Noctis
 		ITrAttribsSPtr attribs;
 		if (node.attribs)
 		{
+			Visit(*node.attribs);
 			attribs = PopAttribs();
 			attribs->astNode = node.attribs;
 		}
@@ -352,7 +353,21 @@ namespace Noctis
 			genDecl->astNode = node.generics;
 			HandleGenerics(genDecl, node.ctx->qualName);
 		}
-		ITrDefSPtr def{ new ITrStrongInterface{ attribs, genDecl, node.ctx->qualName } };
+
+		StdPairVector<QualNameSPtr, SpanId> interfaces;
+		usize size = node.implInterfaces.size();
+		interfaces.resize(size);
+		for (usize i = 0; i< size; ++i)
+		{
+			Visit(*node.implInterfaces[i]);
+			ITrTypeSPtr interface = PopType();
+			interface->astNode = node.implInterfaces[i];
+			TypeSPtr interfaceType = m_pCtx->typeReg.GetType(interface->handle);
+			interfaces[i].first = interfaceType->AsIden().qualName;
+			interfaces[i].second = interface->astNode->ctx->startIdx;
+		}
+		
+		ITrDefSPtr def{ new ITrStrongInterface{ attribs, genDecl, node.ctx->qualName, std::move(interfaces) } };
 		node.defItr = def;
 		def->ptr = def;
 
@@ -514,6 +529,9 @@ namespace Noctis
 			Visit(*node.generics);
 			genDecl = PopGenDecl();
 			genDecl->astNode = node.generics;
+
+			if (node.whereClause)
+				HandleWhereClause(*node.whereClause, genDecl);
 		}
 		
 		StdVector<ITrParamSPtr> params = GetParams(node.params);
@@ -574,6 +592,9 @@ namespace Noctis
 			Visit(*node.generics);
 			genDecl = PopGenDecl();
 			genDecl->astNode = node.generics;
+
+			if (node.whereClause)
+				HandleWhereClause(*node.whereClause, genDecl);
 		}
 		
 		StdVector<ITrParamSPtr> params = GetParams(node.params);
@@ -664,22 +685,32 @@ namespace Noctis
 		type->astNode = node.type;
 
 		PushDefFrame();
+		m_ITrImplType = type;
 		m_ImplType = type->handle;
-		Walk(node);
+		for (AstStmtSPtr stmt : node.stmts)
+		{
+			AstVisitor::Visit(stmt);
+		}
 		m_ImplType = TypeHandle(-1);
+		m_ITrImplType = nullptr;
 		StdVector<ITrDefSPtr> defs = PopDefFrame();
 		
 		ITrAttribsSPtr attribs;
 		if (node.attribs)
 		{
+			Visit(*node.attribs);
 			attribs = PopAttribs();
 			attribs->astNode = node.attribs;
 		}
 		ITrGenDeclSPtr genDecl;
 		if (node.generics)
 		{
+			Visit(*node.generics);
 			genDecl = PopGenDecl();
 			genDecl->astNode = node.generics;
+
+			if (node.whereClause)
+				HandleWhereClause(*node.whereClause, genDecl);
 		}
 
 		StdPairVector<QualNameSPtr, SpanId> interfaces;
@@ -688,6 +719,7 @@ namespace Noctis
 		for (usize i = size; i > 0;)
 		{
 			--i;
+			Visit(*node.interfaces[i]);
 			ITrTypeSPtr interface = PopType();
 			interface->astNode = node.interfaces[i];
 			TypeSPtr interfaceType = m_pCtx->typeReg.GetType(interface->handle);
@@ -739,7 +771,10 @@ namespace Noctis
 			}
 		}
 
-		ITrStmtSPtr stmt{ new ITrBlock{ node.ctx->qualName->Iden()->Name(), std::move(stmts) } };
+		QualNameSPtr blockName = node.ctx->qualName;
+		if (!blockName)
+			blockName = node.ctx->scope;
+		ITrStmtSPtr stmt{ new ITrBlock{ blockName->Iden()->Name(), std::move(stmts) } };
 		node.itr = stmt;
 		m_Stmts.push(stmt);
 	}
@@ -2033,7 +2068,7 @@ namespace Noctis
 			switch (simpleAttrib->attrib)
 			{
 			case TokenType::Const: tmp = Attribute::Const; break;
-			case TokenType::Immutable: tmp = Attribute::Immutable; break;
+			case TokenType::Mut: tmp = Attribute::Mut; break;
 			case TokenType::Static: tmp = Attribute::Static; break;
 			case TokenType::Comptime: tmp = Attribute::Comptime; break;
 			case TokenType::Lazy: tmp = Attribute::Lazy; break;
@@ -2163,12 +2198,12 @@ namespace Noctis
 
 	void AstToITrLowering::Visit(AstGenericTypeBound& node)
 	{
-		Walk(node);
+		Visit(node.bound);
 		ITrTypeSPtr boundType = PopType();
 		boundType->astNode = node.bound;
 		
 		AstIdentifierType& idenType = *reinterpret_cast<AstIdentifierType*>(node.type.get());
-		IdenSPtr typeIden = idenType.qualName->ctx->iden;
+		IdenSPtr typeIden = Iden::Create(static_cast<AstIden&>(*idenType.qualName->idens[0]).iden);
 
 		ITrGenTypeBoundSPtr bound{ new ITrGenTypeBound{ typeIden, boundType } };
 		node.itr = bound;
@@ -2261,17 +2296,31 @@ namespace Noctis
 				idenGen.iden = genParam.iden;
 			}
 		}
+
+		
 	}
 
 	void AstToITrLowering::AddMethodReceiverToParams(AstMethodReceiverKind recKind, StdVector<ITrParamSPtr>& params)
 	{
-		ITrTypeSPtr recType{ new ITrType { nullptr, m_ImplType, {} } };
+		ITrTypeSPtr recType;
+		if (m_ITrImplType)
+			recType = m_ITrImplType;
+		else
+			recType.reset(new ITrType { nullptr, m_ImplType, {} });
 		switch (recKind)
 		{
-		case AstMethodReceiverKind::ConstRef:
+		case AstMethodReceiverKind::MutRef:
 		{
-			TypeHandle tmp = m_pCtx->typeReg.Mod(TypeMod::Const, recType->handle);
-			recType = ITrTypeSPtr{ new ITrType { nullptr, tmp, {} } };
+			TypeHandle tmp = m_pCtx->typeReg.Mod(TypeMod::Mut, recType->handle);
+			if (m_ITrImplType)
+			{
+				recType = ITrTypeSPtr{ new ITrType { *m_ITrImplType } };
+				recType->handle = tmp;
+			}
+			else
+			{
+				recType = ITrTypeSPtr{ new ITrType { nullptr, tmp, {} } };
+			}
 			// fallthrough
 		}
 		case AstMethodReceiverKind::Ref:
@@ -2317,6 +2366,16 @@ namespace Noctis
 
 		TypeHandle handle = m_pCtx->typeReg.Tuple(TypeMod::None, subTypesHandles);
 		retType = ITrTypeSPtr{ new ITrType{ nullptr, handle, std::move(subTypes) } };
+	}
+
+	void AstToITrLowering::HandleWhereClause(AstGenericWhereClause& clause, ITrGenDeclSPtr genDecl)
+	{
+		m_GenDecl = genDecl;
+		for (AstGenericTypeBoundSPtr astBound : clause.bounds)
+		{
+			Visit(*astBound);
+		}
+		m_GenDecl = nullptr;
 	}
 
 	void AstToITrLowering::PushDefFrame()

@@ -32,7 +32,7 @@ namespace Noctis::NameMangling
 			}
 			else
 			{
-				QualNameSPtr parentQualName = sym->impls.front().first->parent.lock()->qualName;
+				QualNameSPtr parentQualName = sym->impls.front()->parent.lock()->qualName;
 				StdString parentMangled = Mangle(pCtx, parentQualName);
 				
 				StdString mangledName = Mangle(pCtx, sym->qualName);
@@ -200,8 +200,8 @@ namespace Noctis::NameMangling
 	StdString Mangle(Context* pCtx, TypeSPtr type)
 	{
 		StdString mod;
-		if (type->mod == TypeMod::Const)
-			mod = "C";
+		if (type->mod == TypeMod::Mut)
+			mod = "M";
 		
 		switch (type->typeKind)
 		{
@@ -289,6 +289,11 @@ namespace Noctis::NameMangling
 				mangled += Mangle(pCtx, subType);
 			}
 			return mangled;
+		}
+		case TypeKind::Generic:
+		{
+			// TODO: bounds
+			return mod + 'H' + Mangle(pCtx, type->AsGeneric().iden);
 		}
 		default: return "";
 		}
@@ -387,10 +392,10 @@ namespace Noctis::NameMangling
 	TypeHandle DemangleType(Context* pCtx, StdStringView data, usize& idx)
 	{
 		TypeMod mod = TypeMod::None;
-		if (data[idx] == 'C')
+		if (data[idx] == 'M')
 		{
 			++idx;
-			mod = TypeMod::Const;
+			mod = TypeMod::Mut;
 		}
 		
 		switch (data[idx])
@@ -478,6 +483,13 @@ namespace Noctis::NameMangling
 			++idx;
 			
 			return pCtx->typeReg.Func(mod, subTypes, retType);
+		}
+		case 'H':
+		{
+			++idx;
+			IdenSPtr qualName = DemangleIden(pCtx, data, idx);
+			// TODO: bounds
+			return pCtx->typeReg.Generic(mod, qualName, {});
 		}
 		default:
 		{

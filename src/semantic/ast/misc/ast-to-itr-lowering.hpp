@@ -151,6 +151,8 @@ namespace Noctis
 		void AddMethodReceiverToParams(AstMethodReceiverKind recKind, StdVector<ITrParamSPtr>& params);
 		void GetNamedReturns(ITrTypeSPtr& retType, StdVector<ITrStmtSPtr> stmts, StdPairVector<StdVector<StdString>, AstTypeSPtr>& astNamedRets);
 
+		void HandleWhereClause(AstGenericWhereClause& clause, ITrGenDeclSPtr genDecl);
+
 		void PushDefFrame();
 		void PushDef(ITrDefSPtr def);
 		StdVector<ITrDefSPtr> PopDefFrame();
@@ -173,6 +175,7 @@ namespace Noctis
 		ITrGenDeclSPtr m_GenDecl;
 		ITrExprSPtr m_NamedRet;
 		TypeHandle m_ImplType;
+		ITrTypeSPtr m_ITrImplType;
 		bool m_InFunc;
 		StdString m_TreeFilename;
 		AstDeclSPtr m_DeclNode;

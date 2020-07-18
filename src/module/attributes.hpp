@@ -17,10 +17,10 @@ namespace Noctis
 		None = 0x00,
 		
 		Const = 0x01,
-		Immutable = 0x02,
+		Mut = 0x02,
 		
 		Static = 0x10,
-		Comptime = 0x20,
+		Comptime = 0x20, // TODO: Do we really need this?
 		Lazy = 0x40,
 		Move = 0x80,
 	};

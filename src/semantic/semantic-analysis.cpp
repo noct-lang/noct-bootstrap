@@ -15,6 +15,7 @@
 #include "module/encode.hpp"
 #include "module/module.hpp"
 #include "semantic-utils.hpp"
+#include "ast/ast-printer.hpp"
 
 namespace Noctis
 {
@@ -73,6 +74,12 @@ namespace Noctis
 		// Rerun for names inside expanded macros
 		RunPass<IdenScopePass>();
 
+		if (m_pCtx->options.GetBuildOptions().logAst)
+		{
+			Noctis::AstPrinter printer;
+			printer.Visit(tree);
+		}
+
 		RunPass<AstToITrLowering>();
 	}
 
@@ -97,8 +104,12 @@ namespace Noctis
 		RunPass<SimpleAttributePass>();
 		RunPass<TypeCollection>();
 
+		RunPass<InterfaceResolve>();
+		RunPass<ImplCollection>();
 
 		RunPass<TypealiasReplacing>();
+
+		RunPass<CompilerImplPass>();
 
 		{
 			TypeInference pass{ m_pCtx };

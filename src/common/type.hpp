@@ -3,7 +3,9 @@
 
 namespace Noctis
 {
+	struct Context;
 	FWDECL_CLASS_SPTR(QualName);
+	FWDECL_CLASS_SPTR(Iden);
 	FWDECL_STRUCT_WPTR(Symbol);
 	
 	enum class TypeKind : u8
@@ -17,7 +19,8 @@ namespace Noctis
 		Tuple,
 		Opt,
 		Compound,
-		Func
+		Func,
+		Generic,
 	};
 
 	enum class BuiltinTypeKind : u8
@@ -48,12 +51,13 @@ namespace Noctis
 	enum class TypeMod : u8
 	{
 		None,
-		Const, 
+		Mut, 
 		Count,
 	};
 	StdStringView TypeModToString(TypeMod mod);
 
 	using TypeHandle = u64;
+	constexpr TypeHandle InvalidTypeHandle = TypeHandle(-1);
 
 	struct BuiltinType;
 	struct IdenType;
@@ -65,6 +69,7 @@ namespace Noctis
 	struct OptType;
 	struct CompoundType;
 	struct FuncType;
+	struct GenericType;
 	class TypeRegistry;
 
 	struct Type
@@ -83,6 +88,7 @@ namespace Noctis
 		OptType& AsOpt() { return *reinterpret_cast<OptType*>(this); }
 		CompoundType& AsCompound() { return *reinterpret_cast<CompoundType*>(this); }
 		FuncType& AsFunc() { return *reinterpret_cast<FuncType*>(this); }
+		GenericType& AsGeneric() { return *reinterpret_cast<GenericType*>(this); }
 
 		TypeKind typeKind;
 		TypeMod mod;
@@ -172,10 +178,18 @@ namespace Noctis
 		TypeHandle retType;
 	};
 
+	struct GenericType : Type
+	{
+		GenericType(TypeMod mod, IdenSPtr qualName, const StdVector<TypeHandle>& constraints);
+
+		IdenSPtr iden;
+		StdVector<TypeHandle> constraints;
+	};
+
 	class TypeRegistry
 	{
 	public:
-		TypeRegistry();
+		TypeRegistry(Context* pCtx);
 
 		bool IsType(TypeHandle handle, TypeKind kind);
 		TypeSPtr GetType(TypeHandle handle);
@@ -187,7 +201,14 @@ namespace Noctis
 		void SetIdenSym(QualNameSPtr qualName, SymbolWPtr sym);
 		void SetAliasType(TypeHandle alias, TypeHandle type);
 
+		TypeHandle ReplaceSubType(TypeHandle orig, TypeHandle toReplace, TypeHandle replacement);
+
 		void CalculateSizeAlign();
+
+		i64 ScorePossibleVariant(TypeSPtr type, TypeSPtr candidate);
+		StdVector<TypeSPtr> GetBestVariants(TypeHandle type, const StdVector<TypeSPtr>& candidates);
+
+		StdVector<TypeSPtr> ExtractGenerics(TypeSPtr type);
 
 		TypeHandle Builtin(TypeMod mod, BuiltinTypeKind builtin);
 		TypeHandle Iden(TypeMod mod, QualNameSPtr qualName);
@@ -203,10 +224,14 @@ namespace Noctis
 		TypeHandle Compound(TypeMod mod, const StdVector<TypeHandle>& subTypes);
 
 		TypeHandle Func(TypeMod mod, const StdVector<TypeHandle>& params, TypeHandle ret);
+		
+		TypeHandle Generic(TypeMod mod, IdenSPtr qualName, const StdVector<TypeHandle>& constraints);
 
 		TypeHandle Mod(TypeMod mod, TypeHandle handle);
 
 	private:
+		void ExtractGenerics(TypeSPtr type, StdVector<TypeSPtr>& gens);
+		
 		static constexpr u8 m_ModCount = u8(TypeMod::Count);
 		
 		StdArray<StdArray<TypeHandle, m_ModCount>, u8(BuiltinTypeKind::Count)> m_BuiltinMapping;
@@ -224,8 +249,11 @@ namespace Noctis
 		StdUnorderedMap<u64, StdUnorderedMap<TypeHandle, StdVector<StdArray<TypeHandle, m_ModCount>>>> m_CompoundMapping;
 		StdUnorderedMap<u64, StdUnorderedMap<TypeHandle, StdVector<StdArray<TypeHandle, m_ModCount>>>> m_FuncMapping;
 
-		StdVector<TypeSPtr> m_Types;
+		StdUnorderedMap<IdenSPtr, StdVector<StdArray<TypeHandle, m_ModCount>>> m_GenericMapping;
 		
+		StdVector<TypeSPtr> m_Types;
+
+		Context* m_pCtx;
 	};
 	
 }

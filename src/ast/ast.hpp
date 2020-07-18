@@ -402,11 +402,12 @@ namespace Noctis
 	struct AstStrongInterfaceDecl : public AstDecl
 	{
 		AstStrongInterfaceDecl(AstAttribsSPtr attribs, u64 startIdx, StdString&& iden,
-			AstGenericDeclSPtr generics, StdVector<AstStmtSPtr>&& members, u64 rBraceTokIdx);
+			AstGenericDeclSPtr generics, StdVector<AstIdentifierTypeSPtr>&& implInterfaces, StdVector<AstStmtSPtr>&& members, u64 rBraceTokIdx);
 
 		AstAttribsSPtr attribs;
 		StdString iden;
 		AstGenericDeclSPtr generics;
+		StdVector<AstIdentifierTypeSPtr> implInterfaces;
 		StdVector<AstStmtSPtr> members;
 	};
 
@@ -469,7 +470,7 @@ namespace Noctis
 		None,
 		Value,
 		Ref,
-		ConstRef
+		MutRef
 	};
 	
 	struct AstMethodDecl : public AstDecl
@@ -510,13 +511,14 @@ namespace Noctis
 	struct AstImplDecl : public AstDecl
 	{
 		AstImplDecl(AstAttribsSPtr attribs, u64 startIdx, AstGenericDeclSPtr generics,
-			AstTypeSPtr type, StdVector<AstIdentifierTypeSPtr>&& interfaces, 
+			AstTypeSPtr type, StdVector<AstIdentifierTypeSPtr>&& interfaces, AstGenericWhereClauseSPtr whereClause,
 			StdVector<AstStmtSPtr>&& stmts, u64 endIdx);
 
 		AstAttribsSPtr attribs;
 		AstGenericDeclSPtr generics;
 		AstTypeSPtr type;
 		StdVector<AstIdentifierTypeSPtr> interfaces;
+		AstGenericWhereClauseSPtr whereClause;
 		StdVector<AstStmtSPtr> stmts;
 	};
 

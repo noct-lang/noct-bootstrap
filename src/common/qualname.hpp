@@ -83,6 +83,8 @@ namespace Noctis
 		QualNameSPtr GetSubName(QualNameSPtr base);
 		usize Depth();
 
+		bool IsSubnameOf(QualNameSPtr base);
+
 		IdenSPtr Iden() { return m_Iden; }
 		const IdenSPtr Iden() const { return m_Iden; }
 		QualNameSPtr Base() { return m_Base; }

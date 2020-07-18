@@ -79,9 +79,9 @@ namespace Noctis
 
 		AstExprSPtr ParseCommaExpression();
 
-		AstExprSPtr ParseExpression(AstExprSPtr prev = nullptr, bool allowBlockExpr = false, 
-			bool allowAggrInit = true);
+		AstExprSPtr ParseExpression(AstExprSPtr prev = nullptr, bool allowBlockExpr = false);
 		AstExprSPtr ParseOperand(AstExprSPtr prev);
+		AstExprSPtr ParseOperandImpl(AstExprSPtr prev);
 
 		AstExprSPtr ParseAssignmentExpr(AstExprSPtr lExpr);
 		AstExprSPtr ParseTernaryExpr(AstExprSPtr cond);
@@ -119,6 +119,7 @@ namespace Noctis
 		AstTypeSPtr ParseOptionalType(AstAttribsSPtr attribs);
 		AstTypeSPtr ParseInlineStructType(bool structKwOptional = false);
 		AstTypeSPtr ParseInlineEnumType();
+		AstTypeSPtr ParseCompoundInterfaceType();
 		AstTypeSPtr ParseCompoundInterfaceType(AstIdentifierTypeSPtr first);
 
 		AstPatternSPtr ParsePattern();
@@ -185,6 +186,7 @@ namespace Noctis
 		u64 m_TokIdx;
 		Context* m_pCtx;
 		MacroVarSolver* m_pMacroSolver;
+		bool m_AllowAggrInit;
 	};
 	
 }

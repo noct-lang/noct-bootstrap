@@ -4,6 +4,7 @@
 #include "common/errorsystem.hpp"
 #include "common/logger.hpp"
 #include "common/qualname.hpp"
+#include "module.hpp"
 
 namespace Noctis
 {
@@ -18,6 +19,7 @@ namespace Noctis
 		, pCtx(pCtx)
 		, kind(kind)
 		, isImported(false)
+		, isDefaultImpl(false)
 	{
 	}
 
@@ -133,6 +135,25 @@ namespace Noctis
 		
 	}
 
+	SymbolSPtr Symbol::CreateVariant(QualNameSPtr qualName)
+	{
+		if (!IsBaseVariant())
+			return baseVariant.lock()->CreateVariant(qualName);
+
+		for (SymbolSPtr variant : variants)
+		{
+			if (variant->qualName == qualName)
+				return variant;
+		}
+		
+		QualNameSPtr newQualName = QualName::Create(this->qualName->Base(), qualName->Iden());
+		SymbolSPtr variantSym = CreateSymbol(pCtx, kind, newQualName);
+		variantSym->baseVariant = self;
+		variantSym->type = pCtx->typeReg.Iden(TypeMod::None, newQualName);
+		variants.push_back(variantSym);
+		return variantSym;
+	}
+
 	void Symbol::Log(u8 indent, bool includeImports)
 	{
 		if (isImported && !includeImports)
@@ -175,10 +196,11 @@ namespace Noctis
 		const char* imported = isImported ? ", import" : "";
 		g_Logger.Log("(symbol '%s', kind='%s', type='%s'%s)\n", name.c_str(), kindName.data(), typeName.c_str(), imported);
 
-		for (u8 i = 0; i < indent; ++i)
-			g_Logger.Log(" |");
-		g_Logger.Log(" +(children)\n");
-		children->Log(indent + 1, includeImports);
+		if (!children->Empty())
+		{
+			g_Logger.Log(" +(children)\n");
+			children->Log(indent + 1, includeImports);
+		}
 
 		if (!variants.empty())
 		{
@@ -190,17 +212,37 @@ namespace Noctis
 
 		if (!impls.empty())
 		{
-			for (StdPair<SymbolSPtr, bool>& pair : impls)
+			for (SymbolSPtr implSym : impls)
 			{
-				if (pair.second)
+				if (!implSym->qualName->IsSubnameOf(pCtx->activeModule->qualName))
 					continue;
 				
+				//if (pair.second)
+				//	continue;
+				
 				printIndent(indent + 1);
-				SymbolSPtr impl = pair.first;
-				StdString tmp = impl->kind == SymbolKind::ImplType ? pCtx->typeReg.ToString(impl->type) : impl->qualName->ToString();
+				StdString tmp = implSym->kind == SymbolKind::ImplType ? pCtx->typeReg.ToString(implSym->type) : implSym->qualName->ToString();
 				g_Logger.Log(isInterface ? "(implemented by '%s')\n" : "(implements '%s')\n", tmp.c_str());
 			}
 		}
+	}
+
+	bool Symbol::HasMarker(QualNameSPtr name)
+	{
+		for (SymbolWPtr marker : markers)
+		{
+			if (marker.lock()->qualName == name)
+				return true;
+		}
+		return false;
+	}
+
+	SymbolSPtr CreateSymbol(Context* pCtx, SymbolKind kind, QualNameSPtr qualName)
+	{
+		SymbolSPtr sym{ new Symbol{ pCtx, kind, qualName } };
+		sym->SetSelf(sym);
+		sym->baseVariant = sym;
+		return sym;
 	}
 
 	SymbolSubTable::SymbolSubTable(Context* pCtx)
@@ -350,6 +392,11 @@ namespace Noctis
 		return subTable->Find(idens, argNames);
 	}
 
+	void SymbolSubTable::RemoveChild(SymbolSPtr sym)
+	{
+		m_SubTable->RemoveFromCur(sym);
+	}
+
 	void SymbolSubTable::Foreach(const std::function<void(SymbolSPtr, QualNameSPtr)>& lambda)
 	{
 		m_SubTable->Foreach(lambda, nullptr);
@@ -357,6 +404,11 @@ namespace Noctis
 		{
 			pair.second->Foreach(lambda, pair.first);
 		}
+	}
+
+	bool SymbolSubTable::Empty() const
+	{
+		return m_SubTable->Empty() && m_ImplSubtables.empty();
 	}
 
 	void SymbolSubTable::Log(u8 indent, bool includeImports)
@@ -599,6 +651,35 @@ namespace Noctis
 		}
 	}
 
+	bool ScopedSymbolTable::RemoveFromCur(SymbolSPtr sym)
+	{
+		IdenSPtr iden = sym->qualName->Iden();
+		
+		auto it = m_Symbols.find(iden->Name());
+		if (it != m_Symbols.end())
+		{
+			m_Symbols.erase(it);
+			return true;
+		}
+
+		auto funcIt = m_Functions.find(iden->Name());
+		if (funcIt != m_Functions.end())
+		{
+			it = funcIt->second.find(iden->ToFuncSymName());
+			if (it != funcIt->second.end())
+			{
+				funcIt->second.erase(it);
+
+				if (funcIt->second.empty())
+					m_Functions.erase(funcIt);
+
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	SymbolSPtr ScopedSymbolTable::Find(QualNameSPtr qualName)
 	{
 		StdVector<IdenSPtr> idens = qualName->AllIdens();
@@ -632,7 +713,7 @@ namespace Noctis
 		if (funcIt != m_Functions.end())
 		{
 			StdUnorderedMap<StdString, SymbolSPtr>::iterator subIt;
-			if (iden->ParamNames().empty() && funcIt->second.size() == 1)
+			if (funcIt->second.size() == 1)
 			{
 				subIt = funcIt->second.begin();
 			}

@@ -722,7 +722,8 @@ namespace Noctis
 	{
 		Visit(node.cond);
 		Visit(*node.tBlock);
-		Visit(*node.fBlock);
+		if (node.fBlock)
+			Visit(*node.fBlock);
 	}
 
 	void ITrVisitor::Walk(ITrLoop& node)

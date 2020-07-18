@@ -20,10 +20,12 @@
 #include "semantic/semantic-analysis.hpp"
 
 //
-// build "../noct/src/core/ops/arith.nx" "../noct/src/core/ops/boolconv.nx"
-// build "../noct/src/core/convert.nx" -I "./"
+// build "../noct/src/core/marker.nx"
+// build "../noct/src/core/ops/arith.nx" "../noct/src/core/ops/boolconv.nx" "../noct/src/core/ops/deref.nx"
+// build "../noct/src/core/ops/arith.nx" "../noct/src/core/ops/cmp.nx" -I "./"
 // build "../noct/src/core/error.nx"
 // build "../noct/src/core/result.nx" -I "./"
+// build "../noct/src/core/convert.nx" -I "./"
 //
 // build test.nx -I "./"
 // interpret main -I "./"
@@ -152,12 +154,6 @@ void ProcessBuild(Noctis::Context& context)
 			timer.Stop();
 
 			g_Logger.Log(Noctis::Format("AST semantic analysis took %fms\n", timer.GetTimeMS()));
-
-			if (buildOptions.logAst)
-			{
-				Noctis::AstPrinter printer;
-				printer.Visit(tree);
-			}
 		}
 
 		if (buildOptions.logLoweredITr)

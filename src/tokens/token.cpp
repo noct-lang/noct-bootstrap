@@ -39,6 +39,7 @@ namespace Noctis
 		case TokenType::Macro: return "macro";
 		case TokenType::Module: return "module";
 		case TokenType::Move: return "move";
+		case TokenType::Mut: return "mut";
 		case TokenType::Public: return "public";
 		case TokenType::Return: return "return";
 		case TokenType::Static: return "static";
@@ -350,11 +351,11 @@ namespace Noctis
 			const Token& tok = subTree.tok;
 			std::stringstream ss;
 
-			Noctis::Span span = spanManager.GetSpan(i);
+			Span span = spanManager.GetSpan(i);
 
 			ss << '[' << span.line << ':' << span.column << ']';
 			ss << ", ";
-			ss << Noctis::GetTokenTypeName(tok.Type());
+			ss << GetTokenTypeName(tok.Type());
 
 			if (tok.Type() == TokenType::Iden ||
 				tok.Type() == TokenType::MacroIden)
@@ -363,15 +364,15 @@ namespace Noctis
 				ss << tok.Text();
 			}
 
-			if (Noctis::IsTokenTypeSignedLiteral(tok.Type()))
+			if (IsTokenTypeSignedLiteral(tok.Type()))
 				ss << ", " << tok.Signed();
-			if (Noctis::IsTokenTypeUnsignedLiteral(tok.Type()))
+			if (IsTokenTypeUnsignedLiteral(tok.Type()))
 				ss << ", " << tok.Unsigned();
-			if (Noctis::IsTokenTypeFpLiteral(tok.Type()))
+			if (IsTokenTypeFpLiteral(tok.Type()))
 				ss << ", " << tok.Fp();
-			if (tok.Type() == Noctis::TokenType::CharLit)
+			if (tok.Type() == TokenType::CharLit)
 				ss << ", " << tok.Signed();
-			if (tok.Type() == Noctis::TokenType::True || tok.Type() == Noctis::TokenType::False)
+			if (tok.Type() == TokenType::True || tok.Type() == TokenType::False)
 				ss << ", " << tok.Bool();
 
 			ss << "\n";

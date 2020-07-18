@@ -835,6 +835,7 @@ namespace Noctis
 			{ "macro", TokenType::Macro },
 			{ "module", TokenType::Module },
 			{ "move", TokenType::Move },
+			{ "mut", TokenType::Mut },
 			{ "public", TokenType::Public },
 			{ "return", TokenType::Return },
 			{ "static", TokenType::Static },

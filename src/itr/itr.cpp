@@ -90,8 +90,9 @@ namespace Noctis
 	{
 	}
 
-	ITrStrongInterface::ITrStrongInterface(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr qualName)
+	ITrStrongInterface::ITrStrongInterface(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr qualName, StdPairVector<QualNameSPtr, SpanId>&& implInterfaces)
 		: ITrDef(ITrDefKind::StrongInterface, attribs, genDecl, qualName, true)
+		, implInterfaces(std::move(implInterfaces))
 	{
 	}
 
@@ -370,7 +371,7 @@ namespace Noctis
 	ITrFuncCall::ITrFuncCall(ITrExprSPtr caller, bool nullCoalesce, IdenSPtr iden, StdVector<ITrArgSPtr>&& args)
 		: ITrExpr(ITrExprKind::FuncOrMethodCall)
 		, isMethod(true)
-		, nullCoalesce(true)
+		, nullCoalesce(nullCoalesce)
 		, callerOrFunc(caller)
 		, iden(iden)
 		, args(std::move(args))

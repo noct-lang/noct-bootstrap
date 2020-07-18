@@ -11,10 +11,8 @@ namespace Noctis
 
 		if (ENUM_IS_SET(attribs, Attribute::Const))
 			res = "const";
-		if (ENUM_IS_SET(attribs, Attribute::Immutable))
-			res += res.empty() ? "immutable" : " | immutable";
-		if (ENUM_IS_SET(attribs, Attribute::Immutable))
-			res += res.empty() ? "immutable" : " | immutable";
+		if (ENUM_IS_SET(attribs, Attribute::Mut))
+			res += res.empty() ? "mutable" : " | mutable";
 		
 		if (ENUM_IS_SET(attribs, Attribute::Static))
 			res += res.empty() ? "static" : " | static";

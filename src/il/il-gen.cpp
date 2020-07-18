@@ -221,18 +221,22 @@ namespace Noctis
 	{
 		Walk(node);
 
-		if (!node.init)
-			return;
-
+		StdVector<ILVar> curVars;
 		for (IdenSPtr iden : node.idens)
 		{
 			LocalVarDataSPtr varData = m_FuncCtx->localVars.GetLocalVarData(m_ScopeNames, iden);
 			ILVar dst = varData->ilVar;
 			MapVar(iden, dst);
 
-			ILVar src = PopTmpVar();
-			m_pCurBlock->elems.push_back(ILElemSPtr{ new ILAssign{ dst, src } });
+			// TODO: multiple init
+			if (node.init)
+			{
+				ILVar src = PopTmpVar();
+				m_pCurBlock->elems.push_back(ILElemSPtr{ new ILAssign{ dst, src } });
+			}
 		}
+
+		
 	}
 
 	void ILGen::Visit(ITrAssign& node)

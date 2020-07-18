@@ -193,9 +193,12 @@ namespace Noctis
 			{
 				if (!sym->impls.empty())
 				{
-					QualNameSPtr ifaceQualName = sym->interface.lock()->qualName;
-					const StdString& mangledIFaceName = GetMangledQualName(ifaceQualName);
-					WriteName(m_SymSection, mangledIFaceName);
+					for (StdPair<QualNameSPtr, SymbolWPtr>& pair : sym->interfaces)
+					{
+						QualNameSPtr ifaceQualName = pair.second.lock()->qualName;
+						const StdString& mangledIFaceName = GetMangledQualName(ifaceQualName);
+						WriteName(m_SymSection, mangledIFaceName);
+					}
 				}
 				else
 				{
@@ -292,8 +295,8 @@ namespace Noctis
 			if (!sym->impls.empty())
 			{
 				u32 numImpls = 0;
-				for (StdPair<SymbolSPtr, bool>& pair : sym->impls)
-					numImpls += u32(!pair.second);
+				for (SymbolSPtr implSym : sym->impls)
+					numImpls += u32(implSym->qualName->IsSubnameOf(m_pCtx->activeModule->qualName));
 
 				if (numImpls)
 				{
@@ -312,12 +315,12 @@ namespace Noctis
 
 						WriteName(m_SLnkSection, mangle);
 
-						for (StdPair<SymbolSPtr, bool>& pair : sym->impls)
+						for (SymbolSPtr implSym : sym->impls)
 						{
-							if (pair.second)
+							if (implSym->qualName->IsSubnameOf(m_pCtx->activeModule->qualName))
 								continue;
 
-							const StdString& iFaceMangle = GetMangledQualName(pair.first->qualName);
+							const StdString& iFaceMangle = GetMangledQualName(implSym->qualName);
 							WriteName(m_SLnkSection, iFaceMangle);
 						}
 						break;
@@ -663,10 +666,8 @@ namespace Noctis
 			const StdString& mangled = ReadName();
 			QualNameSPtr qualName = GetQualNameFromMangle(mangled);
 
-			SymbolSPtr sym{ new Symbol{ m_pCtx, kind, qualName } };
+			SymbolSPtr sym = CreateSymbol(m_pCtx, kind, qualName);
 			sym->isImported = true;
-			sym->self = sym;
-			sym->baseVariant = sym;
 			sym->mangledName = mangled;
 
 			// Handle type
@@ -724,10 +725,8 @@ namespace Noctis
 						else
 						{
 							QualNameSPtr genQualName = QualName::Create(qualName, generic.iden);
-							SymbolSPtr genSym{ new Symbol{ m_pCtx, SymbolKind::GenType, genQualName } };
+							SymbolSPtr genSym = CreateSymbol(m_pCtx, SymbolKind::GenType, genQualName);
 							generic.type = genSym->type = m_pCtx->typeReg.Iden(TypeMod::None, genQualName);
-							genSym->self = genSym;
-							genSym->baseVariant = genSym;
 							sym->children->AddChild(genSym);
 						}
 					}
@@ -740,10 +739,8 @@ namespace Noctis
 						else
 						{
 							QualNameSPtr genQualName = QualName::Create(qualName, generic.iden);
-							SymbolSPtr genSym{ new Symbol{ m_pCtx, SymbolKind::GenVal, genQualName } };
+							SymbolSPtr genSym = CreateSymbol(m_pCtx, SymbolKind::GenVal, genQualName);
 							genSym->type = generic.type;
-							genSym->self = genSym;
-							genSym->baseVariant = genSym;
 							sym->children->AddChild(genSym);
 						}
 					}
@@ -798,7 +795,7 @@ namespace Noctis
 				auto it = m_Syms.find(parentQualName);
 				if (it == m_Syms.end())
 				{
-					SymbolSPtr tmpSym{ new Symbol{ m_pCtx, SymbolKind::ImplType, nullptr } };
+					SymbolSPtr tmpSym = CreateSymbol(m_pCtx, SymbolKind::ImplType, nullptr);
 					tmpSym->type = handle;
 					it = m_Syms.try_emplace(parentQualName, tmpSym).first;
 				}
@@ -843,7 +840,7 @@ namespace Noctis
 					auto it = m_Syms.find(qualName);
 					if (it == m_Syms.end())
 					{
-						SymbolSPtr tmpSym{ new Symbol{ m_pCtx, SymbolKind::ImplType, nullptr } };
+						SymbolSPtr tmpSym = CreateSymbol(m_pCtx, SymbolKind::ImplType, nullptr);
 						tmpSym->type = handle;
 						it = m_Syms.try_emplace(qualName, tmpSym).first;
 					}
@@ -856,10 +853,10 @@ namespace Noctis
 					QualNameSPtr ifaceQualName = GetQualNameFromMangle(ifaceMangled);
 					SymbolSPtr iface = m_Syms.at(ifaceQualName);
 
-					sym->impls.emplace_back(iface, true);
-					iface->impls.emplace_back(sym, true);
+					sym->impls.emplace_back(iface);
+					iface->impls.emplace_back(sym);
 					if (SymbolSPtr baseIFace = iface->baseVariant.lock(); baseIFace)
-						baseIFace->impls.emplace_back(sym, true);
+						baseIFace->impls.emplace_back(sym);
 				}
 				
 				break;
@@ -886,9 +883,9 @@ namespace Noctis
 					{
 						if (!varSym->impls.empty())
 						{
-							for (StdPair<SymbolSPtr, bool>& pair : varSym->impls)
+							for (SymbolSPtr implSym : varSym->impls)
 							{
-								baseSym->impls.push_back(pair);
+								baseSym->impls.push_back(implSym);
 							}
 						}
 					}

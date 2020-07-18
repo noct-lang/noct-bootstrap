@@ -8,6 +8,7 @@ namespace Noctis
 	FWDECL_CLASS_SPTR(QualName);
 	FWDECL_STRUCT_SPTR(FuncContext);
 	FWDECL_STRUCT_SPTR(ITrGenDecl);
+	FWDECL_STRUCT_SPTR(ITrImpl);
 
 	// Function type inference prepass
 	class TypeInference : public ITrSemanticPass
@@ -20,6 +21,7 @@ namespace Noctis
 
 		
 		void Visit(ITrBlock& node) override;
+		void Visit(ITrReturn& node) override;
 
 		void Visit(ITrLocalVar& node) override;
 		void Visit(ITrAssign& node) override;
@@ -56,16 +58,25 @@ namespace Noctis
 		void HandleGenerics(ITrGenDeclSPtr decl, IdenSPtr iden);
 		
 		QualNameSPtr GetCurScope();
+
+		void Expect(TypeHandle handle);
 		
 		QualNameSPtr m_Scope;
 		StdVector<StdString> m_ScopeNames;
 		FuncContextSPtr m_FuncCtx;
 		QualNameSPtr m_InterfaceQualname;
+		StdVector<QualNameSPtr> m_SubInterfaceQualNames;
 		bool m_Prepass;
 
 		TypeHandle m_SelfType;
 
 		SymbolSPtr m_Sym;
+
+		ITrDefSPtr m_Impl;
+
+		TypeHandle m_ReturnHandle;
+		TypeHandle m_ExpectedHandle;
+		TypeSPtr m_Expected;
 	};
 	
 }

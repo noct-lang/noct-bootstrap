@@ -210,11 +210,12 @@ namespace Noctis
 	}
 
 	AstStrongInterfaceDecl::AstStrongInterfaceDecl(AstAttribsSPtr attribs, u64 startIdx, StdString&& iden,
-		AstGenericDeclSPtr generics, StdVector<AstStmtSPtr>&& members, u64 endIdx)
+		AstGenericDeclSPtr generics, StdVector<AstIdentifierTypeSPtr>&& implInterfaces, StdVector<AstStmtSPtr>&& members, u64 endIdx)
 		: AstDecl(AstDeclKind::StrongInterface, attribs ? attribs->ctx->startIdx : startIdx, endIdx)
 		, attribs(attribs)
 		, iden(std::move(iden))
 		, generics(generics)
+		, implInterfaces(std::move(implInterfaces))
 		, members(std::move(members))
 	{
 	}
@@ -300,12 +301,13 @@ namespace Noctis
 	}
 
 	AstImplDecl::AstImplDecl(AstAttribsSPtr attribs, u64 startIdx, AstGenericDeclSPtr generics, AstTypeSPtr type,
-		StdVector<AstIdentifierTypeSPtr>&& interfaces, StdVector<AstStmtSPtr>&& stmts, u64 endIdx)
+		StdVector<AstIdentifierTypeSPtr>&& interfaces, AstGenericWhereClauseSPtr whereClause, StdVector<AstStmtSPtr>&& stmts, u64 endIdx)
 		: AstDecl(AstDeclKind::Impl, attribs ? attribs->ctx->startIdx : startIdx, endIdx)
 		, attribs(attribs)
 		, generics(generics)
 		, type(type)
 		, interfaces(std::move(interfaces))
+		, whereClause(whereClause)
 		, stmts(std::move(stmts))
 	{
 	}

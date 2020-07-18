@@ -40,6 +40,7 @@ namespace Noctis
 		Macro,
 		Module,
 		Move,
+		Mut,
 		Public,
 		Return,
 		Static,

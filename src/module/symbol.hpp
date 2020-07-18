@@ -54,8 +54,12 @@ namespace Noctis
 		TypeHandle SelfType();
 		
 		void CalculateSizeAlignOffset();
+
+		SymbolSPtr CreateVariant(QualNameSPtr qualName);
 		
 		void Log(u8 indent, bool includeImports);
+
+		bool HasMarker(QualNameSPtr name);
 		
 		QualNameSPtr qualName;
 
@@ -66,8 +70,9 @@ namespace Noctis
 
 		// Interfaces that are implemented or types that implement the interface
 		// The boolean tells if the implemenation comes from an imported module (required for ImplType Symbols)
-		StdPairVector<SymbolSPtr, bool> impls;
-		SymbolWPtr interface;
+		StdVector<SymbolSPtr> impls;
+		StdPairVector<QualNameSPtr, SymbolWPtr> interfaces;
+		StdVector<SymbolWPtr> markers;
 			
 		SymbolWPtr self;
 		SymbolWPtr baseVariant;
@@ -90,8 +95,11 @@ namespace Noctis
 		SymbolKind kind;
 
 		bool isImported : 1;
+		bool isDefaultImpl : 1;
 		
 	};
+
+	SymbolSPtr CreateSymbol(Context* pCtx, SymbolKind kind, QualNameSPtr qualName);
 
 	class SymbolSubTable
 	{
@@ -109,7 +117,11 @@ namespace Noctis
 		SymbolSPtr FindChild(QualNameSPtr implQualName, IdenSPtr iden);
 		SymbolSPtr FindChild(QualNameSPtr implQualName, IdenSPtr iden, const StdVector<StdString>& argNames);
 
+		void RemoveChild(SymbolSPtr sym);
+
 		void Foreach(const std::function<void(SymbolSPtr, QualNameSPtr)>& lambda);
+
+		bool Empty() const;
 
 		void Log(u8 indent, bool includeImports);
 
@@ -158,6 +170,7 @@ namespace Noctis
 		ScopedSymbolTable(Context* pCtx);
 
 		bool Add(SymbolSPtr sym, StdVector<IdenSPtr>& idens);
+		bool RemoveFromCur(SymbolSPtr sym);
 
 		SymbolSPtr Find(QualNameSPtr qualName);
 		SymbolSPtr Find(QualNameSPtr qualName, const StdVector<StdString>& argNames);
@@ -167,6 +180,8 @@ namespace Noctis
 		void Foreach(const std::function<void(SymbolSPtr, QualNameSPtr)>& lambda, QualNameSPtr iface);
 
 		void Merge(ScopedSymbolTableSPtr src);
+
+		bool Empty() const;
 
 		void Log(u8 indent, bool includeImports);
 
@@ -180,6 +195,8 @@ namespace Noctis
 		Context* m_pCtx;
 	};
 
-	
-	
+	inline bool ScopedSymbolTable::Empty() const
+	{
+		return m_Symbols.empty() && m_Functions.empty() && m_SubTables.empty();
+	}
 }

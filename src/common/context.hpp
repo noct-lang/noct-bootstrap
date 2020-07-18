@@ -13,7 +13,7 @@ namespace Noctis
 	{
 		Options options;
 
-		TypeRegistry typeReg;
+		TypeRegistry typeReg = TypeRegistry{ this };
 		
 		SpanManager spanManager;
 		StdUnorderedMap<QualNameSPtr, ModuleSPtr> modules;

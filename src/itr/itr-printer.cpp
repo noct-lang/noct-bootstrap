@@ -447,7 +447,6 @@ namespace Noctis
 		g_Logger.Log(")\n");
 		
 		++m_Indent;
-		Walk(node);
 		ITrVisitor::Visit(node.callerOrFunc);
 		for (ITrArgSPtr arg : node.args)
 		{
@@ -953,8 +952,8 @@ namespace Noctis
 		{
 			if (ENUM_IS_SET(node.attribs, Attribute::Const))
 				g_Logger.Log("const ");
-			if (ENUM_IS_SET(node.attribs, Attribute::Immutable))
-				g_Logger.Log("immutable ");
+			if (ENUM_IS_SET(node.attribs, Attribute::Mut))
+				g_Logger.Log("mut ");
 			if (ENUM_IS_SET(node.attribs, Attribute::Static))
 				g_Logger.Log("static ");
 			if (ENUM_IS_SET(node.attribs, Attribute::Comptime))

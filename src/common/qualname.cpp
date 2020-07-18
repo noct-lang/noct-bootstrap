@@ -379,6 +379,21 @@ namespace Noctis
 		return 0;
 	}
 
+	bool QualName::IsSubnameOf(QualNameSPtr base)
+	{
+		QualName* qualName = this;
+		usize depth = Depth();
+		usize baseDepth = base->Depth();
+		for (usize i = depth; i >= baseDepth; --i)
+		{
+			if (qualName == base.get())
+				return true;
+
+			qualName = qualName->Base().get();
+		}
+		return false;
+	}
+
 	QualName::QualName(QualNameSPtr base, IdenSPtr iden)
 		: m_Base(std::move(base))
 		, m_Iden(std::move(iden))

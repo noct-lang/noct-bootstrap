@@ -20,6 +20,7 @@ namespace Noctis
 		Not,
 		BinNeg,
 		Deref,
+		MutDeref,
 		RefOrAddrOf,
 		BoolConv,
 
@@ -128,6 +129,9 @@ namespace Noctis
 		void HandleToOp(bool isTry, SymbolSPtr impl, SymbolSPtr interfaceSym);
 		
 		QualNameSPtr GetOpInterfaceQualName(OperatorKind kind);
+
+		bool IsBuiltinOp(TypeHandle handle);
+		bool IsBuiltinOp(TypeHandle left, TypeHandle right);
 
 		StdArray<StdUnorderedMap<TypeSPtr, StdVector<Operator>>, u8(OperatorKind::Count)> m_OpSymbols;
 		Context* m_pCtx;
