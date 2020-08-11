@@ -520,14 +520,14 @@ namespace Noctis
 		
 		AstTypeSPtr type = ParseType();
 
-		StdVector<AstIdentifierTypeSPtr> interfaces;
+		AstIdentifierTypeSPtr interface;
 		if (TryEatToken(TokenType::Colon))
 		{
-			do
+			interface = ParseIdentifierType();
+			if (PeekToken().Type() == TokenType::Plus)
 			{
-				interfaces.push_back(ParseIdentifierType());
+				// TODO
 			}
-			while (TryEatToken(TokenType::Plus));
 		}
 
 		
@@ -544,7 +544,7 @@ namespace Noctis
 
 		u64 endIdx = EatToken().Idx();
 
-		return AstDeclSPtr{ new AstImplDecl{ attribs, implIdx, generics, type, std::move(interfaces), whereClause, std::move(stmts), endIdx } };
+		return AstDeclSPtr{ new AstImplDecl{ attribs, implIdx, generics, type, interface, whereClause, std::move(stmts), endIdx } };
 	}
 
 	AstStmtSPtr Parser::ParseImport(AstAttribsSPtr attribs)

@@ -4,7 +4,6 @@ namespace Noctis
 {
 	LocalVarData::LocalVarData(IdenSPtr iden)
 		: iden(iden)
-		, type(TypeHandle(-1))
 		, isParam(false)
 	{
 	}

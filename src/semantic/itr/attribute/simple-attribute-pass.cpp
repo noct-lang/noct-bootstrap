@@ -410,7 +410,7 @@ namespace Noctis
 		}
 
 		TypeHandle handle = node.handle;
-		TypeSPtr type = m_pCtx->typeReg.GetType(handle);
+		TypeSPtr type = handle->type;
 		if (type->mod != TypeMod::None && mod == TypeMod::None)
 			mod = type->mod;
 		

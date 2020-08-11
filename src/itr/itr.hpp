@@ -221,6 +221,8 @@ namespace Noctis
 		ITrDefWPtr ptr;
 
 		ITrDefSPtr impl;
+
+		StdUnorderedMap<IdenSPtr, TypeHandle> genMapping;
 	};
 
 	struct ITrStruct : ITrDef
@@ -308,10 +310,10 @@ namespace Noctis
 
 	struct ITrImpl : ITrDef
 	{
-		ITrImpl(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr scope, ITrTypeSPtr type, StdPairVector<QualNameSPtr, SpanId>&& interfaces);
+		ITrImpl(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr scope, ITrTypeSPtr type, StdPair<QualNameSPtr, SpanId> interface);
 
 		ITrTypeSPtr type;
-		StdPairVector<QualNameSPtr, SpanId> interfaces;
+		StdPair<QualNameSPtr, SpanId> interface;
 	};
 
 	struct ITrStmt

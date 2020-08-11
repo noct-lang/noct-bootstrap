@@ -75,7 +75,7 @@ namespace Noctis
 		case TypeKind::Slice: size = alignment = 16; break; // TODO: arch specific size
 		case TypeKind::Array:
 		{
-			TypeSPtr subType = typeReg.GetType(AsArray().subType);
+			TypeSPtr subType = AsArray().subType->type;
 			if (subType->size == 0)
 				subType->CalculateSizeAlign(typeReg);
 
@@ -90,7 +90,7 @@ namespace Noctis
 			
 			for (TypeHandle subHandle : AsTuple().subTypes)
 			{
-				TypeSPtr subType = typeReg.GetType(subHandle);
+				TypeSPtr subType = subHandle->type;
 				if (subType->size == 0)
 					subType->CalculateSizeAlign(typeReg);
 
@@ -106,7 +106,7 @@ namespace Noctis
 		}
 		case TypeKind::Opt:
 		{
-			TypeSPtr subType = typeReg.GetType(AsOpt().subType);
+			TypeSPtr subType = AsOpt().subType->type;
 			if (subType->size == 0)
 				subType->CalculateSizeAlign(typeReg);
 
@@ -231,29 +231,21 @@ namespace Noctis
 
 	TypeRegistry::TypeRegistry(Context* pCtx)
 		: m_BuiltinMapping()
-		, m_EmptyTupleHandle(InvalidTypeHandle)
 		, m_pCtx(pCtx)
 	{
 		for (auto& subArr : m_BuiltinMapping)
-			subArr.fill(InvalidTypeHandle);
+			subArr.fill(nullptr);
 	}
 
 	bool TypeRegistry::IsType(TypeHandle handle, TypeKind kind)
 	{
-		TypeSPtr type = GetType(handle);
+		TypeSPtr type = handle->type;
 		return type->typeKind == kind;
-	}
-
-	TypeSPtr TypeRegistry::GetType(TypeHandle handle)
-	{
-		if (handle >= m_Types.size())
-			return nullptr;
-		return m_Types[handle];
 	}
 
 	StdString TypeRegistry::ToString(TypeHandle handle)
 	{
-		TypeSPtr type = GetType(handle);
+		TypeSPtr type = handle->type;
 		return ToString(type);
 	}
 
@@ -365,7 +357,7 @@ namespace Noctis
 
 	bool TypeRegistry::AreTypesEqual(TypeHandle first, TypeHandle second)
 	{
-		return GetType(first) == GetType(second);
+		return first->type == second->type;
 	}
 
 	bool TypeRegistry::CanPassTo(TypeHandle param, TypeHandle arg)
@@ -373,8 +365,8 @@ namespace Noctis
 		if (AreTypesEqual(param, arg))
 			return true;
 
-		TypeSPtr paramType = GetType(param);
-		TypeSPtr argType = GetType(arg);
+		TypeSPtr paramType = param->type;
+		TypeSPtr argType = arg->type;
 
 		if (paramType->mod == TypeMod::Mut &&
 				argType->mod == TypeMod::None &&
@@ -396,8 +388,8 @@ namespace Noctis
 				TypeHandle paramSubTypeHandle = paramType->AsPtr().subType;
 				TypeHandle argSubTypeHandle = argType->AsPtr().subType;
 
-				TypeSPtr paramSubType = GetType(paramSubTypeHandle);
-				TypeSPtr argSubType = GetType(argSubTypeHandle);
+				TypeSPtr paramSubType = paramSubTypeHandle->type;
+				TypeSPtr argSubType = argSubTypeHandle->type;
 
 				if (paramSubType->mod == TypeMod::Mut &&
 					argSubType->mod == TypeMod::None &&
@@ -409,8 +401,8 @@ namespace Noctis
 				TypeHandle paramSubTypeHandle = paramType->AsRef().subType;
 				TypeHandle argSubTypeHandle = argType->AsRef().subType;
 
-				TypeSPtr paramSubType = GetType(paramSubTypeHandle);
-				TypeSPtr argSubType = GetType(argSubTypeHandle);
+				TypeSPtr paramSubType = paramSubTypeHandle->type;
+				TypeSPtr argSubType = argSubTypeHandle->type;
 
 				if (paramSubType->mod == TypeMod::Mut &&
 					argSubType->mod == TypeMod::None &&
@@ -422,8 +414,8 @@ namespace Noctis
 				TypeHandle paramSubTypeHandle = paramType->AsSlice().subType;
 				TypeHandle argSubTypeHandle = argType->AsSlice().subType;
 
-				TypeSPtr paramSubType = GetType(paramSubTypeHandle);
-				TypeSPtr argSubType = GetType(argSubTypeHandle);
+				TypeSPtr paramSubType = paramSubTypeHandle->type;
+				TypeSPtr argSubType = argSubTypeHandle->type;
 
 				if (paramSubType->mod == TypeMod::Mut &&
 					argSubType->mod == TypeMod::None &&
@@ -452,16 +444,16 @@ namespace Noctis
 		for (u8 i = 0; i < u8(TypeMod::Count); ++i)
 		{
 			TypeHandle& handle = it->second[i];
-			if (handle == InvalidTypeHandle)
+			if (!handle)
 			{
 				TypeSPtr type{ new IdenType{ TypeMod(i), qualName } };
 				type->AsIden().sym = sym;
-				handle = TypeHandle(m_Types.size());
+				handle = CreateHandle(type);
 				m_Types.push_back(type);
 			}
 			else
 			{
-				TypeSPtr type = m_Types[handle];
+				TypeSPtr type = handle->type;
 				type->AsIden().sym = sym;
 			}
 		}
@@ -469,21 +461,21 @@ namespace Noctis
 
 	void TypeRegistry::SetAliasType(TypeHandle alias, TypeHandle type)
 	{
-		m_Types[alias] = m_Types[type];
+		alias->type = type->type;
 	}
 
 	TypeHandle TypeRegistry::ReplaceSubType(TypeHandle orig, TypeHandle toReplace, TypeHandle replacement)
 	{
-		if (orig == InvalidTypeHandle)
-			return InvalidTypeHandle;
+		if (!orig)
+			return nullptr;
 
 		if (orig == toReplace)
 			return replacement;
 
-		TypeSPtr type = GetType(orig);
+		TypeSPtr type = orig->type;
 		if (type->mod != TypeMod::None)
 		{
-			TypeSPtr toReplaceType = GetType(toReplace);
+			TypeSPtr toReplaceType = toReplace->type;
 			if (toReplaceType->mod == TypeMod::None)
 			{
 				toReplace = Mod(type->mod, orig);
@@ -560,9 +552,106 @@ namespace Noctis
 			TypeHandle retType = ReplaceSubType(funcType.retType, toReplace, replacement);
 			return Func(type->mod, paramTypes, retType);
 		}
+		case TypeKind::Generic:
+		{
+			if (toReplace->type->typeKind != TypeKind::Generic)
+				return orig;
+			
+			GenericType& genOrig = orig->AsGeneric();
+			GenericType& genFrom = toReplace->AsGeneric();
+
+			if (genOrig.iden == genFrom.iden)
+				return replacement;
+		}
+		/*case TypeKind::Iden:
+		{9
+			if (toReplace->type->typeKind != TypeKind::Iden)
+				return orig;
+			
+			IdenType& idenTypeOrig = orig->AsIden();
+			IdenType& idenTypeFrom = toReplace->AsIden();
+
+			QualNameSPtr origQualName = idenTypeOrig.qualName;
+			QualNameSPtr fromQualName = idenTypeFrom.qualName;
+			
+			IdenSPtr origIden = origQualName->Iden();
+			IdenSPtr fromIden = fromQualName->Iden();
+
+			if (origQualName->Base() == fromQualName->Base() &&
+				origIden->Name() == fromIden->Name())
+			{
+				
+			}
+		}*/
 		default:
 			return orig;
 		}
+	}
+
+	StdVector<TypeHandle> TypeRegistry::GetSubTypes(TypeHandle handle, TypeKind kind)
+	{
+		StdVector<TypeHandle> res;
+		TypeSPtr type = handle->type;
+
+		switch (type->typeKind)
+		{
+		case TypeKind::Ptr:
+			res = GetSubTypes(type->AsPtr().subType, kind);
+			break;
+		case TypeKind::Ref:
+			res = GetSubTypes(type->AsRef().subType, kind);
+			break;
+		case TypeKind::Slice:
+			res = GetSubTypes(type->AsSlice().subType, kind);
+			break;
+		case TypeKind::Array:
+			res = GetSubTypes(type->AsArray().subType, kind);
+			break;
+		case TypeKind::Tuple:
+		{
+			TupleType& tupType = type->AsTuple();
+			for (TypeHandle subType : tupType.subTypes)
+			{
+				StdVector<TypeHandle> tmp = GetSubTypes(subType, kind);
+				res.insert(res.end(), tmp.begin(), tmp.end());
+			}
+			break;
+		}
+		case TypeKind::Opt:
+			res = GetSubTypes(type->AsOpt().subType, kind);
+			break;
+		case TypeKind::Compound:
+		{
+			CompoundType& compType = type->AsCompound();
+			for (TypeHandle subType : compType.subTypes)
+			{
+				StdVector<TypeHandle> tmp = GetSubTypes(subType, kind);
+				res.insert(res.end(), tmp.begin(), tmp.end());
+			}
+			break;
+		}
+		case TypeKind::Func:
+		{
+			FuncType& funcType = type->AsFunc();
+			for (TypeHandle subType : funcType.paramTypes)
+			{
+				StdVector<TypeHandle> tmp = GetSubTypes(subType, kind);
+				res.insert(res.end(), tmp.begin(), tmp.end());
+			}
+			if (funcType.retType)
+			{
+				StdVector<TypeHandle> tmp = GetSubTypes(funcType.retType, kind);
+				res.insert(res.end(), tmp.begin(), tmp.end());
+			}
+			break;
+		}
+		default: ;
+		}
+		
+		if (type->typeKind == kind)
+			res.push_back(handle);
+		
+		return res;
 	}
 
 	void TypeRegistry::CalculateSizeAlign()
@@ -589,8 +678,8 @@ namespace Noctis
 			}
 			case TypeKind::Ptr:
 			{
-				TypeSPtr typeSub = GetType(type->AsPtr().subType);
-				TypeSPtr candidateSub = GetType(candidate->AsPtr().subType);
+				TypeSPtr typeSub = type->AsPtr().subType->type;
+				TypeSPtr candidateSub = candidate->AsPtr().subType->type;
 				i64 tmp = ScorePossibleVariant(typeSub, candidateSub);
 				if (tmp == -1)
 					return -1;
@@ -600,8 +689,8 @@ namespace Noctis
 			}
 			case TypeKind::Ref:
 			{
-				TypeSPtr typeSub = GetType(type->AsRef().subType);
-				TypeSPtr candidateSub = GetType(candidate->AsRef().subType);
+				TypeSPtr typeSub = type->AsRef().subType->type;
+				TypeSPtr candidateSub = candidate->AsRef().subType->type;
 				i64 tmp = ScorePossibleVariant(typeSub, candidateSub);
 				if (tmp == -1)
 					return -1;
@@ -611,8 +700,8 @@ namespace Noctis
 			}
 			case TypeKind::Slice:
 			{
-				TypeSPtr typeSub = GetType(type->AsSlice().subType);
-				TypeSPtr candidateSub = GetType(candidate->AsSlice().subType);
+				TypeSPtr typeSub = type->AsSlice().subType->type;
+				TypeSPtr candidateSub = candidate->AsSlice().subType->type;
 				i64 tmp = ScorePossibleVariant(typeSub, candidateSub);
 				if (tmp == -1)
 					return -1;
@@ -635,8 +724,8 @@ namespace Noctis
 					// TODO: Value Generics
 				}
 				
-				TypeSPtr typeSub = GetType(type->AsArray().subType);
-				TypeSPtr candidateSub = GetType(candidate->AsArray().subType);
+				TypeSPtr typeSub = type->AsArray().subType->type;
+				TypeSPtr candidateSub = candidate->AsArray().subType->type;
 
 				i64 tmp = ScorePossibleVariant(typeSub, candidate);
 				if (tmp == -1)
@@ -656,8 +745,8 @@ namespace Noctis
 				i64 totalScore = 0;
 				for (usize i = 0; i < typeSubs.size(); ++i)
 				{
-					TypeSPtr typeSub = GetType(typeSubs[i]);
-					TypeSPtr candidateSub = GetType(candidateSubs[i]);
+					TypeSPtr typeSub = typeSubs[i]->type;
+					TypeSPtr candidateSub = candidateSubs[i]->type;
 
 					i64 tmp = ScorePossibleVariant(typeSub, candidate);
 					if (tmp == -1)
@@ -670,8 +759,8 @@ namespace Noctis
 			}
 			case TypeKind::Opt:
 			{
-				TypeSPtr typeSub = GetType(type->AsOpt().subType);
-				TypeSPtr candidateSub = GetType(candidate->AsOpt().subType);
+				TypeSPtr typeSub = type->AsOpt().subType->type;
+				TypeSPtr candidateSub = candidate->AsOpt().subType->type;
 				i64 tmp = ScorePossibleVariant(typeSub, candidateSub);
 				if (tmp == -1)
 					return -1;
@@ -704,27 +793,54 @@ namespace Noctis
 			{
 				sym = m_pCtx->activeModule->symTable.Find(type);
 			}
-			if (!sym)
-				return -1;
-
-			for (TypeHandle constraint : genType.constraints)
+			
+			if (sym)
 			{
-				QualNameSPtr constraintQualName = GetType(constraint)->AsIden().qualName;
-				
-				bool found = false;
-				for (StdPair<QualNameSPtr, SymbolWPtr> pair : sym->interfaces)
+				for (TypeHandle constraint : genType.constraints)
 				{
-					if (pair.first == constraintQualName)
-					{
-						found = true;
-						break;
-					}
-				}
-				if (found)
-					continue;
+					QualNameSPtr constraintQualName = constraint->AsIden().qualName;
 
-				if (!sym->HasMarker(constraintQualName))
-					return -1;
+					bool found = false;
+					for (StdPair<QualNameSPtr, SymbolWPtr> pair : sym->interfaces)
+					{
+						if (pair.first == constraintQualName)
+						{
+							found = true;
+							break;
+						}
+					}
+					if (found)
+						continue;
+
+					if (!sym->HasMarker(constraintQualName))
+						return -1;
+				}
+			}
+			else if (type->typeKind == TypeKind::Generic)
+			{
+				GenericType& typeGenType = type->AsGeneric();
+				for (TypeHandle constraint : genType.constraints)
+				{
+					bool found = false;
+					for (TypeHandle typeConstraint : typeGenType.constraints)
+					{
+						if (typeConstraint == constraint)
+						{
+							found = true;
+							break;
+						}
+					}
+					if (found)
+						continue;
+
+					QualNameSPtr constraintQualName = constraint->AsIden().qualName;
+					if (!sym->HasMarker(constraintQualName))
+						return -1;
+				}
+			}
+			else
+			{	
+				return -1;
 			}
 		}
 		
@@ -733,7 +849,7 @@ namespace Noctis
 
 	StdVector<TypeSPtr> TypeRegistry::GetBestVariants(TypeHandle type, const StdVector<TypeSPtr>& candidates)
 	{
-		TypeSPtr wantedType = GetType(type);
+		TypeSPtr wantedType = type->type;
 
 		StdVector<TypeSPtr> bestCandidates;
 		i64 bestScore = -1;
@@ -773,11 +889,10 @@ namespace Noctis
 	TypeHandle TypeRegistry::Builtin(TypeMod mod, BuiltinTypeKind builtin)
 	{
 		TypeHandle& handle = m_BuiltinMapping[u8(builtin)][u8(mod)];
-		if (handle != InvalidTypeHandle)
+		if (handle)
 			return handle;
 
-		handle = TypeHandle(m_Types.size());
-		m_Types.emplace_back(new BuiltinType{ mod, builtin });
+		handle = TypeHandle(CreateHandle(new BuiltinType{ mod, builtin }));
 
 		return handle;
 	}
@@ -788,15 +903,14 @@ namespace Noctis
 		if (it == m_IdenMapping.end())
 		{
 			it = m_IdenMapping.insert(std::pair{ qualName, StdArray<TypeHandle, m_ModCount>{} }).first;
-			it->second.fill(InvalidTypeHandle);
+			it->second.fill(nullptr);
 		}
 
 		TypeHandle& handle = it->second[u8(mod)];
-		if (handle != InvalidTypeHandle)
+		if (handle)
 			return handle;
 
-		handle = TypeHandle(m_Types.size());
-		m_Types.emplace_back(new IdenType{ mod, qualName });
+		handle = CreateHandle(new IdenType{ mod, qualName });
 
 		return handle;
 	}
@@ -807,15 +921,14 @@ namespace Noctis
 		if (it == m_PtrMapping.end())
 		{
 			it = m_PtrMapping.insert(std::pair{ subType, StdArray<TypeHandle, m_ModCount>{} }).first;
-			it->second.fill(InvalidTypeHandle);
+			it->second.fill(nullptr);
 		}
 
 		TypeHandle& handle = it->second[u8(mod)];
-		if (handle != InvalidTypeHandle)
+		if (handle)
 			return handle;
 
-		handle = TypeHandle(m_Types.size());
-		m_Types.emplace_back(new PtrType{ mod, subType });
+		handle = CreateHandle(new PtrType{ mod, subType });
 
 		return handle;
 	}
@@ -826,15 +939,14 @@ namespace Noctis
 		if (it == m_RefMapping.end())
 		{
 			it = m_RefMapping.insert(std::pair{ subType, StdArray<TypeHandle, m_ModCount>{} }).first;
-			it->second.fill(InvalidTypeHandle);
+			it->second.fill(nullptr);
 		}
 
 		TypeHandle& handle = it->second[u8(mod)];
-		if (handle != InvalidTypeHandle)
+		if (handle)
 			return handle;
 
-		handle = TypeHandle(m_Types.size());
-		m_Types.emplace_back(new RefType{ mod, subType });
+		handle = CreateHandle(new RefType{ mod, subType });
 
 		return handle;
 	}
@@ -845,15 +957,14 @@ namespace Noctis
 		if (it == m_SliceMapping.end())
 		{
 			it = m_SliceMapping.insert(std::pair{ subType, StdArray<TypeHandle, m_ModCount>{} }).first;
-			it->second.fill(InvalidTypeHandle);
+			it->second.fill(nullptr);
 		}
 
 		TypeHandle& handle = it->second[u8(mod)];
-		if (handle != InvalidTypeHandle)
+		if (handle)
 			return handle;
 
-		handle = TypeHandle(m_Types.size());
-		m_Types.emplace_back(new SliceType{ mod, subType });
+		handle = CreateHandle(new SliceType{ mod, subType });
 
 		return handle;
 	}
@@ -864,15 +975,14 @@ namespace Noctis
 		if (it == m_OptMapping.end())
 		{
 			it = m_OptMapping.insert(std::pair{ subType, StdArray<TypeHandle, m_ModCount>{} }).first;
-			it->second.fill(InvalidTypeHandle);
+			it->second.fill(nullptr);
 		}
 
 		TypeHandle& handle = it->second[u8(mod)];
-		if (handle != InvalidTypeHandle)
+		if (handle)
 			return handle;
 
-		handle = TypeHandle(m_Types.size());
-		m_Types.emplace_back(new OptType{ mod, subType });
+		handle = CreateHandle(new OptType{ mod, subType });
 
 		return handle;
 	}
@@ -887,15 +997,14 @@ namespace Noctis
 		if (subIt == it->second.end())
 		{
 			subIt = it->second.insert(std::pair{ size, StdArray<TypeHandle, m_ModCount>{} }).first;
-			subIt->second.fill(InvalidTypeHandle);
+			subIt->second.fill(nullptr);
 		}
 
 		TypeHandle& handle = subIt->second[u8(mod)];
-		if (handle != InvalidTypeHandle)
+		if (handle)
 			return handle;
 
-		handle = TypeHandle(m_Types.size());
-		m_Types.emplace_back(new ArrayType{ mod, subType, size });
+		handle = CreateHandle(new ArrayType{ mod, subType, size });
 
 		return handle;
 	}
@@ -910,15 +1019,14 @@ namespace Noctis
 		if (subIt == it->second.end())
 		{
 			subIt = it->second.insert(std::pair{ expr, StdArray<TypeHandle, m_ModCount>{} }).first;
-			subIt->second.fill(InvalidTypeHandle);
+			subIt->second.fill(nullptr);
 		}
 
 		TypeHandle& handle = subIt->second[u8(mod)];
-		if (handle != InvalidTypeHandle)
+		if (handle)
 			return handle;
 
-		handle = TypeHandle(m_Types.size());
-		m_Types.emplace_back(new ArrayType{ mod, subType, expr });
+		handle = CreateHandle(new ArrayType{ mod, subType, expr });
 
 		return handle;
 	}
@@ -927,18 +1035,17 @@ namespace Noctis
 	{
 		if (subTypes.size() == 0)
 		{
-			if (m_EmptyTupleHandle != InvalidTypeHandle)
+			if (m_EmptyTupleHandle)
 				return m_EmptyTupleHandle;
 
-			m_EmptyTupleHandle = TypeHandle(m_Types.size());
-			m_Types.emplace_back(new TupleType{ TypeMod::None, {} });
+			m_EmptyTupleHandle = CreateHandle(new TupleType{ TypeMod::None, {} });
 			return m_EmptyTupleHandle;
 		}
 
 		u64 count = u64(subTypes.size());
 		auto it = m_TupleMapping.find(count);
 		if (it == m_TupleMapping.end())
-			it = m_TupleMapping.try_emplace(count, StdUnorderedMap<u64, StdVector<StdArray<TypeHandle, m_ModCount>>>{}).first;
+			it = m_TupleMapping.try_emplace(count, StdUnorderedMap<TypeHandle, StdVector<StdArray<TypeHandle, m_ModCount>>>{}).first;
 
 		auto subIt = it->second.find(subTypes[0]);
 		if (subIt == it->second.end())
@@ -946,16 +1053,15 @@ namespace Noctis
 
 		for (StdArray<TypeHandle, m_ModCount> arr : subIt->second)
 		{
-			TypeHandle handle = InvalidTypeHandle;
+			TypeHandle handle = nullptr;
 			for (usize i = 0; i < m_ModCount; ++i)
 			{
 				handle = arr[i];
-				if (handle != InvalidTypeHandle)
+				if (handle)
 					break;
 			}
 			
-			TypeSPtr type = GetType(handle);
-			TupleType& tupType = type->AsTuple();
+			TupleType& tupType = handle->AsTuple();
 
 			bool found = true;
 			for (usize i = 1; i < count; ++i)
@@ -969,21 +1075,19 @@ namespace Noctis
 
 			if (found)
 			{
-				if (arr[u8(mod)] == InvalidTypeHandle)
+				if (arr[u8(mod)] == nullptr)
 				{
-					handle = TypeHandle(m_Types.size());
-					m_Types.emplace_back(new TupleType{ mod, subTypes });
+					handle = CreateHandle(new TupleType{ mod, subTypes });
 					arr[u8(mod)] = handle;
 				}
 				return handle;
 			}
 		}
 
-		TypeHandle handle = TypeHandle(m_Types.size());
-		m_Types.emplace_back(new TupleType{ mod, subTypes });
+		TypeHandle handle = CreateHandle(new TupleType{ mod, subTypes });
 
 		subIt->second.push_back({});
-		subIt->second.back().fill(InvalidTypeHandle);
+		subIt->second.back().fill(nullptr);
 		subIt->second.back()[u8(mod)] = handle;
 		
 		return handle;
@@ -994,7 +1098,7 @@ namespace Noctis
 		u64 count = u64(subTypes.size());
 		auto it = m_CompoundMapping.find(count);
 		if (it == m_CompoundMapping.end())
-			it = m_CompoundMapping.try_emplace(count, StdUnorderedMap<u64, StdVector<StdArray<TypeHandle, m_ModCount>>>{}).first;
+			it = m_CompoundMapping.try_emplace(count, StdUnorderedMap<TypeHandle, StdVector<StdArray<TypeHandle, m_ModCount>>>{}).first;
 
 		auto subIt = it->second.find(subTypes[0]);
 		if (subIt == it->second.end())
@@ -1002,16 +1106,15 @@ namespace Noctis
 
 		for (StdArray<TypeHandle, m_ModCount> arr : subIt->second)
 		{
-			TypeHandle handle = InvalidTypeHandle;
+			TypeHandle handle = nullptr;
 			for (usize i = 0; i < m_ModCount; ++i)
 			{
 				handle = arr[i];
-				if (handle != InvalidTypeHandle)
+				if (handle)
 					break;
 			}
 			
-			TypeSPtr type = GetType(handle);
-			CompoundType& compType = type->AsCompound();
+			CompoundType& compType = handle->AsCompound();
 
 			bool found = true;
 			for (usize i = 1; i < count; ++i)
@@ -1025,21 +1128,19 @@ namespace Noctis
 
 			if (found)
 			{
-				if (arr[u8(mod)] == InvalidTypeHandle)
+				if (arr[u8(mod)] == nullptr)
 				{
-					handle = TypeHandle(m_Types.size());
-					m_Types.emplace_back(new CompoundType{ mod, subTypes });
+					handle = CreateHandle(new CompoundType{ mod, subTypes });
 					arr[u8(mod)] = handle;
 				}
 				return handle;
 			}
 		}
 
-		TypeHandle handle = TypeHandle(m_Types.size());
-		m_Types.emplace_back(new CompoundType{ mod, subTypes });
+		TypeHandle handle = CreateHandle(new CompoundType{ mod, subTypes });
 
 		subIt->second.push_back({});
-		subIt->second.back().fill(InvalidTypeHandle);
+		subIt->second.back().fill(nullptr);
 		subIt->second.back()[u8(mod)] = handle;
 
 		return handle;
@@ -1050,7 +1151,7 @@ namespace Noctis
 		u64 count = u64(params.size());
 		auto it = m_FuncMapping.find(count);
 		if (it == m_FuncMapping.end())
-			it = m_FuncMapping.try_emplace(count, StdUnorderedMap<u64, StdVector<StdArray<TypeHandle, m_ModCount>>>{}).first;
+			it = m_FuncMapping.try_emplace(count, StdUnorderedMap<TypeHandle, StdVector<StdArray<TypeHandle, m_ModCount>>>{}).first;
 
 		TypeHandle checkType = !params.empty() ? params[0] : ret;
 		auto subIt = it->second.find(checkType);
@@ -1059,15 +1160,14 @@ namespace Noctis
 
 		for (StdArray<TypeHandle, m_ModCount> arr : subIt->second)
 		{
-			TypeHandle handle = InvalidTypeHandle;
+			TypeHandle handle = nullptr;
 			for (usize i = 0; i < m_ModCount; ++i)
 			{
 				handle = arr[i];
-				if (handle != InvalidTypeHandle)
+				if (handle)
 					break;
 			}
-			TypeSPtr type = GetType(handle);
-			FuncType& funcType = type->AsFunc();
+			FuncType& funcType = handle->AsFunc();
 
 			bool found = true;
 			for (usize i = 1; i < count; ++i)
@@ -1081,21 +1181,19 @@ namespace Noctis
 
 			if (found && ret == funcType.retType)
 			{
-				if (arr[u8(mod)] == InvalidTypeHandle)
+				if (arr[u8(mod)] == nullptr)
 				{
-					handle = TypeHandle(m_Types.size());
-					m_Types.emplace_back(new FuncType{ mod, params, ret });
+					handle = CreateHandle(new FuncType{ mod, params, ret });
 					arr[u8(mod)] = handle;
 				}
 				return handle;
 			}
 		}
 
-		TypeHandle handle = TypeHandle(m_Types.size());
-		m_Types.emplace_back(new FuncType{ mod, params, ret });
+		TypeHandle handle = CreateHandle(new FuncType{ mod, params, ret });
 
 		subIt->second.push_back({});
-		subIt->second.back().fill(InvalidTypeHandle);
+		subIt->second.back().fill(nullptr);
 		subIt->second.back()[u8(mod)] = handle;
 
 		return handle;
@@ -1111,15 +1209,14 @@ namespace Noctis
 
 		for (std::array<TypeHandle, m_ModCount> arr : it->second)
 		{
-			TypeHandle handle = InvalidTypeHandle;
+			TypeHandle handle = nullptr;
 			for (usize i = 0; i < m_ModCount; ++i)
 			{
 				handle = arr[i];
-				if (handle != InvalidTypeHandle)
+				if (handle)
 					break;
 			}
-			TypeSPtr type = GetType(handle);
-			GenericType& genType = type->AsGeneric();
+			GenericType& genType = handle->AsGeneric();
 
 			bool found = true;
 			for (TypeHandle constraint : constraints)
@@ -1147,7 +1244,7 @@ namespace Noctis
 				for (usize i = 0; i < m_ModCount; ++i)
 				{
 					handle = arr[i];
-					if (handle != InvalidTypeHandle)
+					if (handle)
 						break;
 				}
 				return handle;
@@ -1156,21 +1253,19 @@ namespace Noctis
 
 		it->second.push_back(StdArray<TypeHandle, m_ModCount>{});
 		StdArray<TypeHandle, m_ModCount>& arr = it->second.back();
-		arr.fill(InvalidTypeHandle);
+		arr.fill(nullptr);
 
 		TypeHandle& handle = arr[u8(mod)];
-
-		handle = TypeHandle(m_Types.size());
-		m_Types.emplace_back(new GenericType{ mod, iden, constraints });
+		handle = CreateHandle(new GenericType{ mod, iden, constraints });
 		
 		return handle;
 	}
 
 	TypeHandle TypeRegistry::Mod(TypeMod mod, TypeHandle handle)
 	{
-		TypeSPtr type = GetType(handle);
+		TypeSPtr type = handle->type;
 		if (!type)
-			return InvalidTypeHandle;
+			return nullptr;
 		if (type->mod == mod)
 			return handle;
 
@@ -1234,8 +1329,18 @@ namespace Noctis
 			return Generic(mod, gen.iden, gen.constraints);
 		}
 		default:
-			return InvalidTypeHandle;
+			return nullptr;
 		}
+	}
+
+	TypeHandle TypeRegistry::CreateHandle(TypeSPtr type)
+	{
+		return TypeHandle{ new THandle{ type } };
+	}
+
+	TypeHandle TypeRegistry::CreateHandle(Type* pType)
+	{
+		return TypeHandle{ new THandle{ TypeSPtr{ pType } } };
 	}
 
 	void TypeRegistry::ExtractGenerics(TypeSPtr type, StdVector<TypeSPtr>& gens)
@@ -1246,25 +1351,25 @@ namespace Noctis
 		case TypeKind::Iden: break;
 		case TypeKind::Ptr:
 		{
-			TypeSPtr subType = GetType(type->AsPtr().subType);
+			TypeSPtr subType = type->AsPtr().subType->type;
 			ExtractGenerics(subType, gens);
 			break;
 		}
 		case TypeKind::Ref:
 		{
-			TypeSPtr subType = GetType(type->AsRef().subType);
+			TypeSPtr subType = type->AsRef().subType->type;
 			ExtractGenerics(subType, gens);
 			break;
 		}
 		case TypeKind::Slice:
 		{
-			TypeSPtr subType = GetType(type->AsSlice().subType);
+			TypeSPtr subType = type->AsSlice().subType->type;
 			ExtractGenerics(subType, gens);
 			break;
 		}
 		case TypeKind::Array:
 		{
-			TypeSPtr subType = GetType(type->AsArray().subType);
+			TypeSPtr subType = type->AsArray().subType->type;
 			ExtractGenerics(subType, gens);
 			break;
 		}
@@ -1273,13 +1378,13 @@ namespace Noctis
 			StdVector<TypeHandle>& subTypes = type->AsTuple().subTypes;
 			for (TypeHandle subType : subTypes)
 			{
-				ExtractGenerics(GetType(subType), gens);
+				ExtractGenerics(subType->type, gens);
 			}
 			break;
 		}
 		case TypeKind::Opt:
 		{
-			TypeSPtr subType = GetType(type->AsOpt().subType);
+			TypeSPtr subType = type->AsOpt().subType->type;
 			ExtractGenerics(subType, gens);
 			break;
 		}
@@ -1289,10 +1394,10 @@ namespace Noctis
 			FuncType& funcType = type->AsFunc();
 			for (TypeHandle subType : funcType.paramTypes)
 			{
-				ExtractGenerics(GetType(subType), gens);
+				ExtractGenerics(subType->type, gens);
 			}
-			if (funcType.retType != InvalidTypeHandle)
-				ExtractGenerics(GetType(funcType.retType), gens);
+			if (funcType.retType)
+				ExtractGenerics(funcType.retType->type, gens);
 			break;
 		}
 		case TypeKind::Generic:
@@ -1300,5 +1405,14 @@ namespace Noctis
 			break;
 		default: ;
 		}
+	}
+
+	bool AreTypesEqual(TypeHandle t0, TypeHandle t1)
+	{
+		if (!t0)
+			return !t1;
+		if (!t1)
+			return false;
+		return t0->type == t1->type;
 	}
 }

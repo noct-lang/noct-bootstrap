@@ -56,9 +56,10 @@ namespace Noctis
 	};
 	StdStringView TypeModToString(TypeMod mod);
 
-	using TypeHandle = u64;
-	constexpr TypeHandle InvalidTypeHandle = TypeHandle(-1);
+	//using TypeHandle = u64;
+	//constexpr TypeHandle InvalidTypeHandle = TypeHandle(-1);
 
+	FWDECL_STRUCT_SPTR(Type);
 	struct BuiltinType;
 	struct IdenType;
 	struct PtrType;
@@ -78,10 +79,12 @@ namespace Noctis
 
 		void CalculateSizeAlign(TypeRegistry& typeReg);
 
+		StdVector<TypeSPtr> GetIdenSubtypes();
+
 		BuiltinType& AsBuiltin() { return *reinterpret_cast<BuiltinType*>(this); }
 		IdenType& AsIden() { return *reinterpret_cast<IdenType*>(this); }
 		PtrType& AsPtr() { return *reinterpret_cast<PtrType*>(this); }
-		RefType& AsRef() { return *reinterpret_cast<RefType*>(this); }
+ 		RefType& AsRef() { return *reinterpret_cast<RefType*>(this); }
 		SliceType& AsSlice() { return *reinterpret_cast<SliceType*>(this); }
 		ArrayType& AsArray() { return *reinterpret_cast<ArrayType*>(this); }
 		TupleType& AsTuple() { return *reinterpret_cast<TupleType*>(this); }
@@ -97,6 +100,31 @@ namespace Noctis
 		u16 alignment;
 	};
 	using TypeSPtr = StdSharedPtr<Type>;
+
+	struct THandle
+	{
+		THandle(TypeSPtr type)
+			: type(type)
+		{
+		}
+		
+		TypeSPtr type;
+		
+		BuiltinType& AsBuiltin() { return type->AsBuiltin(); }
+		IdenType& AsIden() { return type->AsIden(); }
+		PtrType& AsPtr() { return type->AsPtr(); }
+		RefType& AsRef() { return type->AsRef(); }
+		SliceType& AsSlice() { return type->AsSlice(); }
+		ArrayType& AsArray() { return type->AsArray(); }
+		TupleType& AsTuple() { return type->AsTuple(); }
+		OptType& AsOpt() { return type->AsOpt(); }
+		CompoundType& AsCompound() { return type->AsCompound(); }
+		FuncType& AsFunc() { return type->AsFunc(); }
+		GenericType& AsGeneric() { return type->AsGeneric(); }
+	};
+	using TypeHandle = StdSharedPtr<THandle>;
+	
+	
 
 	struct BuiltinType : Type
 	{
@@ -192,7 +220,6 @@ namespace Noctis
 		TypeRegistry(Context* pCtx);
 
 		bool IsType(TypeHandle handle, TypeKind kind);
-		TypeSPtr GetType(TypeHandle handle);
 		StdString ToString(TypeHandle handle);
 		StdString ToString(TypeSPtr type);
 
@@ -202,6 +229,8 @@ namespace Noctis
 		void SetAliasType(TypeHandle alias, TypeHandle type);
 
 		TypeHandle ReplaceSubType(TypeHandle orig, TypeHandle toReplace, TypeHandle replacement);
+
+		StdVector<TypeHandle> GetSubTypes(TypeHandle handle, TypeKind kind);
 
 		void CalculateSizeAlign();
 
@@ -228,8 +257,10 @@ namespace Noctis
 		TypeHandle Generic(TypeMod mod, IdenSPtr qualName, const StdVector<TypeHandle>& constraints);
 
 		TypeHandle Mod(TypeMod mod, TypeHandle handle);
-
 	private:
+		TypeHandle CreateHandle(TypeSPtr type);
+		TypeHandle CreateHandle(Type* pType);
+		
 		void ExtractGenerics(TypeSPtr type, StdVector<TypeSPtr>& gens);
 		
 		static constexpr u8 m_ModCount = u8(TypeMod::Count);
@@ -255,5 +286,7 @@ namespace Noctis
 
 		Context* m_pCtx;
 	};
+
+	bool AreTypesEqual(TypeHandle t0, TypeHandle t1);
 	
 }

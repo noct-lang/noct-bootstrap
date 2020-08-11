@@ -11,7 +11,6 @@ namespace Noctis
 {
 	AstToITrLowering::AstToITrLowering(Context* pCtx)
 		: AstSemanticPass("ast to itr lowering", pCtx)
-		, m_ImplType(TypeHandle(-1))
 		, m_InFunc(false)
 	{
 	}
@@ -55,7 +54,7 @@ namespace Noctis
 			}
 		}
 
-		IdenSPtr iden = Iden::Create(node.iden, generics, m_pCtx->typeReg);
+		IdenSPtr iden = Iden::Create(node.iden, generics);
 		ITrIdenSPtr itrIden{ new ITrIden{ iden, std::move(assocArgs) } };
 		m_Idens.push_back(itrIden);
 	}
@@ -278,7 +277,7 @@ namespace Noctis
 	{
 		m_ImplType = m_pCtx->typeReg.Iden(TypeMod::None, node.ctx->qualName);
 		Walk(node);
-		m_ImplType = TypeHandle(-1);
+		m_ImplType = nullptr;
 		
 		ITrAttribsSPtr attribs;
 		if (node.attribs)
@@ -302,7 +301,7 @@ namespace Noctis
 		PushDefFrame();
 		m_ImplType = m_pCtx->typeReg.Iden(TypeMod::None, node.ctx->qualName);
 		Walk(node);
-		m_ImplType = TypeHandle(-1);
+		m_ImplType = nullptr;
 		StdVector<ITrDefSPtr> subDefs = PopDefFrame();
 
 		ITrBodySPtr body{ new ITrBody{ std::move(subDefs), {} } };
@@ -335,7 +334,7 @@ namespace Noctis
 		PushDefFrame();
 		m_ImplType = m_pCtx->typeReg.Iden(TypeMod::None, node.ctx->qualName);
 		Walk(node);
-		m_ImplType = TypeHandle(-1);
+		m_ImplType = nullptr;
 		StdVector<ITrDefSPtr> subDefs = PopDefFrame();
 
 		ITrBodySPtr body{ new ITrBody{ std::move(subDefs), {} } };
@@ -362,7 +361,7 @@ namespace Noctis
 			Visit(*node.implInterfaces[i]);
 			ITrTypeSPtr interface = PopType();
 			interface->astNode = node.implInterfaces[i];
-			TypeSPtr interfaceType = m_pCtx->typeReg.GetType(interface->handle);
+			TypeSPtr interfaceType = interface->handle->type;
 			interfaces[i].first = interfaceType->AsIden().qualName;
 			interfaces[i].second = interface->astNode->ctx->startIdx;
 		}
@@ -691,7 +690,7 @@ namespace Noctis
 		{
 			AstVisitor::Visit(stmt);
 		}
-		m_ImplType = TypeHandle(-1);
+		m_ImplType = nullptr;
 		m_ITrImplType = nullptr;
 		StdVector<ITrDefSPtr> defs = PopDefFrame();
 		
@@ -713,21 +712,17 @@ namespace Noctis
 				HandleWhereClause(*node.whereClause, genDecl);
 		}
 
-		StdPairVector<QualNameSPtr, SpanId> interfaces;
-		usize size = node.interfaces.size();
-		interfaces.resize(size);
-		for (usize i = size; i > 0;)
+		StdPair<QualNameSPtr, SpanId> interface;
+		if (node.interface)
 		{
-			--i;
-			Visit(*node.interfaces[i]);
-			ITrTypeSPtr interface = PopType();
-			interface->astNode = node.interfaces[i];
-			TypeSPtr interfaceType = m_pCtx->typeReg.GetType(interface->handle);
-			interfaces[i].first = interfaceType->AsIden().qualName;
-			interfaces[i].second = interface->astNode->ctx->startIdx;
+			Visit(*node.interface);
+			ITrTypeSPtr interfaceType = PopType();
+			interfaceType->astNode = node.interface;
+			interface.first = interfaceType->handle->AsIden().qualName;
+			interface.second = interfaceType->astNode->ctx->startIdx;
 		}
 		
-		ITrDefSPtr def{ new ITrImpl{ attribs, genDecl, node.ctx->qualName, type, std::move(interfaces) } };
+		ITrDefSPtr def{ new ITrImpl{ attribs, genDecl, node.ctx->qualName, type, interface } };
 		node.defItr = def;
 		def->ptr = def;
 		

@@ -427,15 +427,12 @@ namespace Noctis
 		if (node.generics)
 			Visit(*node.generics);
 		AstVisitor::Visit(node.type);
-		if (!node.interfaces.empty())
+		if (node.interface)
 		{
 			PrintIndent();
 			g_Logger.Log("(impl-interfaces)\n");
 			++m_Indent;
-			for (AstIdentifierTypeSPtr interface : node.interfaces)
-			{
-				Visit(*interface);
-			}
+			Visit(*node.interface);
 			--m_Indent;
 		}
 		for (AstStmtSPtr stmt : node.stmts)

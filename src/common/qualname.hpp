@@ -27,8 +27,8 @@ namespace Noctis
 		static IdenSPtr Create(StdStringView name);
 		static IdenSPtr Create(StdStringView name, u64 numGenerics);
 		static IdenSPtr Create(StdStringView name, u64 numGenerics, const StdVector<StdString>& paramNames);
-		static IdenSPtr Create(StdStringView name, const StdVector<IdenGeneric>& generics, TypeRegistry& typeReg);
-		static IdenSPtr Create(StdStringView name, const StdVector<IdenGeneric>& generics, TypeRegistry& typeReg, const StdVector<StdString>& paramNames);
+		static IdenSPtr Create(StdStringView name, const StdVector<IdenGeneric>& generics);
+		static IdenSPtr Create(StdStringView name, const StdVector<IdenGeneric>& generics, const StdVector<StdString>& paramNames);
 
 		const StdString& Name() { return m_Name; }
 		StdVector<IdenGeneric>& Generics() { return m_Generics; }

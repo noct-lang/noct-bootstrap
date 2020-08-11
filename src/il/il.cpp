@@ -3,8 +3,8 @@
 namespace Noctis
 {
 	ILVar::ILVar()
-		: id(0)
-		, type(TypeHandle(-1))
+		: kind(ILVarKind::Copy)
+		, id(0)
 	{
 	}
 
@@ -19,7 +19,6 @@ namespace Noctis
 		: kind(ILVarKind::Lit)
 		, litType(lit)
 		, boolBit(false)
-		, type(TypeHandle(-1))
 		, litData(data)
 	{
 	}
@@ -28,7 +27,6 @@ namespace Noctis
 		: kind(ILVarKind::Lit)
 		, litType(ILLitType::Bool)
 		, boolBit(bval)
-		, type(TypeHandle(-1))
 	{
 	}
 
@@ -157,7 +155,7 @@ namespace Noctis
 	}
 
 	ILMethodCall::ILMethodCall(ILVar dst, ILVar caller, const StdString& func, const StdVector<ILVar>& args)
-		: ILElem(ILKind::MethodCallNoRet)
+		: ILElem(ILKind::MethodCallRet)
 		, dst(std::move(dst))
 		, caller(caller)
 		, func(func)

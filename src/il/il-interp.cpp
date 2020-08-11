@@ -173,9 +173,9 @@ namespace Noctis
 		u32 id = var.id;
 		if (vars.size() <= id)
 		{
-			vars.resize(id + 1);
+			vars.resize(usize(id) + 1);
 			vars[id] = ILInterpVar{ var };
-			TypeSPtr type = pCtx->typeReg.GetType(var.type);
+			TypeSPtr type = var.type->type;
 			vars[id].size = type->size;
 			vars[id].tmpData.resize(type->size);
 		}
@@ -231,7 +231,7 @@ namespace Noctis
 
 			ILInterpVar var{ param };
 
-			TypeSPtr type = m_pCtx->typeReg.GetType(var.var.type);
+			TypeSPtr type = var.var.type->type;
 			PadStack(type->alignment);
 			var.stackIdx = stackFrame.stackIdx;
 			var.size = type->size;
@@ -270,7 +270,7 @@ namespace Noctis
 			ILInterpVar var{ localVar };
 			var.var = localVar;
 
-			TypeSPtr type = m_pCtx->typeReg.GetType(var.var.type);
+			TypeSPtr type = var.var.type->type;
 			PadStack(type->alignment);
 			var.stackIdx = stackFrame.stackIdx;
 			var.size = type->size;
@@ -394,7 +394,7 @@ namespace Noctis
 		u8* dstAddr = GetDstAddr(stackFrame, dst);
 		u8* srcAddr = GetSrcAddr(stackFrame, assign.src);
 
-		BuiltinType& type = m_pCtx->typeReg.GetType(assign.dst.type)->AsBuiltin();
+		BuiltinType& type = assign.dst.type->AsBuiltin();
 		bool isSigned = type.IsSigned();
 		bool isFp = type.IsFp();
 		
@@ -495,7 +495,7 @@ namespace Noctis
 		u8* src0Addr = GetSrcAddr(stackFrame, binary.src0);
 		u8* src1Addr = GetSrcAddr(stackFrame, binary.src1);
 
-		BuiltinType& type = m_pCtx->typeReg.GetType(binary.dst.type)->AsBuiltin();
+		BuiltinType& type = binary.dst.type->AsBuiltin();
 		bool isSigned = type.IsSigned();
 		bool isFp = type.IsFp();
 
@@ -596,7 +596,7 @@ namespace Noctis
 
 		u8* srcAdd = GetSrcAddr(stackFrame, unary.src);
 
-		BuiltinType& type = m_pCtx->typeReg.GetType(unary.dst.type)->AsBuiltin();
+		BuiltinType& type = unary.dst.type->AsBuiltin();
 		bool isSigned = type.IsSigned();
 		bool isFp = type.IsFp();
 
@@ -639,11 +639,11 @@ namespace Noctis
 			return;
 		}
 		
-		BuiltinType& fromType = m_pCtx->typeReg.GetType(srcType)->AsBuiltin();
+		BuiltinType& fromType = srcType->AsBuiltin();
 		bool fromSigned = fromType.IsSigned();
 		bool fromFp = fromType.IsFp();
 
-		BuiltinType& toType = m_pCtx->typeReg.GetType(cast.dst.type)->AsBuiltin();
+		BuiltinType& toType = cast.dst.type->AsBuiltin();
 		bool toSigned = toType.IsSigned();
 		bool toFp = toType.IsFp();
 
@@ -771,7 +771,7 @@ namespace Noctis
 		u8* dstAddr = GetDstAddr(stackFrame, dst);
 		u8* srcAddr = GetSrcAddr(stackFrame, access.src);
 
-		TypeSPtr type = m_pCtx->typeReg.GetType(access.src.type);
+		TypeSPtr type = access.src.type->type;
 		SymbolSPtr sym = type->AsIden().sym.lock();
 		SymbolSPtr child = sym->children->FindChild(nullptr, Iden::Create(access.name));
 		memcpy(dstAddr, srcAddr + child->offset, dst.size);
@@ -784,7 +784,7 @@ namespace Noctis
 		ILInterpVar& dst = stackFrame.GetVar(m_pCtx, access.dst);
 		u8* dstAddr = GetDstAddr(stackFrame, dst);
 
-		TupleType& tupType = m_pCtx->typeReg.GetType(access.src.type)->AsTuple();
+		TupleType& tupType = access.src.type->AsTuple();
 
 		u8* srcAddr = GetSrcAddr(stackFrame, access.src);
 		u8* readAddr = srcAddr + tupType.offsets[access.index];
@@ -799,7 +799,7 @@ namespace Noctis
 		ILInterpVar& dst = stackFrame.GetVar(m_pCtx, init.dst);
 		u8* dstAddr = GetDstAddr(stackFrame, dst);
 
-		TypeSPtr type = m_pCtx->typeReg.GetType(init.dst.type);
+		TypeSPtr type = init.dst.type->type;
 		SymbolSPtr sym = type->AsIden().sym.lock();
 
 		for (usize i = 0; i < init.args.size(); ++i)
@@ -819,7 +819,7 @@ namespace Noctis
 		ILInterpVar& dst = stackFrame.GetVar(m_pCtx, init.dst);
 		u8* dstAddr = GetDstAddr(stackFrame, dst);
 
-		TupleType& tupType = m_pCtx->typeReg.GetType(init.dst.type)->AsTuple();
+		TupleType& tupType = init.dst.type->AsTuple();
 		for (usize i = 0; i < init.args.size(); ++i)
 		{
 			ILVar& arg = init.args[i];
@@ -841,8 +841,8 @@ namespace Noctis
 		ILInterpVar& dst = stackFrame.GetVar(m_pCtx, init.dst);
 		u8* dstAddr = GetDstAddr(stackFrame, dst);
 
-		ArrayType& arrType = m_pCtx->typeReg.GetType(init.dst.type)->AsArray();
-		TypeSPtr subType = m_pCtx->typeReg.GetType(arrType.subType);
+		ArrayType& arrType = init.dst.type->AsArray();
+		TypeSPtr subType = arrType.subType->type;
 
 		u64 curOffset = 0;
 		for (ILVar& arg : init.args)
@@ -868,7 +868,7 @@ namespace Noctis
 		{
 			ILInterpVar& var = stackFrame.GetVar(m_pCtx, call.dst);
 			var.var = call.dst;
-			TypeSPtr type = m_pCtx->typeReg.GetType(var.var.type);
+			TypeSPtr type = var.var.type->type;
 			var.stackIdx = stackFrame.stackIdx;
 			stackFrame.stackIdx += type->size;
 			var.size = type->size;
@@ -928,12 +928,12 @@ namespace Noctis
 			case ILLitType::F32:  type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::F32); break;
 			case ILLitType::F64:  type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::F64); break;
 			case ILLitType::Char: type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::Char); break;
-			default: type = TypeHandle(-1);
+			default: type = nullptr;
 			}
 		}
 		else
 		{
-			size = m_pCtx->typeReg.GetType(var.type)->size;
+			size = var.type->type->size;
 			type = var.type;
 		}
 	}

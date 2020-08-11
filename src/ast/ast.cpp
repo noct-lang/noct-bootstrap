@@ -301,12 +301,12 @@ namespace Noctis
 	}
 
 	AstImplDecl::AstImplDecl(AstAttribsSPtr attribs, u64 startIdx, AstGenericDeclSPtr generics, AstTypeSPtr type,
-		StdVector<AstIdentifierTypeSPtr>&& interfaces, AstGenericWhereClauseSPtr whereClause, StdVector<AstStmtSPtr>&& stmts, u64 endIdx)
+		AstIdentifierTypeSPtr interface, AstGenericWhereClauseSPtr whereClause, StdVector<AstStmtSPtr>&& stmts, u64 endIdx)
 		: AstDecl(AstDeclKind::Impl, attribs ? attribs->ctx->startIdx : startIdx, endIdx)
 		, attribs(attribs)
 		, generics(generics)
 		, type(type)
-		, interfaces(std::move(interfaces))
+		, interface(interface)
 		, whereClause(whereClause)
 		, stmts(std::move(stmts))
 	{

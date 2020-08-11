@@ -59,6 +59,8 @@ namespace Noctis
 		
 		QualNameSPtr GetCurScope();
 
+		TypeHandle ReplaceImplTypes(TypeHandle type, ITrFunc& node);
+
 		void Expect(TypeHandle handle);
 		
 		QualNameSPtr m_Scope;

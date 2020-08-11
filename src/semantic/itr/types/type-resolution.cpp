@@ -28,6 +28,126 @@ namespace Noctis
 		});
 	}
 
+	GenericDeclResolve::GenericDeclResolve(Context* pCtx)
+		: ITrSemanticPass("generic decl resolve", pCtx)
+	{
+	}
+
+	void GenericDeclResolve::Process(ITrModule& mod)
+	{
+		SetModule(mod);
+		
+		Foreach(ITrVisitorDefKind::Any, [this](ITrStruct& node)
+		{
+			m_Sym = node.sym.lock();
+			HandleGenerics(node.qualName, node.genDecl, node);
+		});
+
+		Foreach(ITrVisitorDefKind::Any, [this](ITrUnion& node)
+		{
+			m_Sym = node.sym.lock();
+			HandleGenerics(node.qualName, node.genDecl, node);
+		});
+
+		Foreach(ITrVisitorDefKind::Any, [this](ITrAdtEnum& node)
+		{
+			m_Sym = node.sym.lock();
+			HandleGenerics(node.qualName, node.genDecl, node);
+		});
+
+		Foreach(ITrVisitorDefKind::Any, [this](ITrWeakInterface& node)
+		{
+			m_Sym = node.sym.lock();
+			HandleGenerics(node.qualName, node.genDecl, node);
+		});
+
+		Foreach(ITrVisitorDefKind::Any, [this](ITrStrongInterface& node)
+		{
+			m_Sym = node.sym.lock();
+			HandleGenerics(node.qualName, node.genDecl, node);
+		});
+
+		Foreach(ITrVisitorDefKind::Any, [this](ITrTypealias& node)
+		{
+			m_Sym = node.sym.lock();
+			HandleGenerics(node.qualName, node.genDecl, node);
+		});
+
+		Foreach(ITrVisitorDefKind::Any, [this](ITrTypedef& node)
+		{
+			m_Sym = node.sym.lock();
+			HandleGenerics(node.qualName, node.genDecl, node);
+		});
+
+		Foreach(ITrVisitorDefKind::Any, [this](ITrFunc& node)
+		{
+			m_Sym = node.sym.lock();
+			HandleGenerics(node.qualName, node.genDecl, node);
+		});
+
+		Foreach(ITrVisitorDefKind::Any, [this](ITrImpl& node)
+		{
+			m_Sym = node.sym.lock();
+			HandleGenerics(node.qualName, node.genDecl, node);
+		});
+		
+	}
+
+	void GenericDeclResolve::HandleGenerics(QualNameSPtr qualName, ITrGenDeclSPtr decl, ITrDef& def)
+	{
+		if (!decl)
+			return;
+
+		StdVector<IdenGeneric>& generics = qualName->Iden()->Generics();
+		for (usize i = 0; i < decl->params.size(); ++i)
+		{
+			ITrGenParamSPtr param = decl->params[i];
+			if (param->isVar)
+			{
+				ITrGenValParam& valParam = *reinterpret_cast<ITrGenValParam*>(param.get());
+				QualNameSPtr genQualName = QualName::Create(qualName, valParam.iden);
+
+				SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::GenVal, genQualName);
+
+				m_Sym->children->AddChild(sym);
+				param->sym = sym;
+
+				// TODO: type
+
+				if (!generics.empty())
+				{
+					generics[i].isType = false;
+				}
+			}
+			else
+			{
+				ITrGenTypeParam& typeParam = *reinterpret_cast<ITrGenTypeParam*>(param.get());
+				QualNameSPtr genQualName = QualName::Create(qualName, typeParam.iden);
+
+				SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::GenType, genQualName);
+
+				m_Sym->children->AddChild(sym);
+				param->sym = sym;
+
+				StdVector<TypeHandle> typeConstraints;
+				for (ITrGenTypeBoundSPtr bound : decl->bounds)
+				{
+					if (bound->type == typeParam.iden)
+						typeConstraints.push_back(bound->bound->handle);
+				}
+				TypeHandle type = m_pCtx->typeReg.Generic(TypeMod::None, typeParam.iden, typeConstraints);
+				sym->type = type;
+
+				if (!generics.empty())
+				{
+					generics[i].isType = true;
+					generics[i].type = type;
+					generics[i].iden = typeParam.iden;
+				}
+			}
+		}
+	}
+
 	InterfaceResolve::InterfaceResolve(Context* pCtx)
 		: ITrSemanticPass("interface resolve pass", pCtx)
 	{
@@ -39,7 +159,7 @@ namespace Noctis
 		SetModule(mod);
 
 		ModuleSymbolTable& symTable = m_pCtx->activeModule->symTable;
-
+		
 		Foreach(ITrVisitorDefKind::Any, [&, this](ITrStrongInterface& node)
 		{
 			if (node.implInterfaces.empty())
@@ -47,25 +167,28 @@ namespace Noctis
 			
 			SymbolSPtr sym = node.sym.lock();
 
+			if (sym->qualName->Iden()->Name() == "OpOrd")
+				int br = 0;
+
 			StdVector<SymbolSPtr> interfaces;
 			for (StdPair<QualNameSPtr, SpanId>& pair : node.implInterfaces)
 			{
+				IdenSPtr iden = pair.first->Iden();
+				if (!iden->Generics().empty())
+				{
+					StdVector<IdenGeneric> generics;
+					for (IdenGeneric& origGeneric : iden->Generics())
+					{
+						generics.push_back(GetGeneric(node.genDecl, origGeneric));
+					}
+					iden = Iden::Create(iden->Name(), generics);
+					pair.first = QualName::Create(pair.first->Base(), iden);
+				}
+				
 				SymbolSPtr interface = symTable.Find(node.qualName, pair.first);
 				interfaces.push_back(interface);
 			}
 
-			for (usize i = 0; i < interfaces.size(); ++i)
-			{
-				SymbolSPtr interface = interfaces[i];
-				for (StdPair<QualNameSPtr, SymbolWPtr> pair : interface->interfaces)
-				{
-					SymbolSPtr tmp = pair.second.lock();
-					auto it = std::find(interfaces.begin(), interfaces.end(), tmp);
-					if (it != interfaces.end())
-						interfaces.push_back(tmp);
-				}
-			}
-			
 			for (SymbolSPtr interface : interfaces)
 			{
 				// Update qualname to connect it to the interface that implements it
@@ -74,89 +197,39 @@ namespace Noctis
 				StdVector<IdenGeneric> generics;
 				for (IdenGeneric& origGeneric : iden->Generics())
 				{
-					if (origGeneric.isSpecialized)
-					{
-						if (node.genDecl)
-						{
-							bool found = false;
-							for (ITrGenParamSPtr genParam : node.genDecl->params)
-							{
-								if (origGeneric.isType && !genParam->isVar)
-								{
-									ITrGenTypeParam& genTypeParam = static_cast<ITrGenTypeParam&>(*genParam);
-									
-									TypeSPtr origType = m_pCtx->typeReg.GetType(origGeneric.type);
-									IdenSPtr origIden = origType->AsIden().qualName->Iden();
-
-									if (origIden == genTypeParam.iden)
-									{
-										StdVector<TypeHandle> typeConstraints;
-										for (ITrGenTypeBoundSPtr bound : node.genDecl->bounds)
-										{
-											if (bound->type == origIden)
-												typeConstraints.push_back(bound->bound->handle);
-										}
-										
-										IdenGeneric generic;
-										generic.isSpecialized = true;
-										generic.isType = true;
-										generic.type = m_pCtx->typeReg.Generic(TypeMod::None, origIden, typeConstraints);
-										generics.push_back(generic);
-										found = true;
-										break;
-									}
-								}
-								else
-								{
-									// TODO
-								}
-							}
-
-							if (found)
-								continue;
-							
-						}
-
-						
-						generics.push_back(origGeneric);
-						
-					}
-					else
-					{
-						IdenGeneric generic;
-						generic.isSpecialized = true;
-						generic.isType = origGeneric.isType;
-
-						IdenSPtr genIden = generic.iden;
-						if (generic.isType)
-						{
-							generic.type = m_pCtx->typeReg.Generic(TypeMod::None, genIden, origGeneric.typeConstraints);
-						}
-						else
-						{
-							// TODO
-						}
-
-						generics.push_back(generic);
-					}
+					generics.push_back(GetGeneric(node.genDecl, origGeneric));
 				}
 
-				iden = Iden::Create(iden->Name(), generics, m_pCtx->typeReg);
+				iden = Iden::Create(iden->Name(), generics);
 				QualNameSPtr qualName = QualName::Create(interface->qualName->Base(), iden);
-				SymbolSPtr parentIface = symTable.Find(node.qualName, qualName);
-				
-				sym->interfaces.emplace_back(qualName, parentIface);
+				SymbolSPtr parentIFace = symTable.Find(node.qualName, qualName);
+
+				if (iden != parentIFace->qualName->Iden())
+				{
+					parentIFace = parentIFace->CreateVariant(qualName);
+				}
+
+				{
+					auto it = std::find_if(sym->interfaces.begin(), sym->interfaces.end(), [qualName](const StdPair<QualNameSPtr, SymbolWPtr>& pair) -> bool
+					{
+						return pair.first == qualName;
+					});
+					if (it == sym->interfaces.end())
+						sym->interfaces.emplace_back(qualName, parentIFace);
+				}
+
 
 				// Process children
 
-				parentIface->children->Foreach([&](SymbolSPtr parentIfaceChild, QualNameSPtr)
+				parentIFace->children->Foreach([&](SymbolSPtr parentIfaceChild, QualNameSPtr)
 				{
-					SymbolSPtr child = sym->children->FindChild(nullptr, parentIfaceChild->qualName->Iden());
-					if (!child)
+					SymbolSPtr defChild = sym->children->FindChild(nullptr, parentIfaceChild->qualName->Iden());
+					SymbolSPtr child = defChild;
+					if (!defChild)
 					{
 						QualNameSPtr childQualName = QualName::Create(sym->qualName, parentIfaceChild->qualName->Iden());
 						child = CreateSymbol(m_pCtx, parentIfaceChild->kind, childQualName);
-						
+
 						sym->children->AddChild(qualName, child);
 
 						ITrFunc& func = static_cast<ITrFunc&>(*parentIfaceChild->associatedITr.lock());
@@ -164,14 +237,73 @@ namespace Noctis
 						ITrDefSPtr def{ new ITrFunc{ nullptr, nullptr, childQualName, std::move(params), func.retType, ITrFuncKind::EmptyMethod, false } };
 						child->associatedITr = def;
 						def->isDummyDef = true;
+						def->bodyIdx = defChild->associatedITr.lock()->bodyIdx;
 						def->sym = child;
 						m_pMod->AddDefinition(def);
 					}
-					child->interfaces.emplace_back(parentIface->qualName, parentIface);
+					child->interfaces.emplace_back(parentIFace->qualName, parentIFace);
 				});
 			}
-			
+
 		});
+	}
+
+	IdenGeneric InterfaceResolve::GetGeneric(ITrGenDeclSPtr genDecl, IdenGeneric origGeneric)
+	{
+		IdenGeneric generic;
+		if (origGeneric.isSpecialized)
+		{
+			if (genDecl)
+			{
+				bool found = false;
+				for (ITrGenParamSPtr genParam : genDecl->params)
+				{
+					if (origGeneric.isType && !genParam->isVar)
+					{
+						ITrGenTypeParam& genTypeParam = static_cast<ITrGenTypeParam&>(*genParam);
+
+						IdenSPtr origIden = origGeneric.type->AsGeneric().iden;
+
+						if (origIden == genTypeParam.iden)
+						{
+							StdVector<TypeHandle> typeConstraints;
+							for (ITrGenTypeBoundSPtr bound : genDecl->bounds)
+							{
+								if (bound->type == origIden)
+									typeConstraints.push_back(bound->bound->handle);
+							}
+							
+							generic.isSpecialized = true;
+							generic.isType = true;
+							generic.type = m_pCtx->typeReg.Generic(TypeMod::None, origIden, typeConstraints);
+						}
+					}
+					else
+					{
+						// TODO
+					}
+				}
+
+			}
+
+		}
+		else
+		{
+			generic.isSpecialized = true;
+			generic.isType = origGeneric.isType;
+
+			IdenSPtr genIden = origGeneric.iden;
+			if (generic.isType)
+			{
+				generic.type = m_pCtx->typeReg.Generic(TypeMod::None, genIden, origGeneric.typeConstraints);
+			}
+			else
+			{
+				// TODO
+			}
+		}
+
+		return generic;
 	}
 
 	CompilerImplPass::CompilerImplPass(Context* pCtx)

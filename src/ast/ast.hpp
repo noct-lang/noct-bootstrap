@@ -511,13 +511,13 @@ namespace Noctis
 	struct AstImplDecl : public AstDecl
 	{
 		AstImplDecl(AstAttribsSPtr attribs, u64 startIdx, AstGenericDeclSPtr generics,
-			AstTypeSPtr type, StdVector<AstIdentifierTypeSPtr>&& interfaces, AstGenericWhereClauseSPtr whereClause,
+			AstTypeSPtr type, AstIdentifierTypeSPtr interface, AstGenericWhereClauseSPtr whereClause,
 			StdVector<AstStmtSPtr>&& stmts, u64 endIdx);
 
 		AstAttribsSPtr attribs;
 		AstGenericDeclSPtr generics;
 		AstTypeSPtr type;
-		StdVector<AstIdentifierTypeSPtr> interfaces;
+		AstIdentifierTypeSPtr interface;
 		AstGenericWhereClauseSPtr whereClause;
 		StdVector<AstStmtSPtr> stmts;
 	};

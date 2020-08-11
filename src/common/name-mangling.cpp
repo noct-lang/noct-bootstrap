@@ -19,6 +19,9 @@ namespace Noctis::NameMangling
 		}
 		case SymbolKind::Method:
 		{
+			if (sym->qualName->Iden()->Name() == "opGt")
+				int br = 0;
+			
 			SymbolSPtr parent = sym->parent.lock();
 			if (!parent ||
 				parent->impls.empty() ||
@@ -190,11 +193,10 @@ namespace Noctis::NameMangling
 
 	StdString Mangle(Context* pCtx, TypeHandle type)
 	{
-		if (type == TypeHandle(-1))
+		if (!type)
 			return "";
 		
-		TypeSPtr actType = pCtx->typeReg.GetType(type);
-		return Mangle(pCtx, actType);
+		return Mangle(pCtx, type->type);
 	}
 
 	StdString Mangle(Context* pCtx, TypeSPtr type)
@@ -275,7 +277,7 @@ namespace Noctis::NameMangling
 			}
 			mangled += mod + "Z";
 
-			if (funcType.retType != TypeHandle(-1))
+			if (funcType.retType)
 				mangled += Mangle(pCtx, funcType.retType);
 
 			return mod + mangled + "Z";
@@ -380,7 +382,7 @@ namespace Noctis::NameMangling
 			++idx;
 		}
 
-		return Iden::Create(name, generics, pCtx->typeReg);
+		return Iden::Create(name, generics);
 	}
 
 	TypeHandle DemangleType(Context* pCtx, StdStringView data)
@@ -475,7 +477,7 @@ namespace Noctis::NameMangling
 			}
 			++idx;
 
-			TypeHandle retType = TypeHandle(-1);
+			TypeHandle retType;
 			if (data[idx] != 'Z')
 			{
 				retType = DemangleType(pCtx, data, idx);
@@ -499,7 +501,7 @@ namespace Noctis::NameMangling
 				return pCtx->typeReg.Iden(mod, qualName);
 			}
 
-			return TypeHandle(-1);
+			return nullptr;
 		}
 		}
 	}

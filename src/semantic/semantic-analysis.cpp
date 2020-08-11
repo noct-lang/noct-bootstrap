@@ -103,6 +103,7 @@ namespace Noctis
 		
 		RunPass<SimpleAttributePass>();
 		RunPass<TypeCollection>();
+		RunPass<GenericDeclResolve>();
 
 		RunPass<InterfaceResolve>();
 		RunPass<ImplCollection>();

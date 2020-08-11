@@ -397,8 +397,7 @@ namespace Noctis
 
 	void ILEncode::EncodeType(TypeHandle handle)
 	{
-		TypeSPtr type = m_pCtx->typeReg.GetType(handle);
-		auto it = m_Types.find(type);
+		auto it = m_Types.find(handle->type);
 		switch (m_TypeWidth)
 		{
 		case 1:
@@ -538,7 +537,7 @@ namespace Noctis
 			StdString typeMangle = ExtractNullTermString(bytecode, m_BCPos);
 			TypeHandle handle = NameMangling::DemangleType(m_pCtx, typeMangle);
 			m_Types.push_back(handle);
-			m_pMod->types.insert(m_pCtx->typeReg.GetType(handle));
+			m_pMod->types.insert(handle->type);
 		}
 	}
 
@@ -917,7 +916,7 @@ namespace Noctis
 			u32 idx = ReadData<u32>();
 			return m_Types[idx];
 		}
-		default: return TypeHandle(-1);
+		default: return nullptr;
 		}
 	}
 
@@ -1028,7 +1027,7 @@ namespace Noctis
 			{
 				type = DecodeType();
 				if (m_IdTypeMapping.size() <= id)
-					m_IdTypeMapping.resize(id + 1);
+					m_IdTypeMapping.resize(usize(id) + 1);
 				m_IdTypeMapping[id] = type;
 			}
 			else

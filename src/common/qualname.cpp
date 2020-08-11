@@ -12,7 +12,6 @@ namespace Noctis
 	IdenGeneric::IdenGeneric()
 		: isType(true)
 		, isSpecialized(false)
-		, type(TypeHandle(-1))
 	{
 	}
 
@@ -51,7 +50,7 @@ namespace Noctis
 		return iden;
 	}
 
-	IdenSPtr Iden::Create(StdStringView name, const StdVector<IdenGeneric>& generics, TypeRegistry& typeReg)
+	IdenSPtr Iden::Create(StdStringView name, const StdVector<IdenGeneric>& generics)
 	{
 		if (generics.empty())
 			return Create(name);
@@ -77,7 +76,7 @@ namespace Noctis
 				if (idenGens[i].isSpecialized || generics[i].isSpecialized)
 				{
 					if (idenGens[i].isType != generics[i].isType ||
-						!typeReg.AreTypesEqual(idenGens[i].type, generics[i].type))
+						!AreTypesEqual(idenGens[i].type, generics[i].type))
 					{
 						found = false;
 						break;
@@ -100,8 +99,7 @@ namespace Noctis
 		return iden;
 	}
 
-	IdenSPtr Iden::Create(StdStringView name, const StdVector<IdenGeneric>& generics, TypeRegistry& typeReg,
-		const StdVector<StdString>& paramNames)
+	IdenSPtr Iden::Create(StdStringView name, const StdVector<IdenGeneric>& generics, const StdVector<StdString>& paramNames)
 	{
 		if (generics.empty())
 			return Create(name, 0, paramNames);
@@ -127,7 +125,7 @@ namespace Noctis
 				if (idenGens[i].isSpecialized || generics[i].isSpecialized)
 				{
 					if (idenGens[i].isType != generics[i].isType ||
-						!typeReg.AreTypesEqual(idenGens[i].type, generics[i].type))
+						!AreTypesEqual(idenGens[i].type, generics[i].type))
 					{
 						found = false;
 						break;

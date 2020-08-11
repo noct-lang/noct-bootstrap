@@ -12,7 +12,6 @@ namespace Noctis
 		: qualName(qualName)
 		, children(new SymbolSubTable{ pCtx })
 		, funcDefaultStart(u16(-1))
-		, type(TypeHandle(-1))
 		, size(0)
 		, aligment(0)
 		, offset(0)
@@ -20,6 +19,7 @@ namespace Noctis
 		, kind(kind)
 		, isImported(false)
 		, isDefaultImpl(false)
+		, defImplVer(0)
 	{
 	}
 
@@ -121,7 +121,7 @@ namespace Noctis
 		case SymbolKind::Closure: break; // TODO
 		case SymbolKind::Var:
 		{
-			TypeSPtr actType = pCtx->typeReg.GetType(type);
+			TypeSPtr actType = type->type;
 			if (!actType->size)
 				actType->CalculateSizeAlign(pCtx->typeReg);
 			
@@ -344,11 +344,22 @@ namespace Noctis
 			{
 				if (sym)
 				{
-					// TODO: what symbol is ambiguous?
-					g_ErrorSystem.Error("ambiguous symbol\n");
-					return nullptr;
+					if (sym && sym != tmp)
+					{
+						if (sym->qualName == tmp->qualName)
+						{
+							if (tmp->defImplVer > sym->defImplVer)
+								sym = tmp;
+						}
+						else
+						{
+							// TODO: what symbol is ambiguous?
+							g_ErrorSystem.Error("ambiguous symbol\n");
+							return nullptr;
+						}
+					}
 				}
-
+				
 				sym = tmp;
 			}
 		}
@@ -434,7 +445,7 @@ namespace Noctis
 	{
 		if (sym->kind == SymbolKind::ImplType)
 		{
-			TypeSPtr type = m_pCtx->typeReg.GetType(sym->type);
+			TypeSPtr type = sym->type->type;
 			auto it = m_TypeSymbols.find(type);
 			if (it != m_TypeSymbols.end())
 				return false;
@@ -488,6 +499,10 @@ namespace Noctis
 			if (it != m_TypeNameSymbols.end())
 			{
 				allIdens.pop_back();
+
+				if (allIdens.empty())
+					return it->second;
+				
 				SymbolSPtr sym = it->second->children->Find(allIdens, interfaceName);
 				if (sym)
 					return sym;

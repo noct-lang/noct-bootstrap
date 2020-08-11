@@ -1,6 +1,8 @@
 #pragma once
 #include "semantic/semantic-pass.hpp"
 #include "common/type.hpp"
+#include "semantic/ast/misc/iden-scope-pass.hpp"
+#include "tokens/span.hpp"
 
 namespace Noctis
 {
@@ -30,8 +32,6 @@ namespace Noctis
 
 	protected:
 
-		void HandleGenerics(QualNameSPtr baseQualName, ITrGenDeclSPtr decl);
-
 		virtual bool HandleImpls(SymbolSPtr sym);
 
 		StdStack<SymbolSPtr> m_Syms;
@@ -60,15 +60,21 @@ namespace Noctis
 
 		void Process(ITrModule& mod) override;
 
+
 	private:
 		bool HandleImpls(SymbolSPtr sym) override;
 		
+		void CollectInterfaces(SymbolSPtr sym, QualNameSPtr nodeQualName, const StdPairVector<QualNameSPtr, SpanId>& implInterfaces);
+		void CollectInterfaces(SymbolSPtr sym, QualNameSPtr nodeQualName, const StdPair<QualNameSPtr, SpanId>& implInterface);
+		void CollectInterfaces(StdPair<QualNameSPtr, SymbolWPtr>& pair, SymbolSPtr baseInterfaceSym, SymbolSPtr sym);
 		void CollectNeededChildren(SymbolSPtr interface);
 		void AddMissingChildrenWithDefImpl();
 
+		IdenGeneric GetGeneric(IdenSPtr parentIden, IdenGeneric origGen);
+
 		StdVector<SymbolSPtr> m_Interfaces;
 
-		StdUnorderedMap<IdenSPtr, SymbolSPtr> m_NeededChildren;
+		StdUnorderedMap<IdenSPtr, StdPair<SymbolSPtr, SymbolSPtr>> m_NeededChildren;
 
 		SymbolSPtr m_ImplSymbol;
 	};

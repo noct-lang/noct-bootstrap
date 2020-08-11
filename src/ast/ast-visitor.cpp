@@ -1012,10 +1012,8 @@ namespace Noctis
 		if (node.generics)
 			Visit(*node.generics);
 		Visit(node.type);
-		for (AstTypeSPtr interfaceType : node.interfaces)
-		{
-			Visit(interfaceType);
-		}
+		if (node.interface)
+			Visit(*node.interface);
 		for (AstStmtSPtr stmt : node.stmts)
 		{
 			Visit(stmt);

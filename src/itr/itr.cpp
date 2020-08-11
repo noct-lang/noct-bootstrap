@@ -124,15 +124,14 @@ namespace Noctis
 		, funcKind(funcKind)
 		, params(std::move(params))
 		, retType(retType)
-		, selfType(TypeHandle(-1))
 		, ctx(new FuncContext{})
 	{
 	}
 
-	ITrImpl::ITrImpl(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr scope, ITrTypeSPtr type, StdPairVector<QualNameSPtr, SpanId>&& interfaces)
+	ITrImpl::ITrImpl(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr scope, ITrTypeSPtr type, StdPair<QualNameSPtr, SpanId> interface)
 		: ITrDef(ITrDefKind::Impl, attribs, genDecl, scope, true)
 		, type(type)
-		, interfaces(std::move(interfaces))
+		, interface(interface)
 	{
 	}
 
@@ -274,7 +273,6 @@ namespace Noctis
 	ITrExpr::ITrExpr(ITrExprKind kind)
 		: ITrStmt(ITrStmtKind::Expr) 
 		, exprKind(kind)
-		, typeHandle(TypeHandle(-1))
 	{
 	}
 

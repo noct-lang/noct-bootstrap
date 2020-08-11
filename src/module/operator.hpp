@@ -102,9 +102,9 @@ namespace Noctis
 
 	struct Operator
 	{
-		TypeHandle left = TypeHandle(-1);
-		TypeHandle right = TypeHandle(-1);
-		TypeHandle result = TypeHandle(-1);
+		TypeHandle left;
+		TypeHandle right;
+		TypeHandle result;
 
 		SymbolSPtr sym;
 		bool isBuiltin = false;

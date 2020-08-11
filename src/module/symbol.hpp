@@ -63,7 +63,6 @@ namespace Noctis
 		
 		QualNameSPtr qualName;
 
-
 		SymbolSubTableSPtr children;
 		SymbolWPtr parent;
 		StdVector<SymbolWPtr> orderedVarChildren;
@@ -94,9 +93,10 @@ namespace Noctis
 		
 		SymbolKind kind;
 
-		bool isImported : 1;
+		bool isImported : 1; 
 		bool isDefaultImpl : 1;
-		
+
+		u8 defImplVer;
 	};
 
 	SymbolSPtr CreateSymbol(Context* pCtx, SymbolKind kind, QualNameSPtr qualName);
