@@ -10,22 +10,16 @@ namespace Noctis
 	TypeCollectionCommon::TypeCollectionCommon(const char* name, Context* pCtx)
 		: ITrSemanticPass(name, pCtx)
 		, m_InImpl(false)
+		, m_InInterface(false)
 	{
 		m_VisitDefs = true;
 	}
 
 	void TypeCollectionCommon::Visit(ITrStruct& node)
 	{
-		SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::Struct, node.qualName);
+		SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::Struct, node.qualName, node.ptr);
 		m_Syms.top()->children->AddChild(sym);
 		m_Syms.push(sym);
-		node.sym = sym;
-		sym->associatedITr = node.ptr;
-
-		TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
-		sym->type = type;
-		IdenType& idenType = type->AsIden();
-		idenType.sym = sym;
 
 		ITrBodySPtr body = m_pMod->GetBody(node);
 		for (ITrDefSPtr def : body->defs)
@@ -38,15 +32,9 @@ namespace Noctis
 
 	void TypeCollectionCommon::Visit(ITrUnion& node)
 	{
-		SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::Union, node.qualName);
+		SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::Union, node.qualName, node.ptr);
 		m_Syms.top()->children->AddChild(sym);
 		m_Syms.push(sym);
-		node.sym = sym;
-
-		TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
-		sym->type = type;
-		IdenType& idenType = type->AsIden();
-		idenType.sym = sym;
 
 		ITrBodySPtr body = m_pMod->GetBody(node);
 		for (ITrDefSPtr def : body->defs)
@@ -59,16 +47,9 @@ namespace Noctis
 
 	void TypeCollectionCommon::Visit(ITrValEnum& node)
 	{
-		SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::ValEnum, node.qualName);
+		SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::ValEnum, node.qualName, node.ptr);
 		m_Syms.top()->children->AddChild(sym);
 		m_Syms.push(sym);
-		node.sym = sym;
-		sym->associatedITr = node.ptr;
-
-		TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
-		sym->type = type;
-		IdenType& idenType = type->AsIden();
-		idenType.sym = sym;
 
 		ITrBodySPtr body = m_pMod->GetBody(node);
 		for (ITrDefSPtr def : body->defs)
@@ -81,25 +62,15 @@ namespace Noctis
 
 	void TypeCollectionCommon::Visit(ITrValEnumMember& node)
 	{
-		SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::ValEnumMember, node.qualName);
+		SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::ValEnumMember, node.qualName, node.ptr);
 		m_Syms.top()->children->AddChild(sym);
-		node.sym = sym;
-		sym->associatedITr = node.ptr;
-		sym->type = m_Syms.top()->type;
 	}
 
 	void TypeCollectionCommon::Visit(ITrAdtEnum& node)
 	{
-		SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::AdtEnum, node.qualName);
+		SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::AdtEnum, node.qualName, node.ptr);
 		m_Syms.top()->children->AddChild(sym);
 		m_Syms.push(sym);
-		node.sym = sym;
-		sym->associatedITr = node.ptr;
-
-		TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
-		sym->type = type;
-		IdenType& idenType = type->AsIden();
-		idenType.sym = sym;
 
 		ITrBodySPtr body = m_pMod->GetBody(node);
 		for (ITrDefSPtr def : body->defs)
@@ -112,10 +83,8 @@ namespace Noctis
 
 	void TypeCollectionCommon::Visit(ITrAdtEnumMember& node)
 	{
-		SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::AdtEnumMember, node.qualName);
+		SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::AdtEnumMember, node.qualName, node.ptr);
 		m_Syms.top()->children->AddChild(sym);
-		node.sym = sym;
-		sym->associatedITr = node.ptr;
 
 		if (node.type)
 		{
@@ -142,36 +111,23 @@ namespace Noctis
 			node.qualName = qualName;
 		}
 
-		SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::Typealias, node.qualName);
-		if (!HandleImpls(sym))
+		if (m_InInterface)
+		{
+			SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::AssocType, node.qualName, node.ptr);
 			m_Syms.top()->children->AddChild(sym);
-		m_Syms.push(sym);
-		node.sym = sym;
-		sym->associatedITr = node.ptr;
-
-		TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, qualName);
-		sym->type = type;
-		IdenType& idenType = type->AsIden();
-		idenType.sym = sym;
-
-		m_Syms.pop();
+		}
+		else
+		{
+			SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::Typealias, node.qualName, node.ptr);
+			if (!HandleImpls(sym))
+				m_Syms.top()->children->AddChild(sym);
+		}
 	}
 
 	void TypeCollectionCommon::Visit(ITrTypedef& node)
 	{
-		SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::Typedef, node.qualName);
-
+		SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::Typedef, node.qualName, node.ptr);
 		m_Syms.top()->children->AddChild(sym);
-		m_Syms.push(sym);
-		node.sym = sym;
-		sym->associatedITr = node.ptr;
-
-		TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
-		sym->type = type;
-		IdenType& idenType = type->AsIden();
-		idenType.sym = sym;
-
-		m_Syms.pop();
 	}
 
 	void TypeCollectionCommon::Visit(ITrFunc& node)
@@ -213,11 +169,9 @@ namespace Noctis
 			qualName = QualName::Create(qualName->Base(), newIden);
 		}
 
-		SymbolSPtr sym = CreateSymbol(m_pCtx, kind, qualName);
+		SymbolSPtr sym = CreateSymbol(m_pCtx, kind, qualName, node.ptr);
 		if (!HandleImpls(sym))
 			m_Syms.top()->children->AddChild(sym);
-		node.sym = sym;
-		sym->associatedITr = node.ptr;
 
 		node.selfType = m_ImplType;
 
@@ -231,8 +185,7 @@ namespace Noctis
 
 		SymbolSPtr parent = m_Syms.top();
 
-		SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::Var, node.qualName);
-		sym->associatedITr = node.ptr;
+		SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::Var, node.qualName, node.ptr);
 		sym->type = node.type->handle;
 
 		parent->children->AddChild(sym);
@@ -256,22 +209,12 @@ namespace Noctis
 
 		Module& activeMod = *m_pCtx->activeModule;
 		ModuleSymbolTable& symTable = activeMod.symTable;
-
-		QualNameSPtr structQualName = QualName::Create({ "core", "marker", "Struct" });
-		SymbolSPtr structSym = m_pCtx->activeModule->symTable.Find(nullptr, structQualName);
 		
 		Foreach(ITrVisitorDefKind::Module, [&, this](ITrStruct& node)
 		{
-			SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::Struct, node.qualName);
+			SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::Struct, node.qualName, node.ptr);
 			symTable.Add(sym);
 			m_Syms.push(sym);
-			node.sym = sym;
-			sym->associatedITr = node.ptr;
-
-			TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
-			sym->type = type;
-			IdenType& idenType = type->AsIden();
-			idenType.sym = sym;
 
 			ITrBodySPtr body = mod.GetBody(node);
 			for (ITrDefSPtr def : body->defs)
@@ -284,16 +227,9 @@ namespace Noctis
 
 		Foreach(ITrVisitorDefKind::Module, [&, this](ITrUnion& node)
 		{
-			SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::Union, node.qualName);
+			SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::Union, node.qualName, node.ptr);
 			symTable.Add(sym);
 			m_Syms.push(sym);
-			node.sym = sym;
-			sym->associatedITr = node.ptr;
-
-			TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
-			sym->type = type;
-			IdenType& idenType = type->AsIden();
-			idenType.sym = sym;
 
 			ITrBodySPtr body = mod.GetBody(node);
 			for (ITrDefSPtr def : body->defs)
@@ -306,16 +242,9 @@ namespace Noctis
 
 		Foreach(ITrVisitorDefKind::Module, [&, this](ITrValEnum& node)
 		{
-			SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::ValEnum, node.qualName);
+			SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::ValEnum, node.qualName, node.ptr);
 			symTable.Add(sym);
 			m_Syms.push(sym);
-			node.sym = sym;
-			sym->associatedITr = node.ptr;
-
-			TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
-			sym->type = type;
-			IdenType& idenType = type->AsIden();
-			idenType.sym = sym;
 
 			ITrBodySPtr body = mod.GetBody(node);
 			for (ITrDefSPtr def : body->defs)
@@ -328,16 +257,9 @@ namespace Noctis
 
 		Foreach(ITrVisitorDefKind::Module, [&, this](ITrAdtEnum& node)
 		{
-			SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::AdtEnum, node.qualName);
+			SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::AdtEnum, node.qualName, node.ptr);
 			symTable.Add(sym);
 			m_Syms.push(sym);
-			node.sym = sym;
-			sym->associatedITr = node.ptr;
-
-			TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
-			sym->type = type;
-			IdenType& idenType = type->AsIden();
-			idenType.sym = sym;
 
 			ITrBodySPtr body = mod.GetBody(node);
 			for (ITrDefSPtr def : body->defs)
@@ -350,33 +272,21 @@ namespace Noctis
 
 		Foreach(ITrVisitorDefKind::Module, [&, this](ITrMarkerInterface& node)
 		{
-			SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::MarkerInterface, node.qualName);
+			SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::MarkerInterface, node.qualName, node.ptr);
 			symTable.Add(sym);
-			node.sym = sym;
-			sym->associatedITr = node.ptr;
-
-			TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
-			sym->type = type;
-			IdenType& idenType = type->AsIden();
-			idenType.sym = sym;
 		});
 
 		Foreach(ITrVisitorDefKind::Module, [&, this](ITrWeakInterface& node)
 		{
+			m_InInterface = true;
+			
 			m_Impl = node.ptr.lock();
-			SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::WeakInterface, node.qualName);
+			SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::WeakInterface, node.qualName, node.ptr);
 			symTable.Add(sym);
 			m_Syms.push(sym);
-			node.sym = sym;
-			sym->associatedITr = node.ptr;
-
-			TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
-			sym->type = type;
-			IdenType& idenType = type->AsIden();
-			idenType.sym = sym;
 
 			m_TypeQualName = node.qualName;
-			m_ImplType = type;
+			m_ImplType = sym->type;
 
 			ITrBodySPtr body = mod.GetBody(node);
 			for (ITrDefSPtr def : body->defs)
@@ -385,49 +295,33 @@ namespace Noctis
 			}
 
 			m_Syms.pop();
+
+			m_InInterface = false;
 		});
 
 		Foreach(ITrVisitorDefKind::Module, [&, this](ITrStrongInterface& node)
 		{
+			m_InInterface = true;
+			
 			m_Impl = node.ptr.lock();
-			SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::StrongInterface, node.qualName);
+			SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::StrongInterface, node.qualName, node.ptr);
 			symTable.Add(sym);
-			m_Syms.push(sym);
-			node.sym = sym;
-			sym->associatedITr = node.ptr;
 
-			TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
-			sym->type = type;
-			IdenType& idenType = type->AsIden();
-			idenType.sym = sym;
-
-			m_Syms.pop();
+			m_InInterface = false;
+			
+			// Members collected in ImplCollection
 		});
 
 		Foreach(ITrVisitorDefKind::Module, [&, this](ITrTypealias& node)
 		{
-			SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::Typealias, node.qualName);
+			SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::Typealias, node.qualName, node.ptr);
 			symTable.Add(sym);
-			node.sym = sym;
-			sym->associatedITr = node.ptr;
-
-			TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
-			sym->type = type;
-			IdenType& idenType = type->AsIden();
-			idenType.sym = sym;
 		});
 
 		Foreach(ITrVisitorDefKind::Module, [&, this](ITrTypedef& node)
 		{
-			SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::Typedef, node.qualName);
+			SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::Typedef, node.qualName, node.ptr);
 			symTable.Add(sym);
-			node.sym = sym;
-			sym->associatedITr = node.ptr;
-
-			TypeHandle type = m_pCtx->typeReg.Iden(TypeMod::None, node.qualName);
-			sym->type = type;
-			IdenType& idenType = type->AsIden();
-			idenType.sym = sym;
 		});
 
 		Foreach(ITrVisitorDefKind::Module, [&, this](ITrFunc& node)
@@ -445,11 +339,8 @@ namespace Noctis
 				kind = SymbolKind::Closure; break;
 			}
 			
-			SymbolSPtr sym = CreateSymbol(m_pCtx, kind, node.qualName);
+			SymbolSPtr sym = CreateSymbol(m_pCtx, kind, node.qualName, node.ptr);
 			symTable.Add(sym);
-			m_Syms.push(sym);
-			node.sym = sym;
-			sym->associatedITr = node.ptr;
 
 			SymbolSPtr parent = m_Syms.top();
 			if (parent->kind == SymbolKind::StrongInterface)
@@ -457,12 +348,12 @@ namespace Noctis
 				sym->interfaces.emplace_back(parent->qualName, parent);
 			}
 
+			m_Syms.push(sym);
 			ITrBodySPtr body = mod.GetBody(node);
 			for (ITrDefSPtr def : body->defs)
 			{
 				ITrVisitor::Visit(def);
 			}
-
 			m_Syms.pop();
 		});
 
@@ -470,15 +361,25 @@ namespace Noctis
 		{
 			TypeHandle handle = node.type->handle;
 			TypeSPtr type = handle->type;
-
 			SymbolSPtr sym = symTable.Find(type);
+
 			if (!sym)
 			{
-				sym = CreateSymbol(m_pCtx, SymbolKind::ImplType, node.qualName);
-				sym->type = handle;
-				symTable.Add(sym);
+				if (type->typeKind == TypeKind::Iden)
+				{
+					sym = CreateSymbol(m_pCtx, SymbolKind::Impl, node.qualName, node.ptr);
+					sym->type = handle;
+					symTable.Add(sym);
+				}
+				else
+				{
+					sym = CreateSymbol(m_pCtx, SymbolKind::Type, nullptr, node.ptr);
+					sym->type = handle;
+					symTable.Add(sym);
+				}
 			}
 			node.sym = sym;
+			
 		});
 	}
 
@@ -494,36 +395,29 @@ namespace Noctis
 		Foreach(ITrVisitorDefKind::Module, [&, this](ITrStrongInterface& node)
 		{
 			m_Impl = node.ptr.lock();
-
 			m_ImplType = node.sym.lock()->type;
 			TypeSPtr type = m_ImplType->type;
 
 			ModuleSymbolTable& symTable = m_pCtx->activeModule->symTable;
 
-			SymbolSPtr sym;
+			IdenType& idenType = type->AsIden();
+			SymbolSPtr sym = symTable.Find(node.qualName, idenType.qualName);
+			
 			if (type->typeKind == TypeKind::Iden)
 			{
 				IdenType& idenType = type->AsIden();
 				sym = symTable.Find(node.qualName, idenType.qualName);
-				if (sym->IsBaseVariant() && sym->qualName->Iden() != idenType.qualName->Iden())
+				if (sym->qualName->Iden() != idenType.qualName->Iden())
 				{
-					SymbolSPtr parent = sym;
-					QualNameSPtr qualName = QualName::Create(parent->qualName->Base(), idenType.qualName->Iden());
-					sym = CreateSymbol(m_pCtx, parent->kind, node.qualName);
-					sym->type = m_pCtx->typeReg.Iden(TypeMod::None, qualName);
-					parent->variants.push_back(sym);
+					IdenSPtr iden = Iden::Create(idenType.qualName->Iden()->Name(), sym->qualName->Iden()->Generics());
+					SymbolSPtr typeSym = sym->children->FindChild(nullptr, iden);
+					if (typeSym)
+						sym->type = typeSym->type;
 				}
 				m_TypeQualName = sym->qualName;
 			}
 			else
 			{
-				sym = symTable.Find(type);
-				if (!sym)
-				{
-					sym = CreateSymbol(m_pCtx, SymbolKind::ImplType, node.qualName);
-					sym->type = m_ImplType;
-					symTable.Add(sym);
-				}
 				StdString typeName = m_pCtx->typeReg.ToString(sym->type);
 				m_TypeQualName = QualName::Create(Iden::Create(typeName));
 			}
@@ -553,27 +447,22 @@ namespace Noctis
 		
 		Foreach(ITrVisitorDefKind::Module, [&, this](ITrImpl& node)
 		{
-			if (node.qualName->Iden()->Name().find("555_0") != StdString::npos)
-				int br = 0;
-			
 			m_Impl = node.ptr.lock();
 
-			SymbolSPtr sym = node.sym.lock();
-			m_ImplType = sym->type;
+			m_ImplType = node.type->handle;
 			TypeSPtr type = m_ImplType->type;
 
 			ModuleSymbolTable& symTable = m_pCtx->activeModule->symTable;
 
+			SymbolSPtr sym = node.sym.lock();
 			if (type->typeKind == TypeKind::Iden)
 			{
 				IdenType& idenType = type->AsIden();
-				sym = symTable.Find(node.qualName, idenType.qualName);
 				if (sym->qualName->Iden() != idenType.qualName->Iden())
 				{
-					IdenSPtr iden = Iden::Create(idenType.qualName->Iden()->Name(), sym->qualName->Iden()->Generics());
-					SymbolSPtr typeSym = sym->children->FindChild(nullptr, iden);
+					SymbolSPtr typeSym = symTable.Find(node.qualName, idenType.qualName);
 					if (typeSym)
-						sym->type = typeSym->type;
+						sym = typeSym;
 				}
 				m_TypeQualName = sym->qualName;
 			}
@@ -582,6 +471,7 @@ namespace Noctis
 				StdString typeName = m_pCtx->typeReg.ToString(sym->type);
 				m_TypeQualName = QualName::Create(Iden::Create(typeName));
 			}
+			
 			m_Syms.push(sym);
 			node.sym = sym;
 			sym->associatedITr = node.ptr;
@@ -613,9 +503,6 @@ namespace Noctis
 		bool res = false;
 		for (SymbolSPtr interface : m_Interfaces)
 		{
-			//if (interface->qualName->Iden()->Name() == "OpPartialOrd")
-			//	__debugbreak();
-			
 			QualNameSPtr qualName = interface->qualName;
 			SymbolSPtr baseInterface = interface->baseVariant.lock();
 			SymbolSPtr child;
@@ -634,9 +521,6 @@ namespace Noctis
 
 			if (child)
 			{
-				if (child->qualName->Iden()->Name() == "OpPartialOrd")
-					int br = 0;
-				
 				StdVector<IdenSPtr> idens{ sym->qualName->Iden() };
 				sym->impls.emplace_back(child);
 				sym->interfaces.emplace_back(interface->qualName, interface);
@@ -662,9 +546,6 @@ namespace Noctis
 
 	void ImplCollection::CollectInterfaces(SymbolSPtr sym, QualNameSPtr nodeQualName, const StdPair<QualNameSPtr, SpanId>& implInterface)
 	{
-		if (implInterface.first->Iden()->Name() == "OpOrd")
-			int br = 0;
-
 		QualNameSPtr interfaceQualName = implInterface.first;
 
 		SymbolSPtr baseInterfaceSym = m_pCtx->activeModule->symTable.Find(nodeQualName, interfaceQualName);
@@ -741,7 +622,7 @@ namespace Noctis
 		interface->children->Foreach([&, this](SymbolSPtr sym, QualNameSPtr)
 		{
 			if (sym->kind != SymbolKind::Method &&
-				sym->kind != SymbolKind::Typealias)
+				sym->kind != SymbolKind::AssocType)
 				return;
 			
 			IdenSPtr iden = sym->qualName->Iden();
@@ -765,7 +646,6 @@ namespace Noctis
 			SymbolSPtr interface = pair.second.second;
 			ITrDefSPtr def = sym->associatedITr.lock();
 
-			bool found = false;
 			if (sym->kind == SymbolKind::Method)
 			{
 				QualNameSPtr qualName = QualName::Create(m_TypeQualName, pair.first);
@@ -775,7 +655,6 @@ namespace Noctis
 				child->interfaces.emplace_back(interface->qualName, interface);
 				child->isDefaultImpl = true;
 				HandleImpls(child);
-				found = true;
 
 				ITrFunc& func = static_cast<ITrFunc&>(*def);
 				ITrFunc& srcDef = static_cast<ITrFunc&>(*sym->associatedITr.lock());
@@ -799,11 +678,30 @@ namespace Noctis
 				childDef->impl = m_Impl;
 				m_pMod->AddDefinition(childDef);
 			}
-			
-			if (!found)
+			else if (sym->kind == SymbolKind::AssocType)
 			{
+				QualNameSPtr qualName = QualName::Create(m_TypeQualName, pair.first);
+				SymbolSPtr parent = sym->parent.lock();
 
-				
+				SymbolSPtr child = CreateSymbol(m_pCtx, sym->kind, qualName);
+				child->interfaces.emplace_back(interface->qualName, interface);
+				child->isDefaultImpl = true;
+				child->type = m_pCtx->typeReg.Iden(TypeMod::None, qualName);
+				HandleImpls(child);
+
+				ITrTypealias& alias = static_cast<ITrTypealias&>(*def);
+				ITrTypealias& srcDef = static_cast<ITrTypealias&>(*sym->associatedITr.lock());
+
+				ITrDefSPtr childDef{ new ITrTypealias{ nullptr, nullptr, qualName, alias.type, false } };
+				child->associatedITr = childDef;
+				childDef->isDummyDef = true;
+				childDef->bodyIdx = srcDef.bodyIdx;
+				childDef->sym = child;
+				childDef->impl = m_Impl;
+				m_pMod->AddDefinition(childDef);
+			}
+			else
+			{
 				g_ErrorSystem.Error("No implementation of '%s' for ''", sym->qualName->ToString().c_str());
 			}
 		}

@@ -188,7 +188,7 @@ namespace Noctis
 	{
 	}
 
-	ArrayType::ArrayType(TypeMod mod, TypeHandle subType, StdSharedPtr<void> expr)
+	ArrayType::ArrayType(TypeMod mod, TypeHandle subType, ArrayExprType expr)
 		: Type(TypeKind::Array, mod)
 		, sizeKnown(false)
 		, subType(subType)
@@ -310,9 +310,21 @@ namespace Noctis
 			ArrayType& arr = type->AsArray();
 			StdString tmp;
 			if (arr.sizeKnown)
-				tmp = Format("[%ull]", arr.size);
+			{
+				tmp = Format("[%llu]", arr.size);
+			}
+			else if (std::holds_alternative<ITrExprSPtr>(arr.expr) && std::get<ITrExprSPtr>(arr.expr)->exprKind == ITrExprKind::QualName)
+			{
+				tmp = '[';
+				ITrExprSPtr expr = std::get<ITrExprSPtr>(arr.expr);
+				ITrQualNameExpr& qualName = reinterpret_cast<ITrQualNameExpr&>(*expr);
+				tmp += qualName.qualName->Iden()->ToString();
+				tmp += ']';
+			}
 			else
+			{	
 				tmp = "[...]";
+			}
 
 			return mod + tmp + ToString(arr.subType);
 		}
@@ -349,7 +361,24 @@ namespace Noctis
 		{
 			GenericType& gen = type->AsGeneric();
 			StdString idenName = gen.iden->ToString();
-			return mod + "__gen_(" + idenName + ")_";
+			return mod + "gen__" + idenName;
+		}
+		case TypeKind::Func:
+		{
+			FuncType& funcType = type->AsFunc();
+			StdString params;
+			for (TypeHandle paramType : funcType.paramTypes)
+			{
+				if (!params.empty())
+					params += ',';
+				params += ToString(paramType);
+			}
+
+			StdString ret;
+			if (funcType.retType)
+				ret = ToString(funcType.retType);
+			
+			return mod + '(' + params + ")->(" + ret + ')';
 		}
 		default: return "()";
 		}
@@ -478,7 +507,7 @@ namespace Noctis
 			TypeSPtr toReplaceType = toReplace->type;
 			if (toReplaceType->mod == TypeMod::None)
 			{
-				toReplace = Mod(type->mod, orig);
+				toReplace = Mod(type->mod, toReplace);
 				if (orig == toReplace)
 					return replacement;
 			}
@@ -1009,11 +1038,11 @@ namespace Noctis
 		return handle;
 	}
 
-	TypeHandle TypeRegistry::Array(TypeMod mod, TypeHandle subType, StdSharedPtr<void> expr)
+	TypeHandle TypeRegistry::Array(TypeMod mod, TypeHandle subType, ArrayExprType expr)
 	{
 		auto it = m_ArrayMapping.find(subType);
 		if (it == m_ArrayMapping.end())
-			it = m_ArrayMapping.insert(std::pair{ subType, StdUnorderedMap<StdSharedPtr<void>, StdArray<TypeHandle, m_ModCount>>{} }).first;
+			it = m_ArrayMapping.insert(std::pair{ subType, StdUnorderedMap<ArrayExprType, StdArray<TypeHandle, m_ModCount>>{} }).first;
 
 		auto subIt = it->second.find(expr);
 		if (subIt == it->second.end())
@@ -1241,13 +1270,8 @@ namespace Noctis
 			
 			if (found)
 			{
-				for (usize i = 0; i < m_ModCount; ++i)
-				{
-					handle = arr[i];
-					if (handle)
-						break;
-				}
-				return handle;
+				if (arr[u8(mod)])
+					return arr[u8(mod)];
 			}
 		}
 
@@ -1414,5 +1438,20 @@ namespace Noctis
 		if (!t1)
 			return false;
 		return t0->type == t1->type;
+	}
+
+	TypeInfo::TypeInfo()
+	{
+	}
+
+	TypeInfo::TypeInfo(TypeHandle handle)
+		: handle(handle)
+	{
+	}
+
+	TypeInfo::TypeInfo(TypeHandle handle, GenTypeInfo genInfo)
+		: handle(handle)
+		, genInfo(genInfo)
+	{
 	}
 }

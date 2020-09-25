@@ -86,6 +86,10 @@ namespace Noctis
 		Cast,
 		TryCast,
 
+		// Index
+		Index,
+		MutIndex,
+
 		// Special
 		Count,
 		Invalid = u8(-1)
@@ -108,6 +112,7 @@ namespace Noctis
 
 		SymbolSPtr sym;
 		bool isBuiltin = false;
+		bool isInterfaceOp = false;
 	};
 	
 	class OperatorTable
@@ -117,14 +122,16 @@ namespace Noctis
 
 		void Collect(ModuleSymbolTable& table);
 
-		Operator& GetOperator(OperatorKind kind, TypeHandle expr);
-		Operator& GetOperator(OperatorKind kind, TypeHandle left, TypeHandle right);
+		const Operator& GetOperator(OperatorKind kind, TypeHandle expr);
+		const Operator& GetOperator(OperatorKind kind, TypeHandle left, TypeHandle right);
 		
 
 	private:
 
 		void HandleBinaryOp(OperatorKind kind, SymbolSPtr impl, SymbolSPtr interfaceSym);
+		void HandleBinaryOp(OperatorKind kind, SymbolSPtr interfaceSym);
 		void HandleUnaryOp(OperatorKind kind, SymbolSPtr impl, SymbolSPtr interfaceSym);
+		void HandleUnaryOp(OperatorKind kind, SymbolSPtr interfaceSym);
 		void HandleFromOp(bool isTry, SymbolSPtr impl, SymbolSPtr interfaceSym);
 		void HandleToOp(bool isTry, SymbolSPtr impl, SymbolSPtr interfaceSym);
 		

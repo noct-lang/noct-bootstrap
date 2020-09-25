@@ -214,6 +214,14 @@ namespace Noctis
 		EncodeVar(node.src);
 	}
 
+	void ILEncode::Visit(ILIndex& node)
+	{
+		WriteData(u8(node.kind));
+		EncodeVarAndType(node.dst);
+		EncodeVar(node.src);
+		EncodeVar(node.idx);
+	}
+
 	void ILEncode::Visit(ILFuncCall& node)
 	{
 		WriteData(u8(node.kind));
@@ -572,7 +580,7 @@ namespace Noctis
 		u32 mangleId = idAndMangle >> 8;
 		StdString mangle = m_Names[mangleId];
 
-		ILFuncDefSPtr def{ new ILFuncDef{ mangle } };
+		ILFuncDefSPtr def{ new ILFuncDef{ mangle, {} } };
 
 		u32 blockCount = ReadData<u32>();
 		u32 funcSize = ReadData<u32>();
@@ -741,6 +749,14 @@ namespace Noctis
 		ILVar dst = DecodeVar(true);
 		ILVar src = DecodeVar(false);
 		return ILElemSPtr{ new ILTransmute{ dst, src } };
+	}
+
+	ILElemSPtr ILDecode::DecodeIndex()
+	{
+		ILVar dst = DecodeVar(true);
+		ILVar src = DecodeVar(false);
+		ILVar idx = DecodeVar(false);
+		return ILElemSPtr{ new ILIndex{ dst, src, idx } };
 	}
 
 	ILElemSPtr ILDecode::DecodeCompIntrin()

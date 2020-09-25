@@ -43,7 +43,7 @@ namespace Noctis
 		
 		void Visit(ITrQualNameExpr& node) override;
 		
-		//void Visit(ITrIndexSlice& node) override;
+		void Visit(ITrIndexSlice& node) override;
 		
 		void Visit(ITrFuncCall& node) override;
 		

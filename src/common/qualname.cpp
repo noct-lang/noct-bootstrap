@@ -368,6 +368,19 @@ namespace Noctis
 		return Create(newIdens);
 	}
 
+	QualNameSPtr QualName::GetSubName(usize depth)
+	{
+		if (depth == 0)
+		{
+			return Create(m_Iden);
+		}
+		else
+		{
+			QualNameSPtr base = GetSubName(depth - 1);
+			return Create(base, m_Iden);
+		}
+	}
+
 	usize QualName::Depth()
 	{
 		if (m_Disambiguation)
@@ -375,6 +388,11 @@ namespace Noctis
 		if (m_Base)
 			return m_Base->Depth() + 1;
 		return 0;
+	}
+
+	bool QualName::IsBase()
+	{
+		return !m_Base && !m_Disambiguation;
 	}
 
 	bool QualName::IsSubnameOf(QualNameSPtr base)

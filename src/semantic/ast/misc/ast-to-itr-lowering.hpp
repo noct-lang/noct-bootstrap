@@ -20,6 +20,7 @@ namespace Noctis
 	FWDECL_STRUCT_SPTR(ITrAttribs);
 	FWDECL_STRUCT_SPTR(ITrPattern);
 	FWDECL_STRUCT_SPTR(ITrGenDecl);
+	FWDECL_STRUCT_SPTR(ITrGenBoundType);
 	
 	FWDECL_STRUCT_SPTR(AstArg);
 	FWDECL_STRUCT_SPTR(AstParam);
@@ -139,6 +140,7 @@ namespace Noctis
 		void Visit(AstGenericTypeParam& node) override;
 		void Visit(AstGenericValueParam& node) override;
 		void Visit(AstGenericTypeBound& node) override;
+		void Visit(AstGenericBoundType& node) override;
 
 		void Visit(AstDeclSPtr& node) override;
 
@@ -172,6 +174,7 @@ namespace Noctis
 		StdStack<ITrPatternSPtr> m_Patterns;
 		StdStack<ITrAttribsSPtr> m_Attribs;
 		StdStack<ITrGenDeclSPtr> m_GenDecls;
+		StdStack<ITrGenBoundTypeSPtr> m_BoundTypes;
 		ITrGenDeclSPtr m_GenDecl;
 		ITrExprSPtr m_NamedRet;
 		TypeHandle m_ImplType;

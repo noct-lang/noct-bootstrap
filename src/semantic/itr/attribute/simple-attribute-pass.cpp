@@ -416,16 +416,6 @@ namespace Noctis
 		
 		switch (type->typeKind)
 		{
-		case TypeKind::Builtin:
-		{
-			node.handle = m_pCtx->typeReg.Mod(mod, node.handle);
-			break;
-		}
-		case TypeKind::Iden:
-		{
-			node.handle = m_pCtx->typeReg.Mod(mod, node.handle);
-			break;
-		}
 		case TypeKind::Ptr:
 		{
 			if (!node.subTypes.empty())
@@ -512,7 +502,11 @@ namespace Noctis
 			}
 			break;
 		}
-		default:;
+		default:
+		{
+			node.handle = m_pCtx->typeReg.Mod(mod, node.handle);
+			break;
+		}
 		}
 	}
 }

@@ -543,7 +543,19 @@ namespace Noctis
 	{
 	}
 
-	ITrGenTypeBound::ITrGenTypeBound(IdenSPtr type, ITrTypeSPtr bound)
+	ITrGenAssocBound::ITrGenAssocBound(const StdString& iden, ITrGenBoundTypeSPtr type)
+		: iden(iden)
+		, type(type)
+	{
+	}
+
+	ITrGenBoundType::ITrGenBoundType(ITrTypeSPtr type, StdVector<ITrGenAssocBound>&& assocBounds)
+		: type(type)
+		, assocBounds(std::move(assocBounds))
+	{
+	}
+
+	ITrGenTypeBound::ITrGenTypeBound(ITrTypeSPtr type, ITrGenBoundTypeSPtr bound)
 		: type(type)
 		, bound(bound)
 	{

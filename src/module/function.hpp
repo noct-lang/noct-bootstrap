@@ -15,10 +15,10 @@ namespace Noctis
 	struct LocalVarData
 	{
 		LocalVarData(IdenSPtr iden);
-		LocalVarData(IdenSPtr iden, TypeHandle type, bool isParam);
+		LocalVarData(IdenSPtr iden, TypeInfo typeInfo, bool isParam);
 		
 		IdenSPtr iden;
-		TypeHandle type;
+		TypeInfo typeInfo;
 		ILVar ilVar;
 		bool isParam;
 	};
@@ -42,6 +42,7 @@ namespace Noctis
 	struct FuncContext
 	{
 		LocalVarScope localVars;
+		StdUnorderedMap<StdString, GenTypeInfo> genAssocs;
 	};
 
 	

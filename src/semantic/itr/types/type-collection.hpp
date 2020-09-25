@@ -39,6 +39,7 @@ namespace Noctis
 		TypeHandle m_ImplType;
 
 		bool m_InImpl;
+		bool m_InInterface;
 		QualNameSPtr m_TypeQualName;
 		QualNameSPtr m_ImplQualName;
 

@@ -1344,6 +1344,23 @@ namespace Noctis
 			case TokenType::ColonColon:
 				return ParseQualNameExpr();
 			case TokenType::ExclaimParen:
+			
+			{
+				if (prev)
+				{
+					AstQualNameSPtr qualName = static_cast<AstQualNameExpr*>(prev.get())->qualName;
+					return ParseMacroInstExpr(qualName);
+				}
+
+				u64 tmpIdx = m_TokIdx;
+				Token tmpTok = m_Tokens[tmpIdx];
+				m_Tokens[tmpIdx] = Token{ TokenType::LParen, m_TokIdx };
+				AstExprSPtr subExpr = ParseOperandImpl(nullptr);
+
+				m_Tokens[tmpIdx] = tmpTok;
+				
+				return AstExprSPtr{ new AstPrefixExpr{ Token{ TokenType::Exclaim, m_TokIdx }, subExpr } };
+			}
 			case TokenType::ExclaimBracket:
 			case TokenType::ExclaimBrace:
 			{
@@ -1757,7 +1774,7 @@ namespace Noctis
 			}
 		}
 		default:
-			return nullptr;
+			return ParseIdentifierType(attribs);
 		}
 	}
 
@@ -2300,8 +2317,36 @@ namespace Noctis
 	{
 		AstTypeSPtr type = ParseType();
 		EatToken(TokenType::Is);
-		AstTypeSPtr bound = ParseType();
+		AstGenericBoundTypeSPtr bound = ParseGenericBoundType();
 		return AstGenericTypeBoundSPtr{ new AstGenericTypeBound{ type, bound } };
+	}
+
+	AstGenericBoundTypeSPtr Parser::ParseGenericBoundType()
+	{
+		AstTypeSPtr type = ParseType();
+
+		StdVector<AstGenericAssocTypeBound> bounds;
+		if (TryEatIdenToken("with"))
+		{
+			EatToken(TokenType::LParen);
+			while (!TryEatToken(TokenType::RParen))
+			{
+				AstGenericAssocTypeBound assocBound = ParseAssocBounds();
+				bounds.push_back(std::move(assocBound));
+
+				TryEatToken(TokenType::Comma);
+			}
+		}
+
+		return AstGenericBoundTypeSPtr{ new AstGenericBoundType{ type, std::move(bounds) } };
+	}
+
+	AstGenericAssocTypeBound Parser::ParseAssocBounds()
+	{
+		StdString iden = ParseIden();
+		EatToken(TokenType::Is);
+		AstGenericBoundTypeSPtr type = ParseGenericBoundType();
+		return AstGenericAssocTypeBound{ std::move(iden), type };
 	}
 
 	AstGenericWhereClauseSPtr Parser::ParseGenericWhereClause()

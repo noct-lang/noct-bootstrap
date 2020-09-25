@@ -113,6 +113,7 @@ namespace Noctis
 				param->sym = sym;
 
 				// TODO: type
+				sym->type = valParam.type->handle;
 
 				if (!generics.empty())
 				{
@@ -130,10 +131,30 @@ namespace Noctis
 				param->sym = sym;
 
 				StdVector<TypeHandle> typeConstraints;
+				StdVector<ITrGenTypeBoundSPtr> toReplaceTypes;
 				for (ITrGenTypeBoundSPtr bound : decl->bounds)
 				{
-					if (bound->type == typeParam.iden)
-						typeConstraints.push_back(bound->bound->handle);
+					TypeHandle type = bound->type->handle;
+					IdenSPtr typeIden = type->AsIden().qualName->Iden();
+					if (typeIden == typeParam.iden)
+					{
+						toReplaceTypes.push_back(bound);
+						
+						if (bound->bound->type->handle->type->typeKind == TypeKind::Compound)
+						{
+							CompoundType& compound = bound->bound->type->handle->AsCompound();
+							for (TypeHandle subType : compound.subTypes)
+							{
+								typeConstraints.push_back(subType);
+							}
+						}
+						else
+						{
+							typeConstraints.push_back(bound->bound->type->handle);
+						}
+					}
+
+					// TODO: non-generic bound
 				}
 				TypeHandle type = m_pCtx->typeReg.Generic(TypeMod::None, typeParam.iden, typeConstraints);
 				sym->type = type;
@@ -143,6 +164,11 @@ namespace Noctis
 					generics[i].isType = true;
 					generics[i].type = type;
 					generics[i].iden = typeParam.iden;
+				}
+
+				for (ITrGenTypeBoundSPtr toReplace : toReplaceTypes)
+				{
+					toReplace->type->handle = type;
 				}
 			}
 		}
@@ -166,9 +192,6 @@ namespace Noctis
 				return;
 			
 			SymbolSPtr sym = node.sym.lock();
-
-			if (sym->qualName->Iden()->Name() == "OpOrd")
-				int br = 0;
 
 			StdVector<SymbolSPtr> interfaces;
 			for (StdPair<QualNameSPtr, SpanId>& pair : node.implInterfaces)
@@ -269,8 +292,14 @@ namespace Noctis
 							StdVector<TypeHandle> typeConstraints;
 							for (ITrGenTypeBoundSPtr bound : genDecl->bounds)
 							{
-								if (bound->type == origIden)
-									typeConstraints.push_back(bound->bound->handle);
+								TypeHandle handle = bound->type->handle;
+								if (handle->type->typeKind != TypeKind::Generic)
+									continue;
+								
+								IdenSPtr iden = handle->AsGeneric().iden;
+
+								if (iden == origIden)
+									typeConstraints.push_back(bound->bound->type->handle);
 							}
 							
 							generic.isSpecialized = true;

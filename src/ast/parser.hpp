@@ -140,6 +140,8 @@ namespace Noctis
 		AstGenericDeclSPtr ParseGenericDecl();
 		AstGenericParam ParseGenericParam();
 		AstGenericTypeBoundSPtr ParseGenericTypeBound();
+		AstGenericBoundTypeSPtr ParseGenericBoundType();
+		AstGenericAssocTypeBound ParseAssocBounds();
 		AstGenericWhereClauseSPtr ParseGenericWhereClause();
 
 		AstMacroPatternElemSPtr ParseMacroVar();

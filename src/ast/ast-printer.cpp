@@ -1393,6 +1393,24 @@ namespace Noctis
 		--m_Indent;
 	}
 
+	void AstPrinter::Visit(AstGenericAssocTypeBound& node)
+	{
+		PrintIndent();
+		g_Logger.Log("(generic-assoc-type-bound %s)\n", node.iden.c_str());
+		++m_Indent;
+		Walk(node);
+		--m_Indent;
+	}
+
+	void AstPrinter::Visit(AstGenericBoundType& node)
+	{
+		PrintIndent();
+		g_Logger.Log("(generic-bound-type)");
+		++m_Indent;
+		Walk(node);
+		--m_Indent;
+	}
+
 	void AstPrinter::Visit(AstGenericWhereClause& node)
 	{
 		PrintIndent();

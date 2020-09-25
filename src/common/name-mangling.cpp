@@ -13,23 +13,22 @@ namespace Noctis::NameMangling
 		{
 		case SymbolKind::Func:
 		{
-			StdString mangledName = Mangle(pCtx, sym->qualName);
+			StdString mangledName = Mangle(pCtx, sym->qualName->Base());
+			mangledName += Mangle(pCtx, sym->qualName->Iden());
 			StdString mangledType = Mangle(pCtx, sym->type);
 			return "_NF" + mangledName + mangledType;
 		}
 		case SymbolKind::Method:
 		{
-			if (sym->qualName->Iden()->Name() == "opGt")
-				int br = 0;
-			
 			SymbolSPtr parent = sym->parent.lock();
 			if (!parent ||
 				parent->impls.empty() ||
 				parent->kind == SymbolKind::StrongInterface || 
 				parent->kind == SymbolKind::WeakInterface)
 			{
-				
-				StdString mangledName = Mangle(pCtx, sym->qualName);
+				StdString mangledName = Mangle(pCtx, parent->type);
+				mangledName += Mangle(pCtx, sym->qualName->Iden());
+
 				StdString mangledType = Mangle(pCtx, sym->type);
 				return "_NM" + mangledName + mangledType;
 			}
@@ -38,7 +37,9 @@ namespace Noctis::NameMangling
 				QualNameSPtr parentQualName = sym->impls.front()->parent.lock()->qualName;
 				StdString parentMangled = Mangle(pCtx, parentQualName);
 				
-				StdString mangledName = Mangle(pCtx, sym->qualName);
+				StdString mangledName = Mangle(pCtx, parent->type);
+				mangledName += Mangle(pCtx, sym->qualName->Iden());
+				
 				StdString mangledType = Mangle(pCtx, sym->type);
 				return "_NN"  + parentMangled + "Z" + mangledName + mangledType;
 			}
@@ -63,7 +64,6 @@ namespace Noctis::NameMangling
 		StdString name = iden->ToFuncSymName();
 		if (iden->Generics().empty())
 		{
-			
 			u32 len = u32(name.length());
 			return Format("%u%s", len, name.c_str());
 		}
@@ -114,73 +114,6 @@ namespace Noctis::NameMangling
 						mangled += "V";
 						mangled += Mangle(pCtx, generic.iden);
 						mangled += Mangle(pCtx, generic.type);
-						// TODO: contraints
-						mangled += "Z";
-					}
-				}
-			}
-
-
-			return mangled;
-		}
-	}
-
-	StdString MangleFuncIden(Context* pCtx, IdenSPtr iden)
-	{
-		if (iden->Generics().empty())
-		{
-			const StdString& name = iden->ToFuncSymName();
-			u32 len = u32(name.length());
-			return Format("%u%s", len, name.c_str());
-		}
-		else
-		{
-			const StdString& name = iden->ToFuncSymName();
-			u32 len = u32(name.length());
-			StdString mangled = Format("%u%sG", len, name.c_str());
-
-			for (IdenGeneric& generic : iden->Generics())
-			{
-				if (generic.isType)
-				{
-					if (generic.isSpecialized)
-					{
-						mangled += "U";
-						mangled += Mangle(pCtx, generic.type);
-						mangled += "Z";
-					}
-					else
-					{
-						mangled += "T";
-						mangled += Mangle(pCtx, generic.iden);
-
-						if (!generic.typeConstraints.empty())
-						{
-							mangled += "C";
-							for (TypeHandle constraint : generic.typeConstraints)
-							{
-								mangled += Mangle(pCtx, constraint);
-							}
-							mangled += "Z";
-						}
-
-						mangled += "Z";
-					}
-				}
-				else
-				{
-					if (generic.isSpecialized)
-					{
-						mangled += "W";
-						// TODO
-						mangled += "Z";
-					}
-					else
-					{
-						mangled += "V";
-						mangled += Mangle(pCtx, generic.iden);
-						mangled += Mangle(pCtx, generic.type);
-						// TODO: contraints
 						mangled += "Z";
 					}
 				}
@@ -251,7 +184,10 @@ namespace Noctis::NameMangling
 		case TypeKind::Array:
 		{
 			ArrayType& arrType = type->AsArray();
-			return mod + Format("A%u", arrType.size) + Mangle(pCtx, arrType.subType);
+
+			if (arrType.sizeKnown)
+				return mod + Format("A%llu", arrType.size) + Mangle(pCtx, arrType.subType);
+			return mod + "A_" + Mangle(pCtx, arrType.subType);
 		}
 		case TypeKind::Tuple:
 		{

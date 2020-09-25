@@ -1215,7 +1215,7 @@ namespace Noctis
 		AstContextPtr ctx;
 	};
 
-	struct AstGenericTypeParam
+	struct  AstGenericTypeParam
 	{
 		AstGenericTypeParam(u64 startIdx, StdString&& iden,
 			StdVector<AstIdentifierTypeSPtr>&& implTypes, AstTypeSPtr defType);
@@ -1241,12 +1241,30 @@ namespace Noctis
 		ITrGenParamWPtr itr;
 	};
 
+	FWDECL_STRUCT_SPTR(AstGenericBoundType);
+	
+	struct AstGenericAssocTypeBound
+	{
+		AstGenericAssocTypeBound(StdString&& iden, AstGenericBoundTypeSPtr type);
+		
+		StdString iden;
+		AstGenericBoundTypeSPtr type;
+	};
+
+	struct AstGenericBoundType
+	{
+		AstGenericBoundType(AstTypeSPtr type, StdVector<AstGenericAssocTypeBound>&& assocBounds);
+		
+		AstTypeSPtr type;
+		StdVector<AstGenericAssocTypeBound> assocBounds;
+	};
+
 	struct AstGenericTypeBound
 	{
-		AstGenericTypeBound(AstTypeSPtr type, AstTypeSPtr bound);
+		AstGenericTypeBound(AstTypeSPtr type, AstGenericBoundTypeSPtr bound);
 
 		AstTypeSPtr type;
-		AstTypeSPtr bound;
+		AstGenericBoundTypeSPtr bound;
 		AstContextPtr ctx;
 
 		ITrGenTypeBoundWPtr itr;

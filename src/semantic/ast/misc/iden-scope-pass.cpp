@@ -14,7 +14,16 @@ namespace Noctis
 	{
 		std::hash<StdString> hasher;
 		usize hash = hasher(tree.filepath);
-		m_FileNameHash = Format("%llx", hash);
+		m_FileName = tree.filepath + Format("_%llx", hash);
+		StringReplace(m_FileName, ".", "_");
+		
+		usize slash = m_FileName.rfind("/");
+		if (slash != StdString::npos)
+			m_FileName = m_FileName.substr(slash + 1);
+		slash = m_FileName.rfind("\\");
+		if (slash != StdString::npos)
+			m_FileName = m_FileName.substr(slash + 1);
+		
 		m_pTree = &tree;
 		m_CurScope = tree.moduleScope;
 		Walk(tree);
@@ -60,14 +69,14 @@ namespace Noctis
 
 	void IdenScopePass::Visit(AstUnittestDecl& node)
 	{
-		UnnamedScope(node.ctx, "unittest");
+		UnnamedScope(node.ctx, "unittest", nullptr);
 		Walk(node);
 		m_CurScope = m_CurScope->Base();
 	}
 
 	void IdenScopePass::Visit(AstBenchmarkDecl& node)
 	{
-		UnnamedScope(node.ctx, "benchmark");
+		UnnamedScope(node.ctx, "benchmark", nullptr);
 		Walk(node);
 		m_CurScope = m_CurScope->Base();
 	}
@@ -155,7 +164,16 @@ namespace Noctis
 
 	void IdenScopePass::Visit(AstFuncDecl& node)
 	{
-		GenericScope(node.ctx, node.iden, node.generics);
+		StdVector<StdString> paramNames;
+		for (AstParamSPtr param : node.params)
+		{
+			for (AstParamVarSPtr var : param->vars)
+			{
+				paramNames.push_back(var->iden);
+			}
+		}
+		
+		FuncScope(node.ctx, node.iden, node.generics, paramNames);
 		Walk(node);
 		m_CurScope = m_CurScope->Base();
 	}
@@ -176,7 +194,7 @@ namespace Noctis
 
 	void IdenScopePass::Visit(AstImplDecl& node)
 	{
-		UnnamedScope(node.ctx, "impl");
+		UnnamedScope(node.ctx, "impl", node.generics);
 		Walk(node);
 		m_CurScope = m_CurScope->Base();
 	}
@@ -195,42 +213,42 @@ namespace Noctis
 
 	void IdenScopePass::Visit(AstIfStmt& node)
 	{
-		UnnamedScope(node.ctx, "if");
+		UnnamedScope(node.ctx, "if", nullptr);
 		Walk(node);
 		m_CurScope = m_CurScope->Base();
 	}
 
 	void IdenScopePass::Visit(AstLoopStmt& node)
 	{
-		UnnamedScope(node.ctx, "loop");
+		UnnamedScope(node.ctx, "loop", nullptr);
 		Walk(node);
 		m_CurScope = m_CurScope->Base();
 	}
 
 	void IdenScopePass::Visit(AstWhileStmt& node)
 	{
-		UnnamedScope(node.ctx, "while");
+		UnnamedScope(node.ctx, "while", nullptr);
 		Walk(node);
 		m_CurScope = m_CurScope->Base();
 	}
 
 	void IdenScopePass::Visit(AstDoWhileStmt& node)
 	{
-		UnnamedScope(node.ctx, "do_while");
+		UnnamedScope(node.ctx, "do_while", nullptr);
 		Walk(node);
 		m_CurScope = m_CurScope->Base();
 	}
 
 	void IdenScopePass::Visit(AstForStmt& node)
 	{
-		UnnamedScope(node.ctx, "for");
+		UnnamedScope(node.ctx, "for", nullptr);
 		Walk(node);
 		m_CurScope = m_CurScope->Base();
 	}
 
 	void IdenScopePass::Visit(AstSwitchStmt& node)
 	{
-		UnnamedScope(node.ctx, "switch");
+		UnnamedScope(node.ctx, "switch", nullptr);
 		Walk(node);
 		m_CurScope = m_CurScope->Base();
 	}
@@ -292,7 +310,7 @@ namespace Noctis
 
 	void IdenScopePass::Visit(AstUnsafeStmt& node)
 	{
-		UnnamedScope(node.ctx, "unsafe");
+		UnnamedScope(node.ctx, "unsafe", nullptr);
 		Walk(node);
 		m_CurScope = m_CurScope->Base();
 	}
@@ -306,7 +324,7 @@ namespace Noctis
 
 	void IdenScopePass::Visit(AstCompIfStmt& node)
 	{
-		UnnamedScope(node.ctx, "comp_if");
+		UnnamedScope(node.ctx, "comp_if", nullptr);
 		Walk(node);
 		m_CurScope = m_CurScope->Base();
 	}
@@ -453,14 +471,14 @@ namespace Noctis
 
 	void IdenScopePass::Visit(AstBlockExpr& node)
 	{
-		UnnamedScope(node.ctx, "block_expr");
+		UnnamedScope(node.ctx, "block_expr", nullptr);
 		Walk(node);
 		m_CurScope = m_CurScope->Base();
 	}
 
 	void IdenScopePass::Visit(AstUnsafeExpr& node)
 	{
-		UnnamedScope(node.ctx, "unsafe_expr");
+		UnnamedScope(node.ctx, "unsafe_expr", nullptr);
 		Walk(node);
 		m_CurScope = m_CurScope->Base();
 	}
@@ -473,7 +491,7 @@ namespace Noctis
 
 	void IdenScopePass::Visit(AstClosureExpr& node)
 	{
-		UnnamedScope(node.ctx, "closure");
+		UnnamedScope(node.ctx, "closure", nullptr);
 		Walk(node);
 		m_CurScope = m_CurScope->Base();
 	}
@@ -553,7 +571,7 @@ namespace Noctis
 		}
 		else
 		{
-			UnnamedScope(node.ctx, "inl_struct");
+			UnnamedScope(node.ctx, "inl_struct", nullptr);
 		}
 		Walk(node);
 		m_CurScope = m_CurScope->Base();
@@ -561,7 +579,7 @@ namespace Noctis
 
 	void IdenScopePass::Visit(AstInlineEnumType& node)
 	{
-		UnnamedScope(node.ctx, "inl_enum");
+		UnnamedScope(node.ctx, "inl_enum", nullptr);
 		Walk(node);
 		m_CurScope = m_CurScope->Base();
 	}
@@ -811,14 +829,23 @@ namespace Noctis
 		m_CurScope = ctx->qualName;
 	}
 
-	void IdenScopePass::UnnamedScope(AstContextPtr& ctx, StdStringView scopeName)
+	void IdenScopePass::UnnamedScope(AstContextPtr& ctx, StdStringView name, AstGenericDeclSPtr generics)
 	{
 		if (!ctx->qualName)
 		{
 			u64 genId = m_pTree->genId;
 			++m_pTree->genId;
-			StdString idenStr = Format("__%s_%s_%u", scopeName.data(), m_FileNameHash.c_str(), genId);
-			IdenSPtr iden = Iden::Create(idenStr);
+			StdString idenStr = Format("__%s_%s_%u", name.data(), m_FileName.c_str(), genId);
+			IdenSPtr iden;
+			if (generics)
+			{
+				AstGenericDecl* pGenerics = static_cast<AstGenericDecl*>(generics.get());
+				iden = Iden::Create(idenStr, pGenerics->params.size());
+			}
+			else
+			{
+				iden = Iden::Create(idenStr);
+			}
 			ctx->iden = iden;
 			ctx->scope = m_CurScope;
 			ctx->qualName = QualName::Create(m_CurScope, iden);

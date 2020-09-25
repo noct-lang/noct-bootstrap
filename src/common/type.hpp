@@ -8,6 +8,9 @@ namespace Noctis
 	FWDECL_CLASS_SPTR(Iden);
 	FWDECL_STRUCT_WPTR(Symbol);
 	
+	FWDECL_STRUCT_SPTR(AstExpr);
+	FWDECL_STRUCT_SPTR(ITrExpr);
+	
 	enum class TypeKind : u8
 	{
 		Builtin,
@@ -165,15 +168,17 @@ namespace Noctis
 		TypeHandle subType;
 	};
 
+	using ArrayExprType = StdVariant<AstExprSPtr, ITrExprSPtr>;
 	struct ArrayType : Type
 	{
+		
 		ArrayType(TypeMod mod, TypeHandle subType, u64 size);
-		ArrayType(TypeMod mod, TypeHandle subType, StdSharedPtr<void> expr);
-
+		ArrayType(TypeMod mod, TypeHandle subType, ArrayExprType expr);
+		
 		bool sizeKnown;
 		TypeHandle subType;
 		u64 size;
-		StdSharedPtr<void> expr;
+		ArrayExprType expr;
 	};
 
 	struct TupleType : Type
@@ -247,7 +252,7 @@ namespace Noctis
 		TypeHandle Opt(TypeMod mod, TypeHandle subType);
 
 		TypeHandle Array(TypeMod mod, TypeHandle subType, u64 size);
-		TypeHandle Array(TypeMod mod, TypeHandle subType, StdSharedPtr<void> expr);
+		TypeHandle Array(TypeMod mod, TypeHandle subType, ArrayExprType expr);
 
 		TypeHandle Tuple(TypeMod mod, const StdVector<TypeHandle>& subTypes);
 		TypeHandle Compound(TypeMod mod, const StdVector<TypeHandle>& subTypes);
@@ -272,7 +277,7 @@ namespace Noctis
 		StdUnorderedMap<TypeHandle, StdArray<TypeHandle, m_ModCount>> m_SliceMapping;
 		StdUnorderedMap<TypeHandle, StdArray<TypeHandle, m_ModCount>> m_OptMapping;
 		
-		StdUnorderedMap<TypeHandle, StdUnorderedMap<StdSharedPtr<void>, StdArray<TypeHandle, m_ModCount>>> m_ArrayMapping;
+		StdUnorderedMap<TypeHandle, StdUnorderedMap<ArrayExprType, StdArray<TypeHandle, m_ModCount>>> m_ArrayMapping;
 		StdUnorderedMap<TypeHandle, StdUnorderedMap<u64, StdArray<TypeHandle, m_ModCount>>> m_ArrayMappingKnownSize;
 
 		TypeHandle m_EmptyTupleHandle;
@@ -288,5 +293,21 @@ namespace Noctis
 	};
 
 	bool AreTypesEqual(TypeHandle t0, TypeHandle t1);
+
+	struct GenTypeInfo
+	{
+		StdVector<TypeHandle> bounds;
+		StdUnorderedMap<TypeSPtr, StdUnorderedMap<StdString, GenTypeInfo>> subInfo;
+	};
+
+	struct TypeInfo
+	{
+		TypeInfo();
+		TypeInfo(TypeHandle handle);
+		TypeInfo(TypeHandle handle, GenTypeInfo genInfo);
+		
+		TypeHandle handle;
+		GenTypeInfo genInfo;
+	};
 	
 }

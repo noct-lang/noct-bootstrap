@@ -378,6 +378,16 @@ namespace Noctis
 		Walk(node);
 	}
 
+	void ITrVisitor::Visit(ITrGenAssocBound& node)
+	{
+		Walk(node);
+	}
+
+	void ITrVisitor::Visit(ITrGenBoundType& node)
+	{
+		Walk(node);
+	}
+
 	void ITrVisitor::Visit(ITrPatternSPtr& ptr, ITrAmbiguousIdenPattern& node)
 	{
 		Walk(node);
@@ -707,6 +717,8 @@ namespace Noctis
 			Visit(*node.attribs);
 		if (node.genDecl)
 			Visit(*node.genDecl);
+		if (node.type)
+			Visit(*node.type);
 
 		ITrBodySPtr body = m_pMod->GetBody(node);
 		Visit(body);
@@ -1131,5 +1143,19 @@ namespace Noctis
 	void ITrVisitor::Walk(ITrGenTypeBound& node)
 	{
 		Visit(*node.bound);
+	}
+
+	void ITrVisitor::Walk(ITrGenAssocBound& node)
+	{
+		Visit(*node.type);
+	}
+
+	void ITrVisitor::Walk(ITrGenBoundType& node)
+	{
+		Visit(*node.type);
+		for (ITrGenAssocBound& assocBound : node.assocBounds)
+		{
+			Visit(assocBound);
+		}
 	}
 }

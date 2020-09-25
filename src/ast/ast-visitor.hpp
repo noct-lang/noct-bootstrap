@@ -122,6 +122,8 @@ namespace Noctis
 	struct AstGenericTypeParam;
 	struct AstGenericValueParam;
 	struct AstGenericTypeBound;
+	struct AstGenericAssocTypeBound;
+	struct AstGenericBoundType;
 	struct AstGenericWhereClause;
 
 	struct AstMacroVar;
@@ -268,6 +270,8 @@ namespace Noctis
 		virtual void Visit(AstGenericTypeParam& node);
 		virtual void Visit(AstGenericValueParam& node);
 		virtual void Visit(AstGenericTypeBound& node);
+		virtual void Visit(AstGenericAssocTypeBound& node);
+		virtual void Visit(AstGenericBoundType& node);
 		virtual void Visit(AstGenericWhereClause& node);
 		
 		virtual void Visit(AstMacroVar& node);
@@ -407,6 +411,8 @@ namespace Noctis
 		void Walk(AstGenericTypeParam& node);
 		void Walk(AstGenericValueParam& node);
 		void Walk(AstGenericTypeBound& node);
+		void Walk(AstGenericAssocTypeBound& node);
+		void Walk(AstGenericBoundType& node);
 		void Walk(AstGenericWhereClause& node);
 
 		void Walk(AstMacroVar& node);

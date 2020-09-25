@@ -42,6 +42,7 @@ namespace Noctis
 		void Visit(ILPrimCast& node) override;
 		void Visit(ILTernary& node) override;
 		void Visit(ILTransmute& node) override;
+		void Visit(ILIndex& node) override;
 		void Visit(ILFuncCall& node) override;
 		void Visit(ILMethodCall& node) override;
 		void Visit(ILIndirectCall& node) override;
@@ -110,6 +111,7 @@ namespace Noctis
 		ILElemSPtr DecodePrimCast();
 		ILElemSPtr DecodeTernary();
 		ILElemSPtr DecodeTransmute();
+		ILElemSPtr DecodeIndex();
 		ILElemSPtr DecodeCompIntrin();
 		ILElemSPtr DecodeFuncCall(bool hasRet);
 		ILElemSPtr DecodeMethodCall(bool hasRet);

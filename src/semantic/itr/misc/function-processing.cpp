@@ -25,7 +25,21 @@ namespace Noctis
 			StdVector<StdString> scopeNames{};
 			for (ITrParamSPtr param : node.params)
 			{
-				LocalVarDataSPtr var{ new LocalVarData{ param->iden, param->type->handle, true } };
+				TypeInfo typeInfo = { param->type->handle };
+				if (!m_FuncCtx->genAssocs.empty())
+				{
+					TypeSPtr type = typeInfo.handle->type;
+					
+					if (type->typeKind == TypeKind::Generic)
+					{
+						StdString name = type->AsGeneric().iden->Name();
+						auto it = m_FuncCtx->genAssocs.find(name);
+						if (it != m_FuncCtx->genAssocs.end())
+							typeInfo.genInfo = it->second;
+					}
+				}
+				
+				LocalVarDataSPtr var{ new LocalVarData{ param->iden, typeInfo, true } };
 				m_FuncCtx->localVars.AddLocalVarDeclSPtr(m_ScopeNames, var);
 			}
 

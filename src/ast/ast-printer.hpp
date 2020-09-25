@@ -126,6 +126,8 @@ namespace Noctis
 		void Visit(AstGenericTypeParam& node) override;
 		void Visit(AstGenericValueParam& node) override;
 		void Visit(AstGenericTypeBound& node) override;
+		void Visit(AstGenericAssocTypeBound& node) override;
+		void Visit(AstGenericBoundType& node) override;
 		void Visit(AstGenericWhereClause& node) override;
 		
 		void Visit(AstMacroVar& node) override;

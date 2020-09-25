@@ -5,6 +5,8 @@
 
 namespace Noctis
 {
+	struct ITrGenAssocBound;
+	struct ITrGenBoundType;
 	struct ITrModule;
 	FWDECL_STRUCT_SPTR(ITrDef);
 	FWDECL_STRUCT_SPTR(ITrStmt);
@@ -215,6 +217,8 @@ namespace Noctis
 		virtual void Visit(ITrGenTypeParam& node);
 		virtual void Visit(ITrGenValParam& node);
 		virtual void Visit(ITrGenTypeBound& node);
+		virtual void Visit(ITrGenAssocBound& node);
+		virtual void Visit(ITrGenBoundType& node);
 		
 
 		virtual void Visit(ITrDefSPtr& def);
@@ -311,6 +315,8 @@ namespace Noctis
 		void Walk(ITrGenTypeParam& node);
 		void Walk(ITrGenValParam& node);
 		void Walk(ITrGenTypeBound& node);
+		void Walk(ITrGenAssocBound& node);
+		void Walk(ITrGenBoundType& node);
 
 		ITrModule* m_pMod;
 		bool m_VisitDefs;

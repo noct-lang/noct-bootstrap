@@ -973,7 +973,19 @@ namespace Noctis
 		ctx->endIdx = defExpr ? defExpr->ctx->endIdx : type->ctx->endIdx;
 	}
 
-	AstGenericTypeBound::AstGenericTypeBound(AstTypeSPtr type, AstTypeSPtr bound)
+	AstGenericAssocTypeBound::AstGenericAssocTypeBound(StdString&& iden, AstGenericBoundTypeSPtr type)
+		: iden(std::move(iden))
+		, type(type)
+	{
+	}
+
+	AstGenericBoundType::AstGenericBoundType(AstTypeSPtr type, StdVector<AstGenericAssocTypeBound>&& assocBounds)
+		: type(type)
+		, assocBounds(std::move(assocBounds))
+	{
+	}
+
+	AstGenericTypeBound::AstGenericTypeBound(AstTypeSPtr type, AstGenericBoundTypeSPtr bound)
 		: type(type)
 		, bound(bound)
 		, ctx(new AstContext{})

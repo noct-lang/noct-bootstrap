@@ -556,6 +556,16 @@ namespace Noctis
 		Walk(node);
 	}
 
+	void AstVisitor::Visit(AstGenericAssocTypeBound& node)
+	{
+		Walk(node);
+	}
+
+	void AstVisitor::Visit(AstGenericBoundType& node)
+	{
+		Walk(node);
+	}
+
 	void AstVisitor::Visit(AstGenericWhereClause& node)
 	{
 		Walk(node);
@@ -1597,7 +1607,21 @@ namespace Noctis
 	void AstVisitor::Walk(AstGenericTypeBound& node)
 	{
 		Visit(node.type);
-		Visit(node.bound);
+		Visit(*node.bound);
+	}
+
+	void AstVisitor::Walk(AstGenericAssocTypeBound& node)
+	{
+		Visit(*node.type);
+	}
+
+	void AstVisitor::Walk(AstGenericBoundType& node)
+	{
+		Visit(node.type);
+		for (AstGenericAssocTypeBound& assocBound : node.assocBounds)
+		{
+			Visit(assocBound);
+		}
 	}
 
 	void AstVisitor::Walk(AstGenericWhereClause& node)

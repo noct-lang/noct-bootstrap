@@ -140,12 +140,12 @@ namespace Noctis
 
 		void GenericScope(AstContextPtr& ctx, StdStringView name, AstGenericDeclSPtr generics);
 		void IdenScope(AstContextPtr& ctx, StdStringView name);
-		void UnnamedScope(AstContextPtr& ctx, StdStringView scopeName);
+		void UnnamedScope(AstContextPtr& ctx, StdStringView scopeName, AstGenericDeclSPtr generics);
 		void FuncScope(AstContextPtr& ctx, StdStringView scopeName, AstGenericDeclSPtr generics, const StdVector<StdString>& paramNames);
 		
 	private:
 		QualNameSPtr m_CurScope;
-		StdString m_FileNameHash;
+		StdString m_FileName;
 		AstTree* m_pTree;
 
 		StdString m_InlinePrefix;

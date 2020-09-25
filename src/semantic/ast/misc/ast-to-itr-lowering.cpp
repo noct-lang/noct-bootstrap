@@ -1843,7 +1843,6 @@ namespace Noctis
 		if (node.attribs)
 		{
 			attribs = PopAttribs();
-
 		}
 		
 		StdVector<TypeHandle> subTypesHandles;
@@ -1860,7 +1859,11 @@ namespace Noctis
 			subTypes[i] = type;
 		}
 
-		TypeHandle handle = m_pCtx->typeReg.Compound(TypeMod::None, subTypesHandles);
+		TypeHandle handle;
+		if (subTypesHandles.size() == 1)
+			handle = subTypesHandles[0];
+		else
+			handle = m_pCtx->typeReg.Compound(TypeMod::None, subTypesHandles);
 		ITrTypeSPtr type{ new ITrType{ attribs, handle, std::move(subTypes) } };
 		node.itr = type;
 		m_Types.push(type);
@@ -2131,7 +2134,10 @@ namespace Noctis
 
 	void AstToITrLowering::Visit(AstGenericTypeParam& node)
 	{
-		Walk(node);
+		if (!node.implTypes.empty())
+			int br = 0;
+		
+		Walk(node); 
 		IdenSPtr iden = Iden::Create(node.iden);
 
 		ITrTypeSPtr def;
@@ -2147,26 +2153,23 @@ namespace Noctis
 
 		if (!node.implTypes.empty())
 		{
-			StdVector<TypeHandle> subTypesHandles;
-			StdVector<ITrTypeSPtr> subTypes;
+			TypeHandle idenType = m_pCtx->typeReg.Iden(TypeMod::None, QualName::Create(iden));
+			ITrTypeSPtr toBindType{ new ITrType{ nullptr, idenType, {} } };
+			
 			usize size = node.implTypes.size();
-			subTypesHandles.resize(size);
-			subTypes.resize(size);
 			for (usize i = size; i > 0;)
 			{
 				--i;
 				ITrTypeSPtr type = PopType();
 				type->astNode = node.implTypes[i];
-				subTypesHandles[i] = type->handle;
-				subTypes[i] = type;
+
+				StdVector<ITrGenAssocBound> assocBounds;
+				ITrGenBoundTypeSPtr boundType{ new ITrGenBoundType{ type, std::move(assocBounds) } };
+
+				ITrGenTypeBoundSPtr bound{ new ITrGenTypeBound{ toBindType, boundType } };
+				node.itrBound = bound;
+				m_GenDecl->bounds.push_back(bound);
 			}
-
-			TypeHandle handle = m_pCtx->typeReg.Compound(TypeMod::None, subTypesHandles);
-			ITrTypeSPtr interfaces{ new ITrType{ nullptr, handle, std::move(subTypes) } };
-
-			ITrGenTypeBoundSPtr bound{ new ITrGenTypeBound{ iden, std::move(interfaces) } };
-			node.itrBound = bound;
-			m_GenDecl->bounds.push_back(bound);
 		}
 		
 	}
@@ -2193,16 +2196,37 @@ namespace Noctis
 
 	void AstToITrLowering::Visit(AstGenericTypeBound& node)
 	{
-		Visit(node.bound);
-		ITrTypeSPtr boundType = PopType();
-		boundType->astNode = node.bound;
+		Visit(node.type);
+		ITrTypeSPtr type = PopType();
+		type->astNode = node.type;
 		
-		AstIdentifierType& idenType = *reinterpret_cast<AstIdentifierType*>(node.type.get());
-		IdenSPtr typeIden = Iden::Create(static_cast<AstIden&>(*idenType.qualName->idens[0]).iden);
+		Visit(*node.bound);
+		ITrGenBoundTypeSPtr boundType = m_BoundTypes.top();
+		m_BoundTypes.pop();
 
-		ITrGenTypeBoundSPtr bound{ new ITrGenTypeBound{ typeIden, boundType } };
+		ITrGenTypeBoundSPtr bound{ new ITrGenTypeBound{ type, boundType } };
 		node.itr = bound;
 		m_GenDecl->bounds.push_back(bound);
+	}
+
+	void AstToITrLowering::Visit(AstGenericBoundType& node)
+	{
+		Visit(node.type);
+		ITrTypeSPtr type = PopType();
+
+		StdVector<ITrGenAssocBound> assocBounds;
+		for (AstGenericAssocTypeBound& assocBound : node.assocBounds)
+		{
+			Visit(*assocBound.type);
+
+			ITrGenBoundTypeSPtr boundType = m_BoundTypes.top();
+			m_BoundTypes.pop();
+			ITrGenAssocBound bound{ assocBound.iden, boundType };
+			assocBounds.push_back(bound);
+		}
+
+		ITrGenBoundTypeSPtr boundType = ITrGenBoundTypeSPtr{ new ITrGenBoundType{ type, std::move(assocBounds) } };
+		m_BoundTypes.push(boundType);
 	}
 
 	void AstToITrLowering::Visit(AstDeclSPtr& node)

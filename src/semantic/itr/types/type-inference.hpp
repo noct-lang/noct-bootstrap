@@ -1,5 +1,6 @@
 #pragma once
 #include "common/type.hpp"
+#include "module/function.hpp"
 #include "module/symbol.hpp"
 #include "semantic/semantic-pass.hpp"
 
@@ -9,6 +10,8 @@ namespace Noctis
 	FWDECL_STRUCT_SPTR(FuncContext);
 	FWDECL_STRUCT_SPTR(ITrGenDecl);
 	FWDECL_STRUCT_SPTR(ITrImpl);
+	FWDECL_STRUCT_SPTR(ITrGenTypeBound);
+
 
 	// Function type inference prepass
 	class TypeInference : public ITrSemanticPass
@@ -55,11 +58,12 @@ namespace Noctis
 		// TODO: Patterns
 
 	private: 
-		void HandleGenerics(ITrGenDeclSPtr decl, IdenSPtr iden);
+		void HandleGenerics(ITrDef& def, IdenSPtr iden);
+		void HandleAssocTypes(ITrGenBoundType& boundType, GenTypeInfo& genInfo);
+
+		void NarrowGenBound(TypeInfo& typeInfo);
 		
 		QualNameSPtr GetCurScope();
-
-		TypeHandle ReplaceImplTypes(TypeHandle type, ITrFunc& node);
 
 		void Expect(TypeHandle handle);
 		
@@ -79,6 +83,11 @@ namespace Noctis
 		TypeHandle m_ReturnHandle;
 		TypeHandle m_ExpectedHandle;
 		TypeSPtr m_Expected;
+
+		StdUnorderedMap<IdenSPtr, TypeHandle> m_GenMapping;
+
+		// Debug info
+		StdString m_DebugMethodName;
 	};
 	
 }

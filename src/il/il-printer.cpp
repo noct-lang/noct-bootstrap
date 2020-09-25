@@ -24,7 +24,27 @@ namespace Noctis
 
 	void ILPrinter::Visit(ILFuncDef& node)
 	{
-		g_Logger.Log("func %s (", node.mangleName.c_str());
+		g_Logger.Log("func %s", node.mangleName.c_str());
+
+		if (!node.generics.empty())
+		{
+			g_Logger.Log("<");
+
+			for (usize i = 0; i < node.generics.size(); ++i)
+			{
+				if (i != 0)
+					g_Logger.Log(",");
+				
+				ILGeneric& gen = node.generics[i];
+				g_Logger.Log(gen.iden->ToString());
+				if (gen.type)
+					g_Logger.Log(":%s", m_pCtx->typeReg.ToString(gen.type).c_str());
+			}
+			
+			g_Logger.Log(">");
+		}
+
+		g_Logger.Log(" (");
 		u32 paramCount = u32(node.params.size());
 		for (u32 i = 0; i < paramCount; ++i)
 		{
@@ -194,9 +214,20 @@ namespace Noctis
 	{
 		PrintIndent();
 		LogVar(node.dst);
-		g_Logger.Log(" = transmute(%%s) ");
+		g_Logger.Log(" = ");
 		LogVar(node.src);
-		g_Logger.Log("\n");
+		g_Logger.Log(" transmute %%s\n", m_pCtx->typeReg.ToString(node.dst.type));
+	}
+
+	void ILPrinter::Visit(ILIndex& node)
+	{
+		PrintIndent();
+		LogVar(node.dst);
+		g_Logger.Log(" = (");
+		LogVar(node.src);
+		g_Logger.Log(")[");
+		LogVar(node.idx);
+		g_Logger.Log("]\n");
 	}
 
 	void ILPrinter::Visit(ILFuncCall& node)

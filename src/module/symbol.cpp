@@ -178,7 +178,8 @@ namespace Noctis
 		case SymbolKind::Func: kindName = "func"; break;
 		case SymbolKind::Method: kindName = "method"; break;
 		case SymbolKind::Var: kindName = "var"; break;
-		case SymbolKind::ImplType: kindName = "impl"; break;
+		case SymbolKind::Impl: kindName = "impl"; break;
+		case SymbolKind::Type: kindName = "type"; break;
 		case SymbolKind::GenType: kindName = "gen-type"; break;
 		case SymbolKind::GenVal: kindName = "gen-val"; break;
 		default: ;
@@ -198,7 +199,8 @@ namespace Noctis
 
 		if (!children->Empty())
 		{
-			g_Logger.Log(" +(children)\n");
+			printIndent(indent + 1);
+			g_Logger.Log("(children)\n");
 			children->Log(indent + 1, includeImports);
 		}
 
@@ -214,14 +216,14 @@ namespace Noctis
 		{
 			for (SymbolSPtr implSym : impls)
 			{
-				if (!implSym->qualName->IsSubnameOf(pCtx->activeModule->qualName))
+				if (implSym->kind != SymbolKind::Type && !implSym->qualName->IsSubnameOf(pCtx->activeModule->qualName))
 					continue;
 				
 				//if (pair.second)
 				//	continue;
 				
 				printIndent(indent + 1);
-				StdString tmp = implSym->kind == SymbolKind::ImplType ? pCtx->typeReg.ToString(implSym->type) : implSym->qualName->ToString();
+				StdString tmp = implSym->kind == SymbolKind::Type ? pCtx->typeReg.ToString(implSym->type) : implSym->qualName->ToString();
 				g_Logger.Log(isInterface ? "(implemented by '%s')\n" : "(implements '%s')\n", tmp.c_str());
 			}
 		}
@@ -242,6 +244,52 @@ namespace Noctis
 		SymbolSPtr sym{ new Symbol{ pCtx, kind, qualName } };
 		sym->SetSelf(sym);
 		sym->baseVariant = sym;
+
+		switch (kind)
+		{
+		case SymbolKind::Struct:
+		case SymbolKind::Union:
+		case SymbolKind::ValEnum:
+		case SymbolKind::AdtEnum:
+		case SymbolKind::MarkerInterface:
+		case SymbolKind::WeakInterface:
+		case SymbolKind::StrongInterface:
+		case SymbolKind::Typealias:
+		case SymbolKind::Typedef:
+		case SymbolKind::AssocType:
+		{
+			TypeHandle type = pCtx->typeReg.Iden(TypeMod::None, qualName);
+			sym->type = type;
+			pCtx->typeReg.SetIdenSym(type->AsIden().qualName, sym);
+			break;
+		}
+		case SymbolKind::ValEnumMember:
+		{
+			TypeHandle type = pCtx->typeReg.Iden(TypeMod::None, qualName->Base());
+			sym->type = type;
+			break;
+		}
+		
+		case SymbolKind::Func:
+		case SymbolKind::Method:
+		case SymbolKind::Closure:
+		case SymbolKind::Var:
+		case SymbolKind::Impl:
+		case SymbolKind::Type:
+		case SymbolKind::GenType:
+		case SymbolKind::GenVal:
+		default: ;
+		}
+
+		
+		return sym;
+	}
+
+	SymbolSPtr CreateSymbol(Context* pCtx, SymbolKind kind, QualNameSPtr qualName, ITrDefWPtr node)
+	{
+		SymbolSPtr sym = CreateSymbol(pCtx, kind, qualName);
+		sym->associatedITr = node;
+		node.lock()->sym = sym;
 		return sym;
 	}
 
@@ -443,7 +491,7 @@ namespace Noctis
 
 	bool ModuleSymbolTable::Add(SymbolSPtr sym)
 	{
-		if (sym->kind == SymbolKind::ImplType)
+		if (sym->kind == SymbolKind::Type)
 		{
 			TypeSPtr type = sym->type->type;
 			auto it = m_TypeSymbols.find(type);

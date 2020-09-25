@@ -2,6 +2,7 @@
 
 namespace Noctis
 {
+	struct ILIndex;
 	struct ILUnionInit;
 	struct ILElem;
 	struct ILAssign;
@@ -52,6 +53,7 @@ namespace Noctis
 		virtual void Visit(ILPrimCast& node);
 		virtual void Visit(ILTernary& node);
 		virtual void Visit(ILTransmute& node);
+		virtual void Visit(ILIndex& node);
 		virtual void Visit(ILFuncCall& node);
 		virtual void Visit(ILMethodCall& node);
 		virtual void Visit(ILIndirectCall& node);

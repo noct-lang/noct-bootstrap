@@ -182,8 +182,7 @@ namespace Noctis
 			
 			// Generic parameters are encoded in their parent symbols
 			if (sym->kind == SymbolKind::GenType ||
-				sym->kind == SymbolKind::GenVal ||
-				sym->kind == SymbolKind::ImplType)
+				sym->kind == SymbolKind::GenVal)
 				return;
 
 			m_SymSection.push_back(u8(sym->kind));
@@ -204,9 +203,25 @@ namespace Noctis
 				{
 					WriteData(m_SymSection, u8(0));
 				}
+
+				StdString mangledName = GetMangledType(sym->SelfType());
+				WriteName(m_SymSection, mangledName);
 			}
 			
-			const StdString& mangleName = GetMangledQualName(sym->qualName);
+			StdString mangleName;
+			switch (sym->kind)
+			{
+			case SymbolKind::Func:
+			case SymbolKind::Method:
+			case SymbolKind::Closure:
+				mangleName = GetMangledIden(sym->qualName->Iden());
+				break;
+			case SymbolKind::Type:
+				mangleName = GetMangledType(sym->type);
+				break;
+			default:
+				mangleName = GetMangledQualName(sym->qualName);
+			}
 			WriteName(m_SymSection, mangleName);
 
 			switch (sym->kind)
@@ -263,7 +278,7 @@ namespace Noctis
 				return;
 			
 			StdString mangle;
-			if (sym->kind == SymbolKind::ImplType)
+			if (sym->kind == SymbolKind::Type)
 			{
 				mangle = GetMangledType(sym->type);
 			}
@@ -273,7 +288,7 @@ namespace Noctis
 			}
 			
 			SymbolSPtr parent = sym->parent.lock();
-			if (parent && parent->kind == SymbolKind::ImplType)
+			if (parent && parent->kind == SymbolKind::Type)
 			{
 				m_SLnkSection.push_back(u8(SymbolLinkKind::TypeParent));
 				WriteName(m_SLnkSection, mangle);
@@ -296,7 +311,7 @@ namespace Noctis
 			{
 				u32 numImpls = 0;
 				for (SymbolSPtr implSym : sym->impls)
-					numImpls += u32(implSym->qualName->IsSubnameOf(m_pCtx->activeModule->qualName));
+					numImpls += u32(implSym->kind != SymbolKind::Type && implSym->qualName->IsSubnameOf(m_pCtx->activeModule->qualName));
 
 				if (numImpls)
 				{
@@ -307,7 +322,7 @@ namespace Noctis
 					case SymbolKind::ValEnum:
 					case SymbolKind::AdtEnum:
 					case SymbolKind::Typedef:
-					case SymbolKind::ImplType:
+					case SymbolKind::Type:
 					{
 						m_SLnkSection.push_back(u8(SymbolLinkKind::InterfaceImpl));
 						u16 numIFaces = u16(sym->impls.size());
@@ -402,12 +417,26 @@ namespace Noctis
 
 	const StdString& ModuleEncode::GetMangledQualName(QualNameSPtr qualName)
 	{
+		if (!qualName->Base())
+			return GetMangledIden(qualName->Iden());
+		
 		auto it = m_QualNameMangleCache.find(qualName);
 		if (it != m_QualNameMangleCache.end())
 			return it->second;
 
 		StdString mangle = NameMangling::Mangle(m_pCtx, qualName);
 		it = m_QualNameMangleCache.try_emplace(qualName, mangle).first;
+		return it->second;
+	}
+
+	const StdString& ModuleEncode::GetMangledIden(IdenSPtr iden)
+	{
+		auto it = m_IdenMangleCache.find(iden);
+		if (it != m_IdenMangleCache.end())
+			return it->second;
+
+		StdString mangle = NameMangling::Mangle(m_pCtx, iden);
+		it = m_IdenMangleCache.try_emplace(iden, mangle).first;
 		return it->second;
 	}
 
@@ -655,20 +684,43 @@ namespace Noctis
 		{
 			SymbolKind kind = static_cast<SymbolKind>(data[m_DataPos++]);
 
+			SymbolSPtr sym;
+			QualNameSPtr qualName;
 			QualNameSPtr ifaceQualName;
 			if (kind == SymbolKind::Method ||
 				kind == SymbolKind::Typealias)
 			{
 				const StdString& ifaceMangled = ReadName();
 				ifaceQualName = GetQualNameFromMangle(ifaceMangled);
+
+				const StdString& parentTypeMangled = ReadName();
+				TypeHandle parentType = GetTypeFromMangle(parentTypeMangled);
+
+				const StdString& mangledIden = ReadName();
+				IdenSPtr iden = GetIdenFromMangle(mangledIden);
+
+				if (parentType->type->typeKind == TypeKind::Iden)
+				{
+					qualName = parentType->AsIden().qualName;
+					qualName = QualName::Create(qualName, iden);
+				}
+				else
+				{
+					IdenSPtr scope = Iden::Create(parentTypeMangled);
+					qualName = QualName::Create({ scope, iden });
+				}
+			}
+			else
+			{
+				const StdString& mangled = ReadName();
+				qualName = GetQualNameFromMangle(mangled);
+
+				
 			}
 
-			const StdString& mangled = ReadName();
-			QualNameSPtr qualName = GetQualNameFromMangle(mangled);
-
-			SymbolSPtr sym = CreateSymbol(m_pCtx, kind, qualName);
+			sym = CreateSymbol(m_pCtx, kind, qualName);
 			sym->isImported = true;
-			sym->mangledName = mangled;
+			sym->mangledName = NameMangling::Mangle(m_pCtx, sym);
 
 			// Handle type
 			switch (kind)
@@ -681,7 +733,7 @@ namespace Noctis
 			case SymbolKind::StrongInterface:
 			{
 				sym->type = m_pCtx->typeReg.Iden(TypeMod::None, qualName);
-				sym->type->AsIden().sym = sym;
+				m_pCtx->typeReg.SetIdenSym(sym->type->AsIden().qualName, sym);
 				break;
 			}
 			case SymbolKind::ValEnum:
@@ -703,7 +755,7 @@ namespace Noctis
 				else
 				{
 					sym->type = m_pCtx->typeReg.Iden(TypeMod::None, sym->qualName);
-					sym->type->AsIden().sym = sym;
+					m_pCtx->typeReg.SetIdenSym(sym->type->AsIden().qualName, sym);
 				}
 				break;
 			}
@@ -795,7 +847,7 @@ namespace Noctis
 				auto it = m_Syms.find(parentQualName);
 				if (it == m_Syms.end())
 				{
-					SymbolSPtr tmpSym = CreateSymbol(m_pCtx, SymbolKind::ImplType, nullptr);
+					SymbolSPtr tmpSym = CreateSymbol(m_pCtx, SymbolKind::Type, nullptr);
 					tmpSym->type = handle;
 					it = m_Syms.try_emplace(parentQualName, tmpSym).first;
 				}
@@ -840,7 +892,7 @@ namespace Noctis
 					auto it = m_Syms.find(qualName);
 					if (it == m_Syms.end())
 					{
-						SymbolSPtr tmpSym = CreateSymbol(m_pCtx, SymbolKind::ImplType, nullptr);
+						SymbolSPtr tmpSym = CreateSymbol(m_pCtx, SymbolKind::Type, nullptr);
 						tmpSym->type = handle;
 						it = m_Syms.try_emplace(qualName, tmpSym).first;
 					}
@@ -1014,6 +1066,18 @@ namespace Noctis
 
 		QualNameSPtr qualName = NameMangling::DemangleQualName(m_pCtx, mangle);
 		it = m_QualNameMangleCache.try_emplace(mangle, qualName).first;
+		return it->second;
+	}
+
+	IdenSPtr ModuleDecode::GetIdenFromMangle(const StdString& mangle)
+	{
+		auto it = m_IdenMangleCache.find(mangle);
+		if (it != m_IdenMangleCache.end())
+			return it->second;
+
+		usize idx = 0;
+		IdenSPtr iden = NameMangling::DemangleIden(m_pCtx, mangle, idx);
+		it = m_IdenMangleCache.try_emplace(mangle, iden).first;
 		return it->second;
 	}
 

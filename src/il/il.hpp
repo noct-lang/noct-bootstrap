@@ -16,7 +16,9 @@ namespace Noctis
 		PrimCast = 0x44,
 		Ternary = 0x45,
 		Transmute = 0x46,
-		CompIntrin = 0x47, // TODO
+		Index = 0x47,
+		
+		CompIntrin = 0x4E, // TODO
 
 		FuncCallNoRet = 0x50,
 		FuncCallRet = 0x51,
@@ -216,6 +218,15 @@ namespace Noctis
 		ILVar src;
 	};
 
+	struct ILIndex : public ILElem
+	{
+		ILIndex(ILVar dst, ILVar src, ILVar idx);
+
+		ILVar dst;
+		ILVar src;
+		ILVar idx;
+	};
+
 	struct ILFuncCall : public ILElem
 	{
 		ILFuncCall(const StdString& func, const StdVector<ILVar>& args);
@@ -314,12 +325,29 @@ namespace Noctis
 		StdVector<ILVar> args;
 	};
 
+	struct ILGeneric
+	{
+		ILGeneric(IdenSPtr iden)
+			: iden(iden)
+		{
+		}
+		
+		ILGeneric(IdenSPtr iden, TypeHandle type)
+			: iden(iden)
+			, type(type)
+		{
+		}
+		
+		IdenSPtr iden;
+		TypeHandle type;
+	};
 
 	struct ILFuncDef : public ILElem
 	{
-		ILFuncDef(const StdString& mangleName);
+		ILFuncDef(const StdString& mangleName, StdVector<ILGeneric>&& generics);
 		
 		StdString mangleName;
+		StdVector<ILGeneric> generics;
 		StdVector<ILVar> params;
 		StdVector<ILVar> localVars;
 		StdVector<ILVar> tmpVars;

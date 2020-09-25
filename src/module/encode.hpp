@@ -47,6 +47,7 @@ namespace Noctis
 		void WriteName(StdVector<u8>& insertTo, const StdString& name);
 
 		const StdString& GetMangledQualName(QualNameSPtr qualName);
+		const StdString& GetMangledIden(IdenSPtr qualName);
 		const StdString& GetMangledType(TypeHandle type);
 
 		Context* m_pCtx;
@@ -61,6 +62,7 @@ namespace Noctis
 		StdVector<u8> m_SLnkSection;
 
 		StdUnorderedMap<QualNameSPtr, StdString> m_QualNameMangleCache;
+		StdUnorderedMap<IdenSPtr, StdString> m_IdenMangleCache;
 		StdUnorderedMap<TypeSPtr, StdString> m_TypeMangleCache;
 	};
 
@@ -98,6 +100,7 @@ namespace Noctis
 		const StdString& ReadName();
 
 		QualNameSPtr GetQualNameFromMangle(const StdString& mangle);
+		IdenSPtr GetIdenFromMangle(const StdString& mangle);
 		TypeHandle GetTypeFromMangle(const StdString& mangle);
 
 		Context* m_pCtx;
@@ -112,6 +115,7 @@ namespace Noctis
 		StdUnorderedMap<QualNameSPtr, StdUnorderedMap<QualNameSPtr, SymbolSPtr>> m_ImplSyms;
 
 		StdUnorderedMap<StdString, QualNameSPtr> m_QualNameMangleCache;
+		StdUnorderedMap<StdString, IdenSPtr> m_IdenMangleCache;
 		StdUnorderedMap<StdString, TypeHandle> m_TypeMangleCache;
 	};
 

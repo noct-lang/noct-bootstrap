@@ -30,9 +30,11 @@ namespace Noctis
 		Var,
 		
 
-		ImplType,
+		Impl,
+		Type,
 
 		GenType,
+		AssocType,
 		GenVal,
 	};
 	
@@ -41,6 +43,7 @@ namespace Noctis
 	FWDECL_CLASS_SPTR(SymbolSubTable);
 	FWDECL_CLASS_SPTR(ScopedSymbolTable);
 
+	FWDECL_STRUCT_SPTR(ITrDef);
 	FWDECL_STRUCT_WPTR(ITrDef);
 	
 	struct Symbol
@@ -100,6 +103,7 @@ namespace Noctis
 	};
 
 	SymbolSPtr CreateSymbol(Context* pCtx, SymbolKind kind, QualNameSPtr qualName);
+	SymbolSPtr CreateSymbol(Context* pCtx, SymbolKind kind, QualNameSPtr qualName, ITrDefWPtr node);
 
 	class SymbolSubTable
 	{

@@ -471,7 +471,7 @@ namespace Noctis
 		virtual ~ITrExpr();
 
 		ITrExprKind exprKind;
-		TypeHandle typeHandle;
+		TypeInfo typeInfo;
 		SymbolSPtr sym;
 	};
 	
@@ -533,6 +533,8 @@ namespace Noctis
 		ITrExprSPtr expr;
 		ITrExprSPtr index;
 		ITrExprSPtr to;
+
+		Operator operator_;
 	};
 
 	// Can be ITrFuncCall or ITrAdtTupleEnumInit
@@ -911,12 +913,30 @@ namespace Noctis
 		ITrExprSPtr defExpr;
 	};
 
+	FWDECL_STRUCT_SPTR(ITrGenBoundType);
+	
+	struct ITrGenAssocBound
+	{
+		ITrGenAssocBound(const StdString& iden, ITrGenBoundTypeSPtr type);
+		
+		StdString iden;
+		ITrGenBoundTypeSPtr type;
+	};
+	
+	struct ITrGenBoundType
+	{
+		ITrGenBoundType(ITrTypeSPtr type, StdVector<ITrGenAssocBound>&& assocBounds);
+		
+		ITrTypeSPtr type;
+		StdVector<ITrGenAssocBound> assocBounds;
+	};
+	
 	struct ITrGenTypeBound
 	{
-		ITrGenTypeBound(IdenSPtr type, ITrTypeSPtr bound);
+		ITrGenTypeBound(ITrTypeSPtr type, ITrGenBoundTypeSPtr bound);
 		
-		IdenSPtr type;
-		ITrTypeSPtr bound;
+		ITrTypeSPtr type;
+		ITrGenBoundTypeSPtr bound;
 	};
 
 	struct ITrBody

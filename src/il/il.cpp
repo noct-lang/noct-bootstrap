@@ -131,6 +131,14 @@ namespace Noctis
 	{
 	}
 
+	ILIndex::ILIndex(ILVar dst, ILVar src, ILVar idx)
+		: ILElem(ILKind::Index)
+		, dst(dst)
+		, src(src)
+		, idx(idx)
+	{
+	}
+
 	ILFuncCall::ILFuncCall(const StdString& func, const StdVector<ILVar>& args)
 		: ILElem(ILKind::FuncCallNoRet)
 		, func(func)
@@ -237,9 +245,10 @@ namespace Noctis
 	{
 	}
 
-	ILFuncDef::ILFuncDef(const StdString& mangleName)
+	ILFuncDef::ILFuncDef(const StdString& mangleName, StdVector<ILGeneric>&& generics)
 		: ILElem(ILKind::FuncDef)
 		, mangleName(mangleName)
+		, generics(std::move(generics))
 	{
 	}
 }
