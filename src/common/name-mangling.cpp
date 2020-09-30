@@ -14,7 +14,7 @@ namespace Noctis::NameMangling
 		case SymbolKind::Func:
 		{
 			StdString mangledName = Mangle(pCtx, sym->qualName->Base());
-			mangledName += Mangle(pCtx, sym->qualName->Iden());
+			mangledName += Mangle(pCtx, sym->qualName->LastIden());
 			StdString mangledType = Mangle(pCtx, sym->type);
 			return "_NF" + mangledName + mangledType;
 		}
@@ -27,7 +27,7 @@ namespace Noctis::NameMangling
 				parent->kind == SymbolKind::WeakInterface)
 			{
 				StdString mangledName = Mangle(pCtx, parent->type);
-				mangledName += Mangle(pCtx, sym->qualName->Iden());
+				mangledName += Mangle(pCtx, sym->qualName->LastIden());
 
 				StdString mangledType = Mangle(pCtx, sym->type);
 				return "_NM" + mangledName + mangledType;
@@ -38,7 +38,7 @@ namespace Noctis::NameMangling
 				StdString parentMangled = Mangle(pCtx, parentQualName);
 				
 				StdString mangledName = Mangle(pCtx, parent->type);
-				mangledName += Mangle(pCtx, sym->qualName->Iden());
+				mangledName += Mangle(pCtx, sym->qualName->LastIden());
 				
 				StdString mangledType = Mangle(pCtx, sym->type);
 				return "_NN"  + parentMangled + "Z" + mangledName + mangledType;
@@ -51,7 +51,7 @@ namespace Noctis::NameMangling
 	StdString Mangle(Context* pCtx, QualNameSPtr qualName)
 	{
 		StdString mangled;
-		StdVector<IdenSPtr> idens = qualName->AllIdens();
+		StdVector<IdenSPtr> idens = qualName->Idens();
 		for (IdenSPtr iden : idens)
 		{
 			mangled += Mangle(pCtx, iden);

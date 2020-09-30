@@ -1,4 +1,4 @@
-#pragma once
+ #pragma once
 #include <functional>
 
 #include "common/type.hpp"
@@ -63,7 +63,9 @@ namespace Noctis
 		void Log(u8 indent, bool includeImports);
 
 		bool HasMarker(QualNameSPtr name);
-		
+
+		SymbolSPtr Copy();
+	
 		QualNameSPtr qualName;
 
 		SymbolSubTableSPtr children;
@@ -111,15 +113,11 @@ namespace Noctis
 		SymbolSubTable(Context* pCtx);
 		void SetParent(SymbolWPtr parent);
 
-		bool Add(SymbolSPtr symbol, StdVector<IdenSPtr>& idens);
-		bool Add(QualNameSPtr interfaceQualName, SymbolSPtr sym, StdVector<IdenSPtr>& idens);
-		bool AddChild(SymbolSPtr sym);
-		bool AddChild(QualNameSPtr interfaceQualName, SymbolSPtr sym);
+		bool Add(QualNameSPtr interfaceQualName, SymbolSPtr sym, usize idenIdx);
+		bool AddChild(SymbolSPtr sym, QualNameSPtr interfaceQualName = nullptr);
 
-		SymbolSPtr Find(StdVector<IdenSPtr>& idens, QualNameSPtr interfaceName);
-		SymbolSPtr Find(StdVector<IdenSPtr>& idens, const StdVector<StdString>& argNames);
-		SymbolSPtr FindChild(QualNameSPtr implQualName, IdenSPtr iden);
-		SymbolSPtr FindChild(QualNameSPtr implQualName, IdenSPtr iden, const StdVector<StdString>& argNames);
+		SymbolSPtr Find(QualNameSPtr qualName, usize idenIdx, QualNameSPtr interfaceName, const StdVector<StdString>& argNames);
+		SymbolSPtr FindChild(QualNameSPtr implQualName, IdenSPtr iden, const StdVector<StdString>& funcArgNames = {});
 
 		void RemoveChild(SymbolSPtr sym);
 
@@ -147,9 +145,14 @@ namespace Noctis
 
 		bool Add(SymbolSPtr sym);
 
-		SymbolSPtr Find(QualNameSPtr scope, QualNameSPtr qualname);
-		SymbolSPtr Find(QualNameSPtr scope, QualNameSPtr qualname, QualNameSPtr interfaceName);
+		SymbolSPtr Find(QualNameSPtr scope, QualNameSPtr qualname, QualNameSPtr interfaceQualName = nullptr);
+		SymbolSPtr Find(QualNameSPtr qualName);
+		SymbolSPtr Find(TypeHandle type);
 		SymbolSPtr Find(TypeSPtr type);
+
+		SymbolSPtr FindWithInterface(QualNameSPtr qualName, QualNameSPtr interfaceQualName);
+
+		SymbolSPtr FindWithDisambiguation(QualNameSPtr qualName);
 
 		void Merge(ModuleSymbolTable& src);
 		void AddImport(QualNameSPtr qualName);
@@ -173,13 +176,13 @@ namespace Noctis
 	public:
 		ScopedSymbolTable(Context* pCtx);
 
-		bool Add(SymbolSPtr sym, StdVector<IdenSPtr>& idens);
+		bool Add(SymbolSPtr sym, usize idenIdx);
+		
 		bool RemoveFromCur(SymbolSPtr sym);
 
 		SymbolSPtr Find(QualNameSPtr qualName);
 		SymbolSPtr Find(QualNameSPtr qualName, const StdVector<StdString>& argNames);
-		SymbolSPtr Find(StdVector<IdenSPtr>& idens, QualNameSPtr interfaceName);
-		SymbolSPtr Find(StdVector<IdenSPtr>& idens, const StdVector<StdString>& argNames);
+		SymbolSPtr Find(QualNameSPtr qualName, usize idenIdx, const StdVector<StdString>& argNames);
 
 		void Foreach(const std::function<void(SymbolSPtr, QualNameSPtr)>& lambda, QualNameSPtr iface);
 
@@ -191,6 +194,9 @@ namespace Noctis
 
 	private:
 		friend class ModuleSymbolTable;
+
+
+		SymbolSPtr FindFunction(IdenSPtr iden, const StdVector<StdString>& argNames);
 		
 		StdUnorderedMap<StdString, ScopedSymbolTableSPtr> m_SubTables;
 		StdUnorderedMap<StdString, SymbolSPtr> m_Symbols;

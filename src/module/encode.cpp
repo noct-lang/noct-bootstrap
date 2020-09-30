@@ -41,7 +41,7 @@ namespace Noctis
 		}
 		
 		encoded.push_back(0);
-		const StdString& modName = mod.qualName->Iden()->Name();
+		const StdString& modName = mod.qualName->LastIden()->Name();
 		encoded.insert(encoded.end(), modName.begin(), modName.end());
 		encoded.push_back(0);
 
@@ -214,7 +214,7 @@ namespace Noctis
 			case SymbolKind::Func:
 			case SymbolKind::Method:
 			case SymbolKind::Closure:
-				mangleName = GetMangledIden(sym->qualName->Iden());
+				mangleName = GetMangledIden(sym->qualName->LastIden());
 				break;
 			case SymbolKind::Type:
 				mangleName = GetMangledType(sym->type);
@@ -418,7 +418,7 @@ namespace Noctis
 	const StdString& ModuleEncode::GetMangledQualName(QualNameSPtr qualName)
 	{
 		if (!qualName->Base())
-			return GetMangledIden(qualName->Iden());
+			return GetMangledIden(qualName->LastIden());
 		
 		auto it = m_QualNameMangleCache.find(qualName);
 		if (it != m_QualNameMangleCache.end())
@@ -763,7 +763,7 @@ namespace Noctis
 			}
 
 			// Handle generics
-			IdenSPtr iden = qualName->Iden();
+			IdenSPtr iden = qualName->LastIden();
 			if (!iden->Generics().empty())
 			{
 				for (IdenGeneric& generic : iden->Generics())
@@ -837,7 +837,7 @@ namespace Noctis
 				QualNameSPtr childQualName = GetQualNameFromMangle(childName);
 
 				const StdString& iFaceName = ReadName();
-				QualNameSPtr iFaceQualName = GetQualNameFromMangle(iFaceName);
+				QualNameSPtr ifaceQualName = GetQualNameFromMangle(iFaceName);
 
 				StdString parentName = ReadName();
 				TypeHandle handle = GetTypeFromMangle(parentName);
@@ -854,12 +854,12 @@ namespace Noctis
 				SymbolSPtr parent = it->second;
 
 				SymbolSPtr child;
-				if (iFaceQualName)
+				if (ifaceQualName)
 				{
-					auto implIt = m_ImplSyms.find(iFaceQualName);
+					auto implIt = m_ImplSyms.find(ifaceQualName);
 					auto it = implIt->second.find(childQualName);
 					child = it->second;
-					parent->children->AddChild(iFaceQualName, child);
+					parent->children->AddChild(child, ifaceQualName);
 				}
 				else
 				{
@@ -1025,7 +1025,7 @@ namespace Noctis
 				if (it != m_Syms.end())
 				{
 					SymbolSPtr parent = it->second;
-					parent->children->AddChild(ifaceQualName, sym);
+					parent->children->AddChild(sym, ifaceQualName);
 					sym->parent = parent;
 				}
 			}

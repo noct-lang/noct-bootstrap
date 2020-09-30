@@ -287,7 +287,6 @@ namespace Noctis
 		{
 			IdenType& iden = type->AsIden();
 			StdString idenName = iden.qualName->ToString();
-			idenName.erase(idenName.begin(), idenName.begin() + 2);
 			return mod + idenName;
 		}
 		case TypeKind::Ptr:
@@ -318,7 +317,7 @@ namespace Noctis
 				tmp = '[';
 				ITrExprSPtr expr = std::get<ITrExprSPtr>(arr.expr);
 				ITrQualNameExpr& qualName = reinterpret_cast<ITrQualNameExpr&>(*expr);
-				tmp += qualName.qualName->Iden()->ToString();
+				tmp += qualName.qualName->LastIden()->ToString();
 				tmp += ']';
 			}
 			else
@@ -592,9 +591,9 @@ namespace Noctis
 			if (genOrig.iden == genFrom.iden)
 				return replacement;
 		}
-		/*case TypeKind::Iden:
+		/*case TypeKind::LastIden:
 		{9
-			if (toReplace->type->typeKind != TypeKind::Iden)
+			if (toReplace->type->typeKind != TypeKind::LastIden)
 				return orig;
 			
 			IdenType& idenTypeOrig = orig->AsIden();
@@ -603,8 +602,8 @@ namespace Noctis
 			QualNameSPtr origQualName = idenTypeOrig.qualName;
 			QualNameSPtr fromQualName = idenTypeFrom.qualName;
 			
-			IdenSPtr origIden = origQualName->Iden();
-			IdenSPtr fromIden = fromQualName->Iden();
+			IdenSPtr origIden = origQualName->LastIden();
+			IdenSPtr fromIden = fromQualName->LastIden();
 
 			if (origQualName->Base() == fromQualName->Base() &&
 				origIden->Name() == fromIden->Name())

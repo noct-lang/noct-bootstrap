@@ -1,5 +1,8 @@
 #include "symbol.hpp"
 
+#include <cassert>
+
+
 #include "common/context.hpp"
 #include "common/errorsystem.hpp"
 #include "common/logger.hpp"
@@ -32,12 +35,12 @@ namespace Noctis
 	SymbolSPtr Symbol::GetVariant(IdenSPtr iden)
 	{
 		if (variants.empty() ||
-			qualName->Iden() == iden)
+			qualName->LastIden() == iden)
 			return self.lock();
 
 		for (SymbolSPtr variant : variants)
 		{
-			if (variant->qualName->Iden() == iden)
+			if (variant->qualName->LastIden() == iden)
 				return variant;
 		}
 
@@ -146,7 +149,7 @@ namespace Noctis
 				return variant;
 		}
 		
-		QualNameSPtr newQualName = QualName::Create(this->qualName->Base(), qualName->Iden());
+		QualNameSPtr newQualName = QualName::Create(this->qualName->Base(), qualName->LastIden());
 		SymbolSPtr variantSym = CreateSymbol(pCtx, kind, newQualName);
 		variantSym->baseVariant = self;
 		variantSym->type = pCtx->typeReg.Iden(TypeMod::None, newQualName);
@@ -239,6 +242,29 @@ namespace Noctis
 		return false;
 	}
 
+	SymbolSPtr Symbol::Copy()
+	{
+		assert(kind == SymbolKind::Impl);
+		
+		SymbolSPtr res{ new Symbol{ pCtx, kind, qualName } };
+		children->Foreach([&res](SymbolSPtr child, QualNameSPtr interfaceName)
+		{
+			res->children->AddChild(child, interfaceName);
+		});
+
+		res->qualName = qualName;
+		res->parent = parent;
+		res->markers = markers;
+		res->type = type;
+		res->associatedITr = associatedITr;
+
+		res->impls.insert(res->impls.end(), impls.begin(), impls.end());
+		res->interfaces.insert(res->interfaces.end(), interfaces.begin(), interfaces.end());
+		res->markers.insert(res->markers.end(), markers.begin(), markers.end());
+
+		return res;
+	}
+
 	SymbolSPtr CreateSymbol(Context* pCtx, SymbolKind kind, QualNameSPtr qualName)
 	{
 		SymbolSPtr sym{ new Symbol{ pCtx, kind, qualName } };
@@ -304,61 +330,52 @@ namespace Noctis
 		m_Parent = parent;
 	}
 
-	bool SymbolSubTable::Add(SymbolSPtr symbol, StdVector<IdenSPtr>& idens)
-	{
-		return m_SubTable->Add(symbol, idens);
-	}
-
-	bool SymbolSubTable::Add(QualNameSPtr interfaceQualName, SymbolSPtr sym, StdVector<IdenSPtr>& idens)
+	bool SymbolSubTable::Add(QualNameSPtr interfaceQualName, SymbolSPtr sym, usize idenIdx)
 	{
 		sym->parent = m_Parent;
-		
-		// Further overlapping is processed later on, after generic value parameters and types are processed
-		for (StdPair<QualNameSPtr, ScopedSymbolTableSPtr> pair : m_ImplSubtables)
+		if (interfaceQualName)
 		{
-			if (pair.first == interfaceQualName)
-				return pair.second->Add(sym, idens);
+			// Further overlapping is processed later on, after generic value parameters and types are processed
+			for (StdPair<QualNameSPtr, ScopedSymbolTableSPtr> pair : m_ImplSubtables)
+			{
+				if (pair.first == interfaceQualName)
+					return pair.second->Add(sym, idenIdx);
+			}
+
+			auto it = m_ImplSubtables.try_emplace(interfaceQualName, ScopedSymbolTableSPtr{ new ScopedSymbolTable{ m_pCtx } }).first;
+			return it->second->Add(sym, idenIdx);
 		}
-
-		auto it = m_ImplSubtables.try_emplace(interfaceQualName, ScopedSymbolTableSPtr{ new ScopedSymbolTable{ m_pCtx } }).first;
-		it->second->Add(sym, idens);
-		return true;
+		else
+		{
+			return m_SubTable->Add(sym, idenIdx);
+		}
 	}
 
-	bool SymbolSubTable::AddChild(SymbolSPtr sym)
+	bool SymbolSubTable::AddChild(SymbolSPtr sym, QualNameSPtr interfaceQualName)
 	{
-		StdVector<IdenSPtr> idens{ sym->qualName->Iden() };
 		sym->parent = m_Parent;
-		return Add(sym, idens);
+		return Add(interfaceQualName, sym, sym->qualName->Idens().size() - 1);
 	}
 
-	bool SymbolSubTable::AddChild(QualNameSPtr interfaceQualName, SymbolSPtr sym)
+	SymbolSPtr SymbolSubTable::Find(QualNameSPtr qualName, usize idenIdx, QualNameSPtr interfaceName,
+		const StdVector<StdString>& argNames)
 	{
-		StdVector<IdenSPtr> idens{ sym->qualName->Iden() };
-		sym->parent = m_Parent;
-		return Add(interfaceQualName, sym, idens);
-	}
-
-	SymbolSPtr SymbolSubTable::Find(StdVector<IdenSPtr>& idens, QualNameSPtr interfaceName)
-	{
-		if (idens.size() == 1 &&
+		if (idenIdx == qualName->Idens().size() - 1  &&
 			interfaceName)
 		{
 			auto it = m_ImplSubtables.find(interfaceName);
 			if (it == m_ImplSubtables.end())
-				return nullptr;
-			return it->second->Find(idens, interfaceName);
+				return nullptr; 
+			return it->second->Find(qualName, idenIdx, argNames);
 		}
-		
-		StdVector<IdenSPtr> tmpIdens = idens;
-		SymbolSPtr sym = m_SubTable->Find(idens, interfaceName);
+
+		SymbolSPtr sym = m_SubTable->Find(qualName, idenIdx, argNames);
 		if (sym)
 			return sym;
 
 		for (StdPair<QualNameSPtr, ScopedSymbolTableSPtr> implSymbol : m_ImplSubtables)
 		{
-			idens = tmpIdens;
-			SymbolSPtr tmp = implSymbol.second->Find(idens, interfaceName);
+			SymbolSPtr tmp = implSymbol.second->Find(qualName, idenIdx, argNames);
 
 			if (tmp)
 			{
@@ -376,46 +393,7 @@ namespace Noctis
 		return sym;
 	}
 
-	SymbolSPtr SymbolSubTable::Find(StdVector<IdenSPtr>& idens, const StdVector<StdString>& argNames)
-	{
-		StdVector<IdenSPtr> tmpIdens = idens;
-		SymbolSPtr sym = m_SubTable->Find(idens, argNames);
-		if (sym)
-			return sym;
-
-		for (StdPair<QualNameSPtr, ScopedSymbolTableSPtr> implSymbol : m_ImplSubtables)
-		{
-			idens = tmpIdens;
-			SymbolSPtr tmp = implSymbol.second->Find(idens, argNames);
-
-			if (tmp)
-			{
-				if (sym)
-				{
-					if (sym && sym != tmp)
-					{
-						if (sym->qualName == tmp->qualName)
-						{
-							if (tmp->defImplVer > sym->defImplVer)
-								sym = tmp;
-						}
-						else
-						{
-							// TODO: what symbol is ambiguous?
-							g_ErrorSystem.Error("ambiguous symbol\n");
-							return nullptr;
-						}
-					}
-				}
-				
-				sym = tmp;
-			}
-		}
-
-		return sym;
-	}
-
-	SymbolSPtr SymbolSubTable::FindChild(QualNameSPtr implQualName, IdenSPtr iden)
+	SymbolSPtr SymbolSubTable::FindChild(QualNameSPtr implQualName, IdenSPtr iden, const StdVector<StdString>& funcArgNames)
 	{
 		ScopedSymbolTableSPtr subTable;
 		if (implQualName)
@@ -430,25 +408,7 @@ namespace Noctis
 			subTable = m_SubTable;
 		}
 		StdVector<IdenSPtr> idens{ iden };
-		return subTable->Find(idens, nullptr);
-	}
-
-	SymbolSPtr SymbolSubTable::FindChild(QualNameSPtr implQualName, IdenSPtr iden, const StdVector<StdString>& argNames)
-	{
-		ScopedSymbolTableSPtr subTable;
-		if (implQualName)
-		{
-			auto it = m_ImplSubtables.find(implQualName);
-			if (it == m_ImplSubtables.end())
-				return nullptr;
-			subTable = it->second;
-		}
-		else
-		{
-			subTable = m_SubTable;
-		}
-		StdVector<IdenSPtr> idens{ iden };
-		return subTable->Find(idens, argNames);
+		return subTable->Find(QualName::Create(iden), 0, funcArgNames);
 	}
 
 	void SymbolSubTable::RemoveChild(SymbolSPtr sym)
@@ -491,6 +451,25 @@ namespace Noctis
 
 	bool ModuleSymbolTable::Add(SymbolSPtr sym)
 	{
+		/*if (sym->kind == SymbolKind::Type)
+		{
+			TypeSPtr type = sym->type->type;
+			auto it = m_TypeSymbols.find(type);
+			if (it != m_TypeSymbols.end())
+				return false;
+
+			m_TypeSymbols.try_emplace(type, sym);
+			StdString typeName = m_pCtx->typeReg.ToString(type);
+			m_TypeNameSymbols.try_emplace(Iden::Create(typeName), sym);
+			return true;
+		}
+		else
+		{
+			StdVector<IdenSPtr> idens = sym->qualName->Idens();
+			std::reverse(idens.begin(), idens.end());
+			return m_ScopedTable->Add(sym, idens);
+		}*/
+
 		if (sym->kind == SymbolKind::Type)
 		{
 			TypeSPtr type = sym->type->type;
@@ -505,24 +484,17 @@ namespace Noctis
 		}
 		else
 		{
-			StdVector<IdenSPtr> idens = sym->qualName->AllIdens();
-			std::reverse(idens.begin(), idens.end());
-			return m_ScopedTable->Add(sym, idens);
+			return m_ScopedTable->Add(sym, 0);
 		}
 	}
 
-	SymbolSPtr ModuleSymbolTable::Find(QualNameSPtr scope, QualNameSPtr qualname)
-	{
-		return Find(scope, qualname, nullptr);
-	}
-
-	SymbolSPtr ModuleSymbolTable::Find(QualNameSPtr scope, QualNameSPtr qualname, QualNameSPtr interfaceName)
+	SymbolSPtr ModuleSymbolTable::Find(QualNameSPtr scope, QualNameSPtr qualname, QualNameSPtr interfaceQualName)
 	{
 		StdVector<QualNameSPtr> possibleQualNames;
-		StdVector<IdenSPtr> idens = qualname->AllIdens();
+		StdVector<IdenSPtr> idens = qualname->Idens();
 		StdVector<IdenSPtr> scopeIdens;
 		if (scope)
-			scopeIdens = scope->AllIdens();
+			scopeIdens = scope->Idens();
 
 		while (!scopeIdens.empty())
 		{
@@ -539,30 +511,47 @@ namespace Noctis
 
 		for (QualNameSPtr possibleQualName : possibleQualNames)
 		{
-			StdVector<IdenSPtr> allIdens = possibleQualName->AllIdens();
-			std::reverse(allIdens.begin(), allIdens.end());
-			IdenSPtr firstIden = allIdens.back();
-
-			auto it = m_TypeNameSymbols.find(firstIden);
-			if (it != m_TypeNameSymbols.end())
-			{
-				allIdens.pop_back();
-
-				if (allIdens.empty())
-					return it->second;
-				
-				SymbolSPtr sym = it->second->children->Find(allIdens, interfaceName);
-				if (sym)
-					return sym;
-				continue;
-			}
-
-			SymbolSPtr sym = m_ScopedTable->Find(allIdens, interfaceName);
+			SymbolSPtr sym;
+			if (interfaceQualName)
+				sym = FindWithInterface(possibleQualName, interfaceQualName);
+			else
+				sym = Find(possibleQualName);
 			if (sym)
 				return sym;
 		}
 
 		return nullptr;
+	}
+
+	SymbolSPtr ModuleSymbolTable::Find(QualNameSPtr qualName)
+	{
+		if (qualName->Disambiguation())
+			return FindWithDisambiguation(qualName);
+		
+		IdenSPtr firstIden = qualName->Idens().front();
+
+		auto it = m_TypeNameSymbols.find(firstIden);
+		if (it != m_TypeNameSymbols.end())
+		{
+			if (qualName->Idens().size() == 1)
+				return it->second;
+
+			SymbolSPtr sym = it->second->children->Find(qualName, 1, nullptr, {});
+			if (sym)
+				return sym;
+			return nullptr;
+		}
+
+		SymbolSPtr sym = m_ScopedTable->Find(qualName, 0, {});
+		if (sym)
+			return sym;
+
+		return nullptr;
+	}
+
+	SymbolSPtr ModuleSymbolTable::Find(TypeHandle type)
+	{
+		return Find(type->type);
 	}
 
 	SymbolSPtr ModuleSymbolTable::Find(TypeSPtr type)
@@ -571,6 +560,64 @@ namespace Noctis
 		if (it != m_TypeSymbols.end())
 			return it->second;
 		return nullptr;
+	}
+
+	SymbolSPtr ModuleSymbolTable::FindWithInterface(QualNameSPtr qualName, QualNameSPtr interfaceQualName)
+	{		
+		const StdVector<IdenSPtr>& idens = qualName->Idens();
+
+		if (idens.size() == 1)
+			return Find(qualName);
+		
+		for (usize i = idens.size() - 1; i != 0; --i)
+		{
+			StdVector<IdenSPtr> tmpIdens;
+			tmpIdens.assign(idens.begin(), idens.begin() + i);
+			QualNameSPtr baseQualName = QualName::Create(tmpIdens);
+
+			SymbolSPtr sym = Find(baseQualName);
+			if (sym)
+			{
+				sym = sym->children->Find(qualName, i, interfaceQualName, {});
+				if (sym)
+					return sym;
+			}
+		}
+		return nullptr;
+	}
+
+	SymbolSPtr ModuleSymbolTable::FindWithDisambiguation(QualNameSPtr qualName)
+	{
+		TypeDisambiguationSPtr disambig = qualName->Disambiguation();
+		TypeHandle type = disambig->Type();
+
+		StdVector<IdenSPtr> tmpIdens;
+		tmpIdens.assign(disambig->IfaceQualName()->Idens().begin(), disambig->IfaceQualName()->Idens().end());
+
+		SymbolSPtr disambigSym;
+		if (type->type->typeKind == TypeKind::Iden)
+		{
+			IdenType& idenType = type->AsIden();
+			SymbolSPtr idenSym = idenType.sym.lock();
+			if (idenSym)
+			{
+				disambigSym = idenSym;
+			}
+			else
+			{
+				disambigSym = Find(idenType.qualName);
+			}
+		}
+		else
+		{
+			disambigSym = Find(type);
+		}
+
+		if (!disambigSym)
+			return nullptr;
+
+		tmpIdens.assign(qualName->Idens().begin(), qualName->Idens().end());
+		return disambigSym->children->Find(qualName, 0, disambig->IfaceQualName(), {});
 	}
 
 	void ModuleSymbolTable::Merge(ModuleSymbolTable& src)
@@ -646,13 +693,13 @@ namespace Noctis
 	{
 	}
 
-	bool ScopedSymbolTable::Add(SymbolSPtr sym, StdVector<IdenSPtr>& idens)
+	bool ScopedSymbolTable::Add(SymbolSPtr sym, usize idenIdx)
 	{
-		IdenSPtr iden = idens.back();
-		idens.pop_back();
+		const StdVector<IdenSPtr>& idens = sym->qualName->Idens();
+		IdenSPtr iden = idens[idenIdx];
 		const StdString& name = iden->Name();
 
-		if (idens.empty())
+		if (idenIdx == idens.size() - 1)
 		{
 			if (sym->kind == SymbolKind::Func ||
 				sym->kind == SymbolKind::Method)
@@ -690,7 +737,7 @@ namespace Noctis
 			if (symIt != m_Symbols.end())
 			{
 				sym->parent = symIt->second;
-				return symIt->second->children->Add(sym, idens);
+				return symIt->second->children->Add(nullptr, sym, idenIdx + 1);
 			}
 
 			auto funcIt = m_Functions.find(name);
@@ -701,7 +748,7 @@ namespace Noctis
 				if (subIt != funcIt->second.end())
 				{
 					sym->parent = symIt->second;
-					return subIt->second->children->Add(sym, idens);
+					return subIt->second->children->Add(nullptr, sym, idenIdx + 1);
 				}
 				return false;
 			}
@@ -710,13 +757,13 @@ namespace Noctis
 			if (scopeIt == m_SubTables.end())
 				scopeIt = m_SubTables.try_emplace(name, ScopedSymbolTableSPtr{ new ScopedSymbolTable{ m_pCtx } }).first;
 
-			return scopeIt->second->Add(sym, idens);
+			return scopeIt->second->Add(sym, idenIdx + 1);
 		}
 	}
 
 	bool ScopedSymbolTable::RemoveFromCur(SymbolSPtr sym)
 	{
-		IdenSPtr iden = sym->qualName->Iden();
+		IdenSPtr iden = sym->qualName->LastIden();
 		
 		auto it = m_Symbols.find(iden->Name());
 		if (it != m_Symbols.end())
@@ -745,130 +792,47 @@ namespace Noctis
 
 	SymbolSPtr ScopedSymbolTable::Find(QualNameSPtr qualName)
 	{
-		StdVector<IdenSPtr> idens = qualName->AllIdens();
-		std::reverse(idens.begin(), idens.end());
-		return Find(idens, nullptr);
+		return Find(qualName, 0, {});
 	}
 
 	SymbolSPtr ScopedSymbolTable::Find(QualNameSPtr qualName, const StdVector<StdString>& argNames)
 	{
-		StdVector<IdenSPtr> idens = qualName->AllIdens();
-		std::reverse(idens.begin(), idens.end());
-		return Find(idens, argNames);
+		return Find(qualName, 0, argNames);
 	}
 
-	SymbolSPtr ScopedSymbolTable::Find(StdVector<IdenSPtr>& idens, QualNameSPtr interfaceName)
+	SymbolSPtr ScopedSymbolTable::Find(QualNameSPtr qualName, usize idenIdx, const StdVector<StdString>& argNames)
 	{
-		IdenSPtr iden = idens.back();
-		idens.pop_back();
+		IdenSPtr iden = qualName->Idens()[idenIdx];
 		const StdString& name = iden->Name();
 
 		auto symIt = m_Symbols.find(name);
 		if (symIt != m_Symbols.end())
 		{
-			if (idens.empty())
+			if (idenIdx == qualName->Idens().size() - 1)
 				return symIt->second;
 			SymbolSPtr variant = symIt->second->GetVariant(iden);
-			return variant->children->Find(idens, interfaceName);
+			return variant->children->Find(qualName, idenIdx + 1, nullptr, argNames);
 		}
 
-		auto funcIt = m_Functions.find(name);
-		if (funcIt != m_Functions.end())
+		if (idenIdx == qualName->Idens().size() - 1)
 		{
-			StdUnorderedMap<StdString, SymbolSPtr>::iterator subIt;
-			if (funcIt->second.size() == 1)
-			{
-				subIt = funcIt->second.begin();
-			}
-			else
-			{
-				StdString funcStr = iden->ToFuncSymName();
-				subIt = funcIt->second.find(funcStr);
-			}
-			
-			if (subIt != funcIt->second.end())
-			{
-				SymbolSPtr variant = subIt->second->GetVariant(iden);
-				if (idens.empty())
-					return variant;
-				return variant->children->Find(idens, interfaceName);
-			}
+			SymbolSPtr funcSym = FindFunction(iden, argNames);
+			if (funcSym)
+				return funcSym;
+		}
+		else
+		{
+			SymbolSPtr funcSym = FindFunction(iden, iden->ParamNames());
+			if (funcSym)
+				return funcSym->children->Find(qualName, idenIdx + 1, nullptr, argNames);
 		}
 
 		auto subIt = m_SubTables.find(name);
 		if (subIt != m_SubTables.end())
 		{
-			if (idens.empty())
+			if (idenIdx == qualName->Idens().size() - 1)
 				return nullptr;
-			return subIt->second->Find(idens, interfaceName);
-		}
-
-		return nullptr;
-	}
-
-	SymbolSPtr ScopedSymbolTable::Find(StdVector<IdenSPtr>& idens, const StdVector<StdString>& argNames)
-	{
-		IdenSPtr iden = idens.back();
-		idens.pop_back();
-		const StdString& name = iden->Name();
-
-		if (idens.empty())
-		{
-			auto it = m_Functions.find(name);
-			if (it == m_Functions.end())
-				return nullptr;
-
-			if (it->second.size() == 1)
-			{
-				SymbolSPtr funcSym = it->second.begin()->second;
-				return funcSym->GetVariant(iden);
-			}
-			
-			StdString funcName = iden->Name();
-			for (const StdString& argName : argNames)
-			{
-				funcName += "__" + argName;
-			}
-
-			auto subIt = it->second.find(funcName);
-			if (subIt != it->second.end())
-				return subIt->second;
-		}
-		else
-		{
-			auto symIt = m_Symbols.find(name);
-			if (symIt != m_Symbols.end())
-			{
-				if (idens.empty())
-					return symIt->second;
-				SymbolSPtr variant = symIt->second->GetVariant(iden);
-				return variant->children->Find(idens, argNames);
-			}
-
-			auto funcIt = m_Functions.find(name);
-			if (funcIt != m_Functions.end())
-			{
-				StdString funcName = iden->Name();
-				for (const StdString& argName : argNames)
-				{
-					funcName += "__" + argName;
-				}
-				
-				auto subIt = funcIt->second.find(funcName);
-				if (subIt != funcIt->second.end())
-				{
-					SymbolSPtr variant = subIt->second->GetVariant(iden);
-					return variant->children->Find(idens, argNames);
-				}
-			}
-
-			auto subIt = m_SubTables.find(name);
-			if (subIt != m_SubTables.end())
-			{
-				if (idens.empty())
-					return nullptr;
-				return subIt->second->Find(idens, argNames);
-			}
+			return subIt->second->Find(qualName, idenIdx + 1, argNames);
 		}
 
 		return nullptr;
@@ -956,5 +920,29 @@ namespace Noctis
 			g_Logger.Log(" +(sub-table '%s')\n", pair.first.c_str());
 			pair.second->Log(indent + 1, includeImports);
 		}
+	}
+
+	SymbolSPtr ScopedSymbolTable::FindFunction(IdenSPtr iden, const StdVector<StdString>& argNames)
+	{
+		auto it = m_Functions.find(iden->Name());
+		if (it == m_Functions.end())
+			return nullptr;
+
+		if (it->second.size() == 1)
+		{
+			return it->second.begin()->second;
+		}
+
+		StdString searchName = iden->Name();
+		for (const StdString& argName : argNames)
+		{
+			searchName += "__" + argName;
+		}
+
+		auto subIt = it->second.find(searchName);
+		if (subIt == it->second.end())
+			return nullptr;
+
+		return subIt->second->GetVariant(iden);
 	}
 }

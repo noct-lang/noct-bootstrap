@@ -769,7 +769,7 @@ namespace Noctis
 		QualNameSPtr blockName = node.ctx->qualName;
 		if (!blockName)
 			blockName = node.ctx->scope;
-		ITrStmtSPtr stmt{ new ITrBlock{ blockName->Iden()->Name(), std::move(stmts) } };
+		ITrStmtSPtr stmt{ new ITrBlock{ blockName->LastIden()->Name(), std::move(stmts) } };
 		node.itr = stmt;
 		m_Stmts.push(stmt);
 	}
@@ -799,7 +799,7 @@ namespace Noctis
 		}
 
 		ITrStmtSPtr stmt{ new ITrIf{ false, decl, cond, tBlock, fBlock } };
-		stmt.reset(new ITrBlock{ node.ctx->qualName->Iden()->Name(), { stmt } });
+		stmt.reset(new ITrBlock{ node.ctx->qualName->LastIden()->Name(), { stmt } });
 		node.itr = stmt;
 		m_Stmts.push(stmt);
 	}
@@ -818,7 +818,7 @@ namespace Noctis
 
 		IdenSPtr label = node.label ? Iden::Create(node.label->iden) : nullptr;
 
-		ITrStmtSPtr stmt{ new ITrLoop{ node.ctx->qualName->Iden()->Name(), label, std::move(stmts) } };
+		ITrStmtSPtr stmt{ new ITrLoop{ node.ctx->qualName->LastIden()->Name(), label, std::move(stmts) } };
 		node.itr = stmt;
 		m_Stmts.push(stmt);
 	}
@@ -844,7 +844,7 @@ namespace Noctis
 
 		IdenSPtr label = node.label ? Iden::Create(node.label->iden) : nullptr;
 
-		ITrStmtSPtr stmt{ new ITrLoop{ node.ctx->qualName->Iden()->Name(), label, std::move(stmts) } };
+		ITrStmtSPtr stmt{ new ITrLoop{ node.ctx->qualName->LastIden()->Name(), label, std::move(stmts) } };
 		node.itr = stmt;
 		m_Stmts.push(stmt);
 	}
@@ -870,7 +870,7 @@ namespace Noctis
 
 		IdenSPtr label = node.label ? Iden::Create(node.label->iden) : nullptr;
 		
-		ITrStmtSPtr stmt{ new ITrLoop{ node.ctx->qualName->Iden()->Name(), label, std::move(stmts) } };
+		ITrStmtSPtr stmt{ new ITrLoop{ node.ctx->qualName->LastIden()->Name(), label, std::move(stmts) } };
 		node.itr = stmt;
 		m_Stmts.push(stmt);
 	}
@@ -881,7 +881,7 @@ namespace Noctis
 		
 		//StdVector<ITrStmtSPtr> stmts;
 		//
-		//IdenSPtr itIden = Iden::Create(Format("__it_%u", node.ctx->startIdx));
+		//IdenSPtr itIden = LastIden::Create(Format("__it_%u", node.ctx->startIdx));
 		//ITrStmtSPtr decl{ new ITrLocalVar{ nullptr, { itIden }, nullptr, } };
 	}
 
@@ -919,7 +919,7 @@ namespace Noctis
 
 		IdenSPtr label = node.label ? Iden::Create(node.label->iden) : nullptr;
 		
-		ITrStmtSPtr stmt{ new ITrSwitch{ node.ctx->qualName->Iden()->Name(), label, expr, std::move(cases) } };
+		ITrStmtSPtr stmt{ new ITrSwitch{ node.ctx->qualName->LastIden()->Name(), label, expr, std::move(cases) } };
 	}
 
 	void AstToITrLowering::Visit(AstLabelStmt& node)
@@ -1040,7 +1040,7 @@ namespace Noctis
 			}
 		}
 
-		ITrBlockSPtr block{ new ITrBlock{ node.ctx->qualName->Iden()->Name(), std::move(stmts) } };
+		ITrBlockSPtr block{ new ITrBlock{ node.ctx->qualName->LastIden()->Name(), std::move(stmts) } };
 		ITrStmtSPtr stmt{ new ITrUnsafe{ block } };
 		node.itr = stmt;
 		m_Stmts.push(stmt);
@@ -1090,7 +1090,7 @@ namespace Noctis
 		}
 
 		ITrStmtSPtr stmt{ new ITrIf{ true, decl, cond, tBlock, fBlock } };
-		stmt.reset(new ITrBlock{ node.ctx->qualName->Iden()->Name(), { stmt } });
+		stmt.reset(new ITrBlock{ node.ctx->qualName->LastIden()->Name(), { stmt } });
 		node.itr = stmt;
 		m_Stmts.push(stmt);
 	}
@@ -1434,7 +1434,7 @@ namespace Noctis
 			}
 		}
 
-		ITrExprSPtr expr{ new ITrBlockExpr{ node.ctx->qualName->Iden()->Name(), std::move(stmts) } };
+		ITrExprSPtr expr{ new ITrBlockExpr{ node.ctx->qualName->LastIden()->Name(), std::move(stmts) } };
 		node.itr = expr;
 		m_Exprs.push(expr);
 	}
@@ -2302,7 +2302,7 @@ namespace Noctis
 		for (usize i = 0; i < genDecl->params.size(); ++i)
 		{
 			ITrGenParamSPtr param = genDecl->params[i];
-			IdenGeneric& idenGen = qualName->Iden()->Generics()[i];
+			IdenGeneric& idenGen = qualName->LastIden()->Generics()[i];
 			if (param->isVar)
 			{
 				ITrGenValParam& genParam = *reinterpret_cast<ITrGenValParam*>(param.get());

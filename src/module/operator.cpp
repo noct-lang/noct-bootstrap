@@ -594,7 +594,7 @@ namespace Noctis
 
 	void OperatorTable::HandleBinaryOp(OperatorKind kind, SymbolSPtr impl, SymbolSPtr interfaceSym)
 	{
-		TypeHandle rType = interfaceSym->qualName->Iden()->Generics()[0].type;
+		TypeHandle rType = interfaceSym->qualName->LastIden()->Generics()[0].type;
 
 		StdString funcName;
 		switch (kind)
@@ -607,7 +607,7 @@ namespace Noctis
 		case OperatorKind::Ge: funcName = "opGe"; break;
 		default:
 		{
-			funcName = interfaceSym->qualName->Iden()->Name();
+			funcName = interfaceSym->qualName->LastIden()->Name();
 			funcName[0] = 'o';
 			break;
 		}
@@ -619,7 +619,7 @@ namespace Noctis
 		
 		IdenSPtr funcIden = Iden::Create(funcName);
 
-		IdenSPtr ifaceIden = Iden::Create(interfaceSym->qualName->Iden()->Name(), { idenGen });
+		IdenSPtr ifaceIden = Iden::Create(interfaceSym->qualName->LastIden()->Name(), { idenGen });
 		QualNameSPtr ifaceQualName = QualName::Create(interfaceSym->qualName->Base(), ifaceIden);
 		
 		SymbolSPtr funcSym = impl->children->FindChild(ifaceQualName, funcIden, {});
@@ -653,7 +653,7 @@ namespace Noctis
 
 	void OperatorTable::HandleBinaryOp(OperatorKind kind, SymbolSPtr interfaceSym)
 	{
-		TypeHandle rType = interfaceSym->qualName->Iden()->Generics()[0].type;
+		TypeHandle rType = interfaceSym->qualName->LastIden()->Generics()[0].type;
 
 		StdString funcName;
 		switch (kind)
@@ -666,7 +666,7 @@ namespace Noctis
 		case OperatorKind::Ge: funcName = "opGe"; break;
 		default:
 		{
-			funcName = interfaceSym->qualName->Iden()->Name();
+			funcName = interfaceSym->qualName->LastIden()->Name();
 			funcName[0] = 'o';
 			break;
 		}
@@ -678,7 +678,7 @@ namespace Noctis
 
 		IdenSPtr funcIden = Iden::Create(funcName);
 
-		IdenSPtr ifaceIden = Iden::Create(interfaceSym->qualName->Iden()->Name(), { idenGen });
+		IdenSPtr ifaceIden = Iden::Create(interfaceSym->qualName->LastIden()->Name(), { idenGen });
 		QualNameSPtr ifaceQualName = QualName::Create(interfaceSym->qualName->Base(), ifaceIden);
 
 		SymbolSPtr funcSym = interfaceSym->children->FindChild(nullptr, funcIden, {});
@@ -713,7 +713,7 @@ namespace Noctis
 
 	void OperatorTable::HandleUnaryOp(OperatorKind kind, SymbolSPtr impl, SymbolSPtr interfaceSym)
 	{
-		StdString funcName = interfaceSym->qualName->Iden()->Name();
+		StdString funcName = interfaceSym->qualName->LastIden()->Name();
 		funcName[0] = 'o';
 		
 		IdenSPtr funcIden = Iden::Create(funcName);
@@ -753,7 +753,7 @@ namespace Noctis
 
 	void OperatorTable::HandleUnaryOp(OperatorKind kind, SymbolSPtr interfaceSym)
 	{
-		StdString funcName = interfaceSym->qualName->Iden()->Name();
+		StdString funcName = interfaceSym->qualName->LastIden()->Name();
 		funcName[0] = 'o';
 
 		IdenSPtr funcIden = Iden::Create(funcName);
@@ -794,8 +794,8 @@ namespace Noctis
 
 	void OperatorTable::HandleFromOp(bool isTry, SymbolSPtr impl, SymbolSPtr interfaceSym)
 	{
-		TypeHandle fromType = interfaceSym->qualName->Iden()->Generics()[0].type;
-		StdString funcName = interfaceSym->qualName->Iden()->Name();
+		TypeHandle fromType = interfaceSym->qualName->LastIden()->Generics()[0].type;
+		StdString funcName = interfaceSym->qualName->LastIden()->Name();
 
 		IdenGeneric idenGen;
 		idenGen.isType = idenGen.isSpecialized = true;
@@ -803,7 +803,7 @@ namespace Noctis
 
 		IdenSPtr funcIden = Iden::Create(funcName);
 
-		IdenSPtr ifaceIden = Iden::Create(interfaceSym->qualName->Iden()->Name(), { idenGen });
+		IdenSPtr ifaceIden = Iden::Create(interfaceSym->qualName->LastIden()->Name(), { idenGen });
 		QualNameSPtr ifaceQualName = QualName::Create(interfaceSym->qualName->Base(), ifaceIden);
 
 		SymbolSPtr funcSym = impl->children->FindChild(ifaceQualName, funcIden, {});
@@ -839,9 +839,9 @@ namespace Noctis
 
 	void OperatorTable::HandleToOp(bool isTry, SymbolSPtr impl, SymbolSPtr interfaceSym)
 	{
-		TypeHandle toType = interfaceSym->qualName->Iden()->Generics()[0].type;
+		TypeHandle toType = interfaceSym->qualName->LastIden()->Generics()[0].type;
 
-		StdString funcName = interfaceSym->qualName->Iden()->Name();
+		StdString funcName = interfaceSym->qualName->LastIden()->Name();
 
 		IdenGeneric idenGen;
 		idenGen.isType = idenGen.isSpecialized = true;
@@ -849,7 +849,7 @@ namespace Noctis
 
 		IdenSPtr funcIden = Iden::Create(funcName);
 
-		IdenSPtr ifaceIden = Iden::Create(interfaceSym->qualName->Iden()->Name(), { idenGen });
+		IdenSPtr ifaceIden = Iden::Create(interfaceSym->qualName->LastIden()->Name(), { idenGen });
 		QualNameSPtr ifaceQualName = QualName::Create(interfaceSym->qualName->Base(), ifaceIden);
 
 		SymbolSPtr funcSym = impl->children->FindChild(ifaceQualName, funcIden, {});

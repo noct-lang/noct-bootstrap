@@ -280,14 +280,14 @@ namespace Noctis
 		macro.pattern = GeneratePattern(astMacro->pattern);
 		macro.body = astMacro->body;
 
-		StdVector<IdenSPtr> scopeIdens = scope->AllIdens();
+		StdVector<IdenSPtr> scopeIdens = scope->Idens();
 		return AddMacro(scopeIdens, macro);
 	}
 
 	StdVector<DeclMacro> MacroContext::GetDeclMacros(QualNameSPtr curScope, QualNameSPtr qualName)
 	{
-		StdVector<IdenSPtr> curScopeIdens = curScope->AllIdens();
-		StdVector<IdenSPtr> qualNameIdens = qualName->AllIdens();
+		StdVector<IdenSPtr> curScopeIdens = curScope->Idens();
+		StdVector<IdenSPtr> qualNameIdens = qualName->Idens();
 		return GetDeclMacros(curScopeIdens, qualNameIdens);
 	}
 

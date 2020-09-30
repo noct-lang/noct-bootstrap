@@ -52,18 +52,18 @@ namespace Noctis
 	class TypeDisambiguation
 	{
 	public:
-		static TypeDisambiguationSPtr Create(QualNameSPtr qualName, TypeHandle type);
+		static TypeDisambiguationSPtr Create(TypeHandle type, QualNameSPtr ifaceQualName);
 
-		QualNameSPtr QualName() { return m_QualName; }
 		TypeHandle Type() { return m_Type; }
+		QualNameSPtr IfaceQualName() { return m_QualName; }
 
 	private:
-		TypeDisambiguation(QualNameSPtr qualName, TypeHandle type); 
+		TypeDisambiguation(TypeHandle type, QualNameSPtr qualName);
 		
-		QualNameSPtr m_QualName;
 		TypeHandle m_Type;
+		QualNameSPtr m_QualName;
 
-		static StdUnorderedMap<QualNameSPtr, StdUnorderedMap<TypeHandle, TypeDisambiguationSPtr>> m_sTypeDisambiguations;
+		static StdUnorderedMap<TypeHandle, StdUnorderedMap<QualNameSPtr, TypeDisambiguationSPtr>> s_TypeDisambiguations;
 	};
 	
 	class QualName
@@ -79,28 +79,33 @@ namespace Noctis
 		static QualNameSPtr Create(QualNameSPtr first, const StdVector<IdenSPtr>& idens);
 
 		StdString ToString() const;
-		StdVector<IdenSPtr> AllIdens();
 		QualNameSPtr GetSubName(QualNameSPtr base);
 		QualNameSPtr GetSubName(usize depth);
-		usize Depth(); 
+		 
 
 		bool IsBase();
 
 		bool IsSubnameOf(QualNameSPtr base);
 
-		IdenSPtr Iden() { return m_Iden; }
-		const IdenSPtr Iden() const { return m_Iden; }
+		TypeDisambiguationSPtr Disambiguation() { return m_Disambiguation; }
+		IdenSPtr LastIden() { return m_Idens.back(); }
+		const IdenSPtr LastIden() const { return m_Idens.back(); }
+		const StdVector<IdenSPtr>& Idens() { return m_Idens; }
+		usize Depth() { return m_Idens.size(); }
+
 		QualNameSPtr Base() { return m_Base; }
 		const QualNameSPtr Base() const { return m_Base; }
-		TypeDisambiguationSPtr Disambiguation() { return m_Disambiguation; }
 		
 	private:
 		QualName(QualNameSPtr base, IdenSPtr iden);
 		QualName(TypeDisambiguationSPtr disambiguation);
 
-		IdenSPtr m_Iden;
-		QualNameSPtr m_Base;
+		
 		TypeDisambiguationSPtr m_Disambiguation;
+		StdVector<IdenSPtr> m_Idens;
+
+		
+		QualNameSPtr m_Base;
 		StdUnorderedMap<IdenSPtr, QualNameSPtr> m_Children;
 		
 		static StdUnorderedMap<IdenSPtr, QualNameSPtr> s_BaseNames;

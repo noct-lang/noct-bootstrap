@@ -98,7 +98,7 @@ namespace Noctis
 		if (!decl)
 			return;
 
-		StdVector<IdenGeneric>& generics = qualName->Iden()->Generics();
+		StdVector<IdenGeneric>& generics = qualName->LastIden()->Generics();
 		for (usize i = 0; i < decl->params.size(); ++i)
 		{
 			ITrGenParamSPtr param = decl->params[i];
@@ -135,7 +135,7 @@ namespace Noctis
 				for (ITrGenTypeBoundSPtr bound : decl->bounds)
 				{
 					TypeHandle type = bound->type->handle;
-					IdenSPtr typeIden = type->AsIden().qualName->Iden();
+					IdenSPtr typeIden = type->AsIden().qualName->LastIden();
 					if (typeIden == typeParam.iden)
 					{
 						toReplaceTypes.push_back(bound);
@@ -196,7 +196,7 @@ namespace Noctis
 			StdVector<SymbolSPtr> interfaces;
 			for (StdPair<QualNameSPtr, SpanId>& pair : node.implInterfaces)
 			{
-				IdenSPtr iden = pair.first->Iden();
+				IdenSPtr iden = pair.first->LastIden();
 				if (!iden->Generics().empty())
 				{
 					StdVector<IdenGeneric> generics;
@@ -216,7 +216,7 @@ namespace Noctis
 			{
 				// Update qualname to connect it to the interface that implements it
 
-				IdenSPtr iden = interface->qualName->Iden();
+				IdenSPtr iden = interface->qualName->LastIden();
 				StdVector<IdenGeneric> generics;
 				for (IdenGeneric& origGeneric : iden->Generics())
 				{
@@ -227,7 +227,7 @@ namespace Noctis
 				QualNameSPtr qualName = QualName::Create(interface->qualName->Base(), iden);
 				SymbolSPtr parentIFace = symTable.Find(node.qualName, qualName);
 
-				if (iden != parentIFace->qualName->Iden())
+				if (iden != parentIFace->qualName->LastIden())
 				{
 					parentIFace = parentIFace->CreateVariant(qualName);
 				}
@@ -246,14 +246,14 @@ namespace Noctis
 
 				parentIFace->children->Foreach([&](SymbolSPtr parentIfaceChild, QualNameSPtr)
 				{
-					SymbolSPtr defChild = sym->children->FindChild(nullptr, parentIfaceChild->qualName->Iden());
+					SymbolSPtr defChild = sym->children->FindChild(nullptr, parentIfaceChild->qualName->LastIden());
 					SymbolSPtr child = defChild;
 					if (!defChild)
 					{
-						QualNameSPtr childQualName = QualName::Create(sym->qualName, parentIfaceChild->qualName->Iden());
+						QualNameSPtr childQualName = QualName::Create(sym->qualName, parentIfaceChild->qualName->LastIden());
 						child = CreateSymbol(m_pCtx, parentIfaceChild->kind, childQualName);
 
-						sym->children->AddChild(qualName, child);
+						sym->children->AddChild(child, qualName);
 
 						ITrFunc& func = static_cast<ITrFunc&>(*parentIfaceChild->associatedITr.lock());
 						StdVector<ITrParamSPtr> params = func.params;

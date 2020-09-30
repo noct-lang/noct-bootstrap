@@ -107,7 +107,7 @@ namespace Noctis
 		if (m_ImplQualName)
 		{
 			QualNameSPtr subQualName = qualName->GetSubName(m_ImplQualName);
-			qualName = QualName::Create(m_TypeQualName, subQualName->AllIdens());
+			qualName = QualName::Create(m_TypeQualName, subQualName->Idens());
 			node.qualName = qualName;
 		}
 
@@ -149,7 +149,7 @@ namespace Noctis
 		if (m_ImplQualName)
 		{
 			QualNameSPtr subQualName = qualName->GetSubName(m_ImplQualName);
-			qualName = QualName::Create(m_TypeQualName, subQualName->AllIdens());
+			qualName = QualName::Create(m_TypeQualName, subQualName->Idens());
 			node.qualName = qualName;
 		}
 
@@ -165,7 +165,7 @@ namespace Noctis
 					paramNames.push_back(param->iden->Name());
 			}
 
-			IdenSPtr newIden = Iden::Create(qualName->Iden()->Name(), qualName->Iden()->Generics(), paramNames);
+			IdenSPtr newIden = Iden::Create(qualName->LastIden()->Name(), qualName->LastIden()->Generics(), paramNames);
 			qualName = QualName::Create(qualName->Base(), newIden);
 		}
 
@@ -407,9 +407,9 @@ namespace Noctis
 			{
 				IdenType& idenType = type->AsIden();
 				sym = symTable.Find(node.qualName, idenType.qualName);
-				if (sym->qualName->Iden() != idenType.qualName->Iden())
+				if (sym->qualName->LastIden() != idenType.qualName->LastIden())
 				{
-					IdenSPtr iden = Iden::Create(idenType.qualName->Iden()->Name(), sym->qualName->Iden()->Generics());
+					IdenSPtr iden = Iden::Create(idenType.qualName->LastIden()->Name(), sym->qualName->LastIden()->Generics());
 					SymbolSPtr typeSym = sym->children->FindChild(nullptr, iden);
 					if (typeSym)
 						sym->type = typeSym->type;
@@ -458,7 +458,7 @@ namespace Noctis
 			if (type->typeKind == TypeKind::Iden)
 			{
 				IdenType& idenType = type->AsIden();
-				if (sym->qualName->Iden() != idenType.qualName->Iden())
+				if (sym->qualName->LastIden() != idenType.qualName->LastIden())
 				{
 					SymbolSPtr typeSym = symTable.Find(node.qualName, idenType.qualName);
 					if (typeSym)
@@ -506,29 +506,29 @@ namespace Noctis
 			QualNameSPtr qualName = interface->qualName;
 			SymbolSPtr baseInterface = interface->baseVariant.lock();
 			SymbolSPtr child;
+			IdenSPtr iden = sym->qualName->LastIden();
+			QualNameSPtr tmpQualName = QualName::Create(iden);
 			if (sym->kind == SymbolKind::Func ||
 				sym->kind == SymbolKind::Method)
 			{
-				IdenSPtr iden = sym->qualName->Iden();
-				StdVector<IdenSPtr> idens{ iden };
-				child = baseInterface->children->Find(idens, iden->ParamNames());
+				
+				child = baseInterface->children->Find(tmpQualName, 0, nullptr, iden->ParamNames());
 			}
 			else
 			{
-				StdVector<IdenSPtr> idens{ sym->qualName->Iden() };
-				child = baseInterface->children->Find(idens, nullptr);
+				StdVector<IdenSPtr> idens{ sym->qualName->LastIden() };
+				child = baseInterface->children->Find(tmpQualName, 0, nullptr, {});
 			}
 
 			if (child)
 			{
-				StdVector<IdenSPtr> idens{ sym->qualName->Iden() };
 				sym->impls.emplace_back(child);
 				sym->interfaces.emplace_back(interface->qualName, interface);
-				m_ImplSymbol->children->Add(qualName, sym, idens);
+				m_ImplSymbol->children->AddChild(sym, qualName);
 				res = true;
 
 				// Remove from needed children
-				auto it = m_NeededChildren.find(sym->qualName->Iden());
+				auto it = m_NeededChildren.find(sym->qualName->LastIden());
 				if (it != m_NeededChildren.end())
 					m_NeededChildren.erase(it);
 			}
@@ -550,7 +550,7 @@ namespace Noctis
 
 		SymbolSPtr baseInterfaceSym = m_pCtx->activeModule->symTable.Find(nodeQualName, interfaceQualName);
 		SymbolSPtr interfaceSym = baseInterfaceSym;
-		if (interfaceSym->IsBaseVariant() || interfaceSym->qualName->Iden() != interfaceQualName->Iden())
+		if (interfaceSym->IsBaseVariant() || interfaceSym->qualName->LastIden() != interfaceQualName->LastIden())
 		{
 			interfaceSym = interfaceSym->CreateVariant(interfaceQualName);
 		}
@@ -578,8 +578,8 @@ namespace Noctis
 	{
 		SymbolSPtr subInterfaceSym = pair.second.lock();
 
-		IdenSPtr iden = pair.first->Iden();
-		IdenSPtr parentIden = baseInterfaceSym->qualName->Iden();
+		IdenSPtr iden = pair.first->LastIden();
+		IdenSPtr parentIden = baseInterfaceSym->qualName->LastIden();
 		StdVector<IdenGeneric> generics;
 		for (IdenGeneric& origGeneric : iden->Generics())
 		{
@@ -589,7 +589,7 @@ namespace Noctis
 		iden = Iden::Create(iden->Name(), generics);
 		QualNameSPtr subInterfaceQualName = QualName::Create(pair.first->Base(), iden);
 		
-		if (subInterfaceSym->IsBaseVariant() || subInterfaceSym->qualName->Iden() != subInterfaceQualName->Iden())
+		if (subInterfaceSym->IsBaseVariant() || subInterfaceSym->qualName->LastIden() != subInterfaceQualName->LastIden())
 		{
 			subInterfaceSym = subInterfaceSym->CreateVariant(subInterfaceQualName);
 		}
@@ -625,7 +625,7 @@ namespace Noctis
 				sym->kind != SymbolKind::AssocType)
 				return;
 			
-			IdenSPtr iden = sym->qualName->Iden();
+			IdenSPtr iden = sym->qualName->LastIden();
 			auto it = m_NeededChildren.find(iden);
 
 			if (it == m_NeededChildren.end())

@@ -373,7 +373,7 @@ namespace Noctis
 	void ILGen::Visit(ITrQualNameExpr& node)
 	{
 		// First look for a local var
-		LocalVarDataSPtr local = m_FuncCtx->localVars.GetLocalVarData(m_ScopeNames, node.qualName->Iden());
+		LocalVarDataSPtr local = m_FuncCtx->localVars.GetLocalVarData(m_ScopeNames, node.qualName->LastIden());
 		if (local)
 		{
 			ILVar var;
@@ -398,13 +398,13 @@ namespace Noctis
 			if (sym->kind == SymbolKind::ValEnumMember)
 			{
 				ILVar dst = CreateDstVar(node.typeInfo.handle);
-				ILElemSPtr elem{ new ILValEnumInit{ dst, node.qualName->Iden()->Name() } };
+				ILElemSPtr elem{ new ILValEnumInit{ dst, node.qualName->LastIden()->Name() } };
 				m_pCurBlock->elems.push_back(elem);
 			}
 			else if (sym->kind == SymbolKind::AdtEnumMember)
 			{
 				ILVar dst = CreateDstVar(node.typeInfo.handle);
-				ILElemSPtr elem{ new ILAdtEnumInit{ dst, node.qualName->Iden()->Name(), {} } };
+				ILElemSPtr elem{ new ILAdtEnumInit{ dst, node.qualName->LastIden()->Name(), {} } };
 				m_pCurBlock->elems.push_back(elem);
 			}
 			else
@@ -455,7 +455,7 @@ namespace Noctis
 		{
 			ILVar caller = PopTmpVar();
 
-			const StdString& name = node.sym->qualName->Iden()->ToFuncSymName();
+			const StdString& name = node.sym->qualName->LastIden()->ToFuncSymName();
 
 			if (node.typeInfo.handle)
 			{
@@ -704,7 +704,7 @@ namespace Noctis
 					
 					SymbolSPtr child = node.sym->orderedVarChildren[i].lock();
 					ILVar tmpDst = CreateDstVar(child->type);
-					ILElemSPtr tmpElem{ new ILMemberAccess{ tmpDst, defVar, child->qualName->Iden()->Name() } };
+					ILElemSPtr tmpElem{ new ILMemberAccess{ tmpDst, defVar, child->qualName->LastIden()->Name() } };
 					m_pCurBlock->elems.push_back(tmpElem);
 
 					args[i] = tmpDst;
@@ -727,7 +727,7 @@ namespace Noctis
 				{
 					SymbolSPtr child = node.sym->orderedVarChildren[i].lock();
 					ILVar tmpDst = CreateDstVar(child->type);
-					ILElemSPtr tmpElem{ new ILMemberAccess{ tmpDst, defVar, child->qualName->Iden()->Name() } };
+					ILElemSPtr tmpElem{ new ILMemberAccess{ tmpDst, defVar, child->qualName->LastIden()->Name() } };
 					m_pCurBlock->elems.push_back(tmpElem);
 
 					args.push_back(tmpDst);
@@ -764,7 +764,7 @@ namespace Noctis
 		SymbolSPtr structSym = idenType.sym.lock();
 		
 		ILVar dst = CreateDstVar(node.typeInfo.handle);
-		ILElemSPtr elem{ new ILAdtEnumInit{ dst, node.sym->qualName->Iden()->Name(), args } };
+		ILElemSPtr elem{ new ILAdtEnumInit{ dst, node.sym->qualName->LastIden()->Name(), args } };
 		m_pCurBlock->elems.push_back(elem);
 	}
 
@@ -818,7 +818,7 @@ namespace Noctis
 
 					SymbolSPtr child = structSym->orderedVarChildren[i].lock();
 					ILVar tmpDst = CreateDstVar(child->type);
-					ILElemSPtr tmpElem{ new ILMemberAccess{ tmpDst, defVar, child->qualName->Iden()->Name() } };
+					ILElemSPtr tmpElem{ new ILMemberAccess{ tmpDst, defVar, child->qualName->LastIden()->Name() } };
 					m_pCurBlock->elems.push_back(tmpElem);
 
 					args[i] = tmpDst;
@@ -841,7 +841,7 @@ namespace Noctis
 				{
 					SymbolSPtr child = structSym->orderedVarChildren[i].lock();
 					ILVar tmpDst = CreateDstVar(child->type);
-					ILElemSPtr tmpElem{ new ILMemberAccess{ tmpDst, defVar, child->qualName->Iden()->Name() } };
+					ILElemSPtr tmpElem{ new ILMemberAccess{ tmpDst, defVar, child->qualName->LastIden()->Name() } };
 					m_pCurBlock->elems.push_back(tmpElem);
 
 					args.push_back(tmpDst);
@@ -855,7 +855,7 @@ namespace Noctis
 		tmpStruct = PopTmpVar();
 
 		ILVar dst = CreateDstVar(node.typeInfo.handle);
-		ILElemSPtr elem{ new ILAdtEnumInit{ dst, node.sym->qualName->Iden()->Name(), { tmpStruct } } };
+		ILElemSPtr elem{ new ILAdtEnumInit{ dst, node.sym->qualName->LastIden()->Name(), { tmpStruct } } };
 		m_pCurBlock->elems.push_back(elem);
 	}
 

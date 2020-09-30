@@ -215,26 +215,26 @@ namespace Noctis
 	{
 	}
 
-	StdUnorderedMap<QualNameSPtr, StdUnorderedMap<TypeHandle, TypeDisambiguationSPtr>> TypeDisambiguation::m_sTypeDisambiguations;
+	StdUnorderedMap<TypeHandle, StdUnorderedMap<QualNameSPtr, TypeDisambiguationSPtr>> TypeDisambiguation::s_TypeDisambiguations;
 
-	TypeDisambiguationSPtr TypeDisambiguation::Create(QualNameSPtr qualName, TypeHandle type)
+	TypeDisambiguationSPtr TypeDisambiguation::Create(TypeHandle type, QualNameSPtr ifaceQualName)
 	{
-		auto qIt = m_sTypeDisambiguations.find(qualName);
-		if (qIt == m_sTypeDisambiguations.end())
-			qIt = m_sTypeDisambiguations.insert(std::pair{ qualName, StdUnorderedMap<TypeHandle, TypeDisambiguationSPtr>{} }).first;
+		auto it = s_TypeDisambiguations.find(type);
+		if (it == s_TypeDisambiguations.end())
+			it = s_TypeDisambiguations.insert(std::pair{ type, StdUnorderedMap<QualNameSPtr, TypeDisambiguationSPtr>{} }).first;
 
-		auto it = qIt->second.find(type);
-		if (it != qIt->second.end())
-			return it->second;
+		auto subIt = it->second.find(ifaceQualName);
+		if (subIt != it->second.end())
+			return subIt->second;
 
-		TypeDisambiguationSPtr td{ new TypeDisambiguation{ qualName, type } };
-		qIt->second.try_emplace(type, td);
+		TypeDisambiguationSPtr td{ new TypeDisambiguation{ type, ifaceQualName } };
+		it->second.try_emplace(ifaceQualName, td);
 		return td;
 	}
 
-	TypeDisambiguation::TypeDisambiguation(QualNameSPtr qualName, TypeHandle type)
-		: m_QualName(std::move(qualName))
-		, m_Type(type)
+	TypeDisambiguation::TypeDisambiguation(TypeHandle type, QualNameSPtr qualName)
+		: m_Type(type)
+		, m_QualName(qualName)
 	{
 	}
 
@@ -311,46 +311,36 @@ namespace Noctis
 		QualNameSPtr tmp = first;
 		for (IdenSPtr iden : idens)
 		{
-			tmp = QualName::Create(tmp, iden);
+			tmp = Create(tmp, iden);
 		}
 		return tmp;
 	}
 
 	StdString QualName::ToString() const
 	{
-		const QualName* qualName = this;
 		StdString name;
-		do
-		{
-			StdString str = "::" + qualName->Iden()->ToString();
-			name.insert(name.begin(), str.begin(), str.end());
-			qualName = qualName->Base().get();
-		}
-		while (qualName);
-		return name;
-	}
 
-	StdVector<IdenSPtr> QualName::AllIdens()
-	{
-		StdVector<IdenSPtr> idens;
-		QualName* qualName = this;
-		do
+		//if (m_Disambiguation)
+		//	name += m_Disambiguation->
+
+		for (usize i = 0; i < m_Idens.size(); ++i)
 		{
-			idens.push_back(qualName->m_Iden);
-			qualName = qualName->m_Base.get();
+			if (i != 0)
+				name += "::";
+			
+			IdenSPtr iden = m_Idens[i];
+			name += iden->Name();
 		}
-		while (qualName);
-		std::reverse(idens.begin(), idens.end());
-		return idens;
+		return name;
 	}
 
 	QualNameSPtr QualName::GetSubName(QualNameSPtr base)
 	{
-		StdVector<IdenSPtr> ownIdens = AllIdens();
-		StdVector<IdenSPtr> baseIdens = base->AllIdens();
+		const StdVector<IdenSPtr>& ownIdens = Idens();
+		const StdVector<IdenSPtr>& baseIdens = base->Idens();
 
 		if (ownIdens.size() <= baseIdens.size())
-			return nullptr;
+			return Create(ownIdens);
 
 		usize size = baseIdens.size();
 		for (usize i = 0; i < size; ++i)
@@ -362,37 +352,25 @@ namespace Noctis
 				return nullptr;
 		}
 
-		StdVector<IdenSPtr> newIdens;
-		newIdens.insert(newIdens.begin(), ownIdens.begin() + size, ownIdens.end());
-
-		return Create(newIdens);
+		StdVector<IdenSPtr> idens;
+		idens.assign(ownIdens.begin() + size, ownIdens.end());
+		return Create(idens);
 	}
 
 	QualNameSPtr QualName::GetSubName(usize depth)
 	{
-		if (depth == 0)
-		{
-			return Create(m_Iden);
-		}
-		else
-		{
-			QualNameSPtr base = GetSubName(depth - 1);
-			return Create(base, m_Iden);
-		}
-	}
-
-	usize QualName::Depth()
-	{
-		if (m_Disambiguation)
-			return m_Disambiguation->QualName()->Depth() + 1;
-		if (m_Base)
-			return m_Base->Depth() + 1;
-		return 0;
+		if (depth > m_Idens.size())
+			depth = m_Idens.size();
+		
+		StdVector<IdenSPtr> idens;
+		idens.assign(m_Idens.end() - depth, m_Idens.end());
+		return Create(idens);
 	}
 
 	bool QualName::IsBase()
 	{
-		return !m_Base && !m_Disambiguation;
+		return (!m_Disambiguation && m_Idens.size() == 1) ||
+			(m_Disambiguation && m_Idens.empty());
 	}
 
 	bool QualName::IsSubnameOf(QualNameSPtr base)
@@ -412,8 +390,10 @@ namespace Noctis
 
 	QualName::QualName(QualNameSPtr base, IdenSPtr iden)
 		: m_Base(std::move(base))
-		, m_Iden(std::move(iden))
 	{
+		if (m_Base)
+			m_Idens = m_Base->Idens();
+		m_Idens.push_back(iden);
 	}
 
 	QualName::QualName(TypeDisambiguationSPtr disambiguation)
