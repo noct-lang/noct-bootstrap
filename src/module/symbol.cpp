@@ -124,12 +124,12 @@ namespace Noctis
 		case SymbolKind::Closure: break; // TODO
 		case SymbolKind::Var:
 		{
-			TypeSPtr actType = type->type;
-			if (!actType->size)
+			TypeSPtr actType = type.Type();
+			if (!actType->Size())
 				actType->CalculateSizeAlign(pCtx->typeReg);
 			
-			size = actType->size;
-			aligment = actType->alignment;
+			size = actType->Size();
+			aligment = actType->Align();
 			break;
 		}
 		default: ;
@@ -286,7 +286,7 @@ namespace Noctis
 		{
 			TypeHandle type = pCtx->typeReg.Iden(TypeMod::None, qualName);
 			sym->type = type;
-			pCtx->typeReg.SetIdenSym(type->AsIden().qualName, sym);
+			pCtx->typeReg.SetIdenSym(type.AsIden().qualName, sym);
 			break;
 		}
 		case SymbolKind::ValEnumMember:
@@ -472,7 +472,7 @@ namespace Noctis
 
 		if (sym->kind == SymbolKind::Type)
 		{
-			TypeSPtr type = sym->type->type;
+			TypeSPtr type = sym->type.Type();
 			auto it = m_TypeSymbols.find(type);
 			if (it != m_TypeSymbols.end())
 				return false;
@@ -551,7 +551,7 @@ namespace Noctis
 
 	SymbolSPtr ModuleSymbolTable::Find(TypeHandle type)
 	{
-		return Find(type->type);
+		return Find(type.Type());
 	}
 
 	SymbolSPtr ModuleSymbolTable::Find(TypeSPtr type)
@@ -595,9 +595,9 @@ namespace Noctis
 		tmpIdens.assign(disambig->IfaceQualName()->Idens().begin(), disambig->IfaceQualName()->Idens().end());
 
 		SymbolSPtr disambigSym;
-		if (type->type->typeKind == TypeKind::Iden)
+		if (type.Type()->typeKind == TypeKind::Iden)
 		{
-			IdenType& idenType = type->AsIden();
+			IdenType& idenType = type.AsIden();
 			SymbolSPtr idenSym = idenType.sym.lock();
 			if (idenSym)
 			{

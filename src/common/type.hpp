@@ -1,5 +1,7 @@
 #pragma once
+
 #include "defs.hpp"
+#include <cassert>
 
 namespace Noctis
 {
@@ -7,12 +9,13 @@ namespace Noctis
 	FWDECL_CLASS_SPTR(QualName);
 	FWDECL_CLASS_SPTR(Iden);
 	FWDECL_STRUCT_WPTR(Symbol);
-	
+
 	FWDECL_STRUCT_SPTR(AstExpr);
 	FWDECL_STRUCT_SPTR(ITrExpr);
-	
+
 	enum class TypeKind : u8
 	{
+		Invalid,
 		Builtin,
 		Iden,
 		Ptr,
@@ -54,7 +57,7 @@ namespace Noctis
 	enum class TypeMod : u8
 	{
 		None,
-		Mut, 
+		Mut,
 		Count,
 	};
 	StdStringView TypeModToString(TypeMod mod);
@@ -63,6 +66,7 @@ namespace Noctis
 	//constexpr TypeHandle InvalidTypeHandle = TypeHandle(-1);
 
 	FWDECL_STRUCT_SPTR(Type);
+
 	struct BuiltinType;
 	struct IdenType;
 	struct PtrType;
@@ -74,151 +78,276 @@ namespace Noctis
 	struct CompoundType;
 	struct FuncType;
 	struct GenericType;
-	class TypeRegistry;
-
-	struct Type
-	{
-		Type(TypeKind kind, TypeMod mod);
-
-		void CalculateSizeAlign(TypeRegistry& typeReg);
-
-		StdVector<TypeSPtr> GetIdenSubtypes();
-
-		BuiltinType& AsBuiltin() { return *reinterpret_cast<BuiltinType*>(this); }
-		IdenType& AsIden() { return *reinterpret_cast<IdenType*>(this); }
-		PtrType& AsPtr() { return *reinterpret_cast<PtrType*>(this); }
- 		RefType& AsRef() { return *reinterpret_cast<RefType*>(this); }
-		SliceType& AsSlice() { return *reinterpret_cast<SliceType*>(this); }
-		ArrayType& AsArray() { return *reinterpret_cast<ArrayType*>(this); }
-		TupleType& AsTuple() { return *reinterpret_cast<TupleType*>(this); }
-		OptType& AsOpt() { return *reinterpret_cast<OptType*>(this); }
-		CompoundType& AsCompound() { return *reinterpret_cast<CompoundType*>(this); }
-		FuncType& AsFunc() { return *reinterpret_cast<FuncType*>(this); }
-		GenericType& AsGeneric() { return *reinterpret_cast<GenericType*>(this); }
-
-		TypeKind typeKind;
-		TypeMod mod;
-
-		u64 size;
-		u16 alignment;
-	};
-	using TypeSPtr = StdSharedPtr<Type>;
 
 	struct THandle
 	{
+		THandle() {}
 		THandle(TypeSPtr type)
 			: type(type)
-		{
-		}
-		
-		TypeSPtr type;
-		
-		BuiltinType& AsBuiltin() { return type->AsBuiltin(); }
-		IdenType& AsIden() { return type->AsIden(); }
-		PtrType& AsPtr() { return type->AsPtr(); }
-		RefType& AsRef() { return type->AsRef(); }
-		SliceType& AsSlice() { return type->AsSlice(); }
-		ArrayType& AsArray() { return type->AsArray(); }
-		TupleType& AsTuple() { return type->AsTuple(); }
-		OptType& AsOpt() { return type->AsOpt(); }
-		CompoundType& AsCompound() { return type->AsCompound(); }
-		FuncType& AsFunc() { return type->AsFunc(); }
-		GenericType& AsGeneric() { return type->AsGeneric(); }
-	};
-	using TypeHandle = StdSharedPtr<THandle>;
-	
-	
+		{}
 
-	struct BuiltinType : Type
+		TypeSPtr type;
+	};
+
+	struct TypeHandle
 	{
-		BuiltinType(TypeMod mod, BuiltinTypeKind builtin);
+		TypeHandle() {}
+		explicit TypeHandle(StdSharedPtr<THandle> handle)
+			: type(handle)
+		{}
+
+		TypeSPtr Type();
+		BuiltinType& AsBuiltin();
+		IdenType& AsIden();
+		PtrType& AsPtr();
+		RefType& AsRef();
+		SliceType& AsSlice();
+		ArrayType& AsArray();
+		TupleType& AsTuple();
+		OptType& AsOpt();
+		CompoundType& AsCompound();
+		FuncType& AsFunc();
+		GenericType& AsGeneric();
+
+		bool IsValid() const { return !!type; }
+
+		bool operator==(const TypeHandle& other) const { return type == other.type; }
+
+		StdSharedPtr<THandle> type;
+	};
+
+#define TYPE_BASE_DATA \
+	TypeMod mod; \
+	u16 align = 0; \
+	u64 size = 0
+
+
+	struct BaseType
+	{
+		BaseType()
+			: mod(TypeMod::None)
+		{}
+
+		TYPE_BASE_DATA;
+	};
+
+
+	struct BuiltinType
+	{
+		BuiltinType(TypeMod mod, BuiltinTypeKind builtin)
+			: mod(mod)
+			, builtin(builtin)
+		{}
 
 		bool IsSigned() const;
 		bool IsFp() const;
-		
+
+		TYPE_BASE_DATA;
 		BuiltinTypeKind builtin;
 	};
-	
-	struct IdenType : Type
+
+	struct IdenType
 	{
-		IdenType(TypeMod mod, QualNameSPtr qualName);
-		
+		IdenType(TypeMod mod, QualNameSPtr qualName)
+			: mod(mod)
+			, qualName(qualName)
+		{}
+
+		TYPE_BASE_DATA;
 		QualNameSPtr qualName;
 		SymbolWPtr sym;
 	};
 
-	struct PtrType : Type
+	struct PtrType
 	{
-		PtrType(TypeMod mod, TypeHandle subType);
+		PtrType(TypeMod mod, TypeHandle subType)
+			: mod(mod)
+			, subType(subType)
+		{}
 
+		TYPE_BASE_DATA;
 		TypeHandle subType;
 	};
 
-	struct RefType : Type
+	struct RefType
 	{
-		RefType(TypeMod mod, TypeHandle subType);
+		RefType(TypeMod mod, TypeHandle subType)
+			: mod(mod)
+			, subType(subType)
+		{}
 
+		TYPE_BASE_DATA;
 		TypeHandle subType;
 	};
 
-	struct SliceType : Type
+	struct SliceType
 	{
-		SliceType(TypeMod mod, TypeHandle subType);
+		SliceType(TypeMod mod, TypeHandle subType)
+			: mod(mod)
+			, subType(subType)
+		{}
 
+		TYPE_BASE_DATA;
 		TypeHandle subType;
 	};
 
 	using ArrayExprType = StdVariant<AstExprSPtr, ITrExprSPtr>;
-	struct ArrayType : Type
+	struct ArrayType
 	{
-		
-		ArrayType(TypeMod mod, TypeHandle subType, u64 size);
-		ArrayType(TypeMod mod, TypeHandle subType, ArrayExprType expr);
-		
-		bool sizeKnown;
+		ArrayType(TypeMod mod, TypeHandle subType, u64 size)
+			: mod(mod)
+			, subType(subType)
+			, arrSize(size)
+		{}
+
+		ArrayType(TypeMod mod, TypeHandle subType, ArrayExprType expr)
+			: mod(mod)
+			, subType(subType)
+			, arrSize(u64(-1))
+			, expr(expr)
+		{}
+
+		TYPE_BASE_DATA;
 		TypeHandle subType;
-		u64 size;
+		u64 arrSize;
 		ArrayExprType expr;
 	};
 
-	struct TupleType : Type
+	struct TupleType
 	{
-		TupleType(TypeMod mod, const StdVector<TypeHandle>& subTypes);
+		TupleType(TypeMod mod, const StdVector<TypeHandle>& subTypes)
+			: mod(mod)
+			, subTypes(subTypes)
+		{}
 
+		TYPE_BASE_DATA;
 		StdVector<TypeHandle> subTypes;
 		StdVector<u64> offsets;
 	};
 
-	struct OptType : Type
+	struct OptType
 	{
-		OptType(TypeMod mod, TypeHandle subType);
+		OptType(TypeMod mod, TypeHandle subType)
+			: mod(mod)
+			, subType(subType)
+		{}
 
+		TYPE_BASE_DATA;
 		TypeHandle subType;
 	};
 
-	struct CompoundType : Type
+	struct CompoundType
 	{
-		CompoundType(TypeMod mod, const StdVector<TypeHandle>& subTypes);
+		CompoundType(TypeMod mod, const StdVector<TypeHandle>& subTypes)
+			: mod(mod)
+			, subTypes(subTypes)
+		{}
 
+		TYPE_BASE_DATA;
 		StdVector<TypeHandle> subTypes;
 	};
 
-	struct FuncType : Type
+	struct FuncType
 	{
-		FuncType(TypeMod mod, const StdVector<TypeHandle>& paramTypes, TypeHandle retType);
+		FuncType(TypeMod mod, const StdVector<TypeHandle>& paramTypes, TypeHandle retType)
+			: mod(mod)
+			, paramTypes(paramTypes)
+			, retType(retType)
+		{}
 
+		TYPE_BASE_DATA;
 		StdVector<TypeHandle> paramTypes;
 		TypeHandle retType;
 	};
 
-	struct GenericType : Type
+	struct GenericType
 	{
-		GenericType(TypeMod mod, IdenSPtr qualName, const StdVector<TypeHandle>& constraints);
+		GenericType(TypeMod mod, IdenSPtr iden, const StdVector<TypeHandle>& constraints)
+			: mod(mod)
+			, iden(iden)
+			, constraints(constraints)
+		{}
 
+		TYPE_BASE_DATA;
 		IdenSPtr iden;
 		StdVector<TypeHandle> constraints;
 	};
 
+#undef TYPE_BASE_DATA
+
+	class TypeRegistry;
+
+	struct Type
+	{
+		Type();
+		Type(BuiltinType builtin);
+		Type(IdenType iden);
+		Type(PtrType ptr);
+		Type(RefType ref);
+		Type(SliceType slice);
+		Type(ArrayType arr);
+		Type(TupleType tup);
+		Type(OptType opt);
+		Type(CompoundType compound);
+		Type(FuncType func);
+		Type(GenericType generic);
+		
+		~Type();
+
+		void CalculateSizeAlign(TypeRegistry& typeReg);
+
+		BuiltinType& AsBuiltin() { assert(typeKind == TypeKind::Builtin); return builtin; }
+		IdenType& AsIden() { assert(typeKind == TypeKind::Iden); return iden; }
+		PtrType& AsPtr() { assert(typeKind == TypeKind::Ptr); return ptr; }
+		RefType& AsRef() { assert(typeKind == TypeKind::Ref); return ref; }
+		SliceType& AsSlice() { assert(typeKind == TypeKind::Slice); return slice; }
+		ArrayType& AsArray() { assert(typeKind == TypeKind::Array); return arr; }
+		TupleType& AsTuple() { assert(typeKind == TypeKind::Tuple); return tup; }
+		OptType& AsOpt() { assert(typeKind == TypeKind::Opt); return opt; }
+		CompoundType& AsCompound() { assert(typeKind == TypeKind::Compound); return compound; }
+		FuncType& AsFunc() { assert(typeKind == TypeKind::Func); return func; }
+		GenericType& AsGeneric() { assert(typeKind == TypeKind::Generic); return generic; }
+
+		TypeMod Mod() const { return base.mod; }
+		u16 Align() const { return base.align; }
+		u64 Size() const { return base.size; }
+
+		TypeKind typeKind;
+
+		union
+		{
+			BaseType base;
+			BuiltinType builtin;
+			IdenType iden;
+			PtrType ptr;
+			RefType ref;
+			SliceType slice;
+			ArrayType arr;
+			TupleType tup;
+			OptType opt;
+			CompoundType compound;
+			FuncType func;
+			GenericType generic;
+		};
+
+	};
+}
+
+// Needs to be defined before first use in TypeRegistry
+namespace std
+{
+	template<> struct hash<Noctis::TypeHandle>
+	{
+		size_t operator()(const Noctis::TypeHandle& handle) const noexcept
+		{
+			std::hash<std::shared_ptr<Noctis::THandle>> hasher;
+			return hasher(handle.type);
+		}
+	};
+}
+
+namespace Noctis
+{
 	class TypeRegistry
 	{
 	public:

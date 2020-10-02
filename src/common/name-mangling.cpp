@@ -126,16 +126,16 @@ namespace Noctis::NameMangling
 
 	StdString Mangle(Context* pCtx, TypeHandle type)
 	{
-		if (!type)
+		if (!type.IsValid())
 			return "";
 		
-		return Mangle(pCtx, type->type);
+		return Mangle(pCtx, type.Type());
 	}
 
 	StdString Mangle(Context* pCtx, TypeSPtr type)
 	{
 		StdString mod;
-		if (type->mod == TypeMod::Mut)
+		if (type->Mod() == TypeMod::Mut)
 			mod = "M";
 		
 		switch (type->typeKind)
@@ -185,7 +185,7 @@ namespace Noctis::NameMangling
 		{
 			ArrayType& arrType = type->AsArray();
 
-			if (arrType.sizeKnown)
+			if (arrType.arrSize != u64(-1))
 				return mod + Format("A%llu", arrType.size) + Mangle(pCtx, arrType.subType);
 			return mod + "A_" + Mangle(pCtx, arrType.subType);
 		}
@@ -213,7 +213,7 @@ namespace Noctis::NameMangling
 			}
 			mangled += mod + "Z";
 
-			if (funcType.retType)
+			if (funcType.retType.IsValid())
 				mangled += Mangle(pCtx, funcType.retType);
 
 			return mod + mangled + "Z";
@@ -437,7 +437,7 @@ namespace Noctis::NameMangling
 				return pCtx->typeReg.Iden(mod, qualName);
 			}
 
-			return nullptr;
+			return TypeHandle{};
 		}
 		}
 	}

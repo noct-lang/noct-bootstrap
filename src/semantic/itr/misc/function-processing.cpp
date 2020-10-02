@@ -28,7 +28,7 @@ namespace Noctis
 				TypeInfo typeInfo = { param->type->handle };
 				if (!m_FuncCtx->genAssocs.empty())
 				{
-					TypeSPtr type = typeInfo.handle->type;
+					TypeSPtr type = typeInfo.handle.Type();
 					
 					if (type->typeKind == TypeKind::Generic)
 					{

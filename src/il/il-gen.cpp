@@ -86,13 +86,13 @@ namespace Noctis
 
 				m_Def->params.push_back(var);
 
-				m_pILMod->types.insert(var.type->type);
+				m_pILMod->types.insert(var.type.Type());
 			}
 
 			if (node.retType)
 			{
 				m_Def->retType = node.retType->handle;
-				m_pILMod->types.insert(m_Def->retType->type);
+				m_pILMod->types.insert(m_Def->retType.Type());
 			}
 			
 			m_FuncCtx = node.ctx;
@@ -107,7 +107,7 @@ namespace Noctis
 				varData->ilVar = var;
 				m_Def->localVars.push_back(var);
 
-				m_pILMod->types.insert(var.type->type);
+				m_pILMod->types.insert(var.type.Type());
 			});
 
 			AddNewBlock();
@@ -381,12 +381,12 @@ namespace Noctis
 			if (it == m_VarMapping.end())
 			{
 				var = ILVar{ ILVarKind::Copy, std::numeric_limits<u32>::max(), local->typeInfo.handle };
-				m_pILMod->types.insert(local->typeInfo.handle->type);
+				m_pILMod->types.insert(local->typeInfo.handle.Type());
 			}
 			else
 			{
 				var = it->second.back();
-				m_pILMod->types.insert(var.type->type);
+				m_pILMod->types.insert(var.type.Type());
 			}
 
 			m_TmpVars.push(var);
@@ -457,7 +457,7 @@ namespace Noctis
 
 			const StdString& name = node.sym->qualName->LastIden()->ToFuncSymName();
 
-			if (node.typeInfo.handle)
+			if (node.typeInfo.handle.IsValid())
 			{
 				ILVar dst = CreateDstVar(node.typeInfo.handle);
 				elem.reset(new ILMethodCall{ dst, caller, name, args });
@@ -473,8 +473,8 @@ namespace Noctis
 			{
 				const StdString& name = node.sym->mangledName;
 
-				TypeHandle retType = node.typeInfo.handle->AsFunc().retType;
-				if (retType)
+				TypeHandle retType = node.typeInfo.handle.AsFunc().retType;
+				if (retType.IsValid())
 				{
 					ILVar dst = CreateDstVar(node.typeInfo.handle);
 					elem.reset(new ILFuncCall{ dst, name, args });
@@ -488,8 +488,8 @@ namespace Noctis
 			{
 				ILVar func = PopTmpVar();
 
-				TypeHandle retType = node.typeInfo.handle->AsFunc().retType;
-				if (retType)
+				TypeHandle retType = node.typeInfo.handle.AsFunc().retType;
+				if (retType.IsValid())
 				{
 					ILVar dst = CreateDstVar(node.typeInfo.handle);
 					elem.reset(new ILIndirectCall{ dst, func, args });
@@ -699,7 +699,7 @@ namespace Noctis
 				for (usize i = 0; i < node.sym->orderedVarChildren.size(); ++i)
 				{
 					if (args[i].kind == ILVarKind::Lit ||
-						args[i].type)
+						args[i].type.IsValid())
 						continue;
 					
 					SymbolSPtr child = node.sym->orderedVarChildren[i].lock();
@@ -760,7 +760,7 @@ namespace Noctis
 			args.push_back(PopTmpVar());
 		}
 
-		IdenType& idenType = node.sym->type->AsIden();
+		IdenType& idenType = node.sym->type.AsIden();
 		SymbolSPtr structSym = idenType.sym.lock();
 		
 		ILVar dst = CreateDstVar(node.typeInfo.handle);
@@ -787,7 +787,7 @@ namespace Noctis
 		}
 		std::reverse(unorderedArgs.begin(), unorderedArgs.end());
 
-		IdenType& idenType = node.sym->type->AsIden();
+		IdenType& idenType = node.sym->type.AsIden();
 		SymbolSPtr structSym = idenType.sym.lock();
 
 		StdVector<ILVar> args;
@@ -813,7 +813,7 @@ namespace Noctis
 				for (usize i = 0; i < structSym->orderedVarChildren.size(); ++i)
 				{
 					if (args[i].kind == ILVarKind::Lit ||
-						args[i].type)
+						args[i].type.IsValid())
 						continue;
 
 					SymbolSPtr child = structSym->orderedVarChildren[i].lock();
@@ -953,7 +953,7 @@ namespace Noctis
 		movDst.kind = ILVarKind::Move;
 		m_TmpVars.push(movDst);
 		
-		m_pILMod->types.insert(dst.type->type);
+		m_pILMod->types.insert(dst.type.Type());
 		
 		return dst;
 	}

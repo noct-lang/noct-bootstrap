@@ -360,7 +360,7 @@ namespace Noctis
 		Foreach(ITrVisitorDefKind::Any, [&, this](ITrImpl& node)
 		{
 			TypeHandle handle = node.type->handle;
-			TypeSPtr type = handle->type;
+			TypeSPtr type = handle.Type();
 			SymbolSPtr sym = symTable.Find(type);
 
 			if (!sym)
@@ -396,7 +396,7 @@ namespace Noctis
 		{
 			m_Impl = node.ptr.lock();
 			m_ImplType = node.sym.lock()->type;
-			TypeSPtr type = m_ImplType->type;
+			TypeSPtr type = m_ImplType.Type();
 
 			ModuleSymbolTable& symTable = m_pCtx->activeModule->symTable;
 
@@ -450,7 +450,7 @@ namespace Noctis
 			m_Impl = node.ptr.lock();
 
 			m_ImplType = node.type->handle;
-			TypeSPtr type = m_ImplType->type;
+			TypeSPtr type = m_ImplType.Type();
 
 			ModuleSymbolTable& symTable = m_pCtx->activeModule->symTable;
 

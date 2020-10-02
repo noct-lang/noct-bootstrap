@@ -66,6 +66,7 @@ namespace Noctis
 		QualNameSPtr GetCurScope();
 
 		void Expect(TypeHandle handle);
+		void ExpectNone();
 		
 		QualNameSPtr m_Scope;
 		StdVector<StdString> m_ScopeNames;

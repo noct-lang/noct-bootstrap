@@ -230,7 +230,7 @@ namespace Noctis
 			case SymbolKind::AdtEnumMember:
 			{
 				TypeHandle type = sym->type;
-				if (!type)
+				if (!type.IsValid())
 					type = m_pCtx->typeReg.Iden(TypeMod::None, sym->qualName->Base());
 
 				const StdString& mangledType = GetMangledType(type);
@@ -248,7 +248,7 @@ namespace Noctis
 			}
 			case SymbolKind::Typealias:
 			{
-				TypeSPtr type = sym->type->type;
+				TypeSPtr type = sym->type.Type();
 				if (type->typeKind != TypeKind::Iden ||
 					type->AsIden().qualName != sym->qualName)
 				{
@@ -442,7 +442,7 @@ namespace Noctis
 
 	const StdString& ModuleEncode::GetMangledType(TypeHandle type)
 	{
-		TypeSPtr actType = type->type;
+		TypeSPtr actType = type.Type();
 		auto it = m_TypeMangleCache.find(actType);
 		if (it != m_TypeMangleCache.end())
 			return it->second;
@@ -699,9 +699,9 @@ namespace Noctis
 				const StdString& mangledIden = ReadName();
 				IdenSPtr iden = GetIdenFromMangle(mangledIden);
 
-				if (parentType->type->typeKind == TypeKind::Iden)
+				if (parentType.Type()->typeKind == TypeKind::Iden)
 				{
-					qualName = parentType->AsIden().qualName;
+					qualName = parentType.AsIden().qualName;
 					qualName = QualName::Create(qualName, iden);
 				}
 				else
@@ -733,7 +733,7 @@ namespace Noctis
 			case SymbolKind::StrongInterface:
 			{
 				sym->type = m_pCtx->typeReg.Iden(TypeMod::None, qualName);
-				m_pCtx->typeReg.SetIdenSym(sym->type->AsIden().qualName, sym);
+				m_pCtx->typeReg.SetIdenSym(sym->type.AsIden().qualName, sym);
 				break;
 			}
 			case SymbolKind::ValEnum:
@@ -755,7 +755,7 @@ namespace Noctis
 				else
 				{
 					sym->type = m_pCtx->typeReg.Iden(TypeMod::None, sym->qualName);
-					m_pCtx->typeReg.SetIdenSym(sym->type->AsIden().qualName, sym);
+					m_pCtx->typeReg.SetIdenSym(sym->type.AsIden().qualName, sym);
 				}
 				break;
 			}

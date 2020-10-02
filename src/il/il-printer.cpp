@@ -37,7 +37,7 @@ namespace Noctis
 				
 				ILGeneric& gen = node.generics[i];
 				g_Logger.Log(gen.iden->ToString());
-				if (gen.type)
+				if (gen.type.IsValid())
 					g_Logger.Log(":%s", m_pCtx->typeReg.ToString(gen.type).c_str());
 			}
 			
@@ -53,7 +53,7 @@ namespace Noctis
 			LogVar(node.params[i]);
 		}
 
-		StdString retTypeName = node.retType ? m_pCtx->typeReg.ToString(node.retType) : "()";
+		StdString retTypeName = node.retType.IsValid() ? m_pCtx->typeReg.ToString(node.retType) : "()";
 		g_Logger.Log(") -> %s {\n", retTypeName.c_str());
 
 		for (ILVar& var : node.localVars)

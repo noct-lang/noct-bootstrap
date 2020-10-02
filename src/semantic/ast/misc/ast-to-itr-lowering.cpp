@@ -277,7 +277,7 @@ namespace Noctis
 	{
 		m_ImplType = m_pCtx->typeReg.Iden(TypeMod::None, node.ctx->qualName);
 		Walk(node);
-		m_ImplType = nullptr;
+		m_ImplType = TypeHandle{};
 		
 		ITrAttribsSPtr attribs;
 		if (node.attribs)
@@ -301,7 +301,7 @@ namespace Noctis
 		PushDefFrame();
 		m_ImplType = m_pCtx->typeReg.Iden(TypeMod::None, node.ctx->qualName);
 		Walk(node);
-		m_ImplType = nullptr;
+		m_ImplType = TypeHandle{};
 		StdVector<ITrDefSPtr> subDefs = PopDefFrame();
 
 		ITrBodySPtr body{ new ITrBody{ std::move(subDefs), {} } };
@@ -334,7 +334,7 @@ namespace Noctis
 		PushDefFrame();
 		m_ImplType = m_pCtx->typeReg.Iden(TypeMod::None, node.ctx->qualName);
 		Walk(node);
-		m_ImplType = nullptr;
+		m_ImplType = TypeHandle{};
 		StdVector<ITrDefSPtr> subDefs = PopDefFrame();
 
 		ITrBodySPtr body{ new ITrBody{ std::move(subDefs), {} } };
@@ -361,7 +361,7 @@ namespace Noctis
 			Visit(*node.implInterfaces[i]);
 			ITrTypeSPtr interface = PopType();
 			interface->astNode = node.implInterfaces[i];
-			TypeSPtr interfaceType = interface->handle->type;
+			TypeSPtr interfaceType = interface->handle.Type();
 			interfaces[i].first = interfaceType->AsIden().qualName;
 			interfaces[i].second = interface->astNode->ctx->startIdx;
 		}
@@ -690,7 +690,7 @@ namespace Noctis
 		{
 			AstVisitor::Visit(stmt);
 		}
-		m_ImplType = nullptr;
+		m_ImplType = TypeHandle{};
 		m_ITrImplType = nullptr;
 		StdVector<ITrDefSPtr> defs = PopDefFrame();
 		
@@ -718,7 +718,7 @@ namespace Noctis
 			Visit(*node.interface);
 			ITrTypeSPtr interfaceType = PopType();
 			interfaceType->astNode = node.interface;
-			interface.first = interfaceType->handle->AsIden().qualName;
+			interface.first = interfaceType->handle.AsIden().qualName;
 			interface.second = interfaceType->astNode->ctx->startIdx;
 		}
 		

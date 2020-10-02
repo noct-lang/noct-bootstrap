@@ -135,14 +135,14 @@ namespace Noctis
 				for (ITrGenTypeBoundSPtr bound : decl->bounds)
 				{
 					TypeHandle type = bound->type->handle;
-					IdenSPtr typeIden = type->AsIden().qualName->LastIden();
+					IdenSPtr typeIden = type.AsIden().qualName->LastIden();
 					if (typeIden == typeParam.iden)
 					{
 						toReplaceTypes.push_back(bound);
 						
-						if (bound->bound->type->handle->type->typeKind == TypeKind::Compound)
+						if (bound->bound->type->handle.Type()->typeKind == TypeKind::Compound)
 						{
-							CompoundType& compound = bound->bound->type->handle->AsCompound();
+							CompoundType& compound = bound->bound->type->handle.AsCompound();
 							for (TypeHandle subType : compound.subTypes)
 							{
 								typeConstraints.push_back(subType);
@@ -285,7 +285,7 @@ namespace Noctis
 					{
 						ITrGenTypeParam& genTypeParam = static_cast<ITrGenTypeParam&>(*genParam);
 
-						IdenSPtr origIden = origGeneric.type->AsGeneric().iden;
+						IdenSPtr origIden = origGeneric.type.AsGeneric().iden;
 
 						if (origIden == genTypeParam.iden)
 						{
@@ -293,10 +293,10 @@ namespace Noctis
 							for (ITrGenTypeBoundSPtr bound : genDecl->bounds)
 							{
 								TypeHandle handle = bound->type->handle;
-								if (handle->type->typeKind != TypeKind::Generic)
+								if (handle.Type()->typeKind != TypeKind::Generic)
 									continue;
 								
-								IdenSPtr iden = handle->AsGeneric().iden;
+								IdenSPtr iden = handle.AsGeneric().iden;
 
 								if (iden == origIden)
 									typeConstraints.push_back(bound->bound->type->handle);

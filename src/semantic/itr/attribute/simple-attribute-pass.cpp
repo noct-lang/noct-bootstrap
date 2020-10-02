@@ -410,9 +410,9 @@ namespace Noctis
 		}
 
 		TypeHandle handle = node.handle;
-		TypeSPtr type = handle->type;
-		if (type->mod != TypeMod::None && mod == TypeMod::None)
-			mod = type->mod;
+		TypeSPtr type = handle.Type();
+		if (type->Mod() != TypeMod::None && mod == TypeMod::None)
+			mod = type->Mod();
 		
 		switch (type->typeKind)
 		{
