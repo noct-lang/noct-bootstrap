@@ -130,7 +130,7 @@ namespace Noctis
 
 		RunPass<TypeInference>(true);
 
-		}
+		RunPass<MarkingPass>();
 		
 		m_pCtx->activeModule->opTable.Collect(m_pCtx->activeModule->symTable);
 		m_pCtx->typeReg.CalculateSizeAlign();
