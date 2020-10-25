@@ -1,5 +1,6 @@
 #pragma once
 #include "il/processing/il-pass.hpp"
+#include "module/graph.hpp"
 #include "semantic/itr/misc/function-processing.hpp"
 
 
