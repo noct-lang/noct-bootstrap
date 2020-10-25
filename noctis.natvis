@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?> 
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+  <!--Types-->
+  <Type Name="Noctis::TypeHandle">
+    <DisplayString>type-handle {{{type->type}}}</DisplayString>
+    <Expand>
+      <ExpandedItem>type->type</ExpandedItem>
+    </Expand>
+  </Type>
+  <Type Name="std::shared_ptr&lt;Noctis::Type&gt;">
+    <DisplayString>{*_Ptr}</DisplayString>
+    <Expand>
+      <ExpandedItem>*_Ptr</ExpandedItem>
+      <Item Name="[ptr]">_Ptr</Item>
+    </Expand>
+  </Type>
+  <Type Name="Noctis::Type">
+    <DisplayString>{{kind='{typeKind}'}}</DisplayString>
+    <Expand>
+      <ExpandedItem Condition="typeKind==Noctis::TypeKind::Builtin">builtin</ExpandedItem>
+      <ExpandedItem Condition="typeKind==Noctis::TypeKind::Iden">iden</ExpandedItem>
+      <ExpandedItem Condition="typeKind==Noctis::TypeKind::Ptr">ptr</ExpandedItem>
+      <ExpandedItem Condition="typeKind==Noctis::TypeKind::Ref">ref</ExpandedItem>
+      <ExpandedItem Condition="typeKind==Noctis::TypeKind::Slice">slice</ExpandedItem>
+      <ExpandedItem Condition="typeKind==Noctis::TypeKind::Array">arr</ExpandedItem>
+      <ExpandedItem Condition="typeKind==Noctis::TypeKind::Tuple">tup</ExpandedItem>
+      <ExpandedItem Condition="typeKind==Noctis::TypeKind::Opt">opt</ExpandedItem>
+      <ExpandedItem Condition="typeKind==Noctis::TypeKind::Compound">compound</ExpandedItem>
+      <ExpandedItem Condition="typeKind==Noctis::TypeKind::Func">func</ExpandedItem>
+      <ExpandedItem Condition="typeKind==Noctis::TypeKind::Generic">generic</ExpandedItem>
+    </Expand>
+  </Type>
+  <!--QualName-->
+  <Type Name="std::shared_ptr&lt;Noctis::QualName&gt;">
+    <DisplayString>qualname {*_Ptr}</DisplayString>
+    <Expand>
+      <ExpandedItem>*_Ptr</ExpandedItem>
+      <Item Name="[ptr]">_Ptr</Item>
+    </Expand>
+  </Type>
+  <Type Name="Noctis::QualName">
+    <DisplayString>{m_Idens}</DisplayString>
+    <Expand>
+      <Item Name="[disambig]">m_Disambiguation</Item>
+      <ArrayItems>
+        <Size>m_Idens._Mypair._Myval2._Myend - m_Idens._Mypair._Myval2._Myfirst</Size>
+        <ValuePointer>m_Idens._Mypair._Myval2._Myfirst</ValuePointer>
+      </ArrayItems>
+    </Expand>
+  </Type>
+  <Type Name="Noctis::Iden">
+    <DisplayString>{{name='{m_Name}', generics={m_Generics}, param-names={m_ParamNames}}}</DisplayString>
+    <Expand>
+      <Item Name="[name]">m_Name</Item>
+      <Item Name="[generics]">m_Generics</Item>
+      <Item Name="[param-names]">m_ParamNames</Item>
+    </Expand>
+  </Type>
+</AutoVisualizer>

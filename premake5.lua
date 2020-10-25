@@ -44,8 +44,8 @@ filter "system:windows"
     debugdir "../workdir/"
 
 project "Noctis"
-    targetdir "build/bin/"
     files { "src/**.cpp", 
             "src/**.hpp", 
-            "src/3rdparty/**.hxx" }
+            "src/3rdparty/**.hxx",
+            "**.natvis" }
     location "build/Noctis"
