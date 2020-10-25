@@ -22,6 +22,8 @@ namespace Noctis
 		, kind(kind)
 		, isImported(false)
 		, isDefaultImpl(false)
+		, comptimeOnly(false)
+		, dependsOnValueGenerics(false)
 		, defImplVer(0)
 	{
 	}
@@ -63,7 +65,7 @@ namespace Noctis
 			return pCtx->typeReg.Iden(TypeMod::None, qualName);
 		case SymbolKind::ValEnumMember:
 		case SymbolKind::AdtEnumMember:
-			return pCtx->typeReg.Iden(TypeMod::None, qualName/*->Base()*/);
+			return pCtx->typeReg.Iden(TypeMod::None, qualName->Base());
 		default: return type;
 		}
 	}
@@ -195,10 +197,19 @@ namespace Noctis
 			g_Logger.Log(" +");
 		};
 
+		StdString flags;
+		if (isImported)
+			flags += ", imported";
+		if (isDefaultImpl)
+			flags += ", def_impl";
+		if (comptimeOnly)
+			flags += ", comptime";
+		if (dependsOnValueGenerics)
+			flags += ", val_gen_depend";
+
 		printIndent(indent);
 		StdString typeName = pCtx->typeReg.ToString(type);
-		const char* imported = isImported ? ", import" : "";
-		g_Logger.Log("(symbol '%s', kind='%s', type='%s'%s)\n", name.c_str(), kindName.data(), typeName.c_str(), imported);
+		g_Logger.Log("(symbol '%s', kind='%s', type='%s'%s)\n", name.c_str(), kindName.data(), typeName.c_str(), flags.c_str());
 
 		if (!children->Empty())
 		{
@@ -360,8 +371,7 @@ namespace Noctis
 	SymbolSPtr SymbolSubTable::Find(QualNameSPtr qualName, usize idenIdx, QualNameSPtr interfaceName,
 		const StdVector<StdString>& argNames)
 	{
-		if (idenIdx == qualName->Idens().size() - 1  &&
-			interfaceName)
+		if (interfaceName)
 		{
 			auto it = m_ImplSubtables.find(interfaceName);
 			if (it == m_ImplSubtables.end())
@@ -379,13 +389,12 @@ namespace Noctis
 
 			if (tmp)
 			{
-				if (sym)
+				if (sym && sym != tmp)
 				{
 					// TODO: what symbol is ambiguous?
 					g_ErrorSystem.Error("ambiguous symbol\n");
 					return nullptr;
 				}
-
 				sym = tmp;
 			}
 		}
@@ -569,7 +578,7 @@ namespace Noctis
 		if (idens.size() == 1)
 			return Find(qualName);
 		
-		for (usize i = idens.size() - 1; i != 0; --i)
+		for (usize i = 1; i < idens.size(); ++i)
 		{
 			StdVector<IdenSPtr> tmpIdens;
 			tmpIdens.assign(idens.begin(), idens.begin() + i);
@@ -577,11 +586,7 @@ namespace Noctis
 
 			SymbolSPtr sym = Find(baseQualName);
 			if (sym)
-			{
-				sym = sym->children->Find(qualName, i, interfaceQualName, {});
-				if (sym)
-					return sym;
-			}
+				return sym->children->Find(qualName, i, interfaceQualName, {});
 		}
 		return nullptr;
 	}

@@ -100,6 +100,9 @@ namespace Noctis
 
 		bool isImported : 1; 
 		bool isDefaultImpl : 1;
+		bool comptimeOnly : 1;
+		bool valGenSolveNeeded : 1;
+		bool dependsOnValueGenerics : 1;
 
 		u8 defImplVer;
 	};

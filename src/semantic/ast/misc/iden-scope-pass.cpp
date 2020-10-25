@@ -39,7 +39,15 @@ namespace Noctis
 	{
 		node.ctx->scope = m_CurScope;
 		Walk(node);
-		node.ctx->iden = Iden::Create(node.iden, u64(node.args.size()));
+		StdVector<IdenGeneric> idenGens;
+		for (AstGenericArg& arg : node.args)
+		{
+			IdenGeneric idenArg;
+			idenArg.isType = arg.kind == GenericArgKind::Expr;
+			idenArg.isSpecialized = true;
+			idenGens.push_back(idenArg);
+		}
+		node.ctx->iden = Iden::Create(node.iden, idenGens);
 	}
 
 	void IdenScopePass::Visit(AstQualName& node)
@@ -803,7 +811,16 @@ namespace Noctis
 			if (generics)
 			{
 				AstGenericDecl* pGenerics = static_cast<AstGenericDecl*>(generics.get());
-				iden = Iden::Create(name, pGenerics->params.size());
+
+				StdVector<IdenGeneric> idenGens;
+				for (AstGenericParam& genParam : pGenerics->params)
+				{
+					IdenGeneric gen;
+					gen.isType = genParam.kind == AstGenericParamKind::TypeParam || genParam.kind == AstGenericParamKind::TypeSpec;
+					idenGens.push_back(gen);
+				}
+				
+				iden = Iden::Create(name, idenGens);
 			}
 			else
 			{
@@ -840,7 +857,14 @@ namespace Noctis
 			if (generics)
 			{
 				AstGenericDecl* pGenerics = static_cast<AstGenericDecl*>(generics.get());
-				iden = Iden::Create(idenStr, pGenerics->params.size());
+				StdVector<IdenGeneric> idenGens;
+				for (AstGenericParam& param : pGenerics->params)
+				{
+					IdenGeneric idenParam;
+					idenParam.isType = param.kind == AstGenericParamKind::TypeParam || param.kind == AstGenericParamKind::TypeSpec;
+					idenGens.push_back(idenParam);
+				}
+				iden = Iden::Create(idenStr, idenGens);
 			}
 			else
 			{
@@ -862,11 +886,18 @@ namespace Noctis
 			if (generics)
 			{
 				AstGenericDecl* pGenerics = static_cast<AstGenericDecl*>(generics.get());
-				iden = Iden::Create(name, pGenerics->params.size(), paramNames);
+				StdVector<IdenGeneric> idenGens;
+				for (AstGenericParam& param : pGenerics->params)
+				{
+					IdenGeneric idenParam;
+					idenParam.isType = param.kind == AstGenericParamKind::TypeParam || param.kind == AstGenericParamKind::TypeSpec;
+					idenGens.push_back(idenParam);
+				}
+				iden = Iden::Create(name, idenGens, paramNames);
 			}
 			else
 			{
-				iden = Iden::Create(name, 0, paramNames);
+				iden = Iden::Create(name, StdVector<IdenGeneric>{}, paramNames);
 			}
 
 			ctx->iden = iden;

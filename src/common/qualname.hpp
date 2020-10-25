@@ -5,8 +5,10 @@
 namespace Noctis
 {
 	FWDECL_CLASS_SPTR(Iden);
+	FWDECL_CLASS_WPTR(Iden);
 	FWDECL_CLASS_SPTR(TypeDisambiguation);
 	FWDECL_CLASS_SPTR(QualName);
+	FWDECL_CLASS_WPTR(QualName);
 
 	struct IdenGeneric
 	{
@@ -18,6 +20,8 @@ namespace Noctis
 		TypeHandle type;
 
 		StdVector<TypeHandle> typeConstraints;
+
+		ITrExprSPtr itrExpr;
 	};
 	
 	class Iden
@@ -25,27 +29,30 @@ namespace Noctis
 	public:
 
 		static IdenSPtr Create(StdStringView name);
-		static IdenSPtr Create(StdStringView name, u64 numGenerics);
-		static IdenSPtr Create(StdStringView name, u64 numGenerics, const StdVector<StdString>& paramNames);
 		static IdenSPtr Create(StdStringView name, const StdVector<IdenGeneric>& generics);
 		static IdenSPtr Create(StdStringView name, const StdVector<IdenGeneric>& generics, const StdVector<StdString>& paramNames);
 
-		const StdString& Name() { return m_Name; }
+		const StdString& Name() const { return m_Name; }
 		StdVector<IdenGeneric>& Generics() { return m_Generics; }
 		StdVector<StdString>& ParamNames() { return m_ParamNames; }
+		IdenSPtr Fuzzy() { return fuzzy.lock(); }
 
 		StdString ToFuncSymName() const;
 		StdString ToString() const;
 
 	private:
-		Iden(StdString name, u64 numGenerics);
-		Iden(StdString name, StdVector<IdenGeneric> generics);
+		Iden(StdString name, StdVector<IdenGeneric> generics, const StdVector<StdString>& paramNames);
+
+		static IdenSPtr CreateFuzzy(StdStringView name, const StdVector<IdenGeneric>& generics, const StdVector<StdString>& paramNames);
 		
 		StdString m_Name;
 		StdVector<IdenGeneric> m_Generics;
 		StdVector<StdString> m_ParamNames;
 
+		IdenWPtr fuzzy;
+
 		static StdUnorderedMap<StdString, StdUnorderedMap<u64, StdVector<IdenSPtr>>> s_Idens;
+		static StdUnorderedMap<StdString, StdUnorderedMap<u64, StdVector<IdenSPtr>>> s_FuzzyIdens;
 		static StdString s_SearchString;
 	};
 
@@ -82,7 +89,6 @@ namespace Noctis
 		QualNameSPtr GetSubName(QualNameSPtr base);
 		QualNameSPtr GetSubName(usize depth);
 		 
-
 		bool IsBase();
 
 		bool IsSubnameOf(QualNameSPtr base);
@@ -95,15 +101,16 @@ namespace Noctis
 
 		QualNameSPtr Base() { return m_Base; }
 		const QualNameSPtr Base() const { return m_Base; }
-		
+
+		QualNameSPtr Fuzzy() { return m_Fuzzy.lock(); }
+
 	private:
 		QualName(QualNameSPtr base, IdenSPtr iden);
 		QualName(TypeDisambiguationSPtr disambiguation);
-
 		
 		TypeDisambiguationSPtr m_Disambiguation;
 		StdVector<IdenSPtr> m_Idens;
-
+		QualNameWPtr m_Fuzzy;
 		
 		QualNameSPtr m_Base;
 		StdUnorderedMap<IdenSPtr, QualNameSPtr> m_Children;

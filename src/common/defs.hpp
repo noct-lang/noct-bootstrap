@@ -73,6 +73,10 @@ using StdUniquePtr = std::unique_ptr<T>;
 	class name; \
 	using name##SPtr = StdSharedPtr<name>
 
+#define FWDECL_CLASS_WPTR(name) \
+	class name; \
+	using name##WPtr = StdWeakPtr<name>
+
 #define FWDECL_STRUCT_UPTR(name) \
 	struct name; \
 	using name##UPtr = StdSharedPtr<name>

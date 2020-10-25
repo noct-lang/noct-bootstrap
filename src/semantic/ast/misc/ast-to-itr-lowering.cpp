@@ -42,12 +42,12 @@ namespace Noctis
 			}
 			else
 			{
-				AstVisitor::Visit(arg.expr);
 				IdenGeneric genArg;
 				genArg.isType = false;
 				genArg.isSpecialized = true;
 				
-				// TODO: Value arg
+				AstVisitor::Visit(arg.expr);
+				genArg.itrExpr = PopExpr();
 
 				generics.push_back(genArg);
 				assocArgs.emplace_back(nullptr, nullptr);
@@ -1587,14 +1587,17 @@ namespace Noctis
 		}
 
 		ITrAttribsSPtr attribs;
+		TypeMod mod = TypeMod::None;
 		if (node.attribs)
 		{
 			Visit(*node.attribs);
 			attribs = PopAttribs();
-			
+
+			if (ENUM_IS_SET(attribs->attribs, Attribute::Mut))
+				mod = TypeMod::Mut;
 		}
 		
-		TypeHandle handle = m_pCtx->typeReg.Builtin(TypeMod::None, builtin);
+		TypeHandle handle = m_pCtx->typeReg.Builtin(mod, builtin);
 		ITrTypeSPtr type{ new ITrType{ attribs, handle, {} } };
 		node.itr = type;
 		m_Types.push(type);
@@ -1603,16 +1606,20 @@ namespace Noctis
 	void AstToITrLowering::Visit(AstIdentifierType& node)
 	{
 		ITrAttribsSPtr attribs;
+		TypeMod mod = TypeMod::None;
 		if (node.attribs)
 		{
 			Visit(*node.attribs);
 			attribs = PopAttribs();
+
+			if (ENUM_IS_SET(attribs->attribs, Attribute::Mut))
+				mod = TypeMod::Mut;
 		}
 
 		Visit(*node.qualName);
 		QualNameSPtr qualName = node.qualName->ctx->qualName;
 
-		TypeHandle handle = m_pCtx->typeReg.Iden(TypeMod::None, qualName);
+		TypeHandle handle = m_pCtx->typeReg.Iden(mod, qualName);
 		ITrTypeSPtr type{ new ITrType{ attribs, handle, {} } };
 		node.itr = type;
 		m_Types.push(type);
@@ -1623,12 +1630,18 @@ namespace Noctis
 		Walk(node);
 		
 		ITrAttribsSPtr attribs;
+		TypeMod mod = TypeMod::None;
 		if (node.attribs)
+		{
 			attribs = PopAttribs();
+			
+			if (ENUM_IS_SET(attribs->attribs, Attribute::Mut))
+				mod = TypeMod::Mut;
+		}
 		
 		ITrTypeSPtr subType = PopType();
 		subType->astNode = node.subType;
-		TypeHandle handle = m_pCtx->typeReg.Ptr(TypeMod::None, subType->handle);
+		TypeHandle handle = m_pCtx->typeReg.Ptr(mod, subType->handle);
 
 		ITrTypeSPtr type{ new ITrType{ attribs, handle, { subType } } };
 		node.itr = type;
@@ -1640,12 +1653,18 @@ namespace Noctis
 		Walk(node);
 		
 		ITrAttribsSPtr attribs;
+		TypeMod mod = TypeMod::None;
 		if (node.attribs)
+		{
 			attribs = PopAttribs();
+
+			if (ENUM_IS_SET(attribs->attribs, Attribute::Mut))
+				mod = TypeMod::Mut;
+		}
 		
 		ITrTypeSPtr subType = PopType();
 		subType->astNode = node.subType;
-		TypeHandle handle = m_pCtx->typeReg.Ref(TypeMod::None, subType->handle);
+		TypeHandle handle = m_pCtx->typeReg.Ref(mod, subType->handle);
 
 		ITrTypeSPtr type{ new ITrType{ attribs, handle, { subType } } };
 		node.itr = type;
@@ -1657,15 +1676,21 @@ namespace Noctis
 		Walk(node);
 
 		ITrAttribsSPtr attribs;
+		TypeMod mod = TypeMod::None;
 		if (node.attribs)
+		{
 			attribs = PopAttribs();
+
+			if (ENUM_IS_SET(attribs->attribs, Attribute::Mut))
+				mod = TypeMod::Mut;
+		}
 		
 		ITrExprSPtr expr = PopExpr();
 		expr->astNode = node.arraySize;
 		
 		ITrTypeSPtr subType = PopType();
 		subType->astNode = node.subType;
-		TypeHandle handle = m_pCtx->typeReg.Array(TypeMod::None, subType->handle, expr);
+		TypeHandle handle = m_pCtx->typeReg.Array(mod, subType->handle, expr);
 		ITrTypeSPtr type{ new ITrType{ attribs, handle, { subType }, expr }};
 		node.itr = type;
 		m_Types.push(type);
@@ -1676,12 +1701,18 @@ namespace Noctis
 		Walk(node);
 
 		ITrAttribsSPtr attribs;
+		TypeMod mod = TypeMod::None;
 		if (node.attribs)
+		{
 			attribs = PopAttribs();
+
+			if (ENUM_IS_SET(attribs->attribs, Attribute::Mut))
+				mod = TypeMod::Mut;
+		}
 		
 		ITrTypeSPtr subType = PopType();
 		subType->astNode = node.subType;
-		TypeHandle handle = m_pCtx->typeReg.Slice(TypeMod::None, subType->handle);
+		TypeHandle handle = m_pCtx->typeReg.Slice(mod, subType->handle);
 		ITrTypeSPtr type{ new ITrType{ attribs, handle, { subType } } };
 		node.itr = type;
 		m_Types.push(type);
@@ -1692,13 +1723,19 @@ namespace Noctis
 		Walk(node);
 		
 		ITrAttribsSPtr attribs;
+		TypeMod mod = TypeMod::None;
 		if (node.attribs)
+		{
 			attribs = PopAttribs();
+
+			if (ENUM_IS_SET(attribs->attribs, Attribute::Mut))
+				mod = TypeMod::Mut;
+		}
 		
 		ITrTypeSPtr type;
 		if (node.subTypes.empty())
 		{
-			 TypeHandle handle = m_pCtx->typeReg.Tuple(TypeMod::None, {});
+			 TypeHandle handle = m_pCtx->typeReg.Tuple(mod, {});
 			 type = ITrTypeSPtr{ new ITrType{ attribs, handle, {} } };
 		}
 		else if (node.subTypes.size() == 1)
@@ -1723,7 +1760,7 @@ namespace Noctis
 				subTypes[i] = subType;
 			}
 
-			TypeHandle handle = m_pCtx->typeReg.Tuple(TypeMod::None, subTypesHandles);
+			TypeHandle handle = m_pCtx->typeReg.Tuple(mod, subTypesHandles);
 			type = ITrTypeSPtr{ new ITrType{ attribs, handle, std::move(subTypes) } };
 		}
 
@@ -1736,12 +1773,18 @@ namespace Noctis
 		Walk(node);
 		
 		ITrAttribsSPtr attribs;
+		TypeMod mod = TypeMod::None;
 		if (node.attribs)
+		{
 			attribs = PopAttribs();
+
+			if (ENUM_IS_SET(attribs->attribs, Attribute::Mut))
+				mod = TypeMod::Mut;
+		}
 		
 		ITrTypeSPtr subType = PopType();
 		subType->astNode = node.subType;
-		TypeHandle handle = m_pCtx->typeReg.Opt(TypeMod::None, subType->handle);
+		TypeHandle handle = m_pCtx->typeReg.Opt(mod, subType->handle);
 		ITrTypeSPtr type{ new ITrType{ attribs, handle, { subType } } };
 		node.itr = type;
 		m_Types.push(type);
@@ -1780,13 +1823,17 @@ namespace Noctis
 		u64 bodyId = mod.AddBody(typeBody);
 		
 		ITrAttribsSPtr attribs;
+		TypeMod tmod = TypeMod::None;
 		if (node.attribs)
 		{
 			Visit(*node.attribs);
 			attribs = PopAttribs();
+
+			if (ENUM_IS_SET(attribs->attribs, Attribute::Mut))
+				tmod = TypeMod::Mut;
 		}
 
-		TypeHandle handle = m_pCtx->typeReg.Iden(TypeMod::None, node.ctx->qualName);
+		TypeHandle handle = m_pCtx->typeReg.Iden(tmod, node.ctx->qualName);
 		ITrTypeSPtr type{ new ITrType{ attribs, handle, {} } };
 		type->bodyIdx = bodyId;
 		m_Types.push(type);
@@ -1824,13 +1871,17 @@ namespace Noctis
 		mod.AddDefinition(def, body);
 
 		ITrAttribsSPtr attribs;
+		TypeMod tmod = TypeMod::None;
 		if (node.attribs)
 		{
 			Visit(*node.attribs);
 			attribs = PopAttribs();
+
+			if (ENUM_IS_SET(attribs->attribs, Attribute::Mut))
+				tmod = TypeMod::Mut;
 		}
 
-		TypeHandle handle = m_pCtx->typeReg.Iden(TypeMod::None, qualName);
+		TypeHandle handle = m_pCtx->typeReg.Iden(tmod, qualName);
 		ITrTypeSPtr type{ new ITrType{ attribs, handle, {} } };
 		m_Types.push(type);
 	}
@@ -1841,9 +1892,7 @@ namespace Noctis
 
 		ITrAttribsSPtr attribs;
 		if (node.attribs)
-		{
 			attribs = PopAttribs();
-		}
 		
 		StdVector<TypeHandle> subTypesHandles;
 		StdVector<ITrTypeSPtr> subTypes;
@@ -2134,9 +2183,6 @@ namespace Noctis
 
 	void AstToITrLowering::Visit(AstGenericTypeParam& node)
 	{
-		if (!node.implTypes.empty())
-			int br = 0;
-		
 		Walk(node); 
 		IdenSPtr iden = Iden::Create(node.iden);
 
@@ -2303,20 +2349,18 @@ namespace Noctis
 		{
 			ITrGenParamSPtr param = genDecl->params[i];
 			IdenGeneric& idenGen = qualName->LastIden()->Generics()[i];
-			if (param->isVar)
+			if (param->isType)
+			{
+				ITrGenTypeParam& genParam = *reinterpret_cast<ITrGenTypeParam*>(param.get());
+				idenGen.iden = genParam.iden;
+			}
+			else
 			{
 				ITrGenValParam& genParam = *reinterpret_cast<ITrGenValParam*>(param.get());
 				idenGen.iden = genParam.iden;
 				idenGen.type = genParam.type->handle;
 			}
-			else
-			{
-				ITrGenTypeParam& genParam = *reinterpret_cast<ITrGenTypeParam*>(param.get());
-				idenGen.iden = genParam.iden;
-			}
 		}
-
-		
 	}
 
 	void AstToITrLowering::AddMethodReceiverToParams(AstMethodReceiverKind recKind, StdVector<ITrParamSPtr>& params)

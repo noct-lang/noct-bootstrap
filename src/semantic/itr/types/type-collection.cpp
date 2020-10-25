@@ -342,10 +342,13 @@ namespace Noctis
 			SymbolSPtr sym = CreateSymbol(m_pCtx, kind, node.qualName, node.ptr);
 			symTable.Add(sym);
 
-			SymbolSPtr parent = m_Syms.top();
-			if (parent->kind == SymbolKind::StrongInterface)
+			if (kind == SymbolKind::Method)
 			{
-				sym->interfaces.emplace_back(parent->qualName, parent);
+				SymbolSPtr parent = m_Syms.top();
+				if (parent->kind == SymbolKind::StrongInterface)
+				{
+					AddUniquePair(sym->interfaces, parent->qualName, SymbolWPtr{ parent });
+				}
 			}
 
 			m_Syms.push(sym);
@@ -476,7 +479,8 @@ namespace Noctis
 			node.sym = sym;
 			sym->associatedITr = node.ptr;
 
-			CollectInterfaces(sym, node.qualName, node.interface);
+			if (node.interface.first)
+				CollectInterfaces(sym, node.qualName, node.interface);
 
 			m_InImpl = true;
 			m_ImplQualName = node.qualName;
@@ -522,8 +526,8 @@ namespace Noctis
 
 			if (child)
 			{
-				sym->impls.emplace_back(child);
-				sym->interfaces.emplace_back(interface->qualName, interface);
+				AddUnique(sym->impls, child);
+				AddUniquePair(sym->interfaces, interface->qualName, SymbolWPtr { interface });
 				m_ImplSymbol->children->AddChild(sym, qualName);
 				res = true;
 
@@ -550,40 +554,35 @@ namespace Noctis
 
 		SymbolSPtr baseInterfaceSym = m_pCtx->activeModule->symTable.Find(nodeQualName, interfaceQualName);
 		SymbolSPtr interfaceSym = baseInterfaceSym;
-		if (interfaceSym->IsBaseVariant() || interfaceSym->qualName->LastIden() != interfaceQualName->LastIden())
+		interfaceQualName = QualName::Create(baseInterfaceSym->qualName->Base(), interfaceQualName->LastIden());
+		if (interfaceSym->qualName->LastIden() != interfaceQualName->LastIden())
 		{
 			interfaceSym = interfaceSym->CreateVariant(interfaceQualName);
 		}
-		{
-			auto it = std::find_if(m_Interfaces.begin(), m_Interfaces.end(), [&interfaceSym](const SymbolSPtr& sym) -> bool
-			{
-				return sym->qualName == interfaceSym->qualName;
-			});
-			if (it == m_Interfaces.end())
-				m_Interfaces.push_back(interfaceSym);
-		}
+		AddUnique(m_Interfaces, interfaceSym);
 
-		sym->interfaces.emplace_back(interfaceSym->qualName, interfaceSym);
-		interfaceSym->impls.emplace_back(sym);
+		AddUnique(interfaceSym->impls, sym);
+		AddUniquePair(sym->interfaces, interfaceSym->qualName, SymbolWPtr{ interfaceSym });
 
 		for (StdPair<QualNameSPtr, SymbolWPtr>& subPair : baseInterfaceSym->interfaces)
 		{
-			CollectInterfaces(subPair, baseInterfaceSym, sym);
+			CollectInterfaces(subPair, baseInterfaceSym, interfaceSym, sym);
 		}
 
 		CollectNeededChildren(baseInterfaceSym);
 	}
 
-	void ImplCollection::CollectInterfaces(StdPair<QualNameSPtr, SymbolWPtr>& pair, SymbolSPtr baseInterfaceSym, SymbolSPtr sym)
+	void ImplCollection::CollectInterfaces(StdPair<QualNameSPtr, SymbolWPtr>& pair, SymbolSPtr baseInterfaceSym, SymbolSPtr parentInterface, SymbolSPtr sym)
 	{
 		SymbolSPtr subInterfaceSym = pair.second.lock();
 
 		IdenSPtr iden = pair.first->LastIden();
-		IdenSPtr parentIden = baseInterfaceSym->qualName->LastIden();
+		IdenSPtr baseParentIden = baseInterfaceSym->qualName->LastIden();
+		IdenSPtr parentIden = parentInterface->qualName->LastIden();
 		StdVector<IdenGeneric> generics;
 		for (IdenGeneric& origGeneric : iden->Generics())
 		{
-			generics.push_back(GetGeneric(parentIden, origGeneric));
+			generics.push_back(GetGeneric(origGeneric, baseParentIden, parentIden));
 		}
 
 		iden = Iden::Create(iden->Name(), generics);
@@ -593,21 +592,16 @@ namespace Noctis
 		{
 			subInterfaceSym = subInterfaceSym->CreateVariant(subInterfaceQualName);
 		}
-		{
-			auto it = std::find_if(m_Interfaces.begin(), m_Interfaces.end(), [&subInterfaceSym](const SymbolSPtr& sym) -> bool
-			{
-				return sym->qualName == subInterfaceSym->qualName;
-			});
-			if (it == m_Interfaces.end())
-				m_Interfaces.push_back(subInterfaceSym);
-		}
-		sym->interfaces.emplace_back(subInterfaceSym->qualName, subInterfaceSym);
-		subInterfaceSym->impls.emplace_back(sym);
+		AddUnique(m_Interfaces, subInterfaceSym);
+		
+		AddUnique(subInterfaceSym->impls, sym);
+		AddUniquePair(sym->interfaces, subInterfaceSym->qualName, SymbolWPtr{ subInterfaceSym });
+		AddUniquePair(parentInterface->interfaces, subInterfaceSym->qualName, SymbolWPtr{ subInterfaceSym });
 
 		SymbolSPtr baseInterface = subInterfaceSym->baseVariant.lock();
 		for (StdPair<QualNameSPtr, SymbolWPtr>& subPair : baseInterface->interfaces)
 		{
-			CollectInterfaces(subPair, subInterfaceSym, sym);
+			CollectInterfaces(subPair, subInterfaceSym, subInterfaceSym, sym);
 		}
 	}
 
@@ -707,14 +701,17 @@ namespace Noctis
 		}
 	}
 
-	IdenGeneric ImplCollection::GetGeneric(IdenSPtr parentIden, IdenGeneric origGen)
+	IdenGeneric ImplCollection::GetGeneric(IdenGeneric origGen, IdenSPtr baseParentIden, IdenSPtr parentIden)
 	{
-		for (IdenGeneric& parentGen : parentIden->Generics())
+		StdVector<IdenGeneric>& baseParentGens = baseParentIden->Generics();
+		
+		for (usize i = 0; i < baseParentGens.size(); ++i)
 		{
-			if (parentGen.isType == origGen.isType)
+			IdenGeneric& baseParentGen = baseParentGens[i];
+			if (baseParentGen.isType == origGen.isType)
 			{
-				if (parentGen.iden == origGen.iden)
-					return parentGen;
+				if (baseParentGen.iden == origGen.iden)
+					return parentIden->Generics()[i];
 			}
 		}
 

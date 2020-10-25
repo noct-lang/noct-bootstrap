@@ -16,6 +16,7 @@
 #include "module/module.hpp"
 #include "semantic-utils.hpp"
 #include "ast/ast-printer.hpp"
+#include "common/logger.hpp"
 
 namespace Noctis
 {
@@ -35,6 +36,9 @@ namespace Noctis
 
 	void AstSemanticAnalysis::Run(AstTree& tree)
 	{
+		g_Logger.Log("-- AST SEMANTIC ANALYSIS (file: %s)\n", tree.filepath.c_str());
+		Timer timer(true);
+		
 		m_pTree = &tree;
 		
 		RunPass<IdenScopePass>();
@@ -81,13 +85,17 @@ namespace Noctis
 		}
 
 		RunPass<AstToITrLowering>();
+
+		timer.Stop();
+		g_Logger.Log("-- TOOK %s\n", timer.GetSMSFormat().c_str());
 	}
 
-	template <typename T>
-	void ITrSemanticAnalysis::RunPass()
+	template <typename T, typename... Args>
+	void ITrSemanticAnalysis::RunPass(const Args&... args)
 	{
 		static_assert(std::is_base_of_v<ITrSemanticPass, T>, "");
-		T pass{ m_pCtx };
+		T pass{ m_pCtx, args... };
+		pass.SetModule(*m_pMod);
 		pass.Process(*m_pMod);
 	}
 	
@@ -99,23 +107,29 @@ namespace Noctis
 
 	void ITrSemanticAnalysis::Run(ITrModule& mod)
 	{
+		g_Logger.Log("-- ITR SEMANTIC ANALYSIS\n");
+		Timer timer(true);
+		
 		m_pMod = &mod;
 		
 		RunPass<SimpleAttributePass>();
 		RunPass<TypeCollection>();
 		RunPass<GenericDeclResolve>();
+		
+		g_Logger.Flush();
 
 		RunPass<InterfaceResolve>();
+
 		RunPass<ImplCollection>();
 
 		RunPass<TypealiasReplacing>();
 
 		RunPass<CompilerImplPass>();
 
-		{
-			TypeInference pass{ m_pCtx };
-			pass.SetPrepass();
-			pass.Process(*m_pMod);
+		g_Logger.Flush();
+
+		RunPass<TypeInference>(true);
+
 		}
 		
 		m_pCtx->activeModule->opTable.Collect(m_pCtx->activeModule->symTable);
@@ -123,11 +137,13 @@ namespace Noctis
 		
 		RunPass<LocalVarCollection>();
 		
-		
-		RunPass<TypeInference>();
+		RunPass<TypeInference>(false);
 
 
 		RunPass<NameManglePass>();
 		RunPass<ILGen>();
+
+		timer.Stop();
+		g_Logger.Log("-- TOOK %s\n", timer.GetSMSFormat().c_str());
 	}
 }

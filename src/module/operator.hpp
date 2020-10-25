@@ -129,11 +129,8 @@ namespace Noctis
 	private:
 
 		void HandleBinaryOp(OperatorKind kind, SymbolSPtr impl, SymbolSPtr interfaceSym);
-		void HandleBinaryOp(OperatorKind kind, SymbolSPtr interfaceSym);
 		void HandleUnaryOp(OperatorKind kind, SymbolSPtr impl, SymbolSPtr interfaceSym);
-		void HandleUnaryOp(OperatorKind kind, SymbolSPtr interfaceSym);
-		void HandleFromOp(bool isTry, SymbolSPtr impl, SymbolSPtr interfaceSym);
-		void HandleToOp(bool isTry, SymbolSPtr impl, SymbolSPtr interfaceSym);
+		void HandleConvOp(SymbolSPtr impl, SymbolSPtr interfaceSym);
 		
 		QualNameSPtr GetOpInterfaceQualName(OperatorKind kind);
 

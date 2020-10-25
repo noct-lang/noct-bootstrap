@@ -483,7 +483,7 @@ namespace Noctis
 		if (PeekToken().Text() == "where")
 			whereClause = ParseGenericWhereClause();
 
-		if (asMethod && PeekToken().Type() == TokenType::Semicolon)
+		if (PeekToken().Type() == TokenType::Semicolon)
 		{
 			if (whereClause)
 			{
@@ -492,7 +492,11 @@ namespace Noctis
 			}
 
 			u64 endIdx = EatToken(TokenType::Semicolon).Idx();
-			return AstDeclSPtr{ new AstEmptyMethodDecl { attribs, startIdx, recKind, std::move(iden), generics, std::move(params), retType, endIdx } };
+			if (asMethod)
+				return AstDeclSPtr{ new AstEmptyMethodDecl { attribs, startIdx, recKind, std::move(iden), generics, std::move(params), retType, endIdx } };
+			else
+				return AstDeclSPtr{ new AstFuncDecl{ attribs, startIdx, std::move(iden), generics, std::move(params), throws, errorType,
+					retType, std::move(namedRets), whereClause, {}, endIdx } };
 		}
 
 		StdVector<AstStmtSPtr> stmts;

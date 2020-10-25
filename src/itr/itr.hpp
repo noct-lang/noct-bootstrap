@@ -890,9 +890,9 @@ namespace Noctis
 
 	struct ITrGenParam
 	{
-		ITrGenParam(bool isVar);
+		ITrGenParam(bool isType);
 		
-		bool isVar;
+		bool isType;
 		SymbolWPtr sym;
 	};
 
@@ -959,6 +959,8 @@ namespace Noctis
 
 		StdArray<StdVector<ITrDefSPtr>, u8(ITrDefKind::Count)> defMapping;
 		StdVector<ITrBodySPtr> bodies;
+
+		StdVector<ITrDefSPtr> funcsToProcess;
 	};
 
 	

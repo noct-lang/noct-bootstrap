@@ -13,7 +13,9 @@ namespace Noctis::NameMangling
 		{
 		case SymbolKind::Func:
 		{
-			StdString mangledName = Mangle(pCtx, sym->qualName->Base());
+			StdString mangledName;
+			if (sym->qualName->Base())
+				mangledName += Mangle(pCtx, sym->qualName->Base());
 			mangledName += Mangle(pCtx, sym->qualName->LastIden());
 			StdString mangledType = Mangle(pCtx, sym->type);
 			return "_NF" + mangledName + mangledType;

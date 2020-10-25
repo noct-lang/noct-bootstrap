@@ -1,5 +1,6 @@
 #include "semantic-pass.hpp"
 #include "common/logger.hpp"
+#include "itr/itr.hpp"
 
 namespace Noctis
 {
@@ -14,7 +15,7 @@ namespace Noctis
 	AstSemanticPass::~AstSemanticPass()
 	{
 		m_Timer.Stop();
-		g_Logger.Log("%s took %fms\n", m_Name.data(), m_Timer.GetTimeMS());
+		g_Logger.Log("%16s : %s\n", m_Timer.GetSMSFormat().c_str(), m_Name.data());
 	}
 
 	void AstSemanticPass::Process(AstTree& tree)
@@ -32,6 +33,7 @@ namespace Noctis
 	ITrSemanticPass::~ITrSemanticPass()
 	{
 		m_Timer.Stop();
-		g_Logger.Log("%s took %fms\n", m_Name.data(), m_Timer.GetTimeMS());
+		double timeMS = m_Timer.GetTimeMS();
+		g_Logger.Log("%16s : %s\n", m_Timer.GetSMSFormat().c_str(), m_Name.data());
 	}
 }

@@ -61,17 +61,16 @@ namespace Noctis
 
 		void Process(ITrModule& mod) override;
 
-
 	private:
 		bool HandleImpls(SymbolSPtr sym) override;
 		
 		void CollectInterfaces(SymbolSPtr sym, QualNameSPtr nodeQualName, const StdPairVector<QualNameSPtr, SpanId>& implInterfaces);
 		void CollectInterfaces(SymbolSPtr sym, QualNameSPtr nodeQualName, const StdPair<QualNameSPtr, SpanId>& implInterface);
-		void CollectInterfaces(StdPair<QualNameSPtr, SymbolWPtr>& pair, SymbolSPtr baseInterfaceSym, SymbolSPtr sym);
+		void CollectInterfaces(StdPair<QualNameSPtr, SymbolWPtr>& pair, SymbolSPtr baseInterfaceSym, SymbolSPtr parentInterface, SymbolSPtr sym);
 		void CollectNeededChildren(SymbolSPtr interface);
 		void AddMissingChildrenWithDefImpl();
-
-		IdenGeneric GetGeneric(IdenSPtr parentIden, IdenGeneric origGen);
+		
+		IdenGeneric GetGeneric(IdenGeneric origGen, IdenSPtr baseParentIden, IdenSPtr parentIden);
 
 		StdVector<SymbolSPtr> m_Interfaces;
 

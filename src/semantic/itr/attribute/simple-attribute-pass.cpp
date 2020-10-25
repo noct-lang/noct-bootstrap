@@ -18,219 +18,85 @@ namespace Noctis
 		
 		Foreach(ITrVisitorDefKind::Any, [this](ITrStruct& node)
 		{
-			if (node.attribs)
-			{
-				Attribute attribs = node.attribs->attribs;
-				Attribute invalidMask = ~(Attribute::None);
-				Attribute invalid = attribs & invalidMask;
-
-				if (invalid != Attribute::None)
-				{
-					Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
-					StdString name = ToString(invalid);
-					const char* pName = name.c_str();
-					g_ErrorSystem.Error(span, "'%s' are invalid for struct definitions", pName);
-				}
-			}
-
+			CheckAttribs(node, Attribute::None, "struct");
 			Walk(node);
 		});
 
 		Foreach(ITrVisitorDefKind::Any, [this](ITrUnion& node)
 		{
-			if (node.attribs)
-			{
-				Attribute attribs = node.attribs->attribs;
-				Attribute invalidMask = ~(Attribute::None);
-				Attribute invalid = attribs & invalidMask;
-
-				if (invalid != Attribute::None)
-				{
-					Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
-					StdString name = ToString(invalid);
-					const char* pName = name.c_str();
-					g_ErrorSystem.Error(span, "'%s' are invalid for union definitions", pName);
-				}
-			}
-
+			CheckAttribs(node, Attribute::None, "union");
 			Walk(node);
 
 		});
 
 		Foreach(ITrVisitorDefKind::Any, [this](ITrValEnum& node)
 		{
-			if (node.attribs)
-			{
-				Attribute attribs = node.attribs->attribs;
-				Attribute invalidMask = ~(Attribute::None);
-				Attribute invalid = attribs & invalidMask;
-
-				if (invalid != Attribute::None)
-				{
-					Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
-					StdString name = ToString(invalid);
-					const char* pName = name.c_str();
-					g_ErrorSystem.Error(span, "'%s' are invalid for value enum definitions", pName);
-				}
-			}
-
+			CheckAttribs(node, Attribute::None, "enum");
 			Walk(node);
 
 		});
 
 		Foreach(ITrVisitorDefKind::Any, [this](ITrAdtEnum& node)
 		{
-			if (node.attribs)
-			{
-				Attribute attribs = node.attribs->attribs;
-				Attribute invalidMask = ~(Attribute::None);
-				Attribute invalid = attribs & invalidMask;
-
-				if (invalid != Attribute::None)
-				{
-					Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
-					StdString name = ToString(invalid);
-					const char* pName = name.c_str();
-					g_ErrorSystem.Error(span, "'%s' are invalid for adt enum definitions", pName);
-				}
-			}
-
+			CheckAttribs(node, Attribute::None, "adt enum");
 			Walk(node);
 
 		});
 
 		Foreach(ITrVisitorDefKind::Any, [this](ITrMarkerInterface& node)
 		{
-			if (node.attribs)
-			{
-				Attribute attribs = node.attribs->attribs;
-				Attribute invalidMask = ~(Attribute::None);
-				Attribute invalid = attribs & invalidMask;
-
-				if (invalid != Attribute::None)
-				{
-					Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
-					StdString name = ToString(invalid);
-					const char* pName = name.c_str();
-					g_ErrorSystem.Error(span, "'%s' are invalid for marker interface definitions", pName);
-				}
-			}
-
+			CheckAttribs(node, Attribute::None, "marker interface");
 			Walk(node);
 
 		});
 
 		Foreach(ITrVisitorDefKind::Any, [this](ITrWeakInterface& node)
 		{
-			if (node.attribs)
-			{
-				Attribute attribs = node.attribs->attribs;
-				Attribute invalidMask = ~(Attribute::None);
-				Attribute invalid = attribs & invalidMask;
-
-				if (invalid != Attribute::None)
-				{
-					Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
-					StdString name = ToString(invalid);
-					const char* pName = name.c_str();
-					g_ErrorSystem.Error(span, "'%s' are invalid for weak interface definitions", pName);
-				}
-			}
-
+			CheckAttribs(node, Attribute::None, "weak interface");
 			Walk(node);
 
 		});
 
 		Foreach(ITrVisitorDefKind::Any, [this](ITrStrongInterface& node)
 		{
-			if (node.attribs)
-			{
-				Attribute attribs = node.attribs->attribs;
-				Attribute invalidMask = ~(Attribute::None);
-				Attribute invalid = attribs & invalidMask;
-
-				if (invalid != Attribute::None)
-				{
-					Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
-					StdString name = ToString(invalid);
-					const char* pName = name.c_str();
-					g_ErrorSystem.Error(span, "'%s' are invalid for strong interface definitions", pName);
-				}
-			}
-
+			CheckAttribs(node, Attribute::None, "strong interface");
 			Walk(node);
 
 		});
 
 		Foreach(ITrVisitorDefKind::Any, [this](ITrTypealias& node)
 		{
-			if (node.attribs)
-			{
-				Attribute attribs = node.attribs->attribs;
-				Attribute invalidMask = ~(Attribute::None);
-				Attribute invalid = attribs & invalidMask;
-
-				if (invalid != Attribute::None)
-				{
-					Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
-					StdString name = ToString(invalid);
-					const char* pName = name.c_str();
-					g_ErrorSystem.Error(span, "'%s' are invalid for typealias definitions", pName);
-				}
-			}
-
+			CheckAttribs(node, Attribute::None, "typealias");
 			Walk(node);
 
 		});
 
 		Foreach(ITrVisitorDefKind::Any, [this](ITrTypedef& node)
 		{
-			if (node.attribs)
-			{
-				Attribute attribs = node.attribs->attribs;
-				Attribute invalidMask = ~(Attribute::None);
-				Attribute invalid = attribs & invalidMask;
-
-				if (invalid != Attribute::None)
-				{
-					Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
-					StdString name = ToString(invalid);
-					const char* pName = name.c_str();
-					g_ErrorSystem.Error(span, "'%s' are invalid for typedef definitions", pName);
-				}
-			}
-
+			CheckAttribs(node, Attribute::None, "typedef");
 			Walk(node);
 
 		});
 
 		Foreach(ITrVisitorDefKind::Any, [this](ITrVar& node)
 		{
+			Attribute validMask;
+			StdStringView defName;
+			if (node.isModDef)
+			{
+				validMask = Attribute::Const | Attribute::Mut;
+				defName = "global variable";
+			}
+			else
+			{
+				validMask = Attribute::Const | Attribute::Mut | Attribute::Static;
+				defName = "member variable";
+			}
+			CheckAttribs(node, validMask, defName);
+
 			if (node.attribs)
 			{
 				Attribute attribs = node.attribs->attribs;
-				StdStringView invalidFormat;
-				Attribute invalidMask;
-				if (node.isModDef)
-				{
-					invalidMask = ~(Attribute::Const | Attribute::Mut);
-					invalidFormat = "'%s' are invalid for global variable definitions";
-				}
-				else
-				{
-					invalidMask = ~(Attribute::Const | Attribute::Mut | Attribute::Static);
-					invalidFormat = "'%s' are invalid for member variable definitions";
-				}
-
-				Attribute invalid = attribs & invalidMask;
-				if (invalid != Attribute::None)
-				{
-					Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
-					StdString name = ToString(invalid);
-					const char* pName = name.c_str();
-					g_ErrorSystem.Error(span, invalidFormat, pName);
-				}
-
 				Attribute singleMask = Attribute::Const | Attribute::Mut;
 				Attribute validSingle = attribs & singleMask;
 				if (CountBits(validSingle) > 1)
@@ -240,57 +106,42 @@ namespace Noctis
 					const char* pName = name.c_str();
 					g_ErrorSystem.Error(span, "'%s' can't be used together for a variable declaration, only one of these is allowed per variable declaration", pName);
 				}
-				
-			}
 
+			}
+			
 			Walk(node);
 		});
 
 		Foreach(ITrVisitorDefKind::Any, [this](ITrFunc& node)
 		{
-			if (node.attribs)
+
+			Attribute validMask = Attribute::Comptime | Attribute::Const;
+			StdStringView defName;
+			switch (node.funcKind)
 			{
-				Attribute attribs = node.attribs->attribs;
-				StdStringView format;
-				Attribute invalidMask;
-
-				switch (node.funcKind)
-				{
-				default:
-				{
-					invalidMask = ~(Attribute::Comptime);
-					format = "'%s' are invalid for function definitions";
-					break;
-				}
-				case ITrFuncKind::Method:
-				{
-					invalidMask = ~(Attribute::Comptime);
-					format = "'%s' are invalid for method definitions";
-					break;
-				}
-				case ITrFuncKind::EmptyMethod:
-				{
-					invalidMask = ~(Attribute::Comptime);
-					format = "'%s' are invalid for empty method definitions";
-					break;
-				}
-				case ITrFuncKind::Closure:
-				{
-					invalidMask = ~(Attribute::None);
-					format = "'%s' are invalid for closure definitions";
-					break;
-				}
-				}
-
-				Attribute invalid = attribs & invalidMask;
-				if (invalid != Attribute::None)
-				{
-					Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
-					StdString name = ToString(invalid);
-					const char* pName = name.c_str();
-					g_ErrorSystem.Error(span, format, pName);
-				}
+			case ITrFuncKind::Func:
+			{
+				defName = "function";
+				break;
 			}
+			case ITrFuncKind::Method:
+			{
+				defName = "method";
+				break;
+			}
+			case ITrFuncKind::EmptyMethod:
+			{
+				defName = "empty method";
+				break;
+			}
+			case ITrFuncKind::Closure:
+			{
+				validMask = Attribute::None;
+				defName = "closure";
+				break;
+			}
+			}
+			CheckAttribs(node, validMask, defName);
 
 			// params
 			for (ITrParamSPtr param : node.params)
@@ -299,25 +150,10 @@ namespace Noctis
 					continue;
 				
 				Attribute attribs = param->attribs->attribs;
-				Attribute invalidMask = ~(Attribute::Comptime | Attribute::Lazy | Attribute::Move);
-				Attribute invalid = attribs & invalidMask;
-				if (invalid != Attribute::None)
-				{
-					Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
-					StdString name = ToString(invalid);
-					const char* pName = name.c_str();
-					g_ErrorSystem.Error(span, "'%s' are invalid for function parameters", pName);
-				}
-
-				Attribute singleMask = ~invalidMask;
-				Attribute validSingle = attribs & singleMask;
-				if (CountBits(validSingle) > 1)
-				{
-					Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
-					StdString name = ToString(validSingle);
-					const char* pName = name.c_str();
-					g_ErrorSystem.Error(span, "'%s' can't be used together for a parameter, only one of these is allowed per parameter", pName);
-				}
+				Attribute paramValidMask = Attribute::Comptime | Attribute::Lazy | Attribute::Move;
+				SpanId spanId = param->astNode->ctx->startIdx;
+				CheckAttribs(attribs, paramValidMask, spanId, "function parameter");
+				CheckSingleAttrib(attribs, paramValidMask, spanId, "parameter");
 			}
 
 			Walk(node);
@@ -326,21 +162,7 @@ namespace Noctis
 
 		Foreach(ITrVisitorDefKind::Any, [this](ITrImpl& node)
 		{
-			if (node.attribs)
-			{
-				Attribute attribs = node.attribs->attribs;
-				Attribute invalidMask = ~(Attribute::None);
-				Attribute invalid = attribs & invalidMask;
-
-				if (invalid != Attribute::None)
-				{
-					Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
-					StdString name = ToString(invalid);
-					const char* pName = name.c_str();
-					g_ErrorSystem.Error(span, "'%s' are invalid for impl definitions", pName);
-				}
-			}
-
+			CheckAttribs(node, Attribute::None, "impl");
 			Walk(node);
 
 		});
@@ -351,26 +173,10 @@ namespace Noctis
 		if (node.attribs)
 		{
 			Attribute attribs = node.attribs->attribs;
-			Attribute invalidMask = ~(Attribute::Const | Attribute::Mut | Attribute::Lazy);
-			Attribute invalid = attribs & invalidMask;
-
-			if (invalid != Attribute::None)
-			{
-				Span span = m_pCtx->spanManager.GetSpan(std::get<AstStmtSPtr>(node.astNode)->ctx->startIdx);
-				StdString name = ToString(invalid);
-				const char* pName = name.c_str();
-				g_ErrorSystem.Error(span, "'%s' are invalid for local variable definitions", pName);
-			}
-
-			Attribute singleMask = ~invalidMask;
-			Attribute validSingle = attribs & singleMask;
-			if (CountBits(validSingle) > 1)
-			{
-				Span span = m_pCtx->spanManager.GetSpan(std::get<AstStmtSPtr>(node.astNode)->ctx->startIdx);
-				StdString name = ToString(validSingle);
-				const char* pName = name.c_str();
-				g_ErrorSystem.Error(span, "'%s' can't be used together for a parameter, only one of these is allowed per parameter", pName);
-			}
+			Attribute validMask = Attribute::Const | Attribute::Mut | Attribute::Lazy;
+			SpanId spanId = std::get<AstStmtSPtr>(node.astNode)->ctx->startIdx;
+			CheckAttribs(attribs, validMask, spanId, "local variable");
+			CheckSingleAttrib(attribs, validMask, spanId, "local variable");
 		}
 
 		Walk(node);
@@ -380,133 +186,55 @@ namespace Noctis
 	{
 		Walk(node);
 
-		TypeMod mod = TypeMod::None;
 		if (node.attribs)
 		{
 			Attribute attribs = node.attribs->attribs;
-			Attribute invalidMask = ~(Attribute::Mut);
-			Attribute invalid = attribs & invalidMask;
+			Attribute validMask = Attribute::Mut;
+			SpanId spanId = node.astNode->ctx->startIdx;
+			CheckAttribs(attribs, validMask, spanId, "type");
+			CheckSingleAttrib(attribs, validMask, spanId, "type");
+		}
+	}
+
+	void SimpleAttributePass::CheckAttribs(ITrDef& node, Attribute validMask, StdStringView defName)
+	{
+		if (node.attribs)
+		{
+			Attribute attribs = node.attribs->attribs;
+			Attribute invalid = attribs & ~validMask;
 
 			if (invalid != Attribute::None)
 			{
 				Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
 				StdString name = ToString(invalid);
-				const char* pName = name.c_str();
-				g_ErrorSystem.Error(span, "'%s' are invalid for local variable definitions", pName);
+				g_ErrorSystem.Error(span, "'%s' are invalid for %s definitions", name.c_str(), defName.data());
 			}
+		}
+	}
 
-			Attribute singleMask = ~invalidMask;
-			Attribute validSingle = attribs & singleMask;
-			if (CountBits(validSingle) > 1)
-			{
-				Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
-				StdString name = ToString(validSingle);
-				const char* pName = name.c_str();
-				g_ErrorSystem.Error(span, "'%s' can't be used together for a type modifier, only one of these is allowed per (sub)type", pName);
-			}
+	void SimpleAttributePass::CheckAttribs(Attribute attribs, Attribute validMask, SpanId spanId,
+		StdStringView defName)
+	{
+		Attribute invalid = attribs & ~validMask;
 
-			if (ENUM_IS_SET(attribs, Attribute::Mut))
-				mod = TypeMod::Mut;
+		if (invalid != Attribute::None)
+		{
+			Span span = m_pCtx->spanManager.GetSpan(spanId);
+			StdString name = ToString(invalid);
+			g_ErrorSystem.Error(span, "'%s' are invalid for %s definitions", name.c_str(), defName.data());
 		}
+	}
 
-		TypeHandle handle = node.handle;
-		TypeSPtr type = handle.Type();
-		if (type->Mod() != TypeMod::None && mod == TypeMod::None)
-			mod = type->Mod();
-		
-		switch (type->typeKind)
+	void SimpleAttributePass::CheckSingleAttrib(Attribute attribs, Attribute singleMask, SpanId spanId
+												, StdStringView defName)
+	{
+		Attribute validSingle = attribs & singleMask;
+		if (CountBits(validSingle) > 1)
 		{
-		case TypeKind::Ptr:
-		{
-			if (!node.subTypes.empty())
-			{
-				ITrTypeSPtr subType = node.subTypes[0];
-				node.handle = m_pCtx->typeReg.Ptr(mod, subType->handle);
-			}
-			break;
-		}
-		case TypeKind::Ref:
-		{
-			if (!node.subTypes.empty())
-			{
-				ITrTypeSPtr subType = node.subTypes[0];
-				node.handle = m_pCtx->typeReg.Ref(mod, subType->handle);
-			}
-			break;
-		}
-		case TypeKind::Slice:
-		{
-			if (!node.subTypes.empty())
-			{
-				ITrTypeSPtr subType = node.subTypes[0];
-				node.handle = m_pCtx->typeReg.Slice(mod, subType->handle);
-			}
-			break;
-		}
-		case TypeKind::Array:
-		{
-			if (!node.subTypes.empty())
-			{
-				ITrTypeSPtr subType = node.subTypes[0];
-				node.handle = m_pCtx->typeReg.Array(mod, subType->handle, node.expr);
-			}
-			break;
-		}
-		case TypeKind::Tuple:
-		{
-			if (!node.subTypes.empty())
-			{
-				StdVector<TypeHandle> handles;
-				for (ITrTypeSPtr subType : node.subTypes)
-				{
-					handles.push_back(subType->handle);
-				}
-				node.handle = m_pCtx->typeReg.Tuple(mod, handles);
-			}
-			break;
-		}
-		case TypeKind::Opt:
-		{
-			if (!node.subTypes.empty())
-			{
-				ITrTypeSPtr subType = node.subTypes[0];
-				node.handle = m_pCtx->typeReg.Opt(mod, subType->handle);
-			}
-			break;
-		}
-		case TypeKind::Compound:
-		{
-			if (!node.subTypes.empty())
-			{
-				StdVector<TypeHandle> handles;
-				for (ITrTypeSPtr subType : node.subTypes)
-				{
-					handles.push_back(subType->handle);
-				}
-				node.handle = m_pCtx->typeReg.Compound(mod, handles);
-			}
-			break;
-		}
-		case TypeKind::Func:
-		{
-			if (!node.subTypes.empty())
-			{
-				StdVector<TypeHandle> handles;
-				for (ITrTypeSPtr subType : node.subTypes)
-				{
-					handles.push_back(subType->handle);
-				}
-				TypeHandle retType = handles.back();
-				handles.pop_back();
-				node.handle = m_pCtx->typeReg.Func(mod, handles, retType);
-			}
-			break;
-		}
-		default:
-		{
-			node.handle = m_pCtx->typeReg.Mod(mod, node.handle);
-			break;
-		}
+			Span span = m_pCtx->spanManager.GetSpan(spanId);
+			StdString name = ToString(validSingle);
+			const char* pName = name.c_str();
+			g_ErrorSystem.Error(span, "'%s' can't be used together for a %s, only one of these is allowed per parameter", name.c_str(), defName.data());
 		}
 	}
 }

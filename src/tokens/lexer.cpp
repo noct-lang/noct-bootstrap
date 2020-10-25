@@ -811,7 +811,7 @@ namespace Noctis
 			{ "as?", TokenType::AsQuestion },
 			{ "as!", TokenType::AsExclaim },
 			{ "break", TokenType::Break },
-			{ "cconst", TokenType::Comptime },
+			{ "comptime", TokenType::Comptime },
 			{ "const", TokenType::Const },
 			{ "continue", TokenType::Continue },
 			{ "defer", TokenType::Defer },

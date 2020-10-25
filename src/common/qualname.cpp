@@ -1,4 +1,4 @@
-#include "QualName.hpp"
+#include "qualname.hpp"
 
 #include <utility>
 
@@ -7,6 +7,7 @@
 namespace Noctis
 {
 	StdUnorderedMap<StdString, StdUnorderedMap<u64, StdVector<IdenSPtr>>> Iden::s_Idens = {};
+	StdUnorderedMap<StdString, StdUnorderedMap<u64, StdVector<IdenSPtr>>> Iden::s_FuzzyIdens = {};
 	StdString Iden::s_SearchString = {};
 
 	IdenGeneric::IdenGeneric()
@@ -17,93 +18,16 @@ namespace Noctis
 
 	IdenSPtr Iden::Create(StdStringView name)
 	{
-		return Create(name, 0, StdVector<StdString>{});
-	}
-
-	IdenSPtr Iden::Create(StdStringView name, u64 numGenerics)
-	{
-		return Create(name, numGenerics, StdVector<StdString>{});
-	}
-
-	IdenSPtr Iden::Create(StdStringView name, u64 numGenerics, const StdVector<StdString>& paramNames)
-	{
-		// Use static string to as key, to try to decrease allocations
-		s_SearchString.assign(name);
-		auto it = s_Idens.find(s_SearchString);
-		if (it == s_Idens.end())
-			it = s_Idens.try_emplace(s_SearchString, StdUnorderedMap<u64, StdVector<IdenSPtr>>{}).first;
-
-		auto subIt = it->second.find(numGenerics);
-		if (subIt == it->second.end())
-			subIt = it->second.try_emplace(numGenerics, StdVector<IdenSPtr>{}).first;
-
-		for (IdenSPtr iden : subIt->second)
-		{
-			StdVector<StdString>& idenParamNames = iden->ParamNames();
-			if (paramNames == idenParamNames)
-				return iden;
-		}
-
-		IdenSPtr iden{ new Iden{ s_SearchString, numGenerics } };
-		iden->m_ParamNames = paramNames;
-		subIt->second.push_back(iden);
-		return iden;
+		return Create(name, StdVector<IdenGeneric>{}, StdVector<StdString>{});
 	}
 
 	IdenSPtr Iden::Create(StdStringView name, const StdVector<IdenGeneric>& generics)
 	{
-		if (generics.empty())
-			return Create(name);
-		
-		// Use static string to as key, to try to decrease allocations
-		s_SearchString.assign(name);
-		auto it = s_Idens.find(s_SearchString);
-		if (it == s_Idens.end())
-			it = s_Idens.try_emplace(s_SearchString, StdUnorderedMap<u64, StdVector<IdenSPtr>>{}).first;
-
-		u64 numGenerics = u64(generics.size());
-		
-		auto subIt = it->second.find(numGenerics);
-		if (subIt == it->second.end())
-			subIt = it->second.try_emplace(0, StdVector<IdenSPtr>{}).first;
-
-		for (IdenSPtr iden : subIt->second)
-		{
-			bool found = true;
-			StdVector<IdenGeneric>& idenGens = iden->Generics();
-			for (u64 i = 0; i < numGenerics; ++i)
-			{
-				if (idenGens[i].isSpecialized || generics[i].isSpecialized)
-				{
-					if (idenGens[i].isType != generics[i].isType ||
-						!AreTypesEqual(idenGens[i].type, generics[i].type))
-					{
-						found = false;
-						break;
-					}
-				}
-
-				if (!idenGens[i].isType)
-				{
-					// TODO: Value
-					
-				}
-			}
-
-			if (found)
-				return iden;
-		}
-
-		IdenSPtr iden{ new Iden{ s_SearchString, generics } };
-		subIt->second.push_back(iden);
-		return iden;
+		return Create(name, generics, StdVector<StdString>{});
 	}
 
 	IdenSPtr Iden::Create(StdStringView name, const StdVector<IdenGeneric>& generics, const StdVector<StdString>& paramNames)
 	{
-		if (generics.empty())
-			return Create(name, 0, paramNames);
-
 		// Use static string to as key, to try to decrease allocations
 		s_SearchString.assign(name);
 		auto it = s_Idens.find(s_SearchString);
@@ -118,6 +42,10 @@ namespace Noctis
 
 		for (IdenSPtr iden : subIt->second)
 		{
+			if (iden->Generics().size() != generics.size() ||
+				iden->ParamNames() != paramNames)
+				continue;
+			
 			bool found = true;
 			StdVector<IdenGeneric>& idenGens = iden->Generics();
 			for (u64 i = 0; i < numGenerics; ++i)
@@ -125,7 +53,7 @@ namespace Noctis
 				if (idenGens[i].isSpecialized || generics[i].isSpecialized)
 				{
 					if (idenGens[i].isType != generics[i].isType ||
-						!AreTypesEqual(idenGens[i].type, generics[i].type))
+						idenGens[i].type != generics[i].type)
 					{
 						found = false;
 						break;
@@ -133,22 +61,18 @@ namespace Noctis
 				}
 
 				if (!idenGens[i].isType)
-				{
-					// TODO: Value
-
-				}
-
-				StdVector<StdString>& idenParamNames = iden->ParamNames();
-				found &= paramNames == idenParamNames;
+					found = idenGens[i].itrExpr == generics[i].itrExpr;
 			}
 
 			if (found)
 				return iden;
 		}
 
-		IdenSPtr iden{ new Iden{ s_SearchString, generics } };
+		IdenSPtr iden{ new Iden{ s_SearchString, generics, paramNames } };
 		iden->m_ParamNames = paramNames;
+		iden->fuzzy = CreateFuzzy(s_SearchString, generics, paramNames);
 		subIt->second.push_back(iden);
+
 		return iden;
 	}
 
@@ -203,16 +127,57 @@ namespace Noctis
 		return str;
 	}
 
-	Iden::Iden(StdString name, u64 numGenerics)
-		: m_Name(std::move(name))
-	{
-		m_Generics.resize(numGenerics);
-	}
-
-	Iden::Iden(StdString name, StdVector<IdenGeneric> generics)
+	Iden::Iden(StdString name, StdVector<IdenGeneric> generics, const StdVector<StdString>& paramNames)
 		: m_Name(std::move(name))
 		, m_Generics(std::move(generics))
+		, m_ParamNames(paramNames)
 	{
+	}
+
+	IdenSPtr Iden::CreateFuzzy(StdStringView name, const StdVector<IdenGeneric>& generics,
+		const StdVector<StdString>& paramNames)
+	{
+		// Use static string to as key, to try to decrease allocations
+		s_SearchString.assign(name);
+		auto it = s_FuzzyIdens.find(s_SearchString);
+		if (it == s_FuzzyIdens.end())
+			it = s_FuzzyIdens.try_emplace(s_SearchString, StdUnorderedMap<u64, StdVector<IdenSPtr>>{}).first;
+
+		u64 numGenerics = u64(generics.size());
+
+		auto subIt = it->second.find(numGenerics);
+		if (subIt == it->second.end())
+			subIt = it->second.try_emplace(0, StdVector<IdenSPtr>{}).first;
+
+		for (IdenSPtr iden : subIt->second)
+		{
+			if (iden->Generics().size() != generics.size() ||
+				iden->ParamNames() != paramNames)
+				continue;
+
+			bool found = true;
+			StdVector<IdenGeneric>& idenGens = iden->Generics();
+			for (u64 i = 0; i < numGenerics; ++i)
+			{
+				if (idenGens[i].isSpecialized || generics[i].isSpecialized)
+				{
+					if (idenGens[i].isType != generics[i].isType ||
+						idenGens[i].type != generics[i].type)
+					{
+						found = false;
+						break;
+					}
+				}
+			}
+
+			if (found)
+				return iden;
+		}
+
+		IdenSPtr iden{ new Iden{ s_SearchString, generics, paramNames } };
+		iden->fuzzy = iden;
+		subIt->second.push_back(iden);
+		return iden;
 	}
 
 	StdUnorderedMap<TypeHandle, StdUnorderedMap<QualNameSPtr, TypeDisambiguationSPtr>> TypeDisambiguation::s_TypeDisambiguations;
@@ -249,6 +214,28 @@ namespace Noctis
 
 		QualNameSPtr qualName{ new QualName{ nullptr, iden } };
 		s_BaseNames.try_emplace(iden, qualName);
+
+		QualNameSPtr fuzzyQualName;
+		IdenSPtr fuzzy = iden->Fuzzy();
+		if (iden == fuzzy)
+		{
+			fuzzyQualName = qualName;
+		}
+		else
+		{
+			auto it = s_BaseNames.find(iden);
+			if (it != s_BaseNames.end())
+			{
+				fuzzyQualName = it->second;
+			}
+			else
+			{
+				fuzzyQualName.reset(new QualName{ nullptr, iden });
+				s_BaseNames.try_emplace(iden, qualName);
+			}
+		}
+		
+		qualName->m_Fuzzy = fuzzyQualName;
 		return qualName;
 	}
 
@@ -277,6 +264,28 @@ namespace Noctis
 
 		QualNameSPtr qualName{ new QualName{ base, iden } };
 		base->m_Children.try_emplace(iden, qualName);
+
+		QualNameSPtr fuzzyQualname;
+		IdenSPtr fuzzy = iden->Fuzzy();
+		if (iden == fuzzy)
+		{
+			fuzzyQualname = qualName;
+		}
+		else
+		{
+			auto it = base->m_Children.find(iden);
+			if (it != base->m_Children.end())
+			{
+				fuzzyQualname = it->second;
+			}
+			else
+			{
+				fuzzyQualname.reset(new QualName{ base, iden });
+				base->m_Children.try_emplace(iden, qualName);
+			}
+		}
+
+		qualName->m_Fuzzy = fuzzyQualname;
 		return qualName;
 	}
 

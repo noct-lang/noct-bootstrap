@@ -43,6 +43,7 @@ namespace Noctis
 	{
 		LocalVarScope localVars;
 		StdUnorderedMap<StdString, GenTypeInfo> genAssocs;
+		StdUnorderedMap<TypeSPtr, GenTypeInfo> typeGenAssocs;
 	};
 
 	

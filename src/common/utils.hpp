@@ -60,5 +60,38 @@ namespace Noctis
 		uval += uval >> 32;                       // put count of each 64 bits into the lowest 8 bits
 		return uval & 0x7f;	                      // mask out count
 	}
+
+	template<typename T>
+	bool operator==(const StdWeakPtr<T>& first, const StdWeakPtr<T>& second)
+	{
+		return !first.expired() && !second.expired() && first.lock() == second.lock();
+	}
+
+	template<typename T>
+	bool AddUnique(StdVector<T>& vec, const T& elem)
+	{
+		auto it = std::find(vec.begin(), vec.end(), elem);
+		if (it == vec.end())
+		{
+			vec.emplace_back(elem);
+			return true;
+		}
+		return false;
+	}
+
+	template<typename T0, typename T1>
+	bool AddUniquePair(StdPairVector<T0, T1>& vec, const T0& first, const T1& second)
+	{
+		auto it = std::find_if(vec.begin(), vec.end(), [&first, &second](const StdPair<T0, T1>& pair)
+		{
+			return pair.first == first && pair.second == second;
+		});
+		if (it == vec.end())
+		{
+			vec.emplace_back(first, second);
+			return true;
+		}
+		return false;
+	}
 	
 }

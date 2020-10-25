@@ -12,16 +12,10 @@
 namespace Noctis
 {
 
-	TypeInference::TypeInference(Context* pCtx)
-		: ITrSemanticPass("type inference", pCtx)
-		, m_Prepass(false)
+	TypeInference::TypeInference(Context* pCtx, bool prepass)
+		: ITrSemanticPass(prepass ? "type inference prepass" : "type inference", pCtx)
+		, m_Prepass(prepass)
 	{
-	}
-
-	void TypeInference::SetPrepass()
-	{
-		m_Prepass = true;
-		m_Name = "func type prepass";
 	}
 
 	void TypeInference::Process(ITrModule& mod)
@@ -74,9 +68,6 @@ namespace Noctis
 
 				Visit(*node.type);
 
-				SymbolSPtr implSym = node.sym.lock();
-				node.sym.lock()->type = node.type->handle;
-
 				SymbolSPtr sym = node.sym.lock();
 				sym->type = node.type->handle;
 				if (sym->kind == SymbolKind::Impl)
@@ -88,15 +79,8 @@ namespace Noctis
 						tmp->kind = SymbolKind::Type;
 					}
 					node.sym = tmp;
-					symTable.Add(sym);
+					symTable.Add(tmp);
 				}
-			});
-
-			// Second iteration for generics, now that types are known
-			Foreach(ITrVisitorDefKind::Any, [&](ITrImpl& node)
-			{
-				m_Scope = node.qualName;
-				m_Impl = node.ptr.lock();
 
 				if (node.genDecl)
 					HandleGenerics(node, node.qualName->LastIden());
@@ -104,11 +88,11 @@ namespace Noctis
 				if (node.interface.first)
 				{
 					QualNameSPtr qualName = node.interface.first;
-					SymbolSPtr sym = m_pCtx->activeModule->symTable.Find(node.qualName, qualName);
-					sym = sym->baseVariant.lock();
+					SymbolSPtr ifaceSym = m_pCtx->activeModule->symTable.Find(node.qualName->Base(), qualName);
+					ifaceSym = ifaceSym->baseVariant.lock();
 
 					IdenSPtr iden = qualName->LastIden();
-					IdenSPtr baseIden = sym->qualName->LastIden();
+					IdenSPtr baseIden = ifaceSym->qualName->LastIden();
 
 					usize size = iden->Generics().size();
 					for (usize i = 0; i < size; ++i)
@@ -136,7 +120,7 @@ namespace Noctis
 			{
 				m_DebugMethodName = node.qualName->LastIden()->Name();
 			}
-			
+
 			if (m_Prepass)
 			{
 				HandleGenerics(node, node.qualName->LastIden());
@@ -144,7 +128,7 @@ namespace Noctis
 					node.genMapping = node.impl->genMapping;
 			}
 			m_GenMapping = node.genMapping;
-			
+
 			m_InterfaceQualname = nullptr;
 			m_SubInterfaceQualNames.clear();
 
@@ -160,7 +144,7 @@ namespace Noctis
 					}
 				}
 				else if (parent->kind != SymbolKind::WeakInterface &&
-					!sym->interfaces.empty())
+						 !sym->interfaces.empty())
 				{
 					SymbolSPtr tmp = sym->interfaces[0].second.lock();
 					m_InterfaceQualname = tmp->qualName;
@@ -173,7 +157,7 @@ namespace Noctis
 			}
 
 			if (m_Prepass)
-			{	
+			{
 				StdVector<TypeHandle> paramTypes;
 				paramTypes.reserve(node.params.size());
 				for (ITrParamSPtr param : node.params)
@@ -305,7 +289,7 @@ namespace Noctis
 		if (node.op == OperatorKind::Eq)
 		{
 			TypeHandle baseRTypeHandle = m_pCtx->typeReg.Mod(TypeMod::None, rTypeHandle);
-			if (!m_pCtx->typeReg.AreTypesEqual(lTypeHandle, baseRTypeHandle))
+			if (lTypeHandle != baseRTypeHandle)
 			{
 				Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
 				g_ErrorSystem.Error(span, "Condition should be of type 'bool'\n");
@@ -348,7 +332,7 @@ namespace Noctis
 
 		TypeHandle tTypeHandle = node.tExpr->typeInfo.handle;
 		TypeHandle fTypeHandle = node.fExpr->typeInfo.handle;
-		if (!m_pCtx->typeReg.AreTypesEqual(tTypeHandle, fTypeHandle))
+		if (tTypeHandle != fTypeHandle)
 		{
 			Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
 			g_ErrorSystem.Error(span, "Both sides need to be of the same type\n");
@@ -379,6 +363,17 @@ namespace Noctis
 			StdString rTypeName = m_pCtx->typeReg.ToString(rTypeHandle);
 			g_ErrorSystem.Error(span, "Binary operator '%s' not found for '%s' and '%s'\n", opName.data(), lTypeName.c_str(), rTypeName.c_str());
 		}
+
+		if (node.operator_.isInterfaceOp)
+		{
+			TypeHandle srcType = lTypeHandle;
+			if (srcType.Type()->typeKind == TypeKind::Ref)
+				srcType = srcType.AsRef().subType;
+
+			// unary ops return T::ResultT;
+			node.typeInfo.genInfo = GetSubTypeInfo(TypeInfo{ srcType, node.lExpr->typeInfo.genInfo }, node.operator_.left, "ResultT");
+		}
+		NarrowGenBound(node.typeInfo);
 	}
 
 	void TypeInference::Visit(ITrUnary& node)
@@ -388,21 +383,18 @@ namespace Noctis
 		
 		Walk(node);
 
-		if (m_DebugMethodName == "opBoolConv" && node.op == OperatorKind::Not)
-			int br = 0;
-
 		TypeHandle exprTypeHandle = node.expr->typeInfo.handle;
 
 		OperatorKind opKind = node.op;
-		if (opKind == OperatorKind::Deref && m_Expected)
+		if (opKind == OperatorKind::Deref && m_ExpectedHandle.IsValid())
 		{
-			if (m_Expected->typeKind == TypeKind::Ref)
+			if (m_ExpectedHandle.Kind() == TypeKind::Ref)
 			{
-				TypeHandle subHandle = m_Expected->AsRef().subType;
+				TypeHandle subHandle = m_ExpectedHandle.AsRef().subType;
 				if (subHandle.Type()->Mod() == TypeMod::Mut)
 					opKind = OperatorKind::MutDeref;
 			}
-			else if (m_Expected->Mod() == TypeMod::Mut)
+			else if (m_ExpectedHandle.AsBase().mod == TypeMod::Mut)
 			{
 				opKind = OperatorKind::MutDeref;
 			}
@@ -440,43 +432,9 @@ namespace Noctis
 			if (srcType.Type()->typeKind == TypeKind::Ref)
 				srcType = srcType.AsRef().subType;
 
-			if (srcType.Type()->typeKind == TypeKind::Generic)
-			{
-				// unary ops return T::ResultT
-				const StdString& name = srcType.AsGeneric().iden->Name();
-				auto it = m_FuncCtx->genAssocs.find(name);
-				if (it != m_FuncCtx->genAssocs.end())
-				{
-					auto subIt = it->second.subInfo.find(node.operator_.left.Type());
-					if (subIt != it->second.subInfo.end())
-					{
-						auto resTIt = subIt->second.find("ResultT");
-						if (resTIt != subIt->second.end())
-						{
-							node.typeInfo.genInfo = resTIt->second;
-						}
-					}
-				}
-			}
-			else
-			{
-				GenTypeInfo& exprGenInfo = node.expr->typeInfo.genInfo;
-				if (!exprGenInfo.subInfo.empty())
-				{
-					auto it = exprGenInfo.subInfo.find(node.operator_.left.Type());
-					if (it != exprGenInfo.subInfo.end())
-					{
-						auto resTIt = it->second.find("ResultT");
-						if (resTIt != it->second.end())
-						{
-							node.typeInfo.genInfo = resTIt->second;
-						}
-					}
-					
-				}
-			}
+			// unary ops return T::ResultT;
+			node.typeInfo.genInfo = GetSubTypeInfo(TypeInfo{ srcType, node.expr->typeInfo.genInfo }, node.operator_.left, "ResultT");
 		}
-
 		NarrowGenBound(node.typeInfo);
 	}
 
@@ -529,6 +487,8 @@ namespace Noctis
 		Walk(node);
 
 		TypeHandle exprTypeHandle = node.expr->typeInfo.handle;
+		if (exprTypeHandle.Type()->typeKind == TypeKind::Ref)
+			exprTypeHandle = exprTypeHandle.AsRef().subType;
 		
 		if (node.to)
 		{
@@ -545,7 +505,7 @@ namespace Noctis
 
 			if (opKind == OperatorKind::MutIndex && !op.sym)
 			{
-				op = m_pCtx->activeModule->opTable.GetOperator(opKind, exprTypeHandle, node.index->typeInfo.handle);
+				op = m_pCtx->activeModule->opTable.GetOperator(OperatorKind::Index, exprTypeHandle, node.index->typeInfo.handle);
 			}
 			
 			node.typeInfo.handle = op.result;
@@ -581,7 +541,7 @@ namespace Noctis
 				auto astNode = node.astNode;
 				ptr.reset(new ITrFuncCall{ node.expr, std::move(node.args) });
 				ptr->sym = sym;
-				ptr->typeInfo.handle = sym->SelfType();
+				ptr->typeInfo.handle = sym->type.AsFunc().retType;
 				ptr->astNode = astNode;
 			}
 		}
@@ -1069,7 +1029,7 @@ namespace Noctis
 					defType = m_pCtx->typeReg.Mod(TypeMod::None, defType);
 
 					bool validDef = false;
-					if (!m_pCtx->typeReg.AreTypesEqual(defType, sym->type))
+					if (defType != sym->type)
 					{
 						TypeSPtr type = defType.Type();
 						if (type->typeKind == TypeKind::Ref)
@@ -1077,7 +1037,7 @@ namespace Noctis
 							defType = type->AsRef().subType;
 							defType = m_pCtx->typeReg.Mod(TypeMod::None, defType);
 
-							validDef = m_pCtx->typeReg.AreTypesEqual(defType, sym->type);
+							validDef = defType == sym->type;
 						}
 					}
 					else
@@ -1249,7 +1209,7 @@ namespace Noctis
 					defType = m_pCtx->typeReg.Mod(TypeMod::None, defType);
 
 					bool validDef = false;
-					if (!m_pCtx->typeReg.AreTypesEqual(defType, sym->type))
+					if (defType != sym->type)
 					{
 						TypeSPtr type = defType.Type();
 						if (type->typeKind == TypeKind::Ref)
@@ -1257,7 +1217,7 @@ namespace Noctis
 							defType = type->AsRef().subType;
 							defType = m_pCtx->typeReg.Mod(TypeMod::None, defType);
 
-							validDef = m_pCtx->typeReg.AreTypesEqual(defType, sym->type);
+							validDef = defType == sym->type;
 						}
 					}
 					else
@@ -1393,7 +1353,7 @@ namespace Noctis
 			{
 				type = expr->typeInfo.handle;
 			}
-			else if (!m_pCtx->typeReg.AreTypesEqual(expr->typeInfo.handle, type))
+			else if (expr->typeInfo.handle != type)
 			{
 				Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
 				StdString type0Name = m_pCtx->typeReg.ToString(type);
@@ -1418,7 +1378,6 @@ namespace Noctis
 		Operator op;
 		switch (node.castKind)
 		{
-		
 		case ITrCastKind::SafeCast:
 		case ITrCastKind::NullPanicCast:
 		{
@@ -1572,6 +1531,13 @@ namespace Noctis
 
 		ModuleSymbolTable& symTable = m_pCtx->activeModule->symTable;
 
+		TypeMod mod = TypeMod::None;
+		if (node.attribs)
+		{
+			if (ENUM_IS_SET(node.attribs->attribs, Attribute::Mut))
+				mod = TypeMod::Mut;
+		}
+
 		if (node.subTypes.empty())
 		{
 			StdVector<TypeHandle> tmp = m_pCtx->typeReg.GetSubTypes(node.handle, TypeKind::Iden);
@@ -1588,14 +1554,8 @@ namespace Noctis
 
 				{
 					SymbolSPtr sym = symTable.Find(GetCurScope(), qualName, m_InterfaceQualname);
-
-					// If we did not find the symbol, it might be part of an implementation
 					if (!sym)
-					{
 						sym = symTable.Find(GetCurScope(), qualName);
-					}
-
-					
 					if (sym)
 						newType = sym->SelfType();
 
@@ -1605,7 +1565,7 @@ namespace Noctis
 					{
 						for (ITrGenParamSPtr param : m_Impl->genDecl->params)
 						{
-							if (!param->isVar)
+							if (param->isType)
 							{
 								SymbolSPtr paramSym = param->sym.lock();
 								IdenSPtr paramIden = paramSym->qualName->LastIden();
@@ -1661,7 +1621,7 @@ namespace Noctis
 
 				if (!newType.IsValid())
 				{
-					SymbolSPtr sym =symTable.Find(m_pCtx->activeModule->qualName, qualName);
+					SymbolSPtr sym = symTable.Find(m_pCtx->activeModule->qualName, qualName);
 					if (sym)
 					{
 						newType = sym->SelfType();
@@ -1669,21 +1629,11 @@ namespace Noctis
 					}
 				}
 
-				if (!newType.IsValid())
+				if (newType.IsValid())
 				{
-					for (StdPair<QualNameSPtr, ModuleSPtr> pair : m_pCtx->activeModule->imports)
-					{
-						SymbolSPtr sym = symTable.Find(pair.second->qualName, qualName);
-						if (sym)
-						{
-							newType = sym->SelfType();
-							break;
-						}
-					}
+					TypeHandle replacement = m_pCtx->typeReg.Mod(mod, newType);
+					node.handle = m_pCtx->typeReg.ReplaceSubType(node.handle, handle, replacement);
 				}
-
-				TypeHandle replacement = m_pCtx->typeReg.Mod(type->Mod(), newType);
-				node.handle = m_pCtx->typeReg.ReplaceSubType(node.handle, handle, replacement);
 			}
 
 			tmp = m_pCtx->typeReg.GetSubTypes(node.handle, TypeKind::Generic);
@@ -1698,7 +1648,8 @@ namespace Noctis
 					{
 						if (mapping.first == origGenType.iden)
 						{
-							node.handle = m_pCtx->typeReg.ReplaceSubType(node.handle, handle, mapping.second);
+							TypeHandle mappingType = m_pCtx->typeReg.Mod(mod, mapping.second);
+							node.handle = m_pCtx->typeReg.ReplaceSubType(node.handle, handle, mappingType);
 							break;
 						}
 					}
@@ -1714,7 +1665,7 @@ namespace Noctis
 				if (node.subTypes.empty())
 					break;
 
-				node.handle = m_pCtx->typeReg.Ptr(type->Mod(), node.subTypes[0]->handle);
+				node.handle = m_pCtx->typeReg.Ptr(mod, node.subTypes[0]->handle);
 				break;
 			}
 			case TypeKind::Ref:
@@ -1722,7 +1673,7 @@ namespace Noctis
 				if (node.subTypes.empty())
 					break;
 
-				node.handle = m_pCtx->typeReg.Ref(type->Mod(), node.subTypes[0]->handle);
+				node.handle = m_pCtx->typeReg.Ref(mod, node.subTypes[0]->handle);
 				break;
 			}
 			case TypeKind::Slice:
@@ -1730,7 +1681,7 @@ namespace Noctis
 				if (node.subTypes.empty())
 					break;
 
-				node.handle = m_pCtx->typeReg.Slice(type->Mod(), node.subTypes[0]->handle);
+				node.handle = m_pCtx->typeReg.Slice(mod, node.subTypes[0]->handle);
 				break;
 			}
 			case TypeKind::Array:
@@ -1739,9 +1690,9 @@ namespace Noctis
 					break;
 
 				if (type->AsArray().arrSize != u64(-1))
-					node.handle = m_pCtx->typeReg.Array(type->Mod(), node.subTypes[0]->handle, type->AsArray().size);
+					node.handle = m_pCtx->typeReg.Array(mod, node.subTypes[0]->handle, type->AsArray().size);
 				else
-					node.handle = m_pCtx->typeReg.Array(type->Mod(), node.subTypes[0]->handle, type->AsArray().expr);
+					node.handle = m_pCtx->typeReg.Array(mod, node.subTypes[0]->handle, type->AsArray().expr);
 				break;
 			}
 			case TypeKind::Tuple:
@@ -1755,7 +1706,7 @@ namespace Noctis
 					subTypes.push_back(subType->handle);
 				}
 
-				node.handle = m_pCtx->typeReg.Tuple(type->Mod(), subTypes);
+				node.handle = m_pCtx->typeReg.Tuple(mod, subTypes);
 				break;
 			}
 			case TypeKind::Opt:
@@ -1763,7 +1714,7 @@ namespace Noctis
 				if (node.subTypes.empty())
 					break;
 
-				node.handle = m_pCtx->typeReg.Opt(type->Mod(), node.subTypes[0]->handle);
+				node.handle = m_pCtx->typeReg.Opt(mod, node.subTypes[0]->handle);
 				break;
 			}
 			case TypeKind::Func:
@@ -1780,7 +1731,7 @@ namespace Noctis
 					//	subTypes.push_back(subType->handle);
 					//}
 					//
-					//node.handle = m_pCtx->typeReg.Func(type->mod, subTypes);
+					//node.handle = m_pCtx->typeReg.Func(mod, subTypes);
 				}
 				break;
 			}
@@ -1801,7 +1752,7 @@ namespace Noctis
 					subTypes.push_back(subType->handle);
 				}
 
-				node.handle = m_pCtx->typeReg.Compound(type->Mod(), subTypes);
+				node.handle = m_pCtx->typeReg.Compound(TypeMod::None, subTypes);
 				break;
 			}
 			default:;
@@ -1857,13 +1808,12 @@ namespace Noctis
 
 				if (generic.isType)
 				{
-					GenericType& origGeneric = generic.type.AsGeneric();
-					generic.type = m_pCtx->typeReg.Generic(TypeMod::None, origGeneric.iden, generic.typeConstraints);
+					generic.type = m_pCtx->typeReg.Generic(TypeMod::None, generic.iden, generic.typeConstraints);
 
 					param->sym.lock()->type = generic.type;
 				}
 
-				if (!param->isVar)
+				if (param->isType)
 				{
 					ITrGenTypeParam& typeParam = *reinterpret_cast<ITrGenTypeParam*>(param.get());
 					def.genMapping.try_emplace(typeParam.iden, param->sym.lock()->type);
@@ -1876,7 +1826,7 @@ namespace Noctis
 		{
 			for (ITrGenParamSPtr param : def.impl->genDecl->params)
 			{
-				if (!param->isVar)
+				if (param->isType)
 				{
 					ITrGenTypeParam& typeParam = *reinterpret_cast<ITrGenTypeParam*>(param.get());
 					def.genMapping.try_emplace(typeParam.iden, param->sym.lock()->type);
@@ -1898,23 +1848,59 @@ namespace Noctis
 						auto it = m_FuncCtx->genAssocs.try_emplace(iden->Name(), GenTypeInfo{}).first;
 						HandleAssocTypes(*bound->bound, it->second);
 					}
+					continue;
 				}
-				else if (handle.Type()->typeKind == TypeKind::Iden)
+				
+				if (handle.Type()->typeKind == TypeKind::Iden)
 				{
 					QualNameSPtr qualName = handle.AsIden().qualName;
-
-					// Make sure that the type is associated with a generic
-					if (qualName->Disambiguation())
+					if (qualName->Disambiguation()) // Could be 
 					{
-						
-					}
+						TypeHandle baseType;
+						QualNameSPtr baseQualName = qualName;
+						while (baseQualName && baseQualName->Disambiguation())
+						{
+							baseType = baseQualName->Disambiguation()->Type();
+							if (baseType.Type()->typeKind == TypeKind::Iden)
+								baseQualName = baseType.AsIden().qualName;
+							else
+								baseQualName = nullptr;
+						}
 
-					for (IdenSPtr iden : qualName->Idens())
+						if (baseType.Type()->typeKind == TypeKind::Generic)
+						{
+							// TODO
+							continue;
+						}
+					}
+					
+					// Associated type
 					{
-						
+						StdVector<TypeSPtr> extractedGens = m_pCtx->typeReg.ExtractGenerics(handle.Type());
+						if (extractedGens.empty())
+						{
+							Span span = m_pCtx->spanManager.GetSpan(bound->type->astNode->ctx->startIdx);
+							g_ErrorSystem.Error(span, "Type should be associated with a generic type to be bound");
+						}
+						else
+						{
+							auto it = m_FuncCtx->typeGenAssocs.try_emplace(handle.Type(), GenTypeInfo{}).first;
+							HandleAssocTypes(*bound->bound, it->second);
+						}
 					}
-
-					//m_pCtx->typeReg.ExtractGenerics(handle.Type());
+					continue;
+				}
+				
+				StdVector<TypeSPtr> extractedGens = m_pCtx->typeReg.ExtractGenerics(handle.Type());
+				if (extractedGens.empty())
+				{
+					Span span = m_pCtx->spanManager.GetSpan(bound->type->astNode->ctx->startIdx);
+					g_ErrorSystem.Error(span, "Type should be associated with a generic type to be bound");
+				}
+				else
+				{
+					auto it = m_FuncCtx->typeGenAssocs.try_emplace(handle.Type(), GenTypeInfo{}).first;
+					HandleAssocTypes(*bound->bound, it->second);
 				}
 			}
 		}
@@ -1937,6 +1923,41 @@ namespace Noctis
 				tmpIt = genInfo.subInfo.try_emplace(type.Type(), StdUnorderedMap<StdString, GenTypeInfo>{}).first;
 			tmpIt->second.try_emplace(assocBound.iden, tmp);
 		}
+	}
+
+	GenTypeInfo TypeInference::GetSubTypeInfo(const TypeInfo& srcInfo, TypeHandle interfaceType, const StdString& subTypeName)
+	{
+		TypeHandle srcType = srcInfo.handle;
+		if (srcType.Type()->typeKind == TypeKind::Generic)
+		{
+			const StdString& name = srcType.AsGeneric().iden->Name();
+			auto it = m_FuncCtx->genAssocs.find(name);
+			if (it == m_FuncCtx->genAssocs.end())
+				return GenTypeInfo{};
+			
+			auto subIt = it->second.subInfo.find(interfaceType.Type());
+			if (subIt == it->second.subInfo.end())
+				return GenTypeInfo{};
+
+			auto resIt = subIt->second.find(subTypeName);
+			if (resIt != subIt->second.end())
+				return resIt->second;
+		}
+		else
+		{
+			const GenTypeInfo& srcGenInfo = srcInfo.genInfo;
+			if (srcGenInfo.subInfo.empty())
+				return GenTypeInfo{};
+
+			auto it = srcGenInfo.subInfo.find(interfaceType.Type());
+			if (it != srcGenInfo.subInfo.end())
+				return GenTypeInfo{};
+			
+			auto resIt = it->second.find(subTypeName);
+			if (resIt != it->second.end())
+				return  resIt->second;
+		}
+		return GenTypeInfo{};
 	}
 
 	void TypeInference::NarrowGenBound(TypeInfo& typeInfo)
@@ -1974,7 +1995,6 @@ namespace Noctis
 	void TypeInference::Expect(TypeHandle handle)
 	{
 		m_ExpectedHandle = handle;
-		m_Expected = handle.Type();
 	}
 
 	void TypeInference::ExpectNone()

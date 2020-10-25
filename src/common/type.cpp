@@ -11,6 +11,34 @@
 
 namespace Noctis
 {
+	IdenType::IdenType(TypeMod mod, QualNameSPtr qualName)
+		: mod(mod)
+		, qualName(qualName)
+		, hasFuzzyCompare(false)
+	{
+		for (IdenSPtr iden : qualName->Idens())
+		{
+			if (!iden->Generics().empty())
+				continue;
+
+			for (IdenGeneric& idenGen : iden->Generics())
+			{
+				if (!idenGen.isType)
+				{
+					hasFuzzyCompare = true;
+					break;
+				}
+			}
+			if (hasFuzzyCompare)
+				break;
+		}
+
+		if (!hasFuzzyCompare && qualName->Disambiguation())
+		{
+			hasFuzzyCompare = qualName->Disambiguation()->Type().AsBase().hasFuzzyCompare;
+		}
+	}
+	
 	StdStringView TypeModToString(TypeMod mod)
 	{
 		switch (mod)
@@ -20,9 +48,31 @@ namespace Noctis
 		}
 	}
 
+	TypeKind TypeHandle::Kind() const
+	{
+		return type ? type->type->typeKind : TypeKind::Invalid;
+	}
+
 	TypeSPtr TypeHandle::Type()
 	{
 		return type ? type->type : nullptr;
+	}
+
+	const TypeSPtr TypeHandle::Type() const
+	{
+		return type ? type->type : nullptr;
+	}
+
+	BaseType& TypeHandle::AsBase()
+	{
+		assert(IsValid());
+		return Type()->AsBase();
+	}
+
+	const BaseType& TypeHandle::AsBase() const
+	{
+		assert(IsValid());
+		return Type()->AsBase();
 	}
 
 	BuiltinType& TypeHandle::AsBuiltin()
@@ -32,6 +82,12 @@ namespace Noctis
 	}
 
 	IdenType& TypeHandle::AsIden()
+	{
+		assert(IsValid());
+		return Type()->AsIden();
+	}
+
+	const IdenType& TypeHandle::AsIden() const
 	{
 		assert(IsValid());
 		return Type()->AsIden();
@@ -89,6 +145,18 @@ namespace Noctis
 	{
 		assert(IsValid());
 		return Type()->AsGeneric();
+	}
+
+	bool TypeHandle::operator==(const TypeHandle& other) const
+	{
+		if (!IsValid() || !other.IsValid())
+			return false;
+		return pReg->CompareTypes(*this, other);
+	}
+
+	bool TypeHandle::operator!=(const TypeHandle& other) const
+	{
+		return !(*this == other);
 	}
 
 	Type::Type()
@@ -474,14 +542,45 @@ namespace Noctis
 		}
 	}
 
-	bool TypeRegistry::AreTypesEqual(TypeHandle first, TypeHandle second)
+	bool TypeRegistry::CompareTypes(TypeHandle first, TypeHandle second)
 	{
+		if (!first.IsValid() || !second.IsValid())
+			return false;
+
+		TypeHandle fuzzy0 = Fuzzy(first);
+		TypeHandle fuzzy1 = Fuzzy(second);
+		
+		return fuzzy0.Type() == fuzzy1.Type();
+	}
+
+	bool TypeRegistry::CompareTypesNonFuzzy(TypeHandle first, TypeHandle second)
+	{
+		if (!first.IsValid() || !second.IsValid())
+			return false;
 		return first.Type() == second.Type();
+	}
+
+	bool TypeRegistry::MatchTypes(TypeHandle toMatch, TypeHandle type, Module& mod)
+	{
+		if (CompareTypes(toMatch, type))
+			return true;
+
+		SymbolSPtr sym = mod.symTable.Find(type);
+		if (!sym)
+			return false;
+
+		for (StdPair<QualNameSPtr, SymbolWPtr> interface : sym->interfaces)
+		{
+			if (CompareTypes(interface.second.lock()->type, type))
+				return true;
+		}
+
+		return false;
 	}
 
 	bool TypeRegistry::CanPassTo(TypeHandle param, TypeHandle arg)
 	{
-		if (AreTypesEqual(param, arg))
+		if (param == arg)
 			return true;
 
 		TypeSPtr paramType = param.Type();
@@ -489,7 +588,7 @@ namespace Noctis
 
 		if (paramType->base.mod == TypeMod::Mut &&
 				argType->base.mod == TypeMod::None &&
-				AreTypesEqual( Mod(TypeMod::None, param), arg))
+				Mod(TypeMod::None, param) == arg)
 			return true;
 
 		if (paramType->typeKind == argType->typeKind)
@@ -509,7 +608,7 @@ namespace Noctis
 
 				if (paramSubType.Type()->base.mod == TypeMod::Mut &&
 					argSubType.Type()->base.mod == TypeMod::None &&
-					AreTypesEqual( Mod(TypeMod::None, paramSubType), argSubType))
+					Mod(TypeMod::None, paramSubType) == argSubType)
 					return true;
 			}
 			case TypeKind::Ref:
@@ -519,7 +618,7 @@ namespace Noctis
 
 				if (paramSubType.Type()->base.mod == TypeMod::Mut &&
 					argSubType.Type()->base.mod == TypeMod::None &&
-					AreTypesEqual(Mod(TypeMod::None, paramSubType), argSubType))
+					Mod(TypeMod::None, paramSubType) == argSubType)
 					return true;
 			}
 			case TypeKind::Slice:
@@ -532,7 +631,7 @@ namespace Noctis
 
 				if (paramSubType->base.mod == TypeMod::Mut &&
 					argSubType->base.mod == TypeMod::None &&
-					AreTypesEqual(Mod(TypeMod::None, paramSubTypeHandle), argSubTypeHandle))
+					Mod(TypeMod::None, paramSubTypeHandle) == argSubTypeHandle)
 					return true;
 			}
 			case TypeKind::Array:
@@ -582,7 +681,7 @@ namespace Noctis
 		if (!orig.IsValid())
 			return TypeHandle{};
 
-		if (AreTypesEqual(orig, toReplace))
+		if (orig == toReplace)
 			return replacement;
 
 		TypeSPtr type = orig.Type();
@@ -592,7 +691,7 @@ namespace Noctis
 			if (toReplaceType->base.mod == TypeMod::None)
 			{
 				toReplace = Mod(type->base.mod, toReplace);
-				if (AreTypesEqual(orig, toReplace))
+				if (orig == toReplace)
 					return replacement;
 			}
 		}
@@ -937,7 +1036,7 @@ namespace Noctis
 					bool found = false;
 					for (TypeHandle typeConstraint : typeGenType.constraints)
 					{
-						if (AreTypesEqual(typeConstraint, constraint))
+						if (typeConstraint == constraint)
 						{
 							found = true;
 							break;
@@ -1023,6 +1122,24 @@ namespace Noctis
 			return handle;
 
 		handle = CreateHandle(new Type{ IdenType{ mod, qualName } });
+
+		if (handle.AsBase().hasFuzzyCompare)
+		{
+			QualNameSPtr fuzzyQualName = qualName->Fuzzy();
+			if (fuzzyQualName != qualName)
+			{
+				auto fuzzyIt = m_IdenMapping.find(fuzzyQualName);
+				if (fuzzyIt == m_IdenMapping.end())
+				{
+					fuzzyIt = m_IdenMapping.insert(std::pair{ qualName, StdArray<TypeHandle, m_ModCount>{} }).first;
+					fuzzyIt->second.fill(TypeHandle{});
+					fuzzyIt->second[u8(mod)] = CreateHandle(new Type{ IdenType{ mod, fuzzyQualName } });
+				}
+				else if (!fuzzyIt->second[u8(mod)].IsValid())
+					fuzzyIt->second[u8(mod)] = CreateHandle(new Type{ IdenType{ mod, fuzzyQualName } });
+			}
+		}
+
 		return handle;
 	}
 
@@ -1132,6 +1249,15 @@ namespace Noctis
 		if (handle.IsValid())
 			return handle;
 
+		ArrayExprType fuzzyExpr{ ITrExprSPtr{} };
+		auto fuzzyIt = it->second.find(fuzzyExpr);
+		if (fuzzyIt == it->second.end())
+		{
+			fuzzyIt = it->second.insert(std::pair{ fuzzyExpr, StdArray<TypeHandle, m_ModCount>{} }).first;
+			fuzzyIt->second.fill(TypeHandle{});
+		}
+		fuzzyIt->second[u8(mod)] = CreateHandle(new Type{ ArrayType{ mod, subType, expr } });
+
 		handle = CreateHandle(new Type{ ArrayType{ mod, subType, expr } });
 		return handle;
 	}
@@ -1150,7 +1276,7 @@ namespace Noctis
 		if (subIt == it->second.end())
 			subIt = it->second.try_emplace(subTypes[0], StdVector<StdArray<TypeHandle, m_ModCount>>{}).first;
 
-		for (StdArray<TypeHandle, m_ModCount> arr : subIt->second)
+		for (StdArray<TypeHandle, m_ModCount>& arr : subIt->second)
 		{
 			TypeHandle handle;
 			for (usize i = 0; i < m_ModCount; ++i)
@@ -1165,7 +1291,7 @@ namespace Noctis
 			bool found = true;
 			for (usize i = 1; i < count; ++i)
 			{
-				if (!AreTypesEqual(subTypes[i], tupType.subTypes[i]))
+				if (subTypes[i] != tupType.subTypes[i])
 				{
 					found = false;
 					break;
@@ -1179,7 +1305,7 @@ namespace Noctis
 					return retHandle;
 				
 				retHandle = CreateHandle(new Type{ TupleType{ mod, subTypes } });
-				return handle;
+				return retHandle;
 			}
 		}
 
@@ -1203,7 +1329,7 @@ namespace Noctis
 		if (subIt == it->second.end())
 			subIt = it->second.try_emplace(subTypes[0], StdVector<StdArray<TypeHandle, m_ModCount>>{}).first;
 
-		for (StdArray<TypeHandle, m_ModCount> arr : subIt->second)
+		for (StdArray<TypeHandle, m_ModCount>& arr : subIt->second)
 		{
 			TypeHandle handle;
 			for (usize i = 0; i < m_ModCount; ++i)
@@ -1218,7 +1344,7 @@ namespace Noctis
 			bool found = true;
 			for (usize i = 1; i < count; ++i)
 			{
-				if (!AreTypesEqual(subTypes[i], compType.subTypes[i]))
+				if (subTypes[i] != compType.subTypes[i])
 				{
 					found = false;
 					break;
@@ -1232,7 +1358,7 @@ namespace Noctis
 					return retHandle;
 
 				retHandle = CreateHandle(new Type{ CompoundType{ mod, subTypes } });
-				return handle;
+				return retHandle;
 			}
 		}
 
@@ -1257,7 +1383,7 @@ namespace Noctis
 		if (subIt == it->second.end())
 			subIt = it->second.try_emplace(checkType, StdVector<StdArray<TypeHandle, m_ModCount>>{}).first;
 
-		for (StdArray<TypeHandle, m_ModCount> arr : subIt->second)
+		for (StdArray<TypeHandle, m_ModCount>& arr : subIt->second)
 		{
 			TypeHandle handle;
 			for (usize i = 0; i < m_ModCount; ++i)
@@ -1271,21 +1397,21 @@ namespace Noctis
 			bool found = true;
 			for (usize i = 1; i < count; ++i)
 			{
-				if (!AreTypesEqual(params[i], funcType.paramTypes[i]))
+				if (params[i] != funcType.paramTypes[i])
 				{
 					found = false;
 					break;
 				}
 			}
 
-			if (found && AreTypesEqual(ret, funcType.retType))
+			if (found && ret == funcType.retType)
 			{
 				TypeHandle& retHandle = arr[u8(mod)];
 				if (retHandle.IsValid())
 					return retHandle;
 
 				retHandle = CreateHandle(new Type{ FuncType{ mod, params, ret } });
-				return handle;
+				return retHandle;
 			}
 		}
 
@@ -1306,7 +1432,7 @@ namespace Noctis
 			it = m_GenericMapping.try_emplace(iden, StdVector<StdArray<TypeHandle, m_ModCount>>{}).first;
 		}
 
-		for (std::array<TypeHandle, m_ModCount> arr : it->second)
+		for (std::array<TypeHandle, m_ModCount>& arr : it->second)
 		{
 			TypeHandle handle;
 			for (usize i = 0; i < m_ModCount; ++i)
@@ -1324,7 +1450,7 @@ namespace Noctis
 
 				for (TypeHandle candidate : genType.constraints)
 				{
-					if (AreTypesEqual(constraint, candidate))
+					if (constraint == candidate)
 					{
 						foundConstraint = true;
 						break;
@@ -1345,7 +1471,7 @@ namespace Noctis
 					return retHandle;
 
 				retHandle = CreateHandle(new Type{ GenericType{ mod, iden, constraints } });
-				return handle;
+				return retHandle;
 			}
 		}
 
@@ -1386,13 +1512,13 @@ namespace Noctis
 		}
 		case TypeKind::Ref:
 		{
-			RefType& ptr = type->AsRef();
-			return Ref(mod, ptr.subType);
+			RefType& ref = type->AsRef();
+			return Ref(mod, ref.subType);
 		}
 		case TypeKind::Slice:
 		{
-			SliceType& ptr = type->AsSlice();
-			return Slice(mod, ptr.subType);
+			SliceType& slice = type->AsSlice();
+			return Slice(mod, slice.subType);
 		}
 		case TypeKind::Array:
 		{
@@ -1413,8 +1539,8 @@ namespace Noctis
 		}
 		case TypeKind::Compound:
 		{
-			CompoundType& tup = type->AsCompound();
-			return Compound(mod, tup.subTypes);
+			CompoundType& compound = type->AsCompound();
+			return Compound(mod, compound.subTypes);
 		}
 		case TypeKind::Func:
 		{
@@ -1431,9 +1557,88 @@ namespace Noctis
 		}
 	}
 
+	TypeHandle TypeRegistry::Fuzzy(TypeHandle handle)
+	{
+		if (!handle.IsValid())
+			return handle;
+		
+		if (!handle.AsBase().hasFuzzyCompare)
+			return handle;
+		
+		switch (handle.Kind())
+		{
+		case TypeKind::Iden:
+		{
+			IdenType& orig = handle.AsIden();
+			QualNameSPtr fuzzy = orig.qualName->Fuzzy();
+			return Iden(orig.mod, fuzzy);
+		}
+		case TypeKind::Ptr:
+		{
+			PtrType& orig = handle.AsPtr();
+			TypeHandle fuzzy = Fuzzy(orig.subType);
+			return Ptr(orig.mod, fuzzy);
+		}
+		case TypeKind::Ref:
+		{
+			RefType& orig = handle.AsRef();
+			TypeHandle fuzzy = Fuzzy(orig.subType);
+			return Ref(orig.mod, fuzzy);
+		}
+		case TypeKind::Slice:
+		{
+			SliceType& orig = handle.AsSlice();
+			TypeHandle fuzzy = Fuzzy(orig.subType);
+			return Slice(orig.mod, fuzzy);
+		}
+		case TypeKind::Array:
+		{
+			ArrayType& orig = handle.AsArray();
+			TypeHandle fuzzy = Fuzzy(orig.subType);
+			ArrayExprType fuzzyExpr{ ITrExprSPtr{} };
+			return Array(orig.mod, fuzzy, fuzzyExpr);
+		}
+		case TypeKind::Tuple:
+		{
+			TupleType& orig = handle.AsTuple();
+			StdVector<TypeHandle> fuzzys;
+			for (TypeHandle subType : orig.subTypes)
+			{
+				fuzzys.push_back(Fuzzy(subType));
+			}
+			return Tuple(orig.mod, fuzzys);
+		}
+		case TypeKind::Opt:
+		{
+			OptType& orig = handle.AsOpt();
+			TypeHandle fuzzy = Fuzzy(orig.subType);
+			return Ref(orig.mod, fuzzy);
+		}
+		case TypeKind::Compound:
+		{
+			// should not happen
+			assert(0);
+			return TypeHandle{};
+		}
+		case TypeKind::Func:
+		{
+			FuncType& orig = handle.AsFunc();
+			StdVector<TypeHandle> fuzzyParams;
+			for (TypeHandle subType : orig.paramTypes)
+			{
+				fuzzyParams.push_back(Fuzzy(subType));
+			}
+			TypeHandle fuzzyRet = Fuzzy(orig.retType);
+			return Func(orig.mod, fuzzyParams, fuzzyRet);
+		}
+		default:
+			return handle;
+		}
+	}
+
 	TypeHandle TypeRegistry::CreateHandle(TypeSPtr type)
 	{
-		return TypeHandle{ StdSharedPtr<THandle>{ new THandle{ type } } };
+		return TypeHandle{ this, StdSharedPtr<THandle>{ new THandle{ type } } };
 	}
 
 	TypeHandle TypeRegistry::CreateHandle(Type* pType)
@@ -1521,14 +1726,6 @@ namespace Noctis
 			break;
 		default: ;
 		}
-	}
-
-	bool AreTypesEqual(TypeHandle t0, TypeHandle t1)
-	{
-		// Handles should never be both invalid
-		if (!t0.IsValid() || !t1.IsValid())
-			return false;
-		return t0.Type() == t1.Type();
 	}
 
 	TypeInfo::TypeInfo()

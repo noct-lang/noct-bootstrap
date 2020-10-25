@@ -3,6 +3,7 @@
 
 #include "common/context.hpp"
 #include "common/type.hpp"
+#include "common/utils.hpp"
 #include "itr/itr.hpp"
 #include "module/symbol.hpp"
 #include "module/module.hpp"
@@ -102,25 +103,7 @@ namespace Noctis
 		for (usize i = 0; i < decl->params.size(); ++i)
 		{
 			ITrGenParamSPtr param = decl->params[i];
-			if (param->isVar)
-			{
-				ITrGenValParam& valParam = *reinterpret_cast<ITrGenValParam*>(param.get());
-				QualNameSPtr genQualName = QualName::Create(qualName, valParam.iden);
-
-				SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::GenVal, genQualName);
-
-				m_Sym->children->AddChild(sym);
-				param->sym = sym;
-
-				// TODO: type
-				sym->type = valParam.type->handle;
-
-				if (!generics.empty())
-				{
-					generics[i].isType = false;
-				}
-			}
-			else
+			if (param->isType)
 			{
 				ITrGenTypeParam& typeParam = *reinterpret_cast<ITrGenTypeParam*>(param.get());
 				QualNameSPtr genQualName = QualName::Create(qualName, typeParam.iden);
@@ -171,6 +154,24 @@ namespace Noctis
 					toReplace->type->handle = type;
 				}
 			}
+			else
+			{
+				ITrGenValParam& valParam = *reinterpret_cast<ITrGenValParam*>(param.get());
+				QualNameSPtr genQualName = QualName::Create(qualName, valParam.iden);
+
+				SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::GenVal, genQualName);
+
+				m_Sym->children->AddChild(sym);
+				param->sym = sym;
+
+				// TODO: type
+				sym->type = valParam.type->handle;
+
+				if (!generics.empty())
+				{
+					generics[i].isType = false;
+				}
+			}
 		}
 	}
 
@@ -209,38 +210,15 @@ namespace Noctis
 				}
 				
 				SymbolSPtr interface = symTable.Find(node.qualName, pair.first);
-				interfaces.push_back(interface);
-			}
+				pair.first = QualName::Create(interface->qualName->Base(), iden);
 
-			for (SymbolSPtr interface : interfaces)
-			{
-				// Update qualname to connect it to the interface that implements it
-
-				IdenSPtr iden = interface->qualName->LastIden();
-				StdVector<IdenGeneric> generics;
-				for (IdenGeneric& origGeneric : iden->Generics())
-				{
-					generics.push_back(GetGeneric(node.genDecl, origGeneric));
-				}
-
-				iden = Iden::Create(iden->Name(), generics);
-				QualNameSPtr qualName = QualName::Create(interface->qualName->Base(), iden);
-				SymbolSPtr parentIFace = symTable.Find(node.qualName, qualName);
+				SymbolSPtr parentIFace = symTable.Find(node.qualName, pair.first);
 
 				if (iden != parentIFace->qualName->LastIden())
 				{
-					parentIFace = parentIFace->CreateVariant(qualName);
+					parentIFace = parentIFace->CreateVariant(pair.first);
 				}
-
-				{
-					auto it = std::find_if(sym->interfaces.begin(), sym->interfaces.end(), [qualName](const StdPair<QualNameSPtr, SymbolWPtr>& pair) -> bool
-					{
-						return pair.first == qualName;
-					});
-					if (it == sym->interfaces.end())
-						sym->interfaces.emplace_back(qualName, parentIFace);
-				}
-
+				AddUniquePair(sym->interfaces, pair.first, SymbolWPtr{ parentIFace });
 
 				// Process children
 
@@ -253,7 +231,7 @@ namespace Noctis
 						QualNameSPtr childQualName = QualName::Create(sym->qualName, parentIfaceChild->qualName->LastIden());
 						child = CreateSymbol(m_pCtx, parentIfaceChild->kind, childQualName);
 
-						sym->children->AddChild(child, qualName);
+						sym->children->AddChild(child, pair.first);
 
 						ITrFunc& func = static_cast<ITrFunc&>(*parentIfaceChild->associatedITr.lock());
 						StdVector<ITrParamSPtr> params = func.params;
@@ -264,10 +242,79 @@ namespace Noctis
 						def->sym = child;
 						m_pMod->AddDefinition(def);
 					}
-					child->interfaces.emplace_back(parentIFace->qualName, parentIFace);
+					AddUniquePair(child->interfaces, parentIFace->qualName, SymbolWPtr{ parentIFace });
 				});
 			}
 
+		});
+
+		Foreach(ITrVisitorDefKind::Any, [](ITrImpl& node)
+		{
+			QualNameSPtr ifaceQualName = node.interface.first;
+			if (!ifaceQualName)
+				return;
+
+			IdenSPtr iden = ifaceQualName->LastIden();
+			if (iden->Generics().empty())
+				return;
+			if (!node.genDecl)
+				return;
+
+			StdVector<IdenGeneric> gens;
+			StdVector<ITrGenParamSPtr>& availableGenerics = node.genDecl->params;
+			for (IdenGeneric& origGen : iden->Generics())
+			{
+				if (origGen.isType)
+				{
+					bool found = false;
+					for (ITrGenParamSPtr param : availableGenerics)
+					{
+						if (param->isType)
+						{
+							ITrGenTypeParam& typeParam = static_cast<ITrGenTypeParam&>(*param);
+
+							found = origGen.iden == typeParam.iden;
+							if (!found)
+							{
+								TypeHandle type = origGen.type;
+								if (type.Kind() == TypeKind::Iden &&
+									type.AsIden().qualName->IsBase() &&
+									type.AsIden().qualName->LastIden() == typeParam.iden)
+								{
+									found = true;
+								}
+								else if (type.Kind() == TypeKind::Generic &&
+										 type.AsGeneric().iden == typeParam.iden)
+								{
+									found = true;
+								}
+							}
+							
+							if (found)
+							{
+								IdenGeneric gen;
+								gen.isType = true;
+								gen.isSpecialized = true;
+								gen.iden = origGen.iden;
+								gen.type = typeParam.sym.lock()->type;
+								gens.push_back(gen);
+								break;
+							}
+						}
+					}
+
+					if (!found)
+						gens.push_back(origGen);
+					
+				}
+				else
+				{
+					gens.push_back(origGen);
+				}
+			}
+
+			iden = Iden::Create(iden->Name(), gens, iden->ParamNames());
+			node.interface.first = QualName::Create(ifaceQualName->Base(), iden);
 		});
 	}
 
@@ -281,11 +328,11 @@ namespace Noctis
 				bool found = false;
 				for (ITrGenParamSPtr genParam : genDecl->params)
 				{
-					if (origGeneric.isType && !genParam->isVar)
+					if (origGeneric.isType && genParam->isType)
 					{
 						ITrGenTypeParam& genTypeParam = static_cast<ITrGenTypeParam&>(*genParam);
 
-						IdenSPtr origIden = origGeneric.type.AsGeneric().iden;
+						IdenSPtr origIden = origGeneric.type.AsIden().qualName->LastIden();
 
 						if (origIden == genTypeParam.iden)
 						{

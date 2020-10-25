@@ -12,16 +12,15 @@ namespace Noctis
 	FWDECL_STRUCT_SPTR(ITrImpl);
 	FWDECL_STRUCT_SPTR(ITrGenTypeBound);
 
+	
 
 	// Function type inference prepass
 	class TypeInference : public ITrSemanticPass
 	{
 	public:
-		TypeInference(Context* pCtx);
-		void SetPrepass();
+		TypeInference(Context* pCtx, bool prepass);
 
 		void Process(ITrModule& mod) override;
-
 		
 		void Visit(ITrBlock& node) override;
 		void Visit(ITrReturn& node) override;
@@ -57,10 +56,11 @@ namespace Noctis
 
 		// TODO: Patterns
 
-	private: 
+	private:
 		void HandleGenerics(ITrDef& def, IdenSPtr iden);
 		void HandleAssocTypes(ITrGenBoundType& boundType, GenTypeInfo& genInfo);
 
+		GenTypeInfo GetSubTypeInfo(const TypeInfo& srcInfo, TypeHandle interfaceType, const StdString& subTypeName);
 		void NarrowGenBound(TypeInfo& typeInfo);
 		
 		QualNameSPtr GetCurScope();
@@ -73,7 +73,6 @@ namespace Noctis
 		FuncContextSPtr m_FuncCtx;
 		QualNameSPtr m_InterfaceQualname;
 		StdVector<QualNameSPtr> m_SubInterfaceQualNames;
-		bool m_Prepass;
 
 		TypeHandle m_SelfType;
 
@@ -83,12 +82,12 @@ namespace Noctis
 
 		TypeHandle m_ReturnHandle;
 		TypeHandle m_ExpectedHandle;
-		TypeSPtr m_Expected;
 
 		StdUnorderedMap<IdenSPtr, TypeHandle> m_GenMapping;
+
+		bool m_Prepass;
 
 		// Debug info
 		StdString m_DebugMethodName;
 	};
-	
 }

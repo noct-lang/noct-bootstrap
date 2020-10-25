@@ -20,14 +20,14 @@ namespace Noctis
 		StdStringView m_Name;
 		Context* m_pCtx;
 	};
-
+	
 	class ITrSemanticPass : public ITrVisitor
 	{
 	public:
 		ITrSemanticPass(StdStringView name, Context* pCtx);
 		virtual ~ITrSemanticPass();
 
-		virtual void Process(ITrModule& mod)= 0;
+		virtual void Process(ITrModule& mod) = 0;
 
 	protected:
 		Timer m_Timer;

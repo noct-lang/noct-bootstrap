@@ -35,7 +35,6 @@ namespace Noctis
 		if (packageQualName)
 		{
 			packageName = packageQualName->ToString();
-			packageName.erase(packageName.begin(), packageName.begin() + 2);
 			StringReplace(packageName, "::", ".");
 			encoded.insert(encoded.end(), packageName.begin(), packageName.end());
 		}
@@ -163,7 +162,6 @@ namespace Noctis
 		for (StdPair<const QualNameSPtr, ModuleSPtr>& import : m_pMod->imports)
 		{
 			StdString modName = import.first->ToString();
-			modName.erase(modName.begin(), modName.begin() + 2);
 			StringReplace(modName, "::", ".");
 
 			// TODO: Flags
@@ -204,8 +202,16 @@ namespace Noctis
 					WriteData(m_SymSection, u8(0));
 				}
 
-				StdString mangledName = GetMangledType(sym->SelfType());
-				WriteName(m_SymSection, mangledName);
+				if (sym->kind == SymbolKind::Method &&
+					sym->parent.lock())
+				{
+					StdString mangledName = GetMangledType(sym->parent.lock()->SelfType());
+					WriteName(m_SymSection, mangledName);
+				}
+				else
+				{
+					WriteData(m_SymSection, u8(0));
+				}
 			}
 			
 			StdString mangleName;
@@ -694,28 +700,34 @@ namespace Noctis
 				ifaceQualName = GetQualNameFromMangle(ifaceMangled);
 
 				const StdString& parentTypeMangled = ReadName();
-				TypeHandle parentType = GetTypeFromMangle(parentTypeMangled);
-
-				const StdString& mangledIden = ReadName();
-				IdenSPtr iden = GetIdenFromMangle(mangledIden);
-
-				if (parentType.Type()->typeKind == TypeKind::Iden)
+				
+				if (!parentTypeMangled.empty())
 				{
-					qualName = parentType.AsIden().qualName;
-					qualName = QualName::Create(qualName, iden);
+					TypeHandle parentType = GetTypeFromMangle(parentTypeMangled);
+					const StdString& mangledIden = ReadName();
+					IdenSPtr iden = GetIdenFromMangle(mangledIden);
+
+					if (parentType.Type()->typeKind == TypeKind::Iden)
+					{
+						qualName = parentType.AsIden().qualName;
+						qualName = QualName::Create(qualName, iden);
+					}
+					else
+					{
+						IdenSPtr scope = Iden::Create(parentTypeMangled);
+						qualName = QualName::Create({ scope, iden });
+					}
 				}
 				else
 				{
-					IdenSPtr scope = Iden::Create(parentTypeMangled);
-					qualName = QualName::Create({ scope, iden });
+					const StdString& mangledIden = ReadName();
+					qualName = GetQualNameFromMangle(mangledIden);
 				}
 			}
 			else
 			{
 				const StdString& mangled = ReadName();
 				qualName = GetQualNameFromMangle(mangled);
-
-				
 			}
 
 			sym = CreateSymbol(m_pCtx, kind, qualName);

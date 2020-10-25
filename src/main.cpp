@@ -54,24 +54,24 @@ void ProcessBuild(Noctis::Context& context)
 		bool couldRead = Noctis::ReadFileAsString(filepath, content);
 		if (!couldRead)
 		{
-			const char* pFilePath = filepath.c_str();
-			g_ErrorSystem.Error("Failed to open file '%s'", pFilePath);
+			g_ErrorSystem.Error("Failed to open file '%s'", filepath.c_str());
 			continue;
 		}
+
+		g_Logger.Log("-- FILE: %s\n", filepath.c_str());
+		Noctis::Timer fileTimer(true);
 		
 		Noctis::Lexer lexer{ &context };
-
 		lexer.Lex(filepath, content);
+		
 		timer.Stop();
-
 		if (buildOptions.logTokens)
 			lexer.LogTokens();
 
-		g_Logger.Log(Noctis::Format("Lexer took %fms\n", timer.GetTimeMS()));
-
-		Noctis::Parser parser{ lexer.Tokens(), &context };
+		g_Logger.Log("%16s : lexer\n", timer.GetSMSFormat().c_str());
 
 		timer.Start();
+		Noctis::Parser parser{ lexer.Tokens(), &context };
 
 		Noctis::AstTree astTree;
 		astTree.filepath = filepath;
@@ -101,7 +101,7 @@ void ProcessBuild(Noctis::Context& context)
 			printer.Visit(astTree);
 		}
 
-		g_Logger.Log(Noctis::Format("Parser took %fms\n", timer.GetTimeMS()));
+		g_Logger.Log("%16s : parser\n", timer.GetSMSFormat().c_str());
 
 		Noctis::QualNameSPtr moduleQualName;
 		if (astTree.nodes.size() != 0 && astTree.nodes[0]->stmtKind == Noctis::AstStmtKind::Decl)
@@ -135,7 +135,10 @@ void ProcessBuild(Noctis::Context& context)
 			it->second->isImported = false;
 			//it->second.reset(new Noctis::Module{ moduleQualName, &context });
 		}
-		it->second->trees.push_back(astTree);		
+		it->second->trees.push_back(astTree);
+
+		fileTimer.Stop();
+		g_Logger.Log("-- TOOK %s\n", fileTimer.GetSMSFormat().c_str());
 	}
 
 	for (StdPair<const Noctis::QualNameSPtr, Noctis::ModuleSPtr>& pair : modules)
@@ -149,11 +152,7 @@ void ProcessBuild(Noctis::Context& context)
 
 		for (Noctis::AstTree& tree : pair.second->trees)
 		{
-			timer.Start();
 			astSemAnalysis.Run(tree);
-			timer.Stop();
-
-			g_Logger.Log(Noctis::Format("AST semantic analysis took %fms\n", timer.GetTimeMS()));
 		}
 
 		if (buildOptions.logLoweredITr)
@@ -170,17 +169,17 @@ void ProcessBuild(Noctis::Context& context)
 		
 
 		{
+			g_Logger.SetCanWriteToStdOut(false);
 			Noctis::ILPrinter printer(&context);
 			printer.Print(pair.second->ilMod);
+			g_Logger.SetCanWriteToStdOut(true);
 		}
-		g_Logger.SetCanWriteToStdOut(true);
 
 		{
 			Noctis::ModuleEncode encoder(&context);
 			StdVector<u8> encoded = encoder.Encode(*pair.second);
 
 			StdString path = pair.second->qualName->ToString();
-			path.erase(path.begin(), path.begin() + 2);
 			Noctis::StringReplace(path, "::", ".");
 			path += ".nxm";
 			std::ofstream out(path.c_str(), std::ios::binary);
@@ -194,7 +193,7 @@ void ProcessBuild(Noctis::Context& context)
 	}
 
 	buildTimer.Stop();
-	g_Logger.Log(Noctis::Format("build took %fms\n", buildTimer.GetTimeMS()));
+	g_Logger.Log("build took %s\n", buildTimer.GetSMSFormat().c_str());
 }
 
 void ProcessInterpret(Noctis::Context& context)

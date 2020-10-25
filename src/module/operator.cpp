@@ -162,11 +162,9 @@ namespace Noctis
 
 	void OperatorTable::Collect(ModuleSymbolTable& table)
 	{
-		
 		for (u8 i = 0; i < u8(OperatorKind::NullPanic); ++i)
 		{
 			OperatorKind kind = OperatorKind(i);
-
 			QualNameSPtr interfaceQualName = GetOpInterfaceQualName(kind);
 
 			// Skip non-overloadable
@@ -174,10 +172,9 @@ namespace Noctis
 				continue;
 			
 			SymbolSPtr interfaceSym = table.Find(nullptr, interfaceQualName);
-			
 			if (interfaceSym)
 			{
-				HandleUnaryOp(kind, interfaceSym);
+				HandleUnaryOp(kind, nullptr, interfaceSym);
 				
 				for (SymbolSPtr implSym : interfaceSym->impls)
 				{
@@ -206,7 +203,7 @@ namespace Noctis
 			SymbolSPtr interfaceSym = table.Find(nullptr, interfaceQualName);
 			if (interfaceSym)
 			{
-				HandleBinaryOp(kind, interfaceSym);
+				HandleBinaryOp(kind, nullptr, interfaceSym);
 				
 				for (SymbolSPtr implSym : interfaceSym->impls)
 				{
@@ -313,14 +310,14 @@ namespace Noctis
 				{
 					for (SymbolSPtr implSym : interfaceSym->impls)
 					{
-						HandleFromOp(false, implSym, interfaceSym);
+						HandleConvOp(implSym, interfaceSym);
 					}
 
 					for (SymbolSPtr variant : interfaceSym->variants)
 					{
 						for (SymbolSPtr implSym : variant->impls)
 						{
-							HandleFromOp(false, implSym, variant);
+							HandleConvOp(implSym, variant);
 						}
 					}
 				}
@@ -334,14 +331,14 @@ namespace Noctis
 				{
 					for (SymbolSPtr implSym : interfaceSym->impls)
 					{
-						HandleFromOp(true, implSym, interfaceSym);
+						HandleConvOp(implSym, interfaceSym);
 					}
 
 					for (SymbolSPtr variant : interfaceSym->variants)
 					{
 						for (SymbolSPtr implSym : variant->impls)
 						{
-							HandleFromOp(true, implSym, variant);
+							HandleConvOp(implSym, variant);
 						}
 					}
 				}
@@ -355,14 +352,14 @@ namespace Noctis
 				{
 					for (SymbolSPtr implSym : interfaceSym->impls)
 					{
-						HandleToOp(false, implSym, interfaceSym);
+						HandleConvOp(implSym, interfaceSym);
 					}
 
 					for (SymbolSPtr variant : interfaceSym->variants)
 					{
 						for (SymbolSPtr implSym : variant->impls)
 						{
-							HandleToOp(false, implSym, variant);
+							HandleConvOp(implSym, variant);
 						}
 					}
 				}
@@ -376,14 +373,14 @@ namespace Noctis
 				{
 					for (SymbolSPtr implSym : interfaceSym->impls)
 					{
-						HandleToOp(true, implSym, interfaceSym);
+						HandleConvOp(implSym, interfaceSym);
 					}
 
 					for (SymbolSPtr variant : interfaceSym->variants)
 					{
 						for (SymbolSPtr implSym : variant->impls)
 						{
-							HandleToOp(true, implSym, variant);
+							HandleConvOp(implSym, variant);
 						}
 					}
 				}
@@ -424,14 +421,14 @@ namespace Noctis
 				{
 					for (SymbolSPtr implSym : interfaceSym->impls)
 					{
-						HandleBinaryOp(OperatorKind::Index, implSym, interfaceSym);
+						HandleBinaryOp(OperatorKind::MutIndex, implSym, interfaceSym);
 					}
 
 					for (SymbolSPtr variant : interfaceSym->variants)
 					{
 						for (SymbolSPtr implSym : variant->impls)
 						{
-							HandleBinaryOp(OperatorKind::Index, implSym, variant);
+							HandleBinaryOp(OperatorKind::MutIndex, implSym, variant);
 						}
 					}
 				}
@@ -495,7 +492,7 @@ namespace Noctis
 			bool found = false;
 			for (TypeHandle handle : genType.constraints)
 			{
-				if (m_pCtx->typeReg.AreTypesEqual(handle, interfaceType))
+				if (handle == interfaceType)
 				{
 					found = true;
 					break;
@@ -537,7 +534,7 @@ namespace Noctis
 		{
 			for (Operator& op : it->second)
 			{
-				if (typeReg.AreTypesEqual(op.right, right))
+				if (op.right == right)
 					return op;
 			}
 		}
@@ -622,15 +619,20 @@ namespace Noctis
 		IdenSPtr ifaceIden = Iden::Create(interfaceSym->qualName->LastIden()->Name(), { idenGen });
 		QualNameSPtr ifaceQualName = QualName::Create(interfaceSym->qualName->Base(), ifaceIden);
 		
-		SymbolSPtr funcSym = impl->children->FindChild(ifaceQualName, funcIden, {});
+		SymbolSPtr funcSym;
+		if (impl)
+			funcSym = impl->children->FindChild(ifaceQualName, funcIden, {});
+		else
+			funcSym = interfaceSym->children->FindChild(ifaceQualName, funcIden, {});
 
 		Operator op;
-		op.left = impl->type;
+		op.left = impl ? impl->type : interfaceSym->type;
 		op.right = rType;
 		op.result = funcSym->type.AsFunc().retType;
 		op.sym = funcSym;
 
 		op.isBuiltin = IsBuiltinOp(op.left, op.right);
+		op.isInterfaceOp = !impl;
 
 		StdUnorderedMap<TypeSPtr, StdVector<Operator>>& entry = m_OpSymbols[u8(kind)];
 		TypeSPtr type = op.left.Type();
@@ -641,67 +643,7 @@ namespace Noctis
 		bool found = false;
 		for (Operator& tmpOp : it->second)
 		{
-			if (m_pCtx->typeReg.AreTypesEqual(tmpOp.right, op.right))
-			{
-				found = true;
-				break;
-			}
-		}
-		if (!found)
-			it->second.push_back(op);
-	}
-
-	void OperatorTable::HandleBinaryOp(OperatorKind kind, SymbolSPtr interfaceSym)
-	{
-		TypeHandle rType = interfaceSym->qualName->LastIden()->Generics()[0].type;
-
-		StdString funcName;
-		switch (kind)
-		{
-		case OperatorKind::Eq: funcName = "opEq"; break;
-		case OperatorKind::Ne: funcName = "opNe"; break;
-		case OperatorKind::Lt: funcName = "opLt"; break;
-		case OperatorKind::Le: funcName = "opLe"; break;
-		case OperatorKind::Gt: funcName = "opGt"; break;
-		case OperatorKind::Ge: funcName = "opGe"; break;
-		default:
-		{
-			funcName = interfaceSym->qualName->LastIden()->Name();
-			funcName[0] = 'o';
-			break;
-		}
-		}
-
-		IdenGeneric idenGen;
-		idenGen.isType = idenGen.isSpecialized = true;
-		idenGen.type = rType;
-
-		IdenSPtr funcIden = Iden::Create(funcName);
-
-		IdenSPtr ifaceIden = Iden::Create(interfaceSym->qualName->LastIden()->Name(), { idenGen });
-		QualNameSPtr ifaceQualName = QualName::Create(interfaceSym->qualName->Base(), ifaceIden);
-
-		SymbolSPtr funcSym = interfaceSym->children->FindChild(nullptr, funcIden, {});
-
-		Operator op;
-		op.left = interfaceSym->type;
-		op.right = rType;
-		op.result = funcSym->type.AsFunc().retType;
-		op.sym = funcSym;
-
-		op.isBuiltin = IsBuiltinOp(op.left, op.right);
-		op.isInterfaceOp = true;
-
-		StdUnorderedMap<TypeSPtr, StdVector<Operator>>& entry = m_OpSymbols[u8(kind)];
-		TypeSPtr type = op.left.Type();
-		auto it = entry.find(type);
-		if (it == entry.end())
-			it = entry.try_emplace(type, StdVector<Operator>{}).first;
-
-		bool found = false;
-		for (Operator& tmpOp : it->second)
-		{
-			if (m_pCtx->typeReg.AreTypesEqual(tmpOp.right, op.right))
+			if (tmpOp.right == op.right)
 			{
 				found = true;
 				break;
@@ -717,19 +659,22 @@ namespace Noctis
 		funcName[0] = 'o';
 		
 		IdenSPtr funcIden = Iden::Create(funcName);
-		SymbolSPtr funcSym = impl->children->FindChild(interfaceSym->qualName, funcIden, {});
+		SymbolSPtr funcSym;
+		if (impl)
+			funcSym = impl->children->FindChild(interfaceSym->qualName, funcIden, {});
+		else
+			funcSym = interfaceSym->children->FindChild(interfaceSym->qualName, funcIden, {});
 
  		TypeSPtr funcType = funcSym->type.Type();
 		Operator op;
 
-		op.left = funcType->AsFunc().paramTypes[0];
-		if (m_pCtx->typeReg.IsType(op.left, TypeKind::Ref))
-			op.left = op.left.AsRef().subType;
+		op.left = impl ? impl->type : interfaceSym->type;
 		
 		op.result = funcType->AsFunc().retType;
 		op.sym = funcSym;
 
 		op.isBuiltin = IsBuiltinOp(op.left);
+		op.isInterfaceOp = !impl;
 
 		if ((kind == OperatorKind::Deref || kind == OperatorKind::MutDeref) && m_pCtx->typeReg.IsType(op.left, TypeKind::Ptr))
 			op.isBuiltin = true;
@@ -750,55 +695,17 @@ namespace Noctis
 		}
 	}
 
-	void OperatorTable::HandleUnaryOp(OperatorKind kind, SymbolSPtr interfaceSym)
-	{
+	void OperatorTable::HandleConvOp(SymbolSPtr impl, SymbolSPtr interfaceSym)
+	{	
+		TypeHandle genType = interfaceSym->qualName->LastIden()->Generics()[0].type;
 		StdString funcName = interfaceSym->qualName->LastIden()->Name();
-		funcName[0] = 'o';
 
-		IdenSPtr funcIden = Iden::Create(funcName);
-		SymbolSPtr funcSym = interfaceSym->children->FindChild(nullptr, funcIden, {});
-
-		TypeSPtr funcType = funcSym->type.Type();
-		Operator op;
-
-		op.left = funcType->AsFunc().paramTypes[0];
-		if (m_pCtx->typeReg.IsType(op.left, TypeKind::Ref))
-			op.left = op.left.AsRef().subType;
-
-
-		op.result = funcType->AsFunc().retType;
-		op.sym = funcSym;
-
-		op.isBuiltin = IsBuiltinOp(op.left);
-		op.isInterfaceOp = true;
-
-		if ((kind == OperatorKind::Deref || kind == OperatorKind::MutDeref) && m_pCtx->typeReg.IsType(op.left, TypeKind::Ptr))
-			op.isBuiltin = true;
-
-		StdUnorderedMap<TypeSPtr, StdVector<Operator>>& entry = m_OpSymbols[u8(kind)];
-		TypeSPtr type = op.left.Type();
-		auto it = entry.find(type);
-		if (it == entry.end())
-			it = entry.try_emplace(type, StdVector<Operator>{}).first;
-
-		if (it->second.empty())
-		{
-			it->second.push_back(op);
-		}
-		else
-		{
-			// TODO: Error
-		}
-	}
-
-	void OperatorTable::HandleFromOp(bool isTry, SymbolSPtr impl, SymbolSPtr interfaceSym)
-	{
-		TypeHandle fromType = interfaceSym->qualName->LastIden()->Generics()[0].type;
-		StdString funcName = interfaceSym->qualName->LastIden()->Name();
+		bool isTry = funcName.find("Try") != StdString::npos;
+		bool isTo = funcName.find("To") != StdString::npos;
 
 		IdenGeneric idenGen;
 		idenGen.isType = idenGen.isSpecialized = true;
-		idenGen.type = impl->type;
+		idenGen.type = isTo ? impl->type : genType;
 
 		IdenSPtr funcIden = Iden::Create(funcName);
 
@@ -809,8 +716,8 @@ namespace Noctis
 
 		TypeSPtr funcType = funcSym->type.Type();
 		Operator op;
-		op.left = fromType;
-		op.right = impl->type;
+		op.left = isTo ? impl->type : genType;
+		op.right = isTo ? genType : impl->type;
 		op.result = funcType->AsFunc().retType;
 		op.sym = funcSym;
 
@@ -826,53 +733,7 @@ namespace Noctis
 		bool found = false;
 		for (Operator& tmpOp : it->second)
 		{
-			if (m_pCtx->typeReg.AreTypesEqual(tmpOp.right, op.right))
-			{
-				found = true;
-				break;
-			}
-		}
-		if (!found)
-			it->second.push_back(op);
-	}
-
-	void OperatorTable::HandleToOp(bool isTry, SymbolSPtr impl, SymbolSPtr interfaceSym)
-	{
-		TypeHandle toType = interfaceSym->qualName->LastIden()->Generics()[0].type;
-
-		StdString funcName = interfaceSym->qualName->LastIden()->Name();
-
-		IdenGeneric idenGen;
-		idenGen.isType = idenGen.isSpecialized = true;
-		idenGen.type = impl->type;
-
-		IdenSPtr funcIden = Iden::Create(funcName);
-
-		IdenSPtr ifaceIden = Iden::Create(interfaceSym->qualName->LastIden()->Name(), { idenGen });
-		QualNameSPtr ifaceQualName = QualName::Create(interfaceSym->qualName->Base(), ifaceIden);
-
-		SymbolSPtr funcSym = impl->children->FindChild(ifaceQualName, funcIden, {});
-
-		TypeSPtr funcType = funcSym->type.Type();
-		Operator op;
-		op.left = impl->type;
-		op.right = toType;
-		op.result = funcType->AsFunc().retType;
-		op.sym = funcSym;
-
-		op.isBuiltin = IsBuiltinOp(op.left, op.right);
-
-		OperatorKind kind = isTry ? OperatorKind::TryCast : OperatorKind::Cast;
-		StdUnorderedMap<TypeSPtr, StdVector<Operator>>& entry = m_OpSymbols[u8(kind)];
-		TypeSPtr type = op.left.Type();
-		auto it = entry.find(type);
-		if (it == entry.end())
-			it = entry.try_emplace(type, StdVector<Operator>{}).first;
-
-		bool found = false;
-		for (Operator& tmpOp : it->second)
-		{
-			if (m_pCtx->typeReg.AreTypesEqual(tmpOp.right, op.right))
+			if (tmpOp.right == op.right)
 			{
 				found = true;
 				break;
@@ -953,6 +814,7 @@ namespace Noctis
 	bool OperatorTable::IsBuiltinOp(TypeHandle handle)
 	{
 		TypeSPtr type = handle.Type();
+		QualNameSPtr valEnumMarkerQualName = QualName::Create({ "core", "marker", "ValEnum" });
 		switch (type->typeKind)
 		{
 		case TypeKind::Builtin:
@@ -960,7 +822,17 @@ namespace Noctis
 		case TypeKind::Iden:
 		{
 			SymbolSPtr sym = type->AsIden().sym.lock();
-			return sym->HasMarker(QualName::Create({ "core", "marker", "ValEnum" }));
+			return sym->HasMarker(valEnumMarkerQualName);
+		}
+		case TypeKind::Generic:
+		{
+			const StdVector<TypeHandle>& constraints = type->AsGeneric().constraints;
+			for (const TypeHandle& constraint : constraints)
+			{
+				if (constraint.Kind() == TypeKind::Iden &&
+					constraint.AsIden().qualName == valEnumMarkerQualName)
+					return true;
+			}
 		}
 		default:
 			return false;

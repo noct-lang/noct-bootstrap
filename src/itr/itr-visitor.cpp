@@ -25,21 +25,18 @@ namespace Noctis
 			case ITrVisitorDefKind::Module: \
 			{ \
 				if (def->isModDef) \
-					func(*reinterpret_cast<ITr##Type*>(def.get())); \
-				break; \
+					break; \
+				continue; \
 			} \
 			case ITrVisitorDefKind::Local: \
 			{ \
 				if (!def->isModDef) \
-					func(*reinterpret_cast<ITr##Type*>(def.get())); \
-				break; \
+					break; \
+				continue; \
 			} \
-			default: \
-			{ \
-				func(*reinterpret_cast<ITr##Type*>(def.get())); \
-				break; \
+			default:; \
 			} \
-			} \
+			func(static_cast<ITr##Type&>(*def)); \
 		} \
 	}
 
@@ -57,7 +54,7 @@ namespace Noctis
 	FOREACH_IMPL(Var)
 	FOREACH_IMPL(Func)
 	FOREACH_IMPL(Impl)
-	
+
 	void ITrVisitor::Visit(ITrStruct& node)
 	{
 		Walk(node);
@@ -1116,10 +1113,10 @@ namespace Noctis
 	{
 		for (ITrGenParamSPtr param : node.params)
 		{
-			if (param->isVar)
-				Visit(*reinterpret_cast<ITrGenValParam*>(param.get()));
-			else
+			if (param->isType)
 				Visit(*reinterpret_cast<ITrGenTypeParam*>(param.get()));
+			else
+				Visit(*reinterpret_cast<ITrGenValParam*>(param.get()));
 		}
 		for (ITrGenTypeBoundSPtr bound : node.bounds)
 		{

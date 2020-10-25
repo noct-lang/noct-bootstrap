@@ -1,5 +1,7 @@
 #include "perf.hpp"
 
+#include "utils.hpp"
+
 namespace Noctis
 {
 	Timer::Timer(bool start)
@@ -34,5 +36,13 @@ namespace Noctis
 	{
 		std::chrono::duration<double, std::nano> dur = m_StopTime - m_StartTime;
 		return dur.count();
+	}
+
+	StdString Timer::GetSMSFormat()
+	{
+		double time = GetTimeMS();
+		u32 seconds = u32(time / 1000);
+		double ms = time - seconds * 1000;
+		return Format("%us %07.3fms", seconds, ms);
 	}
 }

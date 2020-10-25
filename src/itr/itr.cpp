@@ -2,6 +2,7 @@
 
 #include "common/qualname.hpp"
 #include "module/function.hpp"
+#include "semantic/semantic-pass.hpp"
 
 namespace Noctis
 {
@@ -523,20 +524,20 @@ namespace Noctis
 	{
 	}
 
-	ITrGenParam::ITrGenParam(bool isVar)
-		: isVar(isVar)
+	ITrGenParam::ITrGenParam(bool isType)
+		: isType(isType)
 	{
 	}
 
 	ITrGenTypeParam::ITrGenTypeParam(IdenSPtr name, ITrTypeSPtr defType)
-		: ITrGenParam(false)
+		: ITrGenParam(true)
 		, iden(name)
 		, defType(defType)
 	{
 	}
 
 	ITrGenValParam::ITrGenValParam(IdenSPtr iden, ITrTypeSPtr type, ITrExprSPtr defExpr)
-		: ITrGenParam(true)
+		: ITrGenParam(false)
 		, iden(iden)
 		, type(type)
 		, defExpr(defExpr)

@@ -31,8 +31,8 @@ namespace Noctis
 
 		
 	private:
-		template<typename T>
-		void RunPass();
+		template<typename T, typename... Args>
+		void RunPass(const Args&... args);
 
 		Context* m_pCtx;
 		ITrModule* m_pMod;
