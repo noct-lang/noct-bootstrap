@@ -2,6 +2,7 @@
 #include "common/defs.hpp"
 #include "macro.hpp"
 #include "ast/ast.hpp"
+#include "graph.hpp"
 #include "il/il.hpp"
 #include "itr/itr.hpp"
 #include "symbol.hpp"
@@ -34,6 +35,8 @@ namespace Noctis
 
 		ModuleSymbolTable symTable;
 		StdUnorderedSet<SymbolSPtr> comptimeSymbols;
+
+		DependencyGraph dependencyGraph;
 
 		StdUnorderedMap<QualNameSPtr, ModuleSPtr> imports;
 

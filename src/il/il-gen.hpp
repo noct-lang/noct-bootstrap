@@ -119,6 +119,8 @@ namespace Noctis
 
 		QualNameSPtr GetCurScope();
 
+		void ImplementCompilerIntrin(const StdString& intrinName);
+
 		ILModule* m_pILMod;
 
 		ILFuncDefSPtr m_Def;

@@ -230,6 +230,35 @@ namespace Noctis
 		g_Logger.Log("]\n");
 	}
 
+	void ILPrinter::Visit(ILCompIntrin& node)
+	{
+		StdString intrinName = GetCompIntrinName(node.intrin);
+
+		PrintIndent();
+		if (node.dst.type.IsValid())
+		{
+			LogVar(node.dst);
+			g_Logger.Log(" = ");
+		}
+
+		g_Logger.Log("compintrin %s(", intrinName.c_str());
+		for (usize i = 0; i < node.vars.size(); ++i)
+		{
+			if (i != 0)
+				g_Logger.Log(", ");
+			LogVar(node.vars[i]);
+		}
+		if (!node.vars.empty() && !node.types.empty())
+			g_Logger.Log(", ");
+		for (usize i = 0; i < node.types.size(); ++i)
+		{
+			if (i != 0)
+				g_Logger.Log(", ");
+			g_Logger.Log(m_pCtx->typeReg.ToString(node.types[i]));
+		}
+		g_Logger.Log(")\n");
+	}
+
 	void ILPrinter::Visit(ILFuncCall& node)
 	{
 		PrintIndent();

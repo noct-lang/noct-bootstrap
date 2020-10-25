@@ -2,6 +2,60 @@
 
 namespace Noctis
 {
+	StdString GetCompIntrinName(ILCompIntrinKind intrin)
+	{
+		switch (intrin)
+		{
+		case ILCompIntrinKind::SizeOf: return "sizeof";
+		case ILCompIntrinKind::AlignOf: return "alignof";
+		case ILCompIntrinKind::AlignOfVal: return "alignofval";
+		case ILCompIntrinKind::BytewiseCopy: return "bytewisecopy";
+		case ILCompIntrinKind::FuzzyTypeComp: return "fuzzytypecomp";
+		default: return "";
+		}
+	}
+
+	bool HasCompIntrinReturn(ILCompIntrinKind intrin)
+	{
+		switch (intrin)
+		{
+		case ILCompIntrinKind::SizeOf:
+		case ILCompIntrinKind::AlignOf:
+		case ILCompIntrinKind::AlignOfVal:
+		case ILCompIntrinKind::BytewiseCopy:
+			return true;
+		case ILCompIntrinKind::FuzzyTypeComp:
+		default:
+			return false;
+		}
+	}
+
+	usize GetCompIntrinVarCount(ILCompIntrinKind intrin)
+	{
+		switch (intrin)
+		{
+		case ILCompIntrinKind::SizeOf: return 0;
+		case ILCompIntrinKind::AlignOf: return 0;
+		case ILCompIntrinKind::AlignOfVal: return 1;
+		case ILCompIntrinKind::BytewiseCopy: return 1;
+		case ILCompIntrinKind::FuzzyTypeComp: return 0;
+		default: return 0;
+		}
+	}
+
+	usize GetCompIntrinTypeCount(ILCompIntrinKind intrin)
+	{
+		switch (intrin)
+		{
+		case ILCompIntrinKind::SizeOf: return 1;
+		case ILCompIntrinKind::AlignOf: return 1;
+		case ILCompIntrinKind::AlignOfVal: return 0;
+		case ILCompIntrinKind::BytewiseCopy: return 0;
+		case ILCompIntrinKind::FuzzyTypeComp: return 2;
+		default: return 0;
+		}
+	}
+
 	ILVar::ILVar()
 		: kind(ILVarKind::Copy)
 		, id(0)
@@ -136,6 +190,16 @@ namespace Noctis
 		, dst(dst)
 		, src(src)
 		, idx(idx)
+	{
+	}
+
+	ILCompIntrin::ILCompIntrin(ILVar dst, ILCompIntrinKind kind, const StdVector<ILVar>& vars,
+		const StdVector<TypeHandle>& types)
+		: ILElem(ILKind::CompIntrin)
+		, dst(dst)
+		, intrin(kind)
+		, vars(vars)
+		, types(types)
 	{
 	}
 

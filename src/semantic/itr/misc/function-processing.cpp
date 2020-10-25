@@ -1,7 +1,10 @@
 #include "function-processing.hpp"
 
+
+#include "common/context.hpp"
 #include "itr/itr.hpp"
 #include "module/function.hpp"
+#include "module/module.hpp"
 #include "semantic/ast/misc/iden-scope-pass.hpp"
 
 namespace Noctis
@@ -78,13 +81,5 @@ namespace Noctis
 			LocalVarDataSPtr var{ new LocalVarData{ iden } };
 			m_FuncCtx->localVars.AddLocalVarDeclSPtr(m_ScopeNames, var);
 		}
-	}
-
-	void LocalVarCollection::Visit(ITrBlockExpr& node)
-	{
-	}
-
-	void LocalVarCollection::Visit(ITrUnsafeExpr& node)
-	{
 	}
 }

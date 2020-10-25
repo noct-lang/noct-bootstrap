@@ -166,8 +166,11 @@ void ProcessBuild(Noctis::Context& context)
 
 		g_Logger.SetCanWriteToStdOut(false);
 		pair.second->symTable.Log(false);
-		
+		g_Logger.SetCanWriteToStdOut(true);
 
+		Noctis::ILProcessing ilProcessing{ &context };
+		ilProcessing.Process(pair.second->ilMod);
+		
 		{
 			g_Logger.SetCanWriteToStdOut(false);
 			Noctis::ILPrinter printer(&context);

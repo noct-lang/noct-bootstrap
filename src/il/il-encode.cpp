@@ -222,6 +222,22 @@ namespace Noctis
 		EncodeVar(node.idx);
 	}
 
+	void ILEncode::Visit(ILCompIntrin& node)
+	{
+		WriteData(u8(node.kind));
+		WriteData(u8(node.intrin));
+		if (node.dst.type.IsValid())
+			EncodeVarAndType(node.dst);
+		for (ILVar& var : node.vars)
+		{
+			EncodeVar(var);
+		}
+		for (TypeHandle type : node.types)
+		{
+			EncodeType(type);
+		}
+	}
+
 	void ILEncode::Visit(ILFuncCall& node)
 	{
 		WriteData(u8(node.kind));
@@ -570,8 +586,6 @@ namespace Noctis
 
 	void ILDecode::DecodeFunc()
 	{
-		const StdVector<u8>& bytecode = *m_pByteCode;
-
 		m_CurVarId = 0;
 		
 		// skip ID
@@ -581,6 +595,7 @@ namespace Noctis
 		StdString mangle = m_Names[mangleId];
 
 		ILFuncDefSPtr def{ new ILFuncDef{ mangle, {} } };
+		// TODO: Symbol
 
 		u32 blockCount = ReadData<u32>();
 		u32 funcSize = ReadData<u32>();
@@ -650,6 +665,7 @@ namespace Noctis
 		case ILKind::PrimCast: return DecodePrimCast();
 		case ILKind::Ternary: return DecodeTernary();
 		case ILKind::Transmute: return DecodeTransmute();
+		case ILKind::Index: return DecodeIndex();
 		case ILKind::CompIntrin: return DecodeCompIntrin();
 		case ILKind::FuncCallNoRet: return DecodeFuncCall(false);
 		case ILKind::FuncCallRet: return DecodeFuncCall(true);
@@ -761,8 +777,22 @@ namespace Noctis
 
 	ILElemSPtr ILDecode::DecodeCompIntrin()
 	{
-		// TODO
-		return nullptr;
+		ILCompIntrinKind intrin = static_cast<ILCompIntrinKind>(ReadData<u8>());
+		ILVar dst;
+		if (HasCompIntrinReturn(intrin))
+			dst = DecodeVar(true);
+		
+		StdVector<ILVar> args;
+		usize argCount = GetCompIntrinVarCount(intrin);
+		for (usize i = 0; i < argCount; ++i)
+			args.push_back(DecodeVar(false));
+		
+		StdVector<TypeHandle> types;
+		usize typeCount = GetCompIntrinTypeCount(intrin);
+		for (usize i = 0; i < typeCount; ++i)
+			types.push_back(DecodeType());
+
+		return ILElemSPtr{ new ILCompIntrin{ dst, intrin, args, types } };
 	}
 
 	ILElemSPtr ILDecode::DecodeFuncCall(bool hasRet)

@@ -40,15 +40,15 @@ namespace Noctis
 			{
 				for (ITrGenParamSPtr param : node.genDecl->params)
 				{
-					if (param->isVar)
-					{
-						const ITrGenValParam& genVal = static_cast<ITrGenValParam&>(*param);
-						generics.push_back(ILGeneric{ genVal.iden, genVal.type->handle });
-					}
-					else
+					if (param->isType)
 					{
 						const ITrGenTypeParam& genType = static_cast<ITrGenTypeParam&>(*param);
 						generics.push_back(ILGeneric{ genType.iden });
+					}
+					else
+					{
+						const ITrGenValParam& genVal = static_cast<ITrGenValParam&>(*param);
+						generics.push_back(ILGeneric{ genVal.iden, genVal.type->handle });
 					}
 				}
 			}
@@ -57,20 +57,21 @@ namespace Noctis
 			{
 				for (ITrGenParamSPtr param : node.impl->genDecl->params)
 				{
-					if (param->isVar)
-					{
-						const ITrGenValParam& genVal = static_cast<ITrGenValParam&>(*param);
-						generics.push_back(ILGeneric{ genVal.iden, genVal.type->handle });
-					}
-					else
+					if (param->isType)
 					{
 						const ITrGenTypeParam& genType = static_cast<ITrGenTypeParam&>(*param);
 						generics.push_back(ILGeneric{ genType.iden });
+					}
+					else
+					{
+						const ITrGenValParam& genVal = static_cast<ITrGenValParam&>(*param);
+						generics.push_back(ILGeneric{ genVal.iden, genVal.type->handle });
 					}
 				}
 			}
 			
 			m_Def.reset(new ILFuncDef{ mangleName, std::move(generics) });
+			m_Def->sym = node.sym;
 			m_pILMod->names.insert(mangleName);
 			m_FuncScope = node.qualName;
 
@@ -112,6 +113,23 @@ namespace Noctis
 
 			AddNewBlock();
 			Walk(node);
+
+			if (node.attribs && !node.attribs->atAttribs.empty())
+			{
+				for (ITrAtAttribSPtr atAttrib : node.attribs->atAttribs)
+				{
+					if (!atAttrib->isCompAttrib)
+						continue;
+
+					if (atAttrib->iden->Name() == "compintrin")
+					{
+						StdString intrinName = static_cast<ITrLiteral&>(*atAttrib->args[0]->expr).lit.Text();
+						intrinName.erase(intrinName.begin());
+						intrinName.erase(intrinName.end() - 1);
+						ImplementCompilerIntrin(intrinName);
+					}
+				}
+			}
 
 			if (!m_pCurBlock->terminal)
 				m_pCurBlock->terminal.reset(new ILReturn{});
@@ -290,8 +308,6 @@ namespace Noctis
 				m_pCurBlock->elems.push_back(ILElemSPtr{ new ILAssign{ dst, src } });
 			}
 		}
-
-		
 	}
 
 	void ILGen::Visit(ITrAssign& node)
@@ -299,6 +315,9 @@ namespace Noctis
 		Walk(node);
 		ILVar src = PopTmpVar();
 		ILVar dst = PopTmpVar();
+
+		if (src.type.AsBase().hasFuzzyCompare || dst.type.AsBase().hasFuzzyCompare)
+			m_pCurBlock->elems.emplace_back(new ILCompIntrin{ ILVar{}, ILCompIntrinKind::FuzzyTypeComp, {}, {src.type, dst.type} });
 
 		ILElemSPtr elem;
 		if (node.op == OperatorKind::Eq)
@@ -311,7 +330,9 @@ namespace Noctis
 		}
 		else
 		{
-			// TODO
+			elem.reset(new ILCompIntrin{ dst, ILCompIntrinKind::BytewiseCopy, { src }, {} });
+			
+			// TODO: What if a function like Copy() exist
 		}
 
 		m_TmpVars.push(dst);
@@ -325,6 +346,9 @@ namespace Noctis
 		ILVar src0 = PopTmpVar();
 		ILVar cond = PopTmpVar();
 		ILVar dst = CreateDstVar(node.typeInfo.handle);
+
+		if (src1.type.AsBase().hasFuzzyCompare || src0.type.AsBase().hasFuzzyCompare)
+			m_pCurBlock->elems.emplace_back(new ILCompIntrin{ ILVar{}, ILCompIntrinKind::FuzzyTypeComp, {}, {src0.type, src1.type} });
 
 		ILElemSPtr elem{ new ILTernary{ dst, cond, src0, src1 } };
 		m_TmpVars.push(dst);
@@ -473,7 +497,7 @@ namespace Noctis
 			{
 				const StdString& name = node.sym->mangledName;
 
-				TypeHandle retType = node.typeInfo.handle.AsFunc().retType;
+				TypeHandle retType = node.typeInfo.handle;
 				if (retType.IsValid())
 				{
 					ILVar dst = CreateDstVar(node.typeInfo.handle);
@@ -488,7 +512,7 @@ namespace Noctis
 			{
 				ILVar func = PopTmpVar();
 
-				TypeHandle retType = node.typeInfo.handle.AsFunc().retType;
+				TypeHandle retType = node.typeInfo.handle;
 				if (retType.IsValid())
 				{
 					ILVar dst = CreateDstVar(node.typeInfo.handle);
@@ -973,5 +997,37 @@ namespace Noctis
 			qualname = QualName::Create(qualname, scopeName);
 		}
 		return qualname;
+	}
+
+	void ILGen::ImplementCompilerIntrin(const StdString& intrinName)
+	{
+		static StdUnorderedMap<StdString, std::function<void()>> implMapping;
+
+		if (implMapping.empty())
+		{
+			implMapping.try_emplace("sizeof", [this]()
+			{
+				ILVar dst = CreateDstVar(m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::USize));
+				m_pCurBlock->elems.emplace_back(new ILCompIntrin{ dst, ILCompIntrinKind::SizeOf, {}, { m_FuncScope->LastIden()->Generics()[0].type } });
+				m_pCurBlock->terminal.reset(new ILReturn{ PopTmpVar() });
+			});
+			implMapping.try_emplace("alignof", [this]()
+			{
+				ILVar dst = CreateDstVar(m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U16));
+				m_pCurBlock->elems.emplace_back(new ILCompIntrin{ dst, ILCompIntrinKind::AlignOf, {}, { m_FuncScope->LastIden()->Generics()[0].type } });
+				m_pCurBlock->terminal.reset(new ILReturn{ PopTmpVar() });
+			});
+			implMapping.try_emplace("alignofval", [this]()
+			{
+				ILVar dst = CreateDstVar(m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U16));
+				ILVar src = m_Def->params[0];
+				m_pCurBlock->elems.emplace_back(new ILCompIntrin{ dst, ILCompIntrinKind::AlignOfVal, { src }, {} });
+				m_pCurBlock->terminal.reset(new ILReturn{ PopTmpVar() });
+			});
+		}
+
+		auto it = implMapping.find(intrinName);
+		if (it != implMapping.end())
+			it->second();
 	}
 }

@@ -8,6 +8,7 @@ namespace Noctis
 		, opTable(pCtx)
 		, isDecoded(false)
 		, isImported(false)
+		, dependencyGraph(pCtx)
 	{
 		memset(&header, 0, sizeof(ModuleHeader));
 	}

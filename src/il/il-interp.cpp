@@ -633,7 +633,7 @@ namespace Noctis
 		TypeHandle srcType;
 		GetVarType(cast.src, srcType, srcSize);
 
-		if (m_pCtx->typeReg.AreTypesEqual(srcType, cast.dst.type))
+		if (srcType == cast.dst.type)
 		{
 			memcpy(dstAddr, srcAddr, dst.size);
 			return;

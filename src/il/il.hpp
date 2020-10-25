@@ -18,7 +18,7 @@ namespace Noctis
 		Transmute = 0x46,
 		Index = 0x47,
 		
-		CompIntrin = 0x4E, // TODO
+		CompIntrin = 0x4E,
 
 		FuncCallNoRet = 0x50,
 		FuncCallRet = 0x51,
@@ -45,6 +45,22 @@ namespace Noctis
 
 		FuncDef = 0xF0,
 	};
+
+	enum class ILCompIntrinKind : u8
+	{
+		SizeOf = 0x00,
+		AlignOf = 0x01,
+		AlignOfVal = 0x02,
+
+		BytewiseCopy = 0x10,
+
+		FuzzyTypeComp = 0x80,
+	};
+
+	StdString GetCompIntrinName(ILCompIntrinKind intrin);
+	bool HasCompIntrinReturn(ILCompIntrinKind intrin);
+	usize GetCompIntrinVarCount(ILCompIntrinKind intrin);
+	usize GetCompIntrinTypeCount(ILCompIntrinKind intrin);
 
 	enum class ILVarKind : u8
 	{
@@ -227,6 +243,16 @@ namespace Noctis
 		ILVar idx;
 	};
 
+	struct ILCompIntrin : public ILElem
+	{
+		ILCompIntrin(ILVar dst, ILCompIntrinKind kind, const StdVector<ILVar>& vars, const StdVector<TypeHandle>& types);
+
+		ILVar dst;
+		ILCompIntrinKind intrin;
+		StdVector<ILVar> vars;
+		StdVector<TypeHandle> types;
+	};
+
 	struct ILFuncCall : public ILElem
 	{
 		ILFuncCall(const StdString& func, const StdVector<ILVar>& args);
@@ -355,6 +381,8 @@ namespace Noctis
 		StdVector<ILBlock> blocks;
 
 		TypeHandle retType;
+
+		SymbolWPtr sym;
 	};
 	using ILFuncDefSPtr = StdSharedPtr<ILFuncDef>;
 

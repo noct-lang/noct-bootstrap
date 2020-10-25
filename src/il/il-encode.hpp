@@ -43,6 +43,7 @@ namespace Noctis
 		void Visit(ILTernary& node) override;
 		void Visit(ILTransmute& node) override;
 		void Visit(ILIndex& node) override;
+		void Visit(ILCompIntrin& node) override;
 		void Visit(ILFuncCall& node) override;
 		void Visit(ILMethodCall& node) override;
 		void Visit(ILIndirectCall& node) override;
