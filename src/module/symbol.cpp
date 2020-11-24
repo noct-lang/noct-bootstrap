@@ -294,19 +294,14 @@ namespace Noctis
 		case SymbolKind::Typealias:
 		case SymbolKind::Typedef:
 		case SymbolKind::AssocType:
+		case SymbolKind::ValEnumMember:
+		case SymbolKind::AdtEnumMember:
 		{
 			TypeHandle type = pCtx->typeReg.Iden(TypeMod::None, qualName);
 			sym->type = type;
 			pCtx->typeReg.SetIdenSym(type.AsIden().qualName, sym);
 			break;
 		}
-		case SymbolKind::ValEnumMember:
-		{
-			TypeHandle type = pCtx->typeReg.Iden(TypeMod::None, qualName->Base());
-			sym->type = type;
-			break;
-		}
-		
 		case SymbolKind::Func:
 		case SymbolKind::Method:
 		case SymbolKind::Closure:

@@ -1,8 +1,11 @@
 #pragma once
+#include "itr/itr.hpp"
 #include "semantic/semantic-pass.hpp"
 
 namespace Noctis
 {
+	struct ITrSwitchGroup;
+	struct TypeHandle;
 	enum class Attribute : u8;
 	FWDECL_STRUCT_SPTR(Symbol);
 	
@@ -35,5 +38,47 @@ namespace Noctis
 		bool m_CompileTimeOnly;
 		bool m_DependsOnValueGenerics;
 	};
-	
+
+	class SwitchEitherExpansion
+	{
+		// TODO
+	};
+
+	class SwitchProcessPass : public ITrSemanticPass
+	{
+	public:
+		SwitchProcessPass(Context* pCtx);
+
+		void Process(ITrModule& mod) override;
+
+		void Visit(ITrSwitch& node) override;
+
+	private:
+
+		StdVector<ITrPatternSPtr> SplitEither(ITrPatternSPtr pattern);
+
+		ITrSwitchGroup CreateGroup(ITrPatternSPtr pattern, TypeHandle& type, usize caseId, usize depth = 1);
+
+		ITrSwitchGroup CreateLeaf(ITrPatternSPtr pattern, TypeHandle& type, usize caseId, usize depth);
+		ITrSwitchGroup CreateRange(ITrPatternSPtr pattern, TypeHandle& type, usize caseId, usize depth);
+		ITrSwitchGroup CreateLitMatch(ITrPatternSPtr pattern, TypeHandle& type, usize caseId, usize depth);
+
+		ITrSwitchGroup CreateEnum(ITrPatternSPtr pattern, TypeHandle& type, usize caseId, usize depth);
+		
+		ITrSwitchGroup CreateEnumMatch(ITrPatternSPtr pattern, TypeHandle& type, usize caseId, usize depth);
+		ITrSwitchGroup CreateTupleEnumMatch(ITrPatternSPtr pattern, TypeHandle& type, usize caseId, usize depth);
+		ITrSwitchGroup CreateAggrEnumMatch(ITrPatternSPtr pattern, TypeHandle& type, usize caseId, usize depth);
+
+
+		ITrSwitchGroup CreateTuple(ITrPatternSPtr pattern, TypeHandle& type, usize caseId, usize depth);
+		ITrSwitchGroup CreateAggr(ITrPatternSPtr pattern, TypeHandle& type, usize caseId, usize depth);
+
+		ITrSwitchGroup CreateSlice(ITrPatternSPtr pattern, TypeHandle& type, usize caseId, usize depth);
+
+		ITrSwitchGroup& GetSecondToLastSubgroup(ITrSwitchGroup& group);
+
+		void MergeGroups(ITrSwitchGroup& baseGroup, ITrSwitchGroup& subGroup);
+
+		u64 GetLitVal(Token& tok);
+	};
 }

@@ -3,6 +3,30 @@
 
 namespace Noctis
 {
+	template<typename T>
+	class SaveRestore
+	{
+	public:
+		SaveRestore(T& var)
+			: m_pVar(&var)
+			, m_Val(var)
+		{}
+		SaveRestore(T& var, const T& newVal)
+			: m_pVar(&var)
+			, m_Val(var)
+		{
+			var = newVal;
+		}
+		~SaveRestore()
+		{
+			*m_pVar = m_Val;
+		}
+
+	private:
+		T* m_pVar;
+		T m_Val;
+	};
+	
 	template<typename ...Args>
 	StdString Format(const char* format, Args... args)
 	{
@@ -40,6 +64,7 @@ namespace Noctis
 	StdString ExtractNullTermString(const StdVector<u8>& data, usize& idx);
 
 	StdVector<StdString> SplitString(const StdString& str, char splitOn);
+	StdVector<StdString> SplitString(const StdString& str, const StdString& splitOn);
 
 	// Calculated using Hamming weight
 	template<typename T>

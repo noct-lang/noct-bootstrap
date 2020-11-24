@@ -41,7 +41,7 @@ namespace Noctis
 		Goto = 0x72,
 		ReturnNoVal = 0x73,
 		ReturnVal = 0x74,
-
+		Unreachable = 0x75,
 
 		FuncDef = 0xF0,
 	};
@@ -98,6 +98,9 @@ namespace Noctis
 		ILVar();
 		ILVar(ILVarKind kind, u32 id, TypeHandle type);
 		ILVar(ILLitType lit, const StdVector<u8>& data);
+		ILVar(ILLitType lit, u64 val);
+		ILVar(ILLitType lit, i64 val);
+		ILVar(ILLitType lit, f64 val);
 		ILVar(bool bval);
 
 		ILVarKind kind;
@@ -153,8 +156,11 @@ namespace Noctis
 
 	struct ILSwitch : public ILTerminal
 	{
-		// TODO
-		ILSwitch();
+		ILSwitch(ILVar cond, const StdPairVector<ILVar, u32>& cases, u32 defCase);
+
+		ILVar cond;
+		StdPairVector<ILVar, u32> cases;
+		u32 defCase;
 	};
 
 	struct ILGoto : public ILTerminal
@@ -170,6 +176,11 @@ namespace Noctis
 		ILReturn(ILVar var);
 
 		ILVar var;
+	};
+
+	struct ILUnreachable : public ILTerminal
+	{
+		ILUnreachable();
 	};
 
 	struct ILAssign : public ILElem

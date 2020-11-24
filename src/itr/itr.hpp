@@ -124,11 +124,11 @@ namespace Noctis
 	enum class ITrPatternKind
 	{
 		Placeholder,
+		Wildcard,
 		ValueBind,
 		Literal,
 		Range,
 		Tuple,
-		AmbiguousIden,
 		ValueEnum,
 		AdtTupleEnum,
 		AmbiguousAggr,
@@ -354,6 +354,54 @@ namespace Noctis
 		StdString scopeName;
 	};
 
+	enum class ITrSwitchGroupKind : u8
+	{
+		Base,
+		Leaf,
+		Range,
+		LitMatch,
+		EnumMatch,
+
+		Tuple,
+		TupleIndex,
+
+		Aggr,
+		AggrMember,
+
+		Slice,
+		SliceIndex,
+	};
+
+	struct ITrSwitchGroup
+	{
+		ITrSwitchGroup(ITrSwitchGroupKind kind, usize depth)
+			: kind(kind)
+			, depth(depth)
+			, valOrFrom(0)
+			, to(0)
+			, idx(0)
+			, isDefCase(false)
+			, indexFromBack(false)
+		{}
+
+		ITrSwitchGroupKind kind;
+		usize depth;
+
+		u64 valOrFrom;
+		u64 to;
+		StdString member;
+
+		usize idx;
+
+		StdVector<usize> cases;
+		StdVector<ITrSwitchGroup> subGroups;
+
+		StdString bindName;
+		
+		bool isDefCase : 1;
+		bool indexFromBack : 1;
+	};
+
 	struct ITrSwitchCase
 	{
 		ITrSwitchCase();
@@ -372,6 +420,8 @@ namespace Noctis
 		ITrExprSPtr expr;
 		StdVector<ITrSwitchCase> cases;
 		StdString scopeName;
+
+		ITrSwitchGroup baseGroup;
 	};
 
 	struct ITrLabel : ITrStmt
@@ -630,8 +680,6 @@ namespace Noctis
 		StdVector<ITrArgSPtr> args;
 		ITrExprSPtr defExpr;
 		bool hasDefInit;
-
-		StdVector<u32> argOrder;
 	};
 
 	struct ITrTupleInit : ITrExpr
@@ -750,21 +798,13 @@ namespace Noctis
 		ITrPattern(ITrPatternKind kind);
 		
 		ITrPatternKind patternKind;
+		TypeHandle patternType;
 		AstPatternSPtr astNode;
 	};
 
 	struct ITrPlaceholderPattern : ITrPattern
 	{
 		ITrPlaceholderPattern(bool isWildcard);
-		
-		bool isWildcard;
-	};
-
-	struct ITrAmbiguousIdenPattern : ITrPattern
-	{
-		ITrAmbiguousIdenPattern(IdenSPtr iden);
-		
-		IdenSPtr iden;
 	};
 
 	struct ITrValueBindPattern : ITrPattern
@@ -784,11 +824,11 @@ namespace Noctis
 
 	struct ITrRangePattern : ITrPattern
 	{
-		ITrRangePattern(bool isInclusive, ITrPatternSPtr from, ITrPatternSPtr to);
+		ITrRangePattern(bool isInclusive, Token from, Token to);
 
 		bool isInclusive;
-		ITrPatternSPtr from;
-		ITrPatternSPtr to;
+		Token from;
+		Token to;
 	};
 
 	struct ITrTuplePattern : ITrPattern
@@ -815,26 +855,26 @@ namespace Noctis
 
 	struct ITrAmbiguousAggrPattern : ITrPattern
 	{
-		ITrAmbiguousAggrPattern(QualNameSPtr qualName, StdPairVector<IdenSPtr, ITrPatternSPtr>&& args);
+		ITrAmbiguousAggrPattern(QualNameSPtr qualName, StdPairVector<StdString, ITrPatternSPtr>&& args);
 
 		QualNameSPtr qualName;
-		StdPairVector<IdenSPtr, ITrPatternSPtr> args;
+		StdPairVector<StdString, ITrPatternSPtr> args;
 	};
 
 	struct ITrAggrPattern : ITrPattern
 	{
-		ITrAggrPattern(QualNameSPtr qualName, StdPairVector<IdenSPtr, ITrPatternSPtr>&& args);
+		ITrAggrPattern(QualNameSPtr qualName, StdPairVector<StdString, ITrPatternSPtr>&& args);
 
 		QualNameSPtr qualName;
-		StdPairVector<IdenSPtr, ITrPatternSPtr> args;
+		StdPairVector<StdString, ITrPatternSPtr> args;
 	};
 
 	struct ITrAdtAggrEnumPattern : ITrPattern
 	{
-		ITrAdtAggrEnumPattern(QualNameSPtr qualName, StdPairVector<IdenSPtr, ITrPatternSPtr>&& args);
+		ITrAdtAggrEnumPattern(QualNameSPtr qualName, StdPairVector<StdString, ITrPatternSPtr>&& args);
 
 		QualNameSPtr qualName;
-		StdPairVector<IdenSPtr, ITrPatternSPtr> args;
+		StdPairVector<StdString, ITrPatternSPtr> args;
 	};
 
 	struct ITrSlicePattern : ITrPattern

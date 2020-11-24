@@ -1044,6 +1044,8 @@ namespace Noctis
 		StdVector<AstIdentifierTypeSPtr> interfaces;
 	};
 
+	// TODO: Function type
+
 	struct AstPattern
 	{
 		AstPattern(AstPatternKind kind, u64 startIdx, u64 endIdx);
@@ -1080,11 +1082,11 @@ namespace Noctis
 
 	struct AstRangePattern : public AstPattern
 	{
-		AstRangePattern(AstPatternSPtr from, bool inclusive, AstPatternSPtr to);
+		AstRangePattern(Token from, bool inclusive, Token to);
 
-		AstPatternSPtr from;
+		Token from;
 		bool inclusive;
-		AstPatternSPtr to;
+		Token to;
 	};
 
 	struct AstTuplePattern : public AstPattern
@@ -1098,7 +1100,7 @@ namespace Noctis
 	{
 		AstEnumPattern(u64 startIdx, AstQualNameSPtr iden, StdVector<AstPatternSPtr>&& subPatterns, u64 endIdx);
 
-		AstQualNameSPtr iden;
+		AstQualNameSPtr qualName;
 		StdVector<AstPatternSPtr> subPatterns;
 	};
 

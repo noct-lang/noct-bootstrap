@@ -887,39 +887,41 @@ namespace Noctis
 
 	void AstToITrLowering::Visit(AstSwitchStmt& node)
 	{
-		Walk(node);
-
 		StdVector<ITrSwitchCase> cases;
 		usize size = node.cases.size();
-		cases.resize(size);
-		for (usize i = size; i > 0;)
+		cases.reserve(size);
+		for (AstSwitchCase& case_ : node.cases)
 		{
-			--i;
+			AstVisitor::Visit(case_.pattern);
 			ITrPatternSPtr pattern = PopPattern();
+			pattern->astNode = case_.pattern;
+			
 			ITrExprSPtr expr;
-			if (node.cases[i].expr)
+			if (case_.expr)
 			{
+				AstVisitor::Visit(case_.expr);
 				expr = PopExpr();
-				expr->astNode = node.cases[i].expr;
+				expr->astNode = case_.expr;
 			}
 
+			AstVisitor::Visit(case_.body);
 			ITrStmtSPtr tmp = PopStmt();
-			tmp->astNode = node.cases[i].body;
-			ITrBlockSPtr block;
-			if (tmp->stmtKind == ITrStmtKind::Block)
-				block = *reinterpret_cast<ITrBlockSPtr*>(&tmp);
-			else
-				block = ITrBlockSPtr{ new ITrBlock{ "", { tmp } } };
+			tmp->astNode = case_.body;
+			
+			ITrBlockSPtr block = *reinterpret_cast<ITrBlockSPtr*>(&tmp);
 
 			cases.emplace_back(pattern, expr, block);
 		}
 
+		AstVisitor::Visit(node.cond);
 		ITrExprSPtr expr = PopExpr();
 		expr->astNode = node.cond;
 
 		IdenSPtr label = node.label ? Iden::Create(node.label->iden) : nullptr;
 		
 		ITrStmtSPtr stmt{ new ITrSwitch{ node.ctx->qualName->LastIden()->Name(), label, expr, std::move(cases) } };
+		node.itr = stmt;
+		m_Stmts.push(stmt);
 	}
 
 	void AstToITrLowering::Visit(AstLabelStmt& node)
@@ -1732,37 +1734,22 @@ namespace Noctis
 				mod = TypeMod::Mut;
 		}
 		
-		ITrTypeSPtr type;
-		if (node.subTypes.empty())
+		StdVector<TypeHandle> subTypesHandles;
+		StdVector<ITrTypeSPtr> subTypes;
+		usize size = node.subTypes.size();
+		subTypesHandles.resize(size);
+		subTypes.resize(size);
+		for (usize i = size; i > 0;)
 		{
-			 TypeHandle handle = m_pCtx->typeReg.Tuple(mod, {});
-			 type = ITrTypeSPtr{ new ITrType{ attribs, handle, {} } };
+			--i;
+			ITrTypeSPtr subType = PopType();
+			subType->astNode = node.subTypes[i];
+			subTypesHandles[i] = subType->handle;
+			subTypes[i] = subType;
 		}
-		else if (node.subTypes.size() == 1)
-		{
-			type = PopType();
-			type->astNode = node.subTypes[0];
-			type = ITrTypeSPtr{ new ITrType{ attribs, type->handle, { type } } };
-		}
-		else
-		{
-			StdVector<TypeHandle> subTypesHandles;
-			StdVector<ITrTypeSPtr> subTypes;
-			usize size = node.subTypes.size();
-			subTypesHandles.resize(size);
-			subTypes.resize(size);
-			for (usize i = size; i > 0;)
-			{
-				--i;
-				ITrTypeSPtr subType = PopType();
-				subType->astNode = node.subTypes[i];
-				subTypesHandles[i] = subType->handle;
-				subTypes[i] = subType;
-			}
 
-			TypeHandle handle = m_pCtx->typeReg.Tuple(mod, subTypesHandles);
-			type = ITrTypeSPtr{ new ITrType{ attribs, handle, std::move(subTypes) } };
-		}
+		TypeHandle handle = m_pCtx->typeReg.Tuple(mod, subTypesHandles);
+		ITrTypeSPtr type{ new ITrType{ attribs, handle, std::move(subTypes) } };
 
 		node.itr = type;
 		m_Types.push(type);
@@ -1961,12 +1948,8 @@ namespace Noctis
 	void AstToITrLowering::Visit(AstRangePattern& node)
 	{
 		Walk(node);
-		ITrPatternSPtr to = PopPattern();
-		to->astNode = node.to;
-		ITrPatternSPtr from = PopPattern();
-		from->astNode = node.from;
 
-		ITrPatternSPtr pattern{ new ITrRangePattern{ node.inclusive, from, to } };
+		ITrPatternSPtr pattern{ new ITrRangePattern{ node.inclusive, node.from, node.to } };
 		node.itr = pattern;
 		m_Patterns.push(pattern);
 	}
@@ -1993,7 +1976,7 @@ namespace Noctis
 	void AstToITrLowering::Visit(AstEnumPattern& node)
 	{
 		Walk(node);
-		QualNameSPtr qualName = node.iden->ctx->qualName;
+		QualNameSPtr qualName = node.qualName->ctx->qualName;
 		if (node.subPatterns.empty())
 		{
 			ITrPatternSPtr pattern{ new ITrValueEnumPattern{ qualName } };
@@ -2024,7 +2007,7 @@ namespace Noctis
 		Walk(node);
 		QualNameSPtr qualName = node.qualName->ctx->qualName;
 		
-		StdPairVector<IdenSPtr, ITrPatternSPtr> subPatterns;
+		StdPairVector<StdString, ITrPatternSPtr> subPatterns;
 		usize size = node.subPatterns.size();
 		subPatterns.resize(size);
 		for (usize i = size; i > 0;)
@@ -2033,13 +2016,21 @@ namespace Noctis
 			ITrPatternSPtr tmp = PopPattern();
 			tmp->astNode = node.subPatterns[i].second;
 			StdString name = node.subPatterns[i].first;
-			IdenSPtr iden = name.empty() ? nullptr : Iden::Create(name);
-			subPatterns[i] = std::pair{ iden, tmp };
+			subPatterns[i] = std::pair{ name, tmp };
 		}
 
-		ITrPatternSPtr pattern{ new ITrAmbiguousAggrPattern{ qualName, std::move(subPatterns) } };
-		node.itr = pattern;
-		m_Patterns.push(pattern);
+		if (node.qualName->global && node.qualName->idens.size() == 1)
+		{
+			ITrPatternSPtr pattern{ new ITrAdtAggrEnumPattern{ qualName, std::move(subPatterns) } };
+			node.itr = pattern;
+			m_Patterns.push(pattern);
+		}
+		else
+		{
+			ITrPatternSPtr pattern{ new ITrAmbiguousAggrPattern{ qualName, std::move(subPatterns) } };
+			node.itr = pattern;
+			m_Patterns.push(pattern);
+		}
 	}
 
 	void AstToITrLowering::Visit(AstSlicePattern& node)

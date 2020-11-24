@@ -6,6 +6,7 @@
 
 namespace Noctis
 {
+	struct ITrSwitchCase;
 	FWDECL_CLASS_SPTR(QualName);
 	FWDECL_STRUCT_SPTR(FuncContext);
 	FWDECL_STRUCT_SPTR(ITrGenDecl);
@@ -23,6 +24,7 @@ namespace Noctis
 		void Process(ITrModule& mod) override;
 		
 		void Visit(ITrBlock& node) override;
+		void Visit(ITrSwitch& node) override;
 		void Visit(ITrReturn& node) override;
 
 		void Visit(ITrLocalVar& node) override;
@@ -55,6 +57,16 @@ namespace Noctis
 		void Visit(ITrType& node) override;
 
 		// TODO: Patterns
+		void Visit(ITrAdtAggrEnumPattern& node) override;
+		void Visit(ITrAdtTupleEnumPattern& node) override;
+		void Visit(ITrAggrPattern& node) override;
+		void Visit(ITrLiteralPattern& node) override;
+		void Visit(ITrPatternSPtr& ptr, ITrAmbiguousAggrPattern& node) override;
+		void Visit(ITrSlicePattern& node) override;
+		void Visit(ITrTuplePattern& node) override;
+		void Visit(ITrTypePattern& node) override;
+		void Visit(ITrValueBindPattern& node) override;
+		void Visit(ITrValueEnumPattern& node) override;
 
 	private:
 		void HandleGenerics(ITrDef& def, IdenSPtr iden);

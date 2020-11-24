@@ -100,6 +100,25 @@ namespace Noctis
 
 	void ILPrinter::Visit(ILSwitch& node)
 	{
+		PrintIndent();
+		g_Logger.Log("switch ");
+		LogVar(node.cond);
+		g_Logger.Log(" ->\n");
+		PrintIndent();
+		g_Logger.Log("    [\n");
+
+		for (StdPair<ILVar, u32> case_ : node.cases)
+		{
+			PrintIndent();
+			g_Logger.Log("    ");
+			LogVar(case_.first);
+			g_Logger.Log(" => %u,\n", case_.second);
+		}
+
+		PrintIndent();
+		g_Logger.Log("    _ => %u\n", node.defCase);
+		PrintIndent();
+		g_Logger.Log("    ]\n");
 	}
 
 	void ILPrinter::Visit(ILGoto& node)
@@ -118,6 +137,12 @@ namespace Noctis
 			LogVar(node.var);
 		}
 		g_Logger.Log("\n");
+	}
+
+	void ILPrinter::Visit(ILUnreachable& node)
+	{
+		PrintIndent();
+		g_Logger.Log("unreachable\n");
 	}
 
 	void ILPrinter::Visit(ILAssign& node)

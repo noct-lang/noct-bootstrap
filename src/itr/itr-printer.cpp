@@ -733,14 +733,7 @@ namespace Noctis
 	void ITrPrinter::Visit(ITrPlaceholderPattern& node)
 	{
 		PrintIndent();
-		g_Logger.Log("(placeholder-pattern %s)\n", node.isWildcard ? "wildcard" : "");
-	}
-
-	void ITrPrinter::Visit(ITrPatternSPtr& ptr, ITrAmbiguousIdenPattern& node)
-	{
-		PrintIndent();
-		StdString name = node.iden->Name();
-		g_Logger.Log("(ambiguous-iden-pattern %s)\n", name.c_str());
+		g_Logger.Log("(placeholder-pattern %s)\n", node.patternKind == ITrPatternKind::Wildcard ? "wildcard" : "");
 	}
 
 	void ITrPrinter::Visit(ITrValueBindPattern& node)
@@ -842,19 +835,10 @@ namespace Noctis
 		g_Logger.Log("(ambiguous-aggr-pattern %s)\n", name.c_str());
 		
 		++m_Indent;
-		for (StdPair<IdenSPtr, ITrPatternSPtr> arg : node.args)
+		for (StdPair<StdString, ITrPatternSPtr> arg : node.args)
 		{
 			PrintIndent();
-			g_Logger.Log("(arg");
-			if (arg.first)
-			{
-				StdString name = arg.first->Name();
-				g_Logger.Log("(arg %s)\n", name.c_str());
-			}
-			else
-			{
-				g_Logger.Log("(arg)\n");
-			}
+			g_Logger.Log("(arg %s)\n", arg.first.c_str());
 			++m_Indent;
 			ITrVisitor::Visit(arg.second);
 			--m_Indent;
@@ -869,19 +853,10 @@ namespace Noctis
 		g_Logger.Log("(aggr-pattern %s)\n", name.c_str());
 
 		++m_Indent;
-		for (StdPair<IdenSPtr, ITrPatternSPtr> arg : node.args)
+		for (StdPair<StdString, ITrPatternSPtr> arg : node.args)
 		{
 			PrintIndent();
-			g_Logger.Log("(arg");
-			if (arg.first)
-			{
-				StdString name = arg.first->Name();
-				g_Logger.Log("(arg %s)\n", name.c_str());
-			}
-			else
-			{
-				g_Logger.Log("(arg)\n");
-			}
+			g_Logger.Log("(arg %s)\n", arg.first.c_str());
 			++m_Indent;
 			ITrVisitor::Visit(arg.second);
 			--m_Indent;
@@ -896,19 +871,10 @@ namespace Noctis
 		g_Logger.Log("(adt-aggr-enum-pattern %s)\n", name.c_str());
 
 		++m_Indent;
-		for (StdPair<IdenSPtr, ITrPatternSPtr> arg : node.args)
+		for (StdPair<StdString, ITrPatternSPtr> arg : node.args)
 		{
 			PrintIndent();
-			g_Logger.Log("(arg");
-			if (arg.first)
-			{
-				StdString name = arg.first->Name();
-				g_Logger.Log("(arg %s)\n", name.c_str());
-			}
-			else
-			{
-				g_Logger.Log("(arg)\n");
-			}
+			g_Logger.Log("(arg %s)\n", arg.first.c_str());
 			++m_Indent;
 			ITrVisitor::Visit(arg.second);
 			--m_Indent;

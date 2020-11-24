@@ -22,6 +22,7 @@ namespace Noctis
 		case ILKind::Goto: Visit(static_cast<ILGoto&>(elem)); break;
 		case ILKind::ReturnNoVal: Visit(static_cast<ILReturn&>(elem)); break;
 		case ILKind::ReturnVal: Visit(static_cast<ILReturn&>(elem)); break;
+		case ILKind::Unreachable: Visit(static_cast<ILUnreachable&>(elem)); break;
 		case ILKind::Assign: Visit(static_cast<ILAssign&>(elem)); break;
 		case ILKind::PrimAssign: Visit(static_cast<ILPrimAssign&>(elem)); break;
 		case ILKind::PrimBinary: Visit(static_cast<ILPrimBinary&>(elem)); break;
@@ -69,7 +70,6 @@ namespace Noctis
 
 	void ILVisitor::Visit(ILSwitch& node)
 	{
-		// TODO
 	}
 
 	void ILVisitor::Visit(ILGoto& node)
@@ -77,6 +77,10 @@ namespace Noctis
 	}
 
 	void ILVisitor::Visit(ILReturn& node)
+	{
+	}
+
+	void ILVisitor::Visit(ILUnreachable& node)
 	{
 	}
 

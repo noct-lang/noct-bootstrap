@@ -1,4 +1,5 @@
 #pragma once
+#include "common/type.hpp"
 #include "semantic/semantic-pass.hpp"
 
 namespace Noctis
@@ -18,6 +19,7 @@ namespace Noctis
 		void Visit(ITrLocalVar& node) override;
 
 	private:
+		
 		FuncContextSPtr m_FuncCtx;
 		StdVector<StdString> m_ScopeNames;
 	};

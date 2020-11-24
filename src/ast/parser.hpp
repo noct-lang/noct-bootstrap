@@ -124,7 +124,7 @@ namespace Noctis
 
 		AstPatternSPtr ParsePattern();
 		AstPatternSPtr ParseValueBindPattern(StdString&& iden);
-		AstPatternSPtr ParseRangePattern(AstPatternSPtr pattern);
+		AstPatternSPtr ParseRangePattern(Token from);
 		AstPatternSPtr ParseTuplePattern();
 		AstPatternSPtr ParseEnumPattern(AstQualNameSPtr iden);
 		AstPatternSPtr ParseAggrPattern(AstQualNameSPtr qualName);

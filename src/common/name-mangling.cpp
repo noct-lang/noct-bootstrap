@@ -28,7 +28,7 @@ namespace Noctis::NameMangling
 				parent->kind == SymbolKind::StrongInterface || 
 				parent->kind == SymbolKind::WeakInterface)
 			{
-				StdString mangledName = Mangle(pCtx, parent->type);
+				StdString mangledName = Mangle(pCtx, sym->type);
 				mangledName += Mangle(pCtx, sym->qualName->LastIden());
 
 				StdString mangledType = Mangle(pCtx, sym->type);
@@ -259,6 +259,9 @@ namespace Noctis::NameMangling
 	IdenSPtr DemangleIden(Context* pCtx, StdStringView data, usize& idx)
 	{
 		StdString name = DemangleLName(data, idx);
+		StdVector<StdString> paramNames = SplitString(name, "__");
+		name = paramNames[0];
+		paramNames.erase(paramNames.begin());
 
 		StdVector<IdenGeneric> generics;
 		if (idx < data.size() && data[idx] == 'G')
@@ -320,7 +323,7 @@ namespace Noctis::NameMangling
 			++idx;
 		}
 
-		return Iden::Create(name, generics);
+		return Iden::Create(name, generics, paramNames);
 	}
 
 	TypeHandle DemangleType(Context* pCtx, StdStringView data)

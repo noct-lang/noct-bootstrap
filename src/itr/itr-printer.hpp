@@ -75,7 +75,6 @@ namespace Noctis
 		void Visit(ITrType& node) override;
 		
 		void Visit(ITrPlaceholderPattern& node) override;
-		void Visit(ITrPatternSPtr& ptr, ITrAmbiguousIdenPattern& node) override;
 		void Visit(ITrValueBindPattern& node) override;
 		void Visit(ITrLiteralPattern& node) override;
 		void Visit(ITrRangePattern& node) override;

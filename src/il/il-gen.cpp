@@ -16,6 +16,7 @@ namespace Noctis
 		, m_CurDeferLabel(0)
 		, m_CurVarId(0)
 		, m_FallThrough(false)
+		, m_CurSwitchPatternDepth(0)
 	{
 	}
 
@@ -142,6 +143,7 @@ namespace Noctis
 	{
 		u32 oldId = m_pCurBlock->label;
 		u32 newId = AddNewBlock();
+		m_ITrBlockMapping.try_emplace(&node, newId);
 
 		SetCurBlock(oldId);
 		m_pCurBlock->terminal.reset(new ILGoto{ newId });
@@ -206,6 +208,35 @@ namespace Noctis
 
 	void ILGen::Visit(ITrSwitch& node)
 	{
+		ITrVisitor::Visit(node.expr);
+		ILVar cond = PopTmpVar();
+		m_SwitchVars.push(cond);
+
+		ProcessSwitchGroup(node, node.baseGroup);
+
+		for (StdPair<usize, StdVector<u32>> pair : m_CaseToBodyBlocks)
+		{
+			ITrSwitchCase& case_ = node.cases[pair.first];
+			u32 caseId = AddNewBlock();
+			AssignValueBinds(pair.first);
+			Visit(*case_.block);
+			m_CaseToTermBlocks.push_back(m_pCurBlock->label);
+			
+			for (u32 blockId : pair.second)
+			{
+				SetCurBlock(blockId);
+				m_pCurBlock->terminal.reset(new ILGoto{ caseId });
+			}
+		}
+
+		u32 endBlock = AddNewBlock();
+		for (u32 blockId : m_CaseToTermBlocks)
+		{
+			SetCurBlock(blockId);
+			m_pCurBlock->terminal.reset(new ILGoto{ endBlock });
+		}
+
+		SetCurBlock(endBlock);
 	}
 
 	void ILGen::Visit(ITrLabel& node)
@@ -553,132 +584,8 @@ namespace Noctis
 
 	void ILGen::Visit(ITrLiteral& node)
 	{
-		switch (node.lit.Type())
-		{
-		case TokenType::False:
-		{
-			m_TmpVars.push({ false });
-			break;
-		}
-		case TokenType::Null:
-		{
-			m_TmpVars.push({ ILLitType::Null, {} });
-			break;
-		}
-		case TokenType::True:
-		{
-			m_TmpVars.push({ true });
-			break;
-		}
-		case TokenType::CharLit:
-		{
-			// TODO: UTF-8
-			
-			u8 val = u8(node.lit.Unsigned());
-			StdVector<u8> data{ val };
-			m_TmpVars.push({ ILLitType::Char, data });
-			break;
-		}
-		case TokenType::F16Lit:
-		{
-			// TODO
-			break;
-		}
-		case TokenType::F32Lit:
-		{
-			f32 val = f32(node.lit.Fp());
-			StdVector<u8> data{ reinterpret_cast<u8*>(&val), reinterpret_cast<u8*>(&val) + sizeof(f32) };
-			m_TmpVars.push({ ILLitType::F32, data });
-			break;
-		}
-		case TokenType::F64Lit:
-		{
-			f64 val = f64(node.lit.Fp());
-			StdVector<u8> data{ reinterpret_cast<u8*>(&val), reinterpret_cast<u8*>(&val) + sizeof(f32) };
-			m_TmpVars.push({ ILLitType::F64, data });
-			break;
-		}
-		case TokenType::F128Lit:
-		{
-			// TODO
-			break;
-		}
-		case TokenType::I8Lit:
-		{
-			u8 val = u8(node.lit.Signed());
-			StdVector<u8> data{ val };
-			m_TmpVars.push({ ILLitType::I8, data });
-			break;
-		}
-		case TokenType::I16Lit:
-		{
-			i16 val = i16(node.lit.Signed());
-			StdVector<u8> data{ reinterpret_cast<u8*>(&val), reinterpret_cast<u8*>(&val) + sizeof(i16) };
-			m_TmpVars.push({ ILLitType::I16, data });
-			break;
-		}
-		case TokenType::I32Lit:
-		{
-			i32 val = i32(node.lit.Signed());
-			StdVector<u8> data{ reinterpret_cast<u8*>(&val), reinterpret_cast<u8*>(&val) + sizeof(i32) };
-			m_TmpVars.push({ ILLitType::I32, data });
-			break;
-		}
-		case TokenType::I64Lit:
-		{
-			i64 val = i64(node.lit.Signed());
-			StdVector<u8> data{ reinterpret_cast<u8*>(&val), reinterpret_cast<u8*>(&val) + sizeof(i64) };
-			m_TmpVars.push({ ILLitType::I64, data });
-			break;
-		}
-		case TokenType::I128Lit:
-		{
-			// TODO
-			break;
-		}
-		case TokenType::StringLit:
-		{
-			const StdString& text = node.lit.Text();
-			StdVector<u8> data{ text.begin() + 1, text.end() - 1 }; // trim begin and end "
-			data.push_back(0);
-			m_TmpVars.push({ ILLitType::String, data });
-			break;
-		} 
-		case TokenType::U8Lit:
-		{
-			u8 val = u8(node.lit.Unsigned());
-			StdVector<u8> data{ val };
-			m_TmpVars.push({ ILLitType::U8, data });
-			break;
-		}
-		case TokenType::U16Lit:
-		{
-			u16 val = u16(node.lit.Unsigned());
-			StdVector<u8> data{ reinterpret_cast<u8*>(&val), reinterpret_cast<u8*>(&val) + sizeof(u16) };
-			m_TmpVars.push({ ILLitType::U16, data });
-			break;
-		}
-		case TokenType::U32Lit:
-		{
-			u32 val = u32(node.lit.Unsigned());
-			StdVector<u8> data{ reinterpret_cast<u8*>(&val), reinterpret_cast<u8*>(&val) + sizeof(u32) };
-			m_TmpVars.push({ ILLitType::U32, data });
-			break;
-		}
-		case TokenType::U64Lit:
-		{
-			u64 val = u64(node.lit.Unsigned());
-			StdVector<u8> data{ reinterpret_cast<u8*>(&val), reinterpret_cast<u8*>(&val) + sizeof(u64) };
-			m_TmpVars.push({ ILLitType::U64, data });
-			break;
-		}
-		case TokenType::U128Lit:
-		{
-			// TODO
-			break;
-		}
-		default: ;
-		}
+		ILVar var = CreateLitVar(node.lit);
+		m_TmpVars.push(var);
 	}
 
 	void ILGen::Visit(ITrStructInit& node)
@@ -783,9 +690,6 @@ namespace Noctis
 			ITrVisitor::Visit(arg->expr);
 			args.push_back(PopTmpVar());
 		}
-
-		IdenType& idenType = node.sym->type.AsIden();
-		SymbolSPtr structSym = idenType.sym.lock();
 		
 		ILVar dst = CreateDstVar(node.typeInfo.handle);
 		ILElemSPtr elem{ new ILAdtEnumInit{ dst, node.sym->qualName->LastIden()->Name(), args } };
@@ -819,9 +723,23 @@ namespace Noctis
 		{
 			args.resize(structSym->orderedVarChildren.size());
 
+			StdVector<SymbolSPtr> children;
+			structSym->children->Foreach([&children](SymbolSPtr sym, QualNameSPtr iface)
+			{
+				if (!iface && sym->kind == SymbolKind::Var)
+					children.push_back(sym);
+			});
+			std::sort(children.begin(), children.end(), [](const SymbolSPtr& child0, const SymbolSPtr& child1)
+			{
+				return child0->offset < child1->offset;
+			});
+
 			for (usize i = 0; i < unorderedArgs.size(); ++i)
 			{
-				u32 idx = node.argOrder[i];
+				const StdString& name = node.args[i]->iden->Name();
+				usize idx = 0;
+				while (children[i]->qualName->LastIden()->Name() != name)
+					++idx;
 				args[idx] = unorderedArgs[i];
 			}
 
@@ -969,13 +887,17 @@ namespace Noctis
 		
 	}
 
-	ILVar ILGen::CreateDstVar(TypeHandle type)
+	ILVar ILGen::CreateDstVar(TypeHandle type, bool addToTmp)
 	{
 		ILVar dst{ ILVarKind::Copy, m_CurVarId++, type };
 		m_Def->tmpVars.push_back(dst);
-		ILVar movDst = dst;
-		movDst.kind = ILVarKind::Move;
-		m_TmpVars.push(movDst);
+
+		if (addToTmp)
+		{
+			ILVar movDst = dst;
+			movDst.kind = ILVarKind::Move;
+			m_TmpVars.push(movDst);
+		}
 		
 		m_pILMod->types.insert(dst.type.Type());
 		
@@ -1029,5 +951,434 @@ namespace Noctis
 		auto it = implMapping.find(intrinName);
 		if (it != implMapping.end())
 			it->second();
+	}
+
+	ILVar ILGen::CreateLitVar(Token& lit)
+	{
+		switch (lit.Type())
+		{
+		case TokenType::False:
+			return { false };
+		case TokenType::Null:
+			return { ILLitType::Null, StdVector<u8>{} };
+		case TokenType::True:
+			return { true };
+		case TokenType::CharLit:
+		{
+			// TODO: UTF-8
+			return { ILLitType::Char, lit.Unsigned() };
+		}
+		case TokenType::F16Lit:
+			// TODO
+			return { ILLitType::F32, 0.0 };
+		case TokenType::F32Lit:
+			return { ILLitType::F32, lit.Fp() };
+		case TokenType::F64Lit:
+			return { ILLitType::F64, lit.Fp() };
+		case TokenType::F128Lit:
+			// TODO
+			return { ILLitType::F64, 0.0 };
+		case TokenType::I8Lit:
+			return { ILLitType::I8, lit.Signed() };
+		case TokenType::I16Lit:
+			return { ILLitType::I16, lit.Signed() };
+		case TokenType::I32Lit:
+			return { ILLitType::I32, lit.Signed() };
+		case TokenType::I64Lit:
+			return { ILLitType::I64, lit.Signed() };
+		case TokenType::I128Lit:
+			// TODO
+			return { ILLitType::I64, 0ll };
+		case TokenType::StringLit:
+		{
+			const StdString& text = lit.Text();
+			StdVector<u8> data{ text.begin() + 1, text.end() - 1 }; // trim begin and end "
+			data.push_back(0);
+			return { ILLitType::String, data };
+		}
+		case TokenType::U8Lit:
+			return { ILLitType::U8, lit.Unsigned() };
+		case TokenType::U16Lit:
+			return { ILLitType::U16, lit.Unsigned() };
+		case TokenType::U32Lit:
+			return { ILLitType::U32, lit.Unsigned() };
+		case TokenType::U64Lit:
+			return { ILLitType::U64, lit.Unsigned() };
+		case TokenType::U128Lit:
+			// TODO
+			return { ILLitType::U64, 0ull };
+		default:
+			assert(false);
+			return { false };
+		}
+	}
+
+	template <typename T>
+	Noctis::ILVar Noctis::ILGen::CreateLitVar(TypeHandle type, const T& val)
+	{
+		if (type.Kind() != TypeKind::Builtin)
+			return ILVar{ ILLitType::Null, 0ull };
+
+		switch (type.AsBuiltin().builtin)
+		{
+		case BuiltinTypeKind::Bool: return ILVar{ bool(val) };
+		case BuiltinTypeKind::Char: return ILVar{ ILLitType::Char, u64(val) };
+		case BuiltinTypeKind::I8: return ILVar{ ILLitType::I8, i64(val) };
+		case BuiltinTypeKind::I16: return ILVar{ ILLitType::I16, i64(val) };
+		case BuiltinTypeKind::I32: return ILVar{ ILLitType::I32, i64(val) };
+		case BuiltinTypeKind::I64: return ILVar{ ILLitType::I64, i64(val) };
+		case BuiltinTypeKind::I128: return ILVar{ ILLitType::I128, i64(val) };
+		case BuiltinTypeKind::ISize: return ILVar{ ILLitType::I64, i64(val) };
+		case BuiltinTypeKind::U8: return ILVar{ ILLitType::U8, u64(val) };
+		case BuiltinTypeKind::U16: return ILVar{ ILLitType::U16, u64(val) };
+		case BuiltinTypeKind::U32: return ILVar{ ILLitType::U32, u64(val) };
+		case BuiltinTypeKind::U64: return ILVar{ ILLitType::U64, u64(val) };
+		case BuiltinTypeKind::U128: return ILVar{ ILLitType::U128, u64(val) };
+		case BuiltinTypeKind::USize: return ILVar{ ILLitType::U64, u64(val) };
+		//case BuiltinTypeKind::F16: return ILVar{ ILLitType::F16, f64(val) };
+		case BuiltinTypeKind::F32: return ILVar{ ILLitType::F32, f64(val) };
+		case BuiltinTypeKind::F64: return ILVar{ ILLitType::F64, f64(val) };
+		//case BuiltinTypeKind::F128: return ILVar{ ILLitType::F128, f64(val) };
+		default: return ILVar{ ILLitType::Null, 0ull };
+		}
+	}
+
+	void ILGen::ProcessSwitchGroup(ITrSwitch& node, ITrSwitchGroup& group)
+	{
+		switch (group.kind)
+		{
+		case ITrSwitchGroupKind::Base: ProcessSwitchBase(node, group); break;
+		case ITrSwitchGroupKind::Leaf: ProcessSwitchLeaf(node, group); break;
+		case ITrSwitchGroupKind::Range: ProcessRange(node, group); break;
+		case ITrSwitchGroupKind::LitMatch: ProcessLitMatch(node, group); break;
+		case ITrSwitchGroupKind::EnumMatch: ProcessEnumMatch(node, group); break;
+		case ITrSwitchGroupKind::Tuple: ProcessTuple(node, group); break;
+		case ITrSwitchGroupKind::TupleIndex: ProcessTupleIndex(node, group); break;
+		case ITrSwitchGroupKind::Aggr: ProcessAggr(node, group); break;
+		case ITrSwitchGroupKind::AggrMember: ProcessAggrMember(node, group); break;
+		case ITrSwitchGroupKind::Slice: ProcessSlice(node, group); break;
+		case ITrSwitchGroupKind::SliceIndex: ProcessSliceIndex(node, group); break;
+		default: ;
+		}
+	}
+
+	void ILGen::ProcessSwitchBase(ITrSwitch& node, ITrSwitchGroup& group)
+	{
+		ProcessSwitchGroup(node, group.subGroups[0]);
+		m_CaseToTermBlocks.push_back(m_pCurBlock->label);
+	}
+
+	void ILGen::ProcessSwitchLeaf(ITrSwitch& node, ITrSwitchGroup& group)
+	{
+		u32 curId = m_pCurBlock->label;
+		if (group.cases.size() == 1)
+		{
+			ITrSwitchCase& case_ = node.cases[group.cases[0]];
+			u32 caseId = AddCaseToBody(group.cases[0]);
+
+			if (case_.expr)
+			{
+				u32 termId = AddCaseToTerm();
+				ITrVisitor::Visit(case_.expr);
+				ILVar cond = PopTmpVar();
+				m_pCurBlock->terminal.reset(new ILIf{ cond, caseId, termId });
+			}
+			else
+			{
+				m_pCurBlock->terminal.reset(new ILGoto{ caseId });
+			}
+		}
+		else
+		{
+			usize finalCaseIdx = usize(-1);
+			for (usize caseIdx : group.cases)
+			{
+				ITrSwitchCase& case_ = node.cases[caseIdx];
+				if (!case_.expr)
+				{
+					finalCaseIdx = caseIdx;
+					continue;
+				}
+
+				u32 caseId = AddCaseToBody(caseIdx);
+				u32 termId = AddNewBlock();
+
+				SetCurBlock(curId);
+				ITrVisitor::Visit(case_.expr);
+				ILVar cond = PopTmpVar();
+				m_pCurBlock->terminal.reset(new ILIf{ cond, caseId, termId });
+			}
+
+			if (finalCaseIdx != usize(-1))
+			{
+				u32 caseId = AddCaseToBody(finalCaseIdx);
+				m_pCurBlock->terminal.reset(new ILGoto{ caseId });
+			}
+			else
+			{
+				m_CaseToTermBlocks.push_back(curId);
+			}
+		}
+		SetCurBlock(curId);
+	}
+
+	void ILGen::ProcessRange(ITrSwitch& node, ITrSwitchGroup& group)
+	{
+		u32 curId = m_pCurBlock->label;
+		u32 lowerId = AddNewBlock();
+		u32 trueId = AddNewBlock();
+		u32 falseId = AddNewBlock();
+
+		TypeHandle boolType = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::Bool);
+
+		SetCurBlock(curId);
+		ILVar lowerBound = CreateLitVar(m_SwitchVars.top().type, group.valOrFrom);
+		ILVar lowerCmp = CreateDstVar(boolType, false);
+		m_pCurBlock->elems.emplace_back(new ILPrimBinary{ OperatorKind::Ge, lowerCmp, m_SwitchVars.top(), lowerBound});
+		m_pCurBlock->terminal.reset(new ILIf{ lowerCmp, lowerId, falseId });
+
+		SetCurBlock(lowerId);
+		ILVar upperBound = CreateLitVar(m_SwitchVars.top().type, group.to);
+		ILVar upperCmp = CreateDstVar(boolType, false);
+		m_pCurBlock->elems.emplace_back(new ILPrimBinary{ OperatorKind::Le, upperCmp, m_SwitchVars.top(), upperBound });
+		m_pCurBlock->terminal.reset(new ILIf{ upperCmp, trueId, falseId });
+
+		SetCurBlock(trueId);
+		ProcessSwitchLeaf(node, group.subGroups[0]);
+
+		SetCurBlock(falseId);
+	}
+
+	void ILGen::ProcessLitMatch(ITrSwitch& node, ITrSwitchGroup& group)
+	{
+		u32 curId = m_pCurBlock->label;
+		u32 falseId = AddNewBlock();
+
+		StdPairVector<ILVar, u32> cases;
+		
+		for (ITrSwitchGroup& subGroup : group.subGroups)
+		{
+			u32 id = AddNewBlock();
+			ILVar lit = CreateLitVar(m_SwitchVars.top().type, subGroup.valOrFrom);
+
+
+			if (subGroup.isDefCase)
+			{
+				SetCurBlock(falseId);
+				m_pCurBlock->terminal.reset(new ILUnreachable{});
+				SetCurBlock(id);
+				
+				falseId = id;
+			}
+			else
+			{
+				cases.emplace_back(lit, id);
+			}
+			
+
+			ProcessSwitchLeaf(node, subGroup);
+		}
+
+		SetCurBlock(curId);
+		m_pCurBlock->terminal.reset(new ILSwitch{ m_SwitchVars.top(), cases, falseId });
+
+		SetCurBlock(falseId);
+	}
+
+	void ILGen::ProcessEnumMatch(ITrSwitch& node, ITrSwitchGroup& group)
+	{
+		u32 curId = m_pCurBlock->label;
+		u32 falseId = AddNewBlock();
+
+		SetCurBlock(curId);
+
+		StdPairVector<ILVar, u32> cases;
+		for (ITrSwitchGroup& subGroup : group.subGroups)
+		{
+			u32 id = AddCaseToBody(subGroup.cases[0]);
+			ILVar lit = CreateDstVar(m_SwitchVars.top().type, false);
+			m_pCurBlock->elems.emplace_back(new ILValEnumInit{ lit, subGroup.member });
+			cases.emplace_back(lit, id);
+		}
+
+		m_pCurBlock->terminal.reset(new ILSwitch{ m_SwitchVars.top(), cases, falseId });
+
+		SetCurBlock(falseId);
+	}
+
+	void ILGen::ProcessTuple(ITrSwitch& node, ITrSwitchGroup& group)
+	{
+		ILVar var = m_SwitchVars.top();
+		m_SwitchVars.push(var);
+		for (ITrSwitchGroup& subGroup : group.subGroups)
+		{
+			ProcessSwitchGroup(node, subGroup);
+		}
+		PopSwitchVarToDepth(group.depth);
+	}
+
+	void ILGen::ProcessTupleIndex(ITrSwitch& node, ITrSwitchGroup& group)
+	{
+		TypeHandle type = m_SwitchVars.top().type;
+		if (type.Kind() == TypeKind::Ref)
+			type = type.AsRef().subType;
+		if (type.Kind() == TypeKind::Iden)
+			type = type.AsIden().sym.lock()->type;
+		
+		TupleType& tupType = type.AsTuple();
+		TypeHandle subType = tupType.subTypes[group.idx];
+		
+		ILVar elem = CreateDstVar(subType, false);
+
+		m_pCurBlock->elems.emplace_back(new ILTupleAccess{ elem, m_SwitchVars.top(), u16(group.idx) });
+		m_SwitchVars.push(elem);
+
+		for (ITrSwitchGroup& subGroup : group.subGroups)
+		{
+			ProcessSwitchGroup(node, subGroup);
+		}
+		PopSwitchVarToDepth(group.depth);
+	}
+
+	void ILGen::ProcessAggr(ITrSwitch& node, ITrSwitchGroup& group)
+	{
+		ILVar var = m_SwitchVars.top();
+		m_SwitchVars.push(var);
+		for (ITrSwitchGroup& subGroup : group.subGroups)
+		{
+			ProcessSwitchGroup(node, subGroup);
+		}
+		PopSwitchVarToDepth(group.depth);
+	}
+
+	void ILGen::ProcessAggrMember(ITrSwitch& node, ITrSwitchGroup& group)
+	{
+		TypeHandle type = m_SwitchVars.top().type;
+		if (type.Kind() == TypeKind::Ref)
+			type = type.AsRef().subType;
+		
+		SymbolSPtr aggrSym = type.AsIden().sym.lock();
+		TypeHandle subType = aggrSym->children->FindChild(nullptr, Iden::Create(group.member))->type;
+
+		ILVar elem = CreateDstVar(subType, false);
+
+		m_pCurBlock->elems.emplace_back(new ILMemberAccess{ elem, m_SwitchVars.top(), group.member });
+		m_SwitchVars.push(elem);
+
+		for (ITrSwitchGroup& subGroup : group.subGroups)
+		{
+			ProcessSwitchGroup(node, subGroup);
+		}
+		PopSwitchVarToDepth(group.depth);
+	}
+
+	void ILGen::ProcessSlice(ITrSwitch& node, ITrSwitchGroup& group)
+	{
+		ILVar var = m_SwitchVars.top();
+		m_SwitchVars.push(var);
+		for (ITrSwitchGroup& subGroup : group.subGroups)
+		{
+			ProcessSwitchGroup(node, subGroup);
+		}
+		PopSwitchVarToDepth(group.depth);
+	}
+
+	void ILGen::ProcessSliceIndex(ITrSwitch& node, ITrSwitchGroup& group)
+	{
+		TypeHandle type = m_SwitchVars.top().type;
+		if (type.Kind() == TypeKind::Ref)
+			type = type.AsRef().subType;
+		
+		TypeHandle subType;
+		if (type.Kind() == TypeKind::Array)
+			subType = type.AsArray().subType;
+		else
+			subType = type.AsSlice().subType;
+
+		if (group.indexFromBack)
+		{
+			// TODO: index from back
+		}
+		else
+		{
+			ILVar elem = CreateDstVar(subType, false);
+			ILVar idx = CreateLitVar(m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::USize), group.idx);
+			m_pCurBlock->elems.emplace_back(new ILIndex{ elem, m_SwitchVars.top(), idx });
+			m_SwitchVars.push(elem);
+		}
+
+		for (ITrSwitchGroup& subGroup : group.subGroups)
+		{
+			ProcessSwitchGroup(node, subGroup);
+		}
+		PopSwitchVarToDepth(group.depth);
+	}
+
+	void ILGen::ValueBindSwitchVar(const StdString& bindName, const StdVector<usize>& caseIds)
+	{
+		if (bindName.empty())
+			return;
+
+		for (usize caseId : caseIds)
+		{
+			auto it = m_CaseBindings.find(caseId);
+			if (it == m_CaseBindings.end())
+				it = m_CaseBindings.try_emplace(caseId, StdPairVector<StdString, ILVar>{}).first;
+
+			it->second.emplace_back(bindName, m_SwitchVars.top());
+		}
+	}
+
+	void ILGen::AssignValueBinds(usize caseId)
+	{
+		auto it = m_CaseBindings.find(caseId);
+		if (it == m_CaseBindings.end())
+			return;
+
+		for (StdPair<StdString, ILVar>& pair : it->second)
+		{
+			IdenSPtr iden = Iden::Create(pair.first);
+			LocalVarDataSPtr varData{ new LocalVarData{ iden, TypeInfo{ pair.second.type }, false} };
+			m_FuncCtx->localVars.AddLocalVarDeclSPtr(m_ScopeNames, varData);
+			ILVar dst{ ILVarKind::Copy, m_CurVarId++, pair.second.type };
+			varData->ilVar = dst;
+			MapVar(iden, dst);
+			m_pCurBlock->elems.push_back(ILElemSPtr{ new ILAssign{ dst, pair.second } });
+		}
+	}
+
+	void ILGen::PopSwitchVarToDepth(usize depth)
+	{
+		for (usize i = m_SwitchVars.size(); i > depth; --i)
+			m_SwitchVars.pop();
+	}
+
+	u32 ILGen::AddCaseToBody(usize caseId)
+	{
+		auto it = std::find_if(m_CaseToBodyBlocks.begin(), m_CaseToBodyBlocks.end(), [caseId](const StdPair<usize, StdVector<u32>>& pair)
+		{
+			return pair.first == caseId;
+		});
+		if (it == m_CaseToBodyBlocks.end())
+		{
+			m_CaseToBodyBlocks.emplace_back(caseId, StdVector<u32>{});
+			it = m_CaseToBodyBlocks.end() - 1;
+		}
+
+		u32 curBlock = m_pCurBlock->label;
+		u32 newBlock = AddNewBlock();
+		SetCurBlock(curBlock);
+
+		it->second.push_back(newBlock);
+		return newBlock;
+	}
+
+	u32 ILGen::AddCaseToTerm()
+	{
+		u32 curId = m_pCurBlock->label;
+		u32 termId = AddNewBlock();
+		m_CaseToTermBlocks.push_back(termId);
+		SetCurBlock(curId);
+		return termId;
 	}
 }

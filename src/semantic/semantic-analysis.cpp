@@ -139,6 +139,7 @@ namespace Noctis
 		
 		RunPass<TypeInference>(false);
 
+		RunPass<SwitchProcessPass>();
 
 		RunPass<NameManglePass>();
 		RunPass<ILGen>();

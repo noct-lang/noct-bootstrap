@@ -196,7 +196,6 @@ namespace Noctis
 		virtual void Visit(ITrType& node);
 		
 		virtual void Visit(ITrPlaceholderPattern& node);
-		virtual void Visit(ITrPatternSPtr& ptr, ITrAmbiguousIdenPattern& node);
 		virtual void Visit(ITrValueBindPattern& node);
 		virtual void Visit(ITrLiteralPattern& node);
 		virtual void Visit(ITrRangePattern& node);
@@ -294,7 +293,6 @@ namespace Noctis
 		void Walk(ITrType& node);
 
 		void Walk(ITrPlaceholderPattern& node);
-		void Walk(ITrAmbiguousIdenPattern& node);
 		void Walk(ITrValueBindPattern& node);
 		void Walk(ITrLiteralPattern& node);
 		void Walk(ITrRangePattern& node);

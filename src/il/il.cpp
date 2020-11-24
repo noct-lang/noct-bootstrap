@@ -77,6 +77,103 @@ namespace Noctis
 	{
 	}
 
+	ILVar::ILVar(ILLitType lit, u64 val)
+		: kind(ILVarKind::Lit)
+		, litType(lit)
+		, boolBit(false)
+	{
+		switch (lit)
+		{
+		case ILLitType::U8:
+		{
+			u8* addr = reinterpret_cast<u8*>(&val);
+			litData.insert(litData.begin(), addr, addr + sizeof(u8));
+			break;
+		}
+		case ILLitType::U16:
+		{
+			u8* addr = reinterpret_cast<u8*>(&val);
+			litData.insert(litData.begin(), addr, addr + sizeof(u16));
+			break;
+		}
+		case ILLitType::U32:
+		case ILLitType::Char:
+		{
+			u8* addr = reinterpret_cast<u8*>(&val);
+			litData.insert(litData.begin(), addr, addr + sizeof(u32));
+			break;
+		}
+		case ILLitType::U64:
+		{
+			u8* addr = reinterpret_cast<u8*>(&val);
+			litData.insert(litData.begin(), addr, addr + sizeof(u64));
+			break;
+		}
+		case ILLitType::U128: break;
+		default: ;
+		}
+	}
+
+	ILVar::ILVar(ILLitType lit, i64 val)
+		: kind(ILVarKind::Lit)
+		, litType(lit)
+		, boolBit(false)
+	{
+		switch (lit)
+		{
+		case ILLitType::I8:
+		{
+			u8* addr = reinterpret_cast<u8*>(&val);
+			litData.insert(litData.begin(), addr, addr + sizeof(i8));
+			break;
+		}
+		case ILLitType::I16:
+		{
+			u8* addr = reinterpret_cast<u8*>(&val);
+			litData.insert(litData.begin(), addr, addr + sizeof(i16));
+			break;
+		}
+		case ILLitType::I32:
+		{
+			u8* addr = reinterpret_cast<u8*>(&val);
+			litData.insert(litData.begin(), addr, addr + sizeof(i32));
+			break;
+		}
+		case ILLitType::I64:
+		{
+			u8* addr = reinterpret_cast<u8*>(&val);
+			litData.insert(litData.begin(), addr, addr + sizeof(i64));
+			break;
+		}
+		case ILLitType::I128: break;
+		default:;
+		}
+	}
+
+	ILVar::ILVar(ILLitType lit, f64 val)
+		: kind(ILVarKind::Lit)
+		, litType(lit)
+		, boolBit(false)
+	{
+		switch (lit)
+		{
+		case ILLitType::F32:
+		{
+			f32 val32 = f32(val);
+			u8* addr = reinterpret_cast<u8*>(&val32);
+			litData.insert(litData.begin(), addr, addr + sizeof(i32));
+			break;
+		}
+		case ILLitType::F64:
+		{
+			u8* addr = reinterpret_cast<u8*>(&val);
+			litData.insert(litData.begin(), addr, addr + sizeof(i64));
+			break;
+		}
+		default:;
+		}
+	}
+
 	ILVar::ILVar(bool bval)
 		: kind(ILVarKind::Lit)
 		, litType(ILLitType::Bool)
@@ -108,8 +205,11 @@ namespace Noctis
 	{
 	}
 
-	ILSwitch::ILSwitch()
+	ILSwitch::ILSwitch(ILVar cond, const StdPairVector<ILVar, u32>& cases, u32 defCase)
 		: ILTerminal(ILKind::Switch)
+		, cond(cond)
+		, cases(cases)
+		, defCase(defCase)
 	{
 	}
 
@@ -127,6 +227,11 @@ namespace Noctis
 	ILReturn::ILReturn(ILVar var)
 		: ILTerminal(ILKind::ReturnVal)
 		, var(std::move(var))
+	{
+	}
+
+	ILUnreachable::ILUnreachable()
+		: ILTerminal(ILKind::Unreachable)
 	{
 	}
 

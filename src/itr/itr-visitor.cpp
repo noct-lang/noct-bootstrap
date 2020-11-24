@@ -385,11 +385,6 @@ namespace Noctis
 		Walk(node);
 	}
 
-	void ITrVisitor::Visit(ITrPatternSPtr& ptr, ITrAmbiguousIdenPattern& node)
-	{
-		Walk(node);
-	}
-
 	void ITrVisitor::Visit(ITrValueBindPattern& node)
 	{
 		Walk(node);
@@ -550,12 +545,12 @@ namespace Noctis
 	{
 		switch (pattern->patternKind)
 		{
+		case ITrPatternKind::Wildcard:
 		case ITrPatternKind::Placeholder: Visit(*reinterpret_cast<ITrPlaceholderPattern*>(pattern.get())); break;
 		case ITrPatternKind::ValueBind: Visit(*reinterpret_cast<ITrValueBindPattern*>(pattern.get())); break;
 		case ITrPatternKind::Literal: Visit(*reinterpret_cast<ITrLiteralPattern*>(pattern.get())); break;
 		case ITrPatternKind::Range: Visit(*reinterpret_cast<ITrRangePattern*>(pattern.get())); break;
 		case ITrPatternKind::Tuple: Visit(*reinterpret_cast<ITrTuplePattern*>(pattern.get())); break;
-		case ITrPatternKind::AmbiguousIden: Visit(pattern, *reinterpret_cast<ITrAmbiguousIdenPattern*>(pattern.get())); break;
 		case ITrPatternKind::ValueEnum: Visit(*reinterpret_cast<ITrValueEnumPattern*>(pattern.get())); break;
 		case ITrPatternKind::AdtTupleEnum: Visit(*reinterpret_cast<ITrAdtTupleEnumPattern*>(pattern.get())); break;
 		case ITrPatternKind::AmbiguousAggr: Visit(pattern, *reinterpret_cast<ITrAmbiguousAggrPattern*>(pattern.get())); break;
@@ -1013,13 +1008,10 @@ namespace Noctis
 	{
 	}
 
-	void ITrVisitor::Walk(ITrAmbiguousIdenPattern& node)
-	{
-	}
-
 	void ITrVisitor::Walk(ITrValueBindPattern& node)
 	{
-		Visit(node.subPattern);
+		if (node.subPattern)
+			Visit(node.subPattern);
 	}
 
 	void ITrVisitor::Walk(ITrLiteralPattern& node)
@@ -1028,8 +1020,6 @@ namespace Noctis
 
 	void ITrVisitor::Walk(ITrRangePattern& node)
 	{
-		Visit(node.from);
-		Visit(node.to);
 	}
 
 	void ITrVisitor::Walk(ITrTuplePattern& node)
@@ -1054,7 +1044,7 @@ namespace Noctis
 
 	void ITrVisitor::Walk(ITrAmbiguousAggrPattern& node)
 	{
-		for (StdPair<IdenSPtr, ITrPatternSPtr>& arg : node.args)
+		for (StdPair<StdString, ITrPatternSPtr>& arg : node.args)
 		{
 			Visit(arg.second);
 		}
@@ -1062,7 +1052,7 @@ namespace Noctis
 
 	void ITrVisitor::Walk(ITrAggrPattern& node)
 	{
-		for (StdPair<IdenSPtr, ITrPatternSPtr>& arg : node.args)
+		for (StdPair<StdString, ITrPatternSPtr>& arg : node.args)
 		{
 			Visit(arg.second);
 		}
@@ -1070,7 +1060,7 @@ namespace Noctis
 
 	void ITrVisitor::Walk(ITrAdtAggrEnumPattern& node)
 	{
-		for (StdPair<IdenSPtr, ITrPatternSPtr>& arg : node.args)
+		for (StdPair<StdString, ITrPatternSPtr>& arg : node.args)
 		{
 			Visit(arg.second);
 		}

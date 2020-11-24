@@ -674,12 +674,18 @@ namespace Noctis
 		StdVector<AstSwitchCase> cases;
 		do
 		{
+			if (PeekToken().Type() == TokenType::RBrace)
+				break;
+			
 			AstPatternSPtr pattern = ParsePattern();
 			AstExprSPtr expr;
 			if (TryEatIdenToken("where"))
 				expr = ParseExpression();
 			EatToken(TokenType::DblArrow);
 			AstStmtSPtr body = ParseStatement();
+
+			if (body->stmtKind != AstStmtKind::Block)
+				body.reset(new AstBlockStmt{ body->ctx->startIdx, { body }, body->ctx->endIdx });
 
 			cases.push_back(AstSwitchCase{ pattern, expr, body });
 		}
@@ -1588,6 +1594,7 @@ namespace Noctis
 		if (TryEatToken(TokenType::Comma))
 		{
 			StdVector<AstExprSPtr> exprs;
+			exprs.push_back(expr);
 			do
 			{
 				exprs.push_back(ParseExpression());
@@ -1944,6 +1951,7 @@ namespace Noctis
 			pattern = AstPatternSPtr{ new AstWildcardPattern{ tok.Idx() } };
 			break;
 		}
+		case TokenType::ColonColon:
 		case TokenType::Iden:
 		{
 			if (tok.Text() == "_")
@@ -1967,13 +1975,6 @@ namespace Noctis
 			{
 				AstIden* pIden = static_cast<AstIden*>(qualName->idens[0].get());
 				StdString iden = pIden->iden;
-				
-				if (PeekToken().Type() == TokenType::LParen)
-				{
-					pattern = ParseEnumPattern(qualName);
-					break;
-				}
-
 				pattern = ParseValueBindPattern(std::move(iden));
 				break;
 			}
@@ -2024,7 +2025,16 @@ namespace Noctis
 		case TokenType::StringLit:
 		{
 			EatToken();
-			pattern = AstPatternSPtr{ new AstLiteralPattern{ tok } };
+			TokenType nextType = PeekToken().Type();
+			if (nextType == TokenType::DotDot ||
+				nextType == TokenType::DotDotEq)
+			{
+				pattern = ParseRangePattern(tok);
+			}
+			else
+			{
+				pattern = AstPatternSPtr{ new AstLiteralPattern{ tok } };
+			}
 			break;
 		}
 		default:
@@ -2039,9 +2049,6 @@ namespace Noctis
 
 		switch (PeekToken().Type())
 		{
-		case TokenType::DotDot:
-		case TokenType::DotDotEq:
-			return ParseRangePattern(pattern);
 		case TokenType::Or:
 			return ParseEitherPattern(pattern);
 		default:
@@ -2062,11 +2069,11 @@ namespace Noctis
 		return AstPatternSPtr{ new AstValueBindPattern{ startIdx, std::move(iden), subPattern, endIdx } };
 	}
 
-	AstPatternSPtr Parser::ParseRangePattern(AstPatternSPtr pattern)
+	AstPatternSPtr Parser::ParseRangePattern(Token from)
 	{
 		bool inclusive = EatToken().Type() == TokenType::DotDotEq;
-		AstPatternSPtr to = ParsePattern();
-		return AstPatternSPtr{ new AstRangePattern{ pattern, inclusive, to } };
+		Token to = EatToken();
+		return AstPatternSPtr{ new AstRangePattern{ from, inclusive, to } };
 	}
 
 	AstPatternSPtr Parser::ParseTuplePattern()
@@ -2086,13 +2093,17 @@ namespace Noctis
 	AstPatternSPtr Parser::ParseEnumPattern(AstQualNameSPtr iden)
 	{
 		u64 startIdx = iden->ctx->startIdx;
+		u64 endIdx = startIdx;
 		StdVector<AstPatternSPtr> subPatterns;
-		do
+		if (TryEatToken(TokenType::LParen))
 		{
-			AstPatternSPtr pattern = ParsePattern();
-			subPatterns.push_back(pattern);
-		} while (TryEatToken(TokenType::Comma));
-		u64 endIdx = EatToken(TokenType::RParen).Idx();
+			do
+			{
+				AstPatternSPtr pattern = ParsePattern();
+				subPatterns.push_back(pattern);
+			} while (TryEatToken(TokenType::Comma));
+			endIdx = EatToken(TokenType::RParen).Idx();
+		}
 		return AstPatternSPtr{ new AstEnumPattern{ startIdx, iden, std::move(subPatterns), endIdx } };
 	}
 
@@ -2103,11 +2114,8 @@ namespace Noctis
 		do
 		{
 			StdString iden;
-			if (PeekToken().Type() == TokenType::Iden && PeekToken(1).Type() == TokenType::Colon)
-			{
-				iden = EatToken().Text();
-				EatToken();
-			}
+			iden = EatToken(TokenType::Iden).Text();
+			EatToken(TokenType::Colon);
 			AstPatternSPtr pattern = ParsePattern();
 			subPatterns.emplace_back(std::move(iden), pattern);
 		} while (TryEatToken(TokenType::Comma));

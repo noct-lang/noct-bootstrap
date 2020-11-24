@@ -93,6 +93,7 @@ namespace Noctis
 		//void Visit(ITrSlicePattern& node) override;
 		//void Visit(ITrEitherPattern& node) override;
 		//void Visit(ITrTypePattern& node) override;
+		
 		//void Visit(ITrAttribs& node) override;
 		//void Visit(ITrAtAttrib& node) override;
 		//void Visit(ITrGenDecl& node) override;
@@ -108,19 +109,46 @@ namespace Noctis
 
 	private:
 		u32 AddNewBlock();
-
 		void SetCurBlock(u32 label);
 
 		void MapVar(IdenSPtr iden, ILVar var);
 
-		ILVar CreateDstVar(TypeHandle type);
-		
+		ILVar CreateDstVar(TypeHandle type, bool addToTmp = true);
 		ILVar PopTmpVar();
 
 		QualNameSPtr GetCurScope();
 
 		void ImplementCompilerIntrin(const StdString& intrinName);
 
+		ILVar CreateLitVar(Token& lit);
+
+		template<typename T>
+		ILVar CreateLitVar(TypeHandle type, const T& val);
+
+		// Switch
+		// TODO: ValueBind
+		void ProcessSwitchGroup(ITrSwitch& node, ITrSwitchGroup& group);
+		void ProcessSwitchBase(ITrSwitch& node, ITrSwitchGroup& group);
+
+		void ProcessSwitchLeaf(ITrSwitch& node, ITrSwitchGroup& group);
+		void ProcessRange(ITrSwitch& node, ITrSwitchGroup& group);
+		void ProcessLitMatch(ITrSwitch& node, ITrSwitchGroup& group);
+		void ProcessEnumMatch(ITrSwitch& node, ITrSwitchGroup& group);
+
+		void ProcessTuple(ITrSwitch& node, ITrSwitchGroup& group);
+		void ProcessTupleIndex(ITrSwitch& node, ITrSwitchGroup& group);
+		void ProcessAggr(ITrSwitch& node, ITrSwitchGroup& group);
+		void ProcessAggrMember(ITrSwitch& node, ITrSwitchGroup& group);
+		void ProcessSlice(ITrSwitch& node, ITrSwitchGroup& group);
+		void ProcessSliceIndex(ITrSwitch& node, ITrSwitchGroup& group);
+
+		void ValueBindSwitchVar(const StdString& bindName, const StdVector<usize>& caseIds);
+		void AssignValueBinds(usize caseId);
+
+		void PopSwitchVarToDepth(usize depth);
+		u32 AddCaseToBody(usize caseId);
+		u32 AddCaseToTerm();
+		
 		ILModule* m_pILMod;
 
 		ILFuncDefSPtr m_Def;
@@ -131,15 +159,21 @@ namespace Noctis
 		u32 m_CurVarId;
 
 		StdStack<ILVar> m_TmpVars;
+		
+		StdStack<ILVar> m_SwitchVars;
+		usize m_CurSwitchPatternDepth;
 
-
-
+		StdPairVector<usize, StdVector<u32>> m_CaseToBodyBlocks;
+		StdVector<u32> m_CaseToTermBlocks;
+		StdUnorderedMap<usize, StdPairVector<StdString, ILVar>> m_CaseBindings;
+		
 		FuncContextSPtr m_FuncCtx;
 		QualNameSPtr m_FuncScope;
 		StdVector<StdString> m_ScopeNames;
 
 		StdUnorderedMap<IdenSPtr, StdVector<ILVar>> m_VarMapping;
 		StdUnorderedMap<IdenSPtr, u32> m_LabelMapping;
+		StdUnorderedMap<ITrBlock*, u32> m_ITrBlockMapping;
 		StdStack<u32> m_LabelStack;
 		StdStack<u32> m_LoopBeginLabels;
 		StdStack<u32> m_LoopEndLabels;

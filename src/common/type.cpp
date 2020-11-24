@@ -38,7 +38,136 @@ namespace Noctis
 			hasFuzzyCompare = qualName->Disambiguation()->Type().AsBase().hasFuzzyCompare;
 		}
 	}
-	
+
+	bool IsBuiltinInteger(BuiltinTypeKind kind)
+	{
+		switch (kind)
+		{
+		case BuiltinTypeKind::I8:
+		case BuiltinTypeKind::I16:
+		case BuiltinTypeKind::I32:
+		case BuiltinTypeKind::I64:
+		case BuiltinTypeKind::I128:
+		case BuiltinTypeKind::ISize:
+		case BuiltinTypeKind::U8:
+		case BuiltinTypeKind::U16:
+		case BuiltinTypeKind::U32:
+		case BuiltinTypeKind::U64:
+		case BuiltinTypeKind::U128:
+		case BuiltinTypeKind::USize:
+			return true;
+		default:
+			return false;
+		}
+	}
+
+	bool IsBuiltinSigned(BuiltinTypeKind kind)
+	{
+		switch (kind)
+		{
+		case BuiltinTypeKind::I8:
+		case BuiltinTypeKind::I16:
+		case BuiltinTypeKind::I32:
+		case BuiltinTypeKind::I64:
+		case BuiltinTypeKind::I128:
+		case BuiltinTypeKind::ISize:
+			return true;
+		default:
+			return false;
+		}
+	}
+
+	bool IsBuiltinUnsigned(BuiltinTypeKind kind)
+	{
+		switch (kind)
+		{
+		case BuiltinTypeKind::U8:
+		case BuiltinTypeKind::U16:
+		case BuiltinTypeKind::U32:
+		case BuiltinTypeKind::U64:
+		case BuiltinTypeKind::U128:
+		case BuiltinTypeKind::USize:
+			return true;
+		default:
+			return false;
+		}
+	}
+
+	bool IsBuiltinFloat(BuiltinTypeKind kind)
+	{
+		switch (kind)
+		{
+		case BuiltinTypeKind::F16:
+		case BuiltinTypeKind::F32:
+		case BuiltinTypeKind::F64:
+		case BuiltinTypeKind::F128:
+			return true;
+		default:
+			return false;
+		}
+	}
+
+	u8 GetBuiltinBytes(BuiltinTypeKind kind)
+	{
+		switch (kind)
+		{
+		case BuiltinTypeKind::Bool:
+		case BuiltinTypeKind::I8:
+		case BuiltinTypeKind::U8:
+			return 1;
+		case BuiltinTypeKind::I16:
+		case BuiltinTypeKind::U16:
+		case BuiltinTypeKind::F16:
+			return 2;
+		case BuiltinTypeKind::Char:
+		case BuiltinTypeKind::I32:
+		case BuiltinTypeKind::U32:
+		case BuiltinTypeKind::F32:
+			return 4;
+		case BuiltinTypeKind::I64:
+		case BuiltinTypeKind::U64:
+		case BuiltinTypeKind::F64:
+			return 8;
+		case BuiltinTypeKind::U128:
+		case BuiltinTypeKind::I128:
+		case BuiltinTypeKind::F128:
+			return 16;
+		case BuiltinTypeKind::USize:
+		case BuiltinTypeKind::ISize:
+			// TODO: arch specific size
+			return 8;
+		default:
+			return 0;
+		}
+	}
+
+	/*
+		switch (kind)
+		{
+		case BuiltinTypeKind::Bool:
+		case BuiltinTypeKind::Char:
+		case BuiltinTypeKind::I8:
+		case BuiltinTypeKind::I16:
+		case BuiltinTypeKind::I32:
+		case BuiltinTypeKind::I64:
+		case BuiltinTypeKind::I128:
+		case BuiltinTypeKind::ISize:
+		case BuiltinTypeKind::U8:
+		case BuiltinTypeKind::U16:
+		case BuiltinTypeKind::U32:
+		case BuiltinTypeKind::U64:
+		case BuiltinTypeKind::U128:
+		case BuiltinTypeKind::USize:
+		case BuiltinTypeKind::F16:
+		case BuiltinTypeKind::F32:
+		case BuiltinTypeKind::F64:
+		case BuiltinTypeKind::F128:
+			return true;
+		default:
+			return false;
+		}
+	 */
+
 	StdStringView TypeModToString(TypeMod mod)
 	{
 		switch (mod)
@@ -145,6 +274,13 @@ namespace Noctis
 	{
 		assert(IsValid());
 		return Type()->AsGeneric();
+	}
+
+	StdString TypeHandle::ToString()
+	{
+		if (IsValid())
+			return pReg->ToString(*this);
+		return "__unknown__";
 	}
 
 	bool TypeHandle::operator==(const TypeHandle& other) const
@@ -269,29 +405,7 @@ namespace Noctis
 		case TypeKind::Builtin:
 		{
 			BuiltinType& builtin = AsBuiltin();
-			switch (builtin.builtin)
-			{
-			case BuiltinTypeKind::Bool:  base.size = base.align = 1;  break;
-			case BuiltinTypeKind::Char:  base.size = base.align = 4;  break;
-			case BuiltinTypeKind::I8:    base.size = base.align = 1;  break;
-			case BuiltinTypeKind::I16:   base.size = base.align = 2;  break;
-			case BuiltinTypeKind::I32:   base.size = base.align = 4;  break;
-			case BuiltinTypeKind::I64:   base.size = base.align = 8;  break;
-			case BuiltinTypeKind::I128:  base.size = base.align = 16; break;
-			case BuiltinTypeKind::ISize: base.size = base.align = 8;  break; // TODO: arch specific size
-			case BuiltinTypeKind::U8:    base.size = base.align = 1;  break;
-			case BuiltinTypeKind::U16:   base.size = base.align = 2;  break;
-			case BuiltinTypeKind::U32:   base.size = base.align = 3;  break;
-			case BuiltinTypeKind::U64:   base.size = base.align = 4;  break;
-			case BuiltinTypeKind::U128:  base.size = base.align = 16; break; 
-			case BuiltinTypeKind::USize: base.size = base.align = 8;  break; // TODO: arch specific size
-			case BuiltinTypeKind::F16:   base.size = base.align = 2;  break;
-			case BuiltinTypeKind::F32:   base.size = base.align = 4;  break;
-			case BuiltinTypeKind::F64:   base.size = base.align = 8;  break;
-			case BuiltinTypeKind::F128:  base.size = base.align = 16; break;
-			default: ;
-			}
-			
+			base.size = base.align = GetBuiltinBytes(builtin.builtin);
 			break;
 		}
 		case TypeKind::Iden:
@@ -358,32 +472,12 @@ namespace Noctis
 
 	bool BuiltinType::IsSigned() const
 	{
-		switch (builtin)
-		{
-		case BuiltinTypeKind::I8:
-		case BuiltinTypeKind::I16:
-		case BuiltinTypeKind::I32:
-		case BuiltinTypeKind::I64:
-		case BuiltinTypeKind::I128:
-		case BuiltinTypeKind::ISize:
-			return true;
-		default:
-			return false;
-		}
+		return IsBuiltinSigned(builtin);
 	}
 
 	bool BuiltinType::IsFp() const
 	{
-		switch (builtin)
-		{
-		case BuiltinTypeKind::F16:
-		case BuiltinTypeKind::F32:
-		case BuiltinTypeKind::F64:
-		case BuiltinTypeKind::F128:
-			return true;
-		default:
-			return false;
-		}
+		return IsBuiltinFloat(builtin);
 	}
 
 	TypeRegistry::TypeRegistry(Context* pCtx)

@@ -187,6 +187,7 @@ namespace Noctis
 		, expr(expr)
 		, cases(std::move(cases))
 		, scopeName(scopeName)
+		, baseGroup(ITrSwitchGroupKind::Base, 0)
 	{
 	}
 
@@ -568,14 +569,7 @@ namespace Noctis
 	}
 
 	ITrPlaceholderPattern::ITrPlaceholderPattern(bool isWildcard)
-		: ITrPattern(ITrPatternKind::Placeholder)
-		, isWildcard(isWildcard)
-	{
-	}
-
-	ITrAmbiguousIdenPattern::ITrAmbiguousIdenPattern(IdenSPtr iden)
-		: ITrPattern(ITrPatternKind::AmbiguousIden)
-		, iden(iden)
+		: ITrPattern(isWildcard ? ITrPatternKind::Wildcard : ITrPatternKind::Placeholder)
 	{
 	}
 
@@ -592,11 +586,11 @@ namespace Noctis
 	{
 	}
 
-	ITrRangePattern::ITrRangePattern(bool isInclusive, ITrPatternSPtr from, ITrPatternSPtr to)
+	ITrRangePattern::ITrRangePattern(bool isInclusive, Token from, Token to)
 		: ITrPattern(ITrPatternKind::Range)
 		, isInclusive(isInclusive)
-		, from(from)
-		, to(to)
+		, from(std::move(from))
+		, to(std::move(to))
 	{
 	}
 
@@ -619,21 +613,21 @@ namespace Noctis
 	{
 	}
 
-	ITrAmbiguousAggrPattern::ITrAmbiguousAggrPattern(QualNameSPtr qualName,	StdPairVector<IdenSPtr, ITrPatternSPtr>&& args)
+	ITrAmbiguousAggrPattern::ITrAmbiguousAggrPattern(QualNameSPtr qualName,	StdPairVector<StdString, ITrPatternSPtr>&& args)
 		: ITrPattern(ITrPatternKind::AmbiguousAggr)
 		, qualName(qualName)
 		, args(std::move(args))
 	{
 	}
 
-	ITrAggrPattern::ITrAggrPattern(QualNameSPtr qualName, StdPairVector<IdenSPtr, ITrPatternSPtr>&& args)
+	ITrAggrPattern::ITrAggrPattern(QualNameSPtr qualName, StdPairVector<StdString, ITrPatternSPtr>&& args)
 		: ITrPattern(ITrPatternKind::Aggr)
 		, qualName(qualName)
 		, args(std::move(args))
 	{
 	}
 
-	ITrAdtAggrEnumPattern::ITrAdtAggrEnumPattern(QualNameSPtr qualName, StdPairVector<IdenSPtr, ITrPatternSPtr>&& args)
+	ITrAdtAggrEnumPattern::ITrAdtAggrEnumPattern(QualNameSPtr qualName, StdPairVector<StdString, ITrPatternSPtr>&& args)
 		: ITrPattern(ITrPatternKind::AdtAggrEnum)
 		, qualName(qualName)
 		, args(std::move(args))

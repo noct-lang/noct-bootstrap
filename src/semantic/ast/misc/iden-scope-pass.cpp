@@ -257,7 +257,16 @@ namespace Noctis
 	void IdenScopePass::Visit(AstSwitchStmt& node)
 	{
 		UnnamedScope(node.ctx, "switch", nullptr);
-		Walk(node);
+		AstVisitor::Visit(node.cond);
+
+		for (usize i = 0; i < node.cases.size(); ++i)
+		{
+			AstSwitchCase& case_ = node.cases[i];
+			AstBlockStmt& body = static_cast<AstBlockStmt&>(*case_.body);
+			StdString name = Format("case_%u", i);
+			IdenScope(body.ctx, name);
+		}
+		
 		m_CurScope = m_CurScope->Base();
 	}
 

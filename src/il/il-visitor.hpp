@@ -23,10 +23,11 @@ namespace Noctis
 	struct ILAdtEnumInit;
 	struct ILTupInit;
 	struct ILArrInit;
-	struct ILReturn;
-	struct ILGoto;
-	struct ILSwitch;
 	struct ILIf;
+	struct ILSwitch;
+	struct ILGoto;
+	struct ILReturn;
+	struct ILUnreachable;
 	struct ILBlock;
 	struct ILFuncDef;
 	struct Context;
@@ -47,6 +48,7 @@ namespace Noctis
 		virtual void Visit(ILSwitch& node);
 		virtual void Visit(ILGoto& node);
 		virtual void Visit(ILReturn& node);
+		virtual void Visit(ILUnreachable& node);
 		virtual void Visit(ILAssign& node);
 		virtual void Visit(ILPrimAssign& node);
 		virtual void Visit(ILPrimBinary& node);

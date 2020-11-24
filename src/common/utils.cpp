@@ -116,4 +116,20 @@ namespace Noctis
 		splits.push_back(str.substr(begIdx));
 		return splits;
 	}
+
+	StdVector<StdString> SplitString(const StdString& str, const StdString& splitOn)
+	{
+		usize begIdx = 0;
+		usize endIdx = str.find(splitOn);
+
+		StdVector<StdString> splits;
+		while (endIdx != StdString::npos)
+		{
+			splits.push_back(str.substr(begIdx, endIdx - begIdx));
+			begIdx = endIdx + splitOn.size();
+			endIdx = str.find(splitOn, begIdx);
+		}
+		splits.push_back(str.substr(begIdx));
+		return splits;
+	}
 }

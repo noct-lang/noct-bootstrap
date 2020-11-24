@@ -1096,6 +1096,7 @@ namespace Noctis
 				Visit(case_.expr);
 			Visit(case_.body);
 		}
+		Visit(node.cond);
 	}
 
 	void AstVisitor::Walk(AstLabelStmt& node)
@@ -1480,8 +1481,6 @@ namespace Noctis
 
 	void AstVisitor::Walk(AstRangePattern& node)
 	{
-		Visit(node.from);
-		Visit(node.to);
 	}
 
 	void AstVisitor::Walk(AstTuplePattern& node)
@@ -1494,6 +1493,7 @@ namespace Noctis
 
 	void AstVisitor::Walk(AstEnumPattern& node)
 	{
+		Visit(*node.qualName);
 		for (AstPatternSPtr subPattern : node.subPatterns)
 		{
 			Visit(subPattern);

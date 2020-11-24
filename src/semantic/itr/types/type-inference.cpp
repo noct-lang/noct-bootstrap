@@ -208,6 +208,17 @@ namespace Noctis
 		m_ScopeNames.pop_back();
 	}
 
+	void TypeInference::Visit(ITrSwitch& node)
+	{
+		ITrVisitor::Visit(node.expr);
+
+		SaveRestore tmpExpected(m_ExpectedHandle, node.expr->typeInfo.handle);
+		for (ITrSwitchCase& case_ : node.cases)
+		{
+			ITrVisitor::Visit(case_.pattern);
+		}
+	}
+
 	void TypeInference::Visit(ITrReturn& node)
 	{
 		Expect(m_ReturnHandle);
@@ -302,8 +313,8 @@ namespace Noctis
 			{
 				Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
 				StdStringView opName = GetOpName(node.op);
-				StdString lTypeName = m_pCtx->typeReg.ToString(lTypeHandle);
-				StdString rTypeName = m_pCtx->typeReg.ToString(rTypeHandle);
+				StdString lTypeName = lTypeHandle.ToString();
+				StdString rTypeName = rTypeHandle.ToString();
 				g_ErrorSystem.Error(span, "Binary operator '%s' not found for '%s' and '%s'\n", opName.data(), lTypeName.c_str(), rTypeName.c_str());
 			}
 
@@ -359,8 +370,8 @@ namespace Noctis
 		{
 			Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
 			StdStringView opName = GetOpName(node.op);
-			StdString lTypeName = m_pCtx->typeReg.ToString(lTypeHandle);
-			StdString rTypeName = m_pCtx->typeReg.ToString(rTypeHandle);
+			StdString lTypeName = lTypeHandle.ToString();
+			StdString rTypeName = rTypeHandle.ToString();
 			g_ErrorSystem.Error(span, "Binary operator '%s' not found for '%s' and '%s'\n", opName.data(), lTypeName.c_str(), rTypeName.c_str());
 		}
 
@@ -400,6 +411,9 @@ namespace Noctis
 			}
 		}
 
+		if (opKind == OperatorKind::PreInc)
+			int br = 0;
+
 		const Operator& op = m_pCtx->activeModule->opTable.GetOperator(opKind, exprTypeHandle);
 		node.typeInfo.handle = op.result;
 		node.operator_ = op;
@@ -422,7 +436,7 @@ namespace Noctis
 		{
 			Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
 			StdStringView opName = GetOpName(node.op);
-			StdString typeName = m_pCtx->typeReg.ToString(exprTypeHandle);
+			StdString typeName = exprTypeHandle.ToString();
 			g_ErrorSystem.Error(span, "Unary operator '%s' not found for '%s'\n", opName.data(), typeName.c_str());
 		}
 
@@ -515,7 +529,7 @@ namespace Noctis
 			{
 				Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
 				StdStringView opName = GetOpName(opKind);
-				StdString typeName = m_pCtx->typeReg.ToString(exprTypeHandle);
+				StdString typeName = exprTypeHandle.ToString();
 				g_ErrorSystem.Error(span, "Index operator '%s' not found for '%s'\n", opName.data(), typeName.c_str());
 			}
 		}
@@ -737,7 +751,7 @@ namespace Noctis
 		if (type->typeKind != TypeKind::Tuple)
 		{
 			MultiSpan span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx, std::get<AstExprSPtr>(node.astNode)->ctx->endIdx);
-			StdString typeName = m_pCtx->typeReg.ToString(node.expr->typeInfo.handle);
+			StdString typeName = node.expr->typeInfo.handle.ToString();
 			g_ErrorSystem.Error(span, "Cannot use a tuple access on a value of type '%s'", typeName);
 			return;
 		}
@@ -955,14 +969,12 @@ namespace Noctis
 					if (!m_pCtx->typeReg.CanPassTo(expected, argType))
 					{
 						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(arg->expr->astNode)->ctx->startIdx);
-						StdString expectedName = m_pCtx->typeReg.ToString(expected);
-						StdString argName = m_pCtx->typeReg.ToString(argType);
+						StdString expectedName = expected.ToString();
+						StdString argName = argType.ToString();
 						g_ErrorSystem.Error(span, "Cannot pass '%s' to '%s'\n", argName.c_str(), expectedName.c_str());
 						return;
 					}
 					argTypes[idx] = arg->expr->typeInfo.handle;
-
-					adtNode.argOrder.push_back(idx);
 				}
 				else
 				{
@@ -978,8 +990,8 @@ namespace Noctis
 					if (!m_pCtx->typeReg.CanPassTo(expected, argType))
 					{
 						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(arg->expr->astNode)->ctx->startIdx);
-						StdString expectedName = m_pCtx->typeReg.ToString(expected);
-						StdString argName = m_pCtx->typeReg.ToString(argType);
+						StdString expectedName = expected.ToString();
+						StdString argName = argType.ToString();
 						g_ErrorSystem.Error(span, "Cannot pass '%s' to '%s'\n", argName.c_str(), expectedName.c_str());
 						return;
 					}
@@ -1048,7 +1060,7 @@ namespace Noctis
 					if (!validDef)
 					{
 						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
-						StdString typeName = m_pCtx->typeReg.ToString(defType);
+						StdString typeName = defType.ToString();
 						g_ErrorSystem.Error(span, "cannot initialize unspecified members from an expression with type '%s'\n", typeName.c_str());
 					}
 
@@ -1135,8 +1147,8 @@ namespace Noctis
 					if (!m_pCtx->typeReg.CanPassTo(expected, argType))
 					{
 						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(arg->expr->astNode)->ctx->startIdx);
-						StdString expectedName = m_pCtx->typeReg.ToString(expected);
-						StdString argName = m_pCtx->typeReg.ToString(argType);
+						StdString expectedName = expected.ToString();
+						StdString argName = argType.ToString();
 						g_ErrorSystem.Error(span, "Cannot pass '%s' to '%s'\n", argName.c_str(), expectedName.c_str());
 						return;
 					}
@@ -1158,8 +1170,8 @@ namespace Noctis
 					if (!m_pCtx->typeReg.CanPassTo(expected, argType))
 					{
 						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(arg->expr->astNode)->ctx->startIdx);
-						StdString expectedName = m_pCtx->typeReg.ToString(expected);
-						StdString argName = m_pCtx->typeReg.ToString(argType);
+						StdString expectedName = expected.ToString();
+						StdString argName = argType.ToString();
 						g_ErrorSystem.Error(span, "Cannot pass '%s' to '%s'\n", argName.c_str(), expectedName.c_str());
 						return;
 					}
@@ -1228,7 +1240,7 @@ namespace Noctis
 					if (!validDef)
 					{
 						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
-						StdString typeName = m_pCtx->typeReg.ToString(defType);
+						StdString typeName = defType.ToString();
 						g_ErrorSystem.Error(span, "cannot initialize unspecified members from an expression with type '%s'\n", typeName.c_str());
 					}
 
@@ -1292,8 +1304,8 @@ namespace Noctis
 					if (!m_pCtx->typeReg.CanPassTo(expected, argType))
 					{
 						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(arg->expr->astNode)->ctx->startIdx);
-						StdString expectedName = m_pCtx->typeReg.ToString(expected);
-						StdString argName = m_pCtx->typeReg.ToString(argType);
+						StdString expectedName = expected.ToString();
+						StdString argName = argType.ToString();
 						g_ErrorSystem.Error(span, "Cannot pass '%s' to '%s'\n", argName.c_str(), expectedName.c_str());
 						return;
 					}
@@ -1356,8 +1368,8 @@ namespace Noctis
 			else if (expr->typeInfo.handle != type)
 			{
 				Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
-				StdString type0Name = m_pCtx->typeReg.ToString(type);
-				StdString type1Name = m_pCtx->typeReg.ToString(expr->typeInfo.handle);
+				StdString type0Name = type.ToString();
+				StdString type1Name = expr->typeInfo.handle.ToString();
 				g_ErrorSystem.Error(span, "An array connot contain values of different types, found '%s' and '%s'", type0Name.c_str(), type1Name.c_str());
 			}
 		}
@@ -1396,8 +1408,8 @@ namespace Noctis
 			if (!op.sym)
 			{
 				Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
-				StdString lTypeName = m_pCtx->typeReg.ToString(fromType);
-				StdString rTypeName = m_pCtx->typeReg.ToString(toType);
+				StdString lTypeName = fromType.ToString();
+				StdString rTypeName = toType.ToString();
 				StdString castName;
 				switch (node.castKind)
 				{
@@ -1420,8 +1432,8 @@ namespace Noctis
 			if (fromSize != toSize)
 			{
 				Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
-				StdString lTypeName = m_pCtx->typeReg.ToString(fromType);
-				StdString rTypeName = m_pCtx->typeReg.ToString(toType);
+				StdString lTypeName = fromType.ToString();
+				StdString rTypeName = toType.ToString();
 				g_ErrorSystem.Error(span, "cannot transmute %s -> %s, since they are different sizes\n", lTypeName.c_str(), rTypeName.c_str());
 				return;
 			}
@@ -1758,6 +1770,446 @@ namespace Noctis
 			default:;
 			}
 		}
+	}
+
+	void TypeInference::Visit(ITrAdtAggrEnumPattern& node)
+	{
+		// Should only receive patterns like: '::iden{...}'
+		
+		if (m_ExpectedHandle.Kind() != TypeKind::Iden ||
+			m_ExpectedHandle.AsIden().sym.lock()->kind != SymbolKind::AdtEnumMember)
+		{
+			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			StdString typeName = m_ExpectedHandle.ToString();
+			g_ErrorSystem.Error(span, "cannot match an adt enum pattern with '%s'\n", typeName.c_str());
+			return;
+		}
+
+		// Since we do not have the name of the enum, we just get it from the expected type
+		SymbolSPtr memberSym = m_ExpectedHandle.AsIden().sym.lock();
+		SymbolSPtr typeSym = memberSym->type.AsIden().sym.lock();
+
+		StdVector<SymbolSPtr> children;
+		typeSym->children->Foreach([&children](SymbolSPtr sym, QualNameSPtr ifaceQualName)
+		{
+			if (ifaceQualName)
+				return;
+			if (sym->kind != SymbolKind::Var)
+				return;
+			children.push_back(sym);
+		});
+
+		if (node.args.size() > children.size())
+		{
+			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			StdString typeName = m_ExpectedHandle.ToString();
+			g_ErrorSystem.Error(span, "'%s' does not have %u children, cannot match\n", typeName.c_str(), node.args.size());
+			return;
+		}
+
+		std::sort(children.begin(), children.end(), [](SymbolSPtr first, SymbolSPtr second)
+		{
+			return first->offset < second->offset;
+		});
+
+		bool hasWildcard = false;
+		for (usize i = 0; i < node.args.size(); ++i)
+		{
+			StdPair<StdString, ITrPatternSPtr>& arg = node.args[i];
+			if (arg.second->patternKind == ITrPatternKind::Wildcard)
+			{
+				if (hasWildcard)
+				{
+					Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+					g_ErrorSystem.Error(span, "Cannot have more than 1 wildcard in a pattern\n");
+					return;
+				}
+				hasWildcard = true;
+				continue;
+			}
+
+			SymbolSPtr child = !arg.first.empty() ? memberSym->children->FindChild(nullptr, Iden::Create(arg.first)) : children[i];
+			if (!child)
+			{
+				Span span = m_pCtx->spanManager.GetSpan(arg.second->astNode->ctx->startIdx);
+				StdString name = memberSym->qualName->ToString();
+				g_ErrorSystem.Error(span, "adt enum '%s' does not have child '%s'\n", name.c_str(), arg.first);
+			}
+			else
+			{
+				SaveRestore saveRes(m_ExpectedHandle, child->type);
+				ITrVisitor::Visit(arg.second);
+			}
+		}
+
+		if (!hasWildcard && node.args.size() < children.size())
+		{
+			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			StdString typeName = m_ExpectedHandle.ToString();
+			g_ErrorSystem.Error(span, "'%s' does not have %u children, cannot match\n", typeName.c_str(), node.args.size());
+		}
+
+		node.patternType = m_ExpectedHandle;
+	}
+
+	void TypeInference::Visit(ITrAdtTupleEnumPattern& node)
+	{
+		// Should only receive patterns like: '::iden(...)'
+		
+		if (m_ExpectedHandle.Kind() != TypeKind::Iden)
+		{
+			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			StdString typeName = m_ExpectedHandle.ToString();
+			g_ErrorSystem.Error(span, "cannot match an tuple enum pattern with '%s'\n", typeName.c_str());
+			return;
+		}
+
+		// Since we do not have the name of the enum, we just get it from the expected type
+		SymbolSPtr adtEnumSym = m_ExpectedHandle.AsIden().sym.lock();
+		SymbolSPtr memberSym = adtEnumSym->children->FindChild(nullptr, node.qualName->LastIden());
+
+		if (memberSym->type.Kind() != TypeKind::Tuple)
+		{
+			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			StdString typeName = memberSym->qualName->ToString();
+			g_ErrorSystem.Error(span, "cannot match an tuple enum pattern with '%s'\n", typeName.c_str());
+			return;
+		}
+		
+		TupleType& tupType = memberSym->type.AsTuple();
+		if (node.subPatterns.size() > tupType.subTypes.size())
+		{
+			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			StdString typeName = m_ExpectedHandle.ToString();
+			g_ErrorSystem.Error(span, "'%s' does not have %u children, cannot match\n", typeName.c_str(), node.subPatterns.size());
+			return;
+		}
+
+		bool hasWildcard = false;
+		for (usize i = 0; i < node.subPatterns.size(); ++i)
+		{
+			ITrPatternSPtr subPattern = node.subPatterns[i];
+			if (subPattern->patternKind == ITrPatternKind::Wildcard)
+			{
+				if (i != node.subPatterns.size() - 1)
+				{
+					Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+					g_ErrorSystem.Error(span, "wildcard pattern is only allowed as last sub-pattern\n");
+				}
+				hasWildcard = true;
+				continue;
+			}
+
+			SaveRestore saveRes(m_ExpectedHandle, tupType.subTypes[i]);
+			ITrVisitor::Visit(subPattern);
+		}
+
+		if (!hasWildcard && node.subPatterns.size() < tupType.subTypes.size())
+		{
+			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			StdString typeName = m_ExpectedHandle.ToString();
+			g_ErrorSystem.Error(span, "'%s' does not have %u children, cannot match\n", typeName.c_str(), node.subPatterns.size());
+		}
+
+		node.patternType = m_ExpectedHandle;
+	}
+
+	void TypeInference::Visit(ITrAggrPattern& node)
+	{
+		Walk(node);
+		
+		if (m_ExpectedHandle.Kind() != TypeKind::Iden)
+		{
+			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			StdString typeName = m_ExpectedHandle.ToString();
+			g_ErrorSystem.Error(span, "cannot match an aggregate with '%s'\n", typeName.c_str());
+			return;
+		}
+
+		SymbolSPtr handleSym = m_ExpectedHandle.AsIden().sym.lock();
+		if (handleSym->kind != SymbolKind::Struct)
+		{
+			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			StdString typeName = m_ExpectedHandle.ToString();
+			g_ErrorSystem.Error(span, "cannot match an aggregate with '%s'\n", typeName.c_str());
+		}
+
+		SymbolSPtr aggrSym = node.qualName ? m_pCtx->activeModule->symTable.Find(GetCurScope(), node.qualName) : handleSym;
+
+		StdVector<SymbolSPtr> children;
+		aggrSym->children->Foreach([&children](SymbolSPtr sym, QualNameSPtr ifaceQualName)
+		{
+			if (ifaceQualName)
+				return;
+			if (sym->kind != SymbolKind::Var)
+				return;
+			children.push_back(sym);
+		});
+
+		if (node.args.size() > children.size())
+		{
+			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			StdString typeName = m_ExpectedHandle.ToString();
+			g_ErrorSystem.Error(span, "'%s' does not have %u children, cannot match\n", typeName.c_str(), node.args.size());
+			return;
+		}
+
+		std::sort(children.begin(), children.end(), [](SymbolSPtr first, SymbolSPtr second)
+		{
+			return first->offset < second->offset;
+		});
+
+		bool hasWildcard = false;
+		for (usize i = 0; i < node.args.size(); ++i)
+		{
+			StdPair<StdString, ITrPatternSPtr>& arg = node.args[i];
+			if (arg.second->patternKind == ITrPatternKind::Wildcard)
+			{
+				if (hasWildcard)
+				{
+					Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+					g_ErrorSystem.Error(span, "Cannot have more than 1 wildcard in a pattern\n");
+					return;
+				}
+				hasWildcard = true;
+				continue;
+			}
+
+			SymbolSPtr child = !arg.first.empty() ? aggrSym->children->FindChild(nullptr, Iden::Create(arg.first)) : children[i];
+			if (!child)
+			{
+				Span span = m_pCtx->spanManager.GetSpan(arg.second->astNode->ctx->startIdx);
+				StdString name = aggrSym->qualName->ToString();
+				g_ErrorSystem.Error(span, "adt enum '%s' does not have child '%s'\n", name.c_str(), arg.first);
+			}
+			else
+			{
+				SaveRestore saveRes(m_ExpectedHandle, child->type);
+				ITrVisitor::Visit(arg.second);
+			}
+		}
+
+		if (!hasWildcard && node.args.size() < children.size())
+		{
+			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			StdString typeName = m_ExpectedHandle.ToString();
+			g_ErrorSystem.Error(span, "'%s' does not have %u children, cannot match\n", typeName.c_str(), node.args.size());
+		}
+
+		node.patternType = m_ExpectedHandle;
+	}
+
+	void TypeInference::Visit(ITrLiteralPattern& node)
+	{
+		bool doesMatch;
+		switch (node.lit.Type())
+		{
+		case TokenType::False:
+		case TokenType::True:
+		{
+			doesMatch = m_ExpectedHandle.Kind() == TypeKind::Builtin && m_ExpectedHandle.AsBuiltin().builtin == BuiltinTypeKind::Bool;
+			break;
+		}
+		case TokenType::Null:
+		{
+			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			g_ErrorSystem.Error(span, "null literal patterns are not allowed");
+			return;
+		}
+		case TokenType::CharLit:
+		{
+			doesMatch = m_ExpectedHandle.Kind() == TypeKind::Builtin && m_ExpectedHandle.AsBuiltin().builtin == BuiltinTypeKind::Char;
+			break;
+		}
+		case TokenType::F16Lit:
+		case TokenType::F32Lit:
+		case TokenType::F64Lit:
+		case TokenType::F128Lit:
+		{
+			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			g_ErrorSystem.Error(span, "Float literal patterns are not allowed");
+			return;
+		}
+		case TokenType::I8Lit:
+		case TokenType::I16Lit:
+		case TokenType::I32Lit:
+		case TokenType::I64Lit:
+		case TokenType::I128Lit:
+		case TokenType::U8Lit:
+		case TokenType::U16Lit:
+		case TokenType::U32Lit:
+		case TokenType::U64Lit:
+		case TokenType::U128Lit:
+			doesMatch = m_ExpectedHandle.Kind() == TypeKind::Builtin && IsBuiltinInteger(m_ExpectedHandle.AsBuiltin().builtin);
+			break;
+		case TokenType::StringLit:
+			doesMatch = false;
+			break; // TODO
+		default:
+			doesMatch = false;
+		}
+		
+		if (!doesMatch)
+		{
+			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			StdString typeName = m_ExpectedHandle.ToString();
+			g_ErrorSystem.Error(span, "cannot match '%s' to a literal.\n", typeName.c_str());
+		}
+
+		node.patternType = m_ExpectedHandle;
+	}
+
+	void TypeInference::Visit(ITrPatternSPtr& ptr, ITrAmbiguousAggrPattern& node)
+	{
+		// Should only receive patterns like: 'qual_name::iden{...}'
+		
+		Walk(node);
+		
+		SymbolSPtr sym = m_pCtx->activeModule->symTable.Find(GetCurScope(), node.qualName);
+		if (!sym)
+		{
+			return;
+		}
+		
+		if (sym->kind == SymbolKind::Struct)
+		{
+			ptr.reset(new ITrAggrPattern{ node.qualName, std::move(node.args) });
+			ITrVisitor::Visit(ptr);
+		}
+		else if (sym->kind == SymbolKind::AdtEnumMember)
+		{
+			ptr.reset(new ITrAdtAggrEnumPattern{ node.qualName, std::move(node.args) });
+			ITrVisitor::Visit(ptr);
+		}
+		else
+		{
+			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			StdString typeName = m_ExpectedHandle.ToString();
+			g_ErrorSystem.Error(span, "unknown aggregate match pattern of type '%s'\n", typeName.c_str());
+		}
+		node.patternType = m_ExpectedHandle;
+	}
+
+	void TypeInference::Visit(ITrSlicePattern& node)
+	{
+		if (m_ExpectedHandle.Kind() != TypeKind::Array &&
+			m_ExpectedHandle.Kind() != TypeKind::Slice)
+		{
+			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			StdString typeName = m_ExpectedHandle.ToString();
+			g_ErrorSystem.Error(span, "cannot match a slice pattern with '%s'\n", typeName.c_str());
+		}
+
+		TypeHandle subType = m_ExpectedHandle.Kind() == TypeKind::Array ? m_ExpectedHandle.AsArray().subType : m_ExpectedHandle.AsSlice().subType;
+		
+		SaveRestore saveRes(m_ExpectedHandle, subType);
+		Walk(node);
+
+		node.patternType = m_ExpectedHandle;
+	}
+
+	void TypeInference::Visit(ITrTuplePattern& node)
+	{
+		if (m_ExpectedHandle.Kind() != TypeKind::Tuple)
+		{
+			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			StdString typeName = m_ExpectedHandle.ToString();
+			g_ErrorSystem.Error(span, "cannot match a tuple pattern with '%s'\n", typeName.c_str());
+		}
+
+		TupleType& tupType = m_ExpectedHandle.AsTuple();
+		if (node.subPatterns.size() > tupType.subTypes.size())
+		{
+			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			StdString typeName = m_ExpectedHandle.ToString();
+			g_ErrorSystem.Error(span, "'%s' does not have %u elements, cannot match\n", typeName.c_str(), node.subPatterns.size());
+			return;
+		}
+
+		bool hasWildcard = false;
+		for (usize i = 0; i < node.subPatterns.size(); ++i)
+		{
+			ITrPatternSPtr subPattern = node.subPatterns[i];
+			if (subPattern->patternKind == ITrPatternKind::Wildcard)
+			{
+				if (i != node.subPatterns.size() - 1)
+				{
+					Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+					g_ErrorSystem.Error(span, "wildcard pattern is only allowed as last sub-pattern\n");
+				}
+				hasWildcard = true;
+				continue;
+			}
+
+			SaveRestore saveRes(m_ExpectedHandle, tupType.subTypes[i]);
+			ITrVisitor::Visit(subPattern);
+		}
+
+		if (!hasWildcard && node.subPatterns.size() < tupType.subTypes.size())
+		{
+			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			StdString typeName = m_ExpectedHandle.ToString();
+			g_ErrorSystem.Error(span, "'%s' does not have %u children, cannot match\n", typeName.c_str(), node.subPatterns.size());
+		}
+
+		node.patternType = m_ExpectedHandle;
+	}
+
+	void TypeInference::Visit(ITrTypePattern& node)
+	{
+		Visit(*node.type);
+		if (m_pCtx->typeReg.MatchTypes(m_ExpectedHandle, node.type->handle, *m_pCtx->activeModule))
+		{
+			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			StdString typeName = m_ExpectedHandle.ToString();
+			g_ErrorSystem.Error(span, "cannot match a type pattern with '%s'\n", typeName.c_str());
+		}
+
+		node.patternType = m_ExpectedHandle;
+	}
+
+	void TypeInference::Visit(ITrValueBindPattern& node)
+	{
+		Walk(node);
+
+		node.patternType = m_ExpectedHandle;
+	}
+
+	void TypeInference::Visit(ITrValueEnumPattern& node)
+	{
+		// Should only receive patterns like: 'opt_qual_name::iden'
+		
+		if (m_ExpectedHandle.Kind() != TypeKind::Iden)
+		{
+			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			StdString typeName = m_ExpectedHandle.ToString();
+			g_ErrorSystem.Error(span, "cannot match a value enum pattern with '%s'\n", typeName.c_str());
+		}
+
+		IdenType& type = m_ExpectedHandle.AsIden();
+		SymbolSPtr enumSym = node.qualName->IsBase() ? type.sym.lock() : m_pCtx->activeModule->symTable.Find(GetCurScope(), node.qualName->Base());
+
+		if (!enumSym || 
+			enumSym->kind != SymbolKind::ValEnum &&
+			enumSym->kind != SymbolKind::AdtEnum)
+		{
+			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			StdString name = enumSym->qualName->ToString();
+			g_ErrorSystem.Error(span, "'%s' is not a value enum'\n", name.c_str(), node.qualName->LastIden()->Name());
+			return;
+		}
+
+		if (enumSym->kind == SymbolKind::AdtEnum)
+		{
+			if (!enumSym->children->Empty())
+			{
+				Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+				StdString name = enumSym->qualName->ToString();
+				g_ErrorSystem.Error(span, "adt enum value '%s' has unmatched children\n", name.c_str());
+			}
+		}
+
+		node.patternType = m_ExpectedHandle;
 	}
 
 	void TypeInference::HandleGenerics(ITrDef& def, IdenSPtr iden)

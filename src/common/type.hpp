@@ -55,6 +55,12 @@ namespace Noctis
 		Count,
 	};
 
+	bool IsBuiltinInteger(BuiltinTypeKind kind);
+	bool IsBuiltinSigned(BuiltinTypeKind kind);
+	bool IsBuiltinUnsigned(BuiltinTypeKind kind);
+	bool IsBuiltinFloat(BuiltinTypeKind kind);
+	u8 GetBuiltinBytes(BuiltinTypeKind kind);
+
 	enum class TypeMod : u8
 	{
 		None,
@@ -118,6 +124,8 @@ namespace Noctis
 		FuncType& AsFunc();
 		GenericType& AsGeneric();
 
+		StdString ToString();
+		
 		bool IsValid() const { return pReg && !!type; }
 
 		bool operator==(const TypeHandle& other) const;

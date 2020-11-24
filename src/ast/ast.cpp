@@ -794,11 +794,11 @@ namespace Noctis
 	{
 	}
 
-	AstRangePattern::AstRangePattern(AstPatternSPtr from, bool inclusive, AstPatternSPtr to)
-		: AstPattern(AstPatternKind::Range, from->ctx->startIdx, from->ctx->endIdx)
-		, from(from)
+	AstRangePattern::AstRangePattern(Token from, bool inclusive, Token to)
+		: AstPattern(AstPatternKind::Range, from.Idx(), to.Idx())
+		, from(std::move(from))
 		, inclusive(inclusive)
-		, to(to)
+		, to(std::move(to))
 	{
 	}
 
@@ -810,7 +810,7 @@ namespace Noctis
 
 	AstEnumPattern::AstEnumPattern(u64 startIdx, AstQualNameSPtr iden, StdVector<AstPatternSPtr>&& subPatterns, u64 endIdx)
 		: AstPattern(AstPatternKind::Enum, startIdx, endIdx)
-		, iden(iden)
+		, qualName(iden)
 		, subPatterns(std::move(subPatterns))
 	{
 	}

@@ -20,6 +20,7 @@ namespace Noctis
 		void Visit(ILSwitch& node) override;
 		void Visit(ILGoto& node) override;
 		void Visit(ILReturn& node) override;
+		void Visit(ILUnreachable& node) override;
 		void Visit(ILAssign& node) override;
 		void Visit(ILPrimAssign& node) override;
 		void Visit(ILPrimBinary& node) override;

@@ -461,7 +461,6 @@ namespace Noctis
 			searchHandle = typeReg.Mod(TypeMod::None, searchHandle);
 		}
 
-
 		StdUnorderedMap<TypeSPtr, StdVector<Operator>>& ops = m_OpSymbols[u8(kind)];
 		auto it = ops.find(searchHandle.Type());
 		if (it != ops.end())
@@ -521,7 +520,16 @@ namespace Noctis
 
 		if (leftType->typeKind == TypeKind::Ref)
 			searchHandle = leftType->AsRef().subType;
-		searchHandle = typeReg.Mod(TypeMod::None, searchHandle);
+
+		if (IsAssign(kind))
+		{
+			if (searchHandle.AsBase().mod != TypeMod::Mut)
+				return empty;
+		}
+		else
+		{
+			searchHandle = typeReg.Mod(TypeMod::None, searchHandle);
+		}
 
 		TypeSPtr rightType = right.Type();
 		if (rightType->typeKind == TypeKind::Ref)
@@ -623,10 +631,13 @@ namespace Noctis
 		if (impl)
 			funcSym = impl->children->FindChild(ifaceQualName, funcIden, {});
 		else
-			funcSym = interfaceSym->children->FindChild(ifaceQualName, funcIden, {});
+			funcSym = interfaceSym->children->FindChild(nullptr, funcIden, {});
 
 		Operator op;
 		op.left = impl ? impl->type : interfaceSym->type;
+		if (IsAssign(kind))
+			op.left = m_pCtx->typeReg.Mod(TypeMod::Mut, op.left);
+		
 		op.right = rType;
 		op.result = funcSym->type.AsFunc().retType;
 		op.sym = funcSym;
@@ -663,12 +674,19 @@ namespace Noctis
 		if (impl)
 			funcSym = impl->children->FindChild(interfaceSym->qualName, funcIden, {});
 		else
-			funcSym = interfaceSym->children->FindChild(interfaceSym->qualName, funcIden, {});
+			funcSym = interfaceSym->children->FindChild(nullptr, funcIden, {});
 
  		TypeSPtr funcType = funcSym->type.Type();
 		Operator op;
 
 		op.left = impl ? impl->type : interfaceSym->type;
+		if (kind == OperatorKind::PreInc ||
+			kind == OperatorKind::PostInc ||
+			kind == OperatorKind::PreDec ||
+			kind == OperatorKind::PostDec)
+		{
+			op.left = m_pCtx->typeReg.Mod(TypeMod::Mut, op.left);
+		}
 		
 		op.result = funcType->AsFunc().retType;
 		op.sym = funcSym;

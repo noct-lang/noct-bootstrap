@@ -1264,7 +1264,13 @@ namespace Noctis
 		g_Logger.Log("(aggr-pattern");
 		PrintContextAndClose(node.ctx);
 		++m_Indent;
-		Walk(node);
+		for (StdPair<StdString, AstPatternSPtr>& pair : node.subPatterns)
+		{
+			g_Logger.Log("(iden: %s)\n", pair.first.c_str());
+			++m_Indent;
+			AstVisitor::Visit(pair.second);
+			--m_Indent;
+		}
 		--m_Indent;
 	}
 
