@@ -1,6 +1,7 @@
 #pragma once
 #include "common/defs.hpp"
 #include "common/type.hpp"
+#include "module/graph.hpp"
 #include "module/operator.hpp"
 
 namespace Noctis
@@ -381,7 +382,7 @@ namespace Noctis
 
 	struct ILFuncDef : public ILElem
 	{
-		ILFuncDef(const StdString& mangleName, StdVector<ILGeneric>&& generics);
+		ILFuncDef(Context* pCtx, const StdString& mangleName, StdVector<ILGeneric>&& generics);
 		
 		StdString mangleName;
 		StdVector<ILGeneric> generics;
@@ -394,6 +395,8 @@ namespace Noctis
 		TypeHandle retType;
 
 		SymbolWPtr sym;
+
+		ILDependencyGraph graph;
 	};
 	using ILFuncDefSPtr = StdSharedPtr<ILFuncDef>;
 

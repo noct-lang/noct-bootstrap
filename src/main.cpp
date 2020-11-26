@@ -15,6 +15,7 @@
 #include "common/name-mangling.hpp"
 #include "il/il-interp.hpp"
 #include "il/il-printer.hpp"
+#include "il/processing/il-processing.hpp"
 #include "itr/itr-printer.hpp"
 #include "module/encode.hpp"
 #include "semantic/semantic-analysis.hpp"

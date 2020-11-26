@@ -414,10 +414,11 @@ namespace Noctis
 	{
 	}
 
-	ILFuncDef::ILFuncDef(const StdString& mangleName, StdVector<ILGeneric>&& generics)
+	ILFuncDef::ILFuncDef(Context* pCtx, const StdString& mangleName, StdVector<ILGeneric>&& generics)
 		: ILElem(ILKind::FuncDef)
 		, mangleName(mangleName)
 		, generics(std::move(generics))
+		, graph(pCtx)
 	{
 	}
 }

@@ -53,6 +53,10 @@ namespace Noctis
 
 	void ILVisitor::Visit(ILFuncDef& node)
 	{
+		for (ILBlock& block : node.blocks)
+		{
+			Visit(block);
+		}
 	}
 
 	void ILVisitor::Visit(ILBlock& node)

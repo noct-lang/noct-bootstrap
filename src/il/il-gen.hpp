@@ -125,6 +125,11 @@ namespace Noctis
 		template<typename T>
 		ILVar CreateLitVar(TypeHandle type, const T& val);
 
+		template<typename T>
+		void AddElem(T* elem, u32 label = u32(-1));
+		template<typename T>
+		void SetTerminal(T* terminal, u32 label = u32(-1));
+
 		// Switch
 		// TODO: ValueBind
 		void ProcessSwitchGroup(ITrSwitch& node, ITrSwitchGroup& group);

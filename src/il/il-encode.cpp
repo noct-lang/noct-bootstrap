@@ -594,7 +594,7 @@ namespace Noctis
 		u32 mangleId = idAndMangle >> 8;
 		StdString mangle = m_Names[mangleId];
 
-		ILFuncDefSPtr def{ new ILFuncDef{ mangle, {} } };
+		ILFuncDefSPtr def{ new ILFuncDef{ m_pCtx, mangle, {} } };
 		// TODO: Symbol
 
 		u32 blockCount = ReadData<u32>();

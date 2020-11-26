@@ -4,7 +4,9 @@
 
 #include "common/logger.hpp"
 #include "il-pass.hpp"
+#include "passes/misc/il-clean-pass.hpp"
 #include "passes/misc/il-dependency-pass.hpp"
+#include "passes/misc/il-marker-pass.hpp"
 
 namespace Noctis
 {
@@ -27,7 +29,11 @@ namespace Noctis
 		Timer timer(true);
 		
 		RunPass<ILDependencyPass>(module);
-
+		RunPass<ILMarkerPass>(module);
+		RunPass<ILBlockMergePass>(module);
+		RunPass<ILRemoveGotoOnlyPass>(module);
+		RunPass<ILRemoveUntouchableBlockPass>(module);
+		
 		timer.Stop();
 		g_Logger.Log("-- TOOK %s\n", timer.GetSMSFormat().c_str());
 	}

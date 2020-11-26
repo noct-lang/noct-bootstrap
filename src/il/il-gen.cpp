@@ -8,6 +8,26 @@
 
 namespace Noctis
 {
+	template<typename T>
+	void ILGen::AddElem(T* elem, u32 label)
+	{
+		static_assert(std::is_base_of_v<ILElem, T>, "");
+		if (label == u32(-1))
+			m_pCurBlock->elems.emplace_back(elem);
+		else
+			m_Def->blocks[label].elems.emplace_back(elem);
+	}
+	
+	template<typename T>
+	void ILGen::SetTerminal(T* terminal, u32 label)
+	{
+		static_assert(std::is_base_of_v<ILTerminal, T>, "");
+		if (label == u32(-1))
+			m_pCurBlock->terminal.reset(terminal);
+		else
+			m_Def->blocks[label].terminal.reset(terminal);
+	}
+	
 	ILGen::ILGen(Context* pCtx)
 		: ITrSemanticPass("il gen", pCtx)
 		, m_pILMod(nullptr)
@@ -71,7 +91,7 @@ namespace Noctis
 				}
 			}
 			
-			m_Def.reset(new ILFuncDef{ mangleName, std::move(generics) });
+			m_Def.reset(new ILFuncDef{ m_pCtx, mangleName, std::move(generics) });
 			m_Def->sym = node.sym;
 			m_pILMod->names.insert(mangleName);
 			m_FuncScope = node.qualName;
@@ -133,7 +153,7 @@ namespace Noctis
 			}
 
 			if (!m_pCurBlock->terminal)
-				m_pCurBlock->terminal.reset(new ILReturn{});
+				SetTerminal(new ILReturn{});
 
 			m_pCtx->activeModule->ilMod.funcs.push_back(m_Def);
 		});
@@ -145,11 +165,10 @@ namespace Noctis
 		u32 newId = AddNewBlock();
 		m_ITrBlockMapping.try_emplace(&node, newId);
 
-		SetCurBlock(oldId);
-		m_pCurBlock->terminal.reset(new ILGoto{ newId });
-		SetCurBlock(newId);
+		SetTerminal(new ILGoto{ newId }, oldId);
 		
 		m_ScopeNames.push_back(node.scopeName);
+		SetCurBlock(newId);
 		Walk(node);
 		m_ScopeNames.pop_back();
 	}
@@ -159,51 +178,48 @@ namespace Noctis
 		ITrVisitor::Visit(node.cond);
 		ILVar cond = PopTmpVar();
 
-		u32 oldBlock = m_pCurBlock->label;
-		u32 tBlock = AddNewBlock();
-		u32 fBlock = node.fBlock ? AddNewBlock() : 0;
-		u32 endBlock = AddNewBlock();
+		u32 oldId = m_pCurBlock->label;
+		u32 trueId = AddNewBlock();
+		u32 falseId = node.fBlock ? AddNewBlock() : 0;
+		u32 endId = AddNewBlock();
 		if (!node.fBlock)
-			fBlock = endBlock;
+			falseId = endId;
 
-		SetCurBlock(oldBlock);
-		ILTerminalSPtr term{ new ILIf{ cond, tBlock, fBlock } };
-		m_pCurBlock->terminal = term;
+		SetTerminal(new ILIf{ cond, trueId, falseId }, oldId);
 
-		SetCurBlock(tBlock);
+		SetCurBlock(trueId);
 		Visit(*node.tBlock);
 
 		if (node.fBlock)
 		{ 
-			SetCurBlock(fBlock);
+			SetCurBlock(falseId);
 			Visit(*node.fBlock);
 		}
 		
-		SetCurBlock(endBlock);
+		SetCurBlock(endId);
 	}
 
 	void ILGen::Visit(ITrLoop& node)
 	{
-		u32 startLabel = m_pCurBlock->label;
-		u32 loopLabel = AddNewBlock();
-		u32 endLabel = AddNewBlock();
+		u32 startId = m_pCurBlock->label;
+		u32 loopId = AddNewBlock();
+		u32 endId = AddNewBlock();
 
-		SetCurBlock(startLabel);
-		m_pCurBlock->terminal.reset(new ILGoto{ loopLabel });
+		SetTerminal(new ILGoto{ loopId }, startId);
 
-		m_LoopBeginLabels.push(loopLabel);
-		m_LoopEndLabels.push(endLabel);
+		m_LoopBeginLabels.push(loopId);
+		m_LoopEndLabels.push(endId);
 		m_ScopeNames.push_back(node.scopeName);
-		SetCurBlock(loopLabel);
 		
+		SetCurBlock(loopId);
 		Walk(node);
 		
 		m_ScopeNames.pop_back();
 		m_LoopEndLabels.pop();
 		m_LoopBeginLabels.pop();
 
-		m_pCurBlock->terminal.reset(new ILGoto{ endLabel });
-		SetCurBlock(endLabel);
+		SetTerminal(new ILGoto{ endId });
+		SetCurBlock(endId);
 	}
 
 	void ILGen::Visit(ITrSwitch& node)
@@ -224,16 +240,14 @@ namespace Noctis
 			
 			for (u32 blockId : pair.second)
 			{
-				SetCurBlock(blockId);
-				m_pCurBlock->terminal.reset(new ILGoto{ caseId });
+				SetTerminal(new ILGoto{ caseId }, blockId);
 			}
 		}
 
 		u32 endBlock = AddNewBlock();
 		for (u32 blockId : m_CaseToTermBlocks)
 		{
-			SetCurBlock(blockId);
-			m_pCurBlock->terminal.reset(new ILGoto{ endBlock });
+			SetTerminal(new ILGoto{ endBlock }, blockId);
 		}
 
 		SetCurBlock(endBlock);
@@ -251,12 +265,11 @@ namespace Noctis
 		if (node.label)
 		{
 			auto it = m_LabelMapping.find(node.label);
-			m_pCurBlock->terminal.reset(new ILGoto{ it->second });
+			SetTerminal(new ILGoto{ it->second });
 		}
 		else
 		{
-			u32 label = m_LoopBeginLabels.top();
-			m_pCurBlock->terminal.reset(new ILGoto{ label });
+			SetTerminal(new ILGoto{ m_LoopEndLabels.top() });
 		}
 		AddNewBlock();
 	}
@@ -267,12 +280,11 @@ namespace Noctis
 		if (node.label)
 		{
 			auto it = m_LabelMapping.find(node.label);
-			m_pCurBlock->terminal.reset(new ILGoto{ it->second });
+			SetTerminal(new ILGoto{ it->second });
 		}
 		else
 		{
-			u32 label = m_LoopBeginLabels.top();
-			m_pCurBlock->terminal.reset(new ILGoto{ label });
+			SetTerminal(new ILGoto{ m_LoopBeginLabels.top() });
 		}
 		AddNewBlock();
 	}
@@ -285,7 +297,7 @@ namespace Noctis
 	void ILGen::Visit(ITrGoto& node)
 	{
 		auto it = m_LabelMapping.find(node.label);
-		m_pCurBlock->terminal.reset(new ILGoto{ it->second });
+		SetTerminal(new ILGoto{ it->second });
 		AddNewBlock();
 	}
 
@@ -295,14 +307,9 @@ namespace Noctis
 
 		ILElemSPtr elem;
 		if (node.expr)
-		{
-			ILVar var = PopTmpVar();
-			m_pCurBlock->terminal.reset(new ILReturn{ var });
-		}
+			SetTerminal(new ILReturn{ PopTmpVar() });
 		else
-		{
-			m_pCurBlock->terminal.reset(new ILReturn{});
-		}
+			SetTerminal(new ILReturn{});
 	}
 
 	void ILGen::Visit(ITrThrow& node)
@@ -311,14 +318,14 @@ namespace Noctis
 
 	void ILGen::Visit(ITrDefer& node)
 	{
-		u32 curLabel = m_pCurBlock->label;
+		/*u32 curLabel = m_pCurBlock->label;
 
 		u32 deferLabel = AddNewBlock();
 
 		// TODO
 
 		// Reset
-		SetCurBlock(curLabel);
+		SetCurBlock(curLabel);*/
 	}
 
 	void ILGen::Visit(ITrLocalVar& node)
@@ -334,10 +341,7 @@ namespace Noctis
 
 			// TODO: multiple init
 			if (node.init)
-			{
-				ILVar src = PopTmpVar();
-				m_pCurBlock->elems.push_back(ILElemSPtr{ new ILAssign{ dst, src } });
-			}
+				AddElem(new ILAssign{ dst, PopTmpVar() });
 		}
 	}
 
@@ -353,21 +357,20 @@ namespace Noctis
 		ILElemSPtr elem;
 		if (node.op == OperatorKind::Eq)
 		{
-			elem.reset(new ILAssign{ dst, src });
+			AddElem(new ILAssign{ dst, src });
 		}
 		else if (node.operator_.isBuiltin)
 		{
-			elem.reset(new ILPrimAssign{ node.op, dst, src });
+			AddElem(new ILPrimAssign{ node.op, dst, src });
 		}
 		else
 		{
-			elem.reset(new ILCompIntrin{ dst, ILCompIntrinKind::BytewiseCopy, { src }, {} });
+			AddElem(new ILCompIntrin{ dst, ILCompIntrinKind::BytewiseCopy, { src }, {} });
 			
 			// TODO: What if a function like Copy() exist
 		}
 
 		m_TmpVars.push(dst);
-		m_pCurBlock->elems.push_back(elem);
 	}
 
 	void ILGen::Visit(ITrTernary& node)
@@ -379,11 +382,10 @@ namespace Noctis
 		ILVar dst = CreateDstVar(node.typeInfo.handle);
 
 		if (src1.type.AsBase().hasFuzzyCompare || src0.type.AsBase().hasFuzzyCompare)
-			m_pCurBlock->elems.emplace_back(new ILCompIntrin{ ILVar{}, ILCompIntrinKind::FuzzyTypeComp, {}, {src0.type, src1.type} });
+			AddElem(new ILCompIntrin{ ILVar{}, ILCompIntrinKind::FuzzyTypeComp, {}, {src0.type, src1.type} });
 
-		ILElemSPtr elem{ new ILTernary{ dst, cond, src0, src1 } };
+		AddElem(new ILTernary{ dst, cond, src0, src1 });
 		m_TmpVars.push(dst);
-		m_pCurBlock->elems.push_back(elem);
 	}
 
 	void ILGen::Visit(ITrBinary& node)
@@ -395,15 +397,9 @@ namespace Noctis
 
 		ILElemSPtr elem;
 		if (node.operator_.isBuiltin)
-		{
-			elem.reset(new ILPrimBinary{ node.op, dst, left, right });
-		}
+			AddElem(new ILPrimBinary{ node.op, dst, left, right });
 		else
-		{
-			elem.reset(new ILFuncCall{ dst, node.operator_.sym->mangledName, { right, left } });
-		}
-
-		m_pCurBlock->elems.push_back(elem);
+			AddElem(new ILFuncCall{ dst, node.operator_.sym->mangledName, { right, left } });
 	}
 
 	void ILGen::Visit(ITrUnary& node)
@@ -414,15 +410,9 @@ namespace Noctis
 
 		ILElemSPtr elem;
 		if (node.operator_.isBuiltin)
-		{
-			elem.reset(new ILPrimUnary{ node.op, dst, var });
-		}
+			AddElem(new ILPrimUnary{ node.op, dst, var });
 		else
-		{
-			elem.reset(new ILFuncCall{ dst, node.operator_.sym->mangledName, { var } });
-		}
-
-		m_pCurBlock->elems.push_back(elem);
+			AddElem(new ILFuncCall{ dst, node.operator_.sym->mangledName, { var } });
 	}
 
 	void ILGen::Visit(ITrQualNameExpr& node)
@@ -453,14 +443,12 @@ namespace Noctis
 			if (sym->kind == SymbolKind::ValEnumMember)
 			{
 				ILVar dst = CreateDstVar(node.typeInfo.handle);
-				ILElemSPtr elem{ new ILValEnumInit{ dst, node.qualName->LastIden()->Name() } };
-				m_pCurBlock->elems.push_back(elem);
+				AddElem(new ILValEnumInit{ dst, node.qualName->LastIden()->Name() });
 			}
 			else if (sym->kind == SymbolKind::AdtEnumMember)
 			{
 				ILVar dst = CreateDstVar(node.typeInfo.handle);
-				ILElemSPtr elem{ new ILAdtEnumInit{ dst, node.qualName->LastIden()->Name(), {} } };
-				m_pCurBlock->elems.push_back(elem);
+				AddElem(new ILAdtEnumInit{ dst, node.qualName->LastIden()->Name(), {} });
 			}
 			else
 			{
@@ -487,8 +475,7 @@ namespace Noctis
 			ILVar src = PopTmpVar();
 			
 			ILVar dst = CreateDstVar(node.typeInfo.handle);
-			ILElemSPtr elem{ new ILIndex{ dst, src, idx } };
-			m_pCurBlock->elems.push_back(elem);
+			AddElem(new ILIndex{ dst, src, idx });
 		}
 	}
 
@@ -505,7 +492,6 @@ namespace Noctis
 		}
 		std::reverse(args.begin(), args.end());
 
-		ILElemSPtr elem;
 		if (node.isMethod)
 		{
 			ILVar caller = PopTmpVar();
@@ -515,11 +501,11 @@ namespace Noctis
 			if (node.typeInfo.handle.IsValid())
 			{
 				ILVar dst = CreateDstVar(node.typeInfo.handle);
-				elem.reset(new ILMethodCall{ dst, caller, name, args });
+				AddElem(new ILMethodCall{ dst, caller, name, args });
 			}
 			else
 			{
-				elem.reset(new ILMethodCall{ caller, name, args });
+				AddElem(new ILMethodCall{ caller, name, args });
 			}
 		}
 		else
@@ -532,11 +518,11 @@ namespace Noctis
 				if (retType.IsValid())
 				{
 					ILVar dst = CreateDstVar(node.typeInfo.handle);
-					elem.reset(new ILFuncCall{ dst, name, args });
+					AddElem(new ILFuncCall{ dst, name, args });
 				}
 				else
 				{
-					elem.reset(new ILFuncCall{ name, args });
+					AddElem(new ILFuncCall{ name, args });
 				}
 			}
 			else
@@ -547,15 +533,14 @@ namespace Noctis
 				if (retType.IsValid())
 				{
 					ILVar dst = CreateDstVar(node.typeInfo.handle);
-					elem.reset(new ILIndirectCall{ dst, func, args });
+					AddElem(new ILIndirectCall{ dst, func, args });
 				}
 				else
 				{
-					elem.reset(new ILIndirectCall{ func, args });
+					AddElem(new ILIndirectCall{ func, args });
 				}
 			}
 		}
-		m_pCurBlock->elems.push_back(elem);
 		
 	}
 
@@ -568,8 +553,7 @@ namespace Noctis
 		ILVar src = PopTmpVar();
 		ILVar dst = CreateDstVar(node.typeInfo.handle);
 
-		ILElemSPtr elem{ new ILMemberAccess{ dst, src, node.iden->Name() } };
-		m_pCurBlock->elems.push_back(elem);
+		AddElem(new ILMemberAccess{ dst, src, node.iden->Name() });
 	}
 
 	void ILGen::Visit(ITrTupleAccess& node)
@@ -578,8 +562,7 @@ namespace Noctis
 		ILVar src = PopTmpVar();
 		ILVar dst = CreateDstVar(node.typeInfo.handle);
 
-		ILElemSPtr elem{ new ILTupleAccess{ dst, src, node.index } };
-		m_pCurBlock->elems.push_back(elem);
+		AddElem(new ILTupleAccess{ dst, src, node.index });
 	}
 
 	void ILGen::Visit(ITrLiteral& node)
@@ -635,8 +618,7 @@ namespace Noctis
 					
 					SymbolSPtr child = node.sym->orderedVarChildren[i].lock();
 					ILVar tmpDst = CreateDstVar(child->type);
-					ILElemSPtr tmpElem{ new ILMemberAccess{ tmpDst, defVar, child->qualName->LastIden()->Name() } };
-					m_pCurBlock->elems.push_back(tmpElem);
+					AddElem(new ILMemberAccess{ tmpDst, defVar, child->qualName->LastIden()->Name() });
 
 					args[i] = tmpDst;
 				}
@@ -658,8 +640,7 @@ namespace Noctis
 				{
 					SymbolSPtr child = node.sym->orderedVarChildren[i].lock();
 					ILVar tmpDst = CreateDstVar(child->type);
-					ILElemSPtr tmpElem{ new ILMemberAccess{ tmpDst, defVar, child->qualName->LastIden()->Name() } };
-					m_pCurBlock->elems.push_back(tmpElem);
+					AddElem(new ILMemberAccess{ tmpDst, defVar, child->qualName->LastIden()->Name() });
 
 					args.push_back(tmpDst);
 				}
@@ -668,8 +649,7 @@ namespace Noctis
 
 		ILVar dst = CreateDstVar(node.typeInfo.handle);
 		
-		ILElemSPtr elem{ new ILStructInit{ dst, args } };
-		m_pCurBlock->elems.push_back(elem);
+		AddElem(new ILStructInit{ dst, args });
 	}
 
 	void ILGen::Visit(ITrUnionInit& node)
@@ -678,8 +658,7 @@ namespace Noctis
 
 		ILVar arg = PopTmpVar();
 		ILVar dst = CreateDstVar(node.typeInfo.handle);
-		ILElemSPtr elem{ new ILUnionInit { dst, arg } };
-		m_pCurBlock->elems.push_back(elem);
+		AddElem(new ILUnionInit { dst, arg });
 	}
 
 	void ILGen::Visit(ITrAdtTupleEnumInit& node)
@@ -692,8 +671,7 @@ namespace Noctis
 		}
 		
 		ILVar dst = CreateDstVar(node.typeInfo.handle);
-		ILElemSPtr elem{ new ILAdtEnumInit{ dst, node.sym->qualName->LastIden()->Name(), args } };
-		m_pCurBlock->elems.push_back(elem);
+		AddElem(new ILAdtEnumInit{ dst, node.sym->qualName->LastIden()->Name(), args });
 	}
 
 	void ILGen::Visit(ITrAdtAggrEnumInit& node)
@@ -760,8 +738,7 @@ namespace Noctis
 
 					SymbolSPtr child = structSym->orderedVarChildren[i].lock();
 					ILVar tmpDst = CreateDstVar(child->type);
-					ILElemSPtr tmpElem{ new ILMemberAccess{ tmpDst, defVar, child->qualName->LastIden()->Name() } };
-					m_pCurBlock->elems.push_back(tmpElem);
+					AddElem(new ILMemberAccess{ tmpDst, defVar, child->qualName->LastIden()->Name() });
 
 					args[i] = tmpDst;
 				}
@@ -783,8 +760,7 @@ namespace Noctis
 				{
 					SymbolSPtr child = structSym->orderedVarChildren[i].lock();
 					ILVar tmpDst = CreateDstVar(child->type);
-					ILElemSPtr tmpElem{ new ILMemberAccess{ tmpDst, defVar, child->qualName->LastIden()->Name() } };
-					m_pCurBlock->elems.push_back(tmpElem);
+					AddElem(new ILMemberAccess{ tmpDst, defVar, child->qualName->LastIden()->Name() });
 
 					args.push_back(tmpDst);
 				}
@@ -792,13 +768,11 @@ namespace Noctis
 		}
 
 		ILVar tmpStruct = CreateDstVar(structSym->type);
-		ILElemSPtr structElem{ new ILStructInit{ tmpStruct, args } };
-		m_pCurBlock->elems.push_back(structElem);
+		AddElem(new ILStructInit{ tmpStruct, args });
 		tmpStruct = PopTmpVar();
 
 		ILVar dst = CreateDstVar(node.typeInfo.handle);
-		ILElemSPtr elem{ new ILAdtEnumInit{ dst, node.sym->qualName->LastIden()->Name(), { tmpStruct } } };
-		m_pCurBlock->elems.push_back(elem);
+		AddElem(new ILAdtEnumInit{ dst, node.sym->qualName->LastIden()->Name(), { tmpStruct } });
 	}
 
 	void ILGen::Visit(ITrTupleInit& node)
@@ -814,8 +788,7 @@ namespace Noctis
 
 		ILVar dst = CreateDstVar(node.typeInfo.handle);
 		
-		ILElemSPtr elem{ new ILTupInit{ dst, args } };
-		m_pCurBlock->elems.push_back(elem);
+		AddElem(new ILTupInit{ dst, args });
 	}
 
 	void ILGen::Visit(ITrArrayInit& node)
@@ -829,8 +802,7 @@ namespace Noctis
 
 		ILVar dst = CreateDstVar(node.typeInfo.handle);
 		
-		ILElemSPtr elem{ new ILArrInit{ dst, args } };
-		m_pCurBlock->elems.push_back(elem);
+		AddElem(new ILArrInit{ dst, args });
 	}
 
 	void ILGen::Visit(ITrCast& node)
@@ -840,20 +812,18 @@ namespace Noctis
 		ILVar src = PopTmpVar();
 		ILVar dst = CreateDstVar(node.typeInfo.handle);
 
-		ILElemSPtr elem;
 		if (node.castKind == ITrCastKind::Transmute)
 		{
-			elem.reset(new ILTransmute{ dst, src });
+			AddElem(new ILTransmute{ dst, src });
 		}
 		else if (node.operator_.isBuiltin)
 		{
-			elem.reset(new ILPrimCast{ dst, src });
+			AddElem(new ILPrimCast{ dst, src });
 		}
 		else
 		{
-			elem.reset(new ILFuncCall{ dst, node.operator_.sym->mangledName, { src } });
+			AddElem(new ILFuncCall{ dst, node.operator_.sym->mangledName, { src } });
 		}
-		m_pCurBlock->elems.push_back(elem);
 	}
 
 	void ILGen::Visit(ITrBlockExpr& node)
@@ -930,21 +900,21 @@ namespace Noctis
 			implMapping.try_emplace("sizeof", [this]()
 			{
 				ILVar dst = CreateDstVar(m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::USize));
-				m_pCurBlock->elems.emplace_back(new ILCompIntrin{ dst, ILCompIntrinKind::SizeOf, {}, { m_FuncScope->LastIden()->Generics()[0].type } });
-				m_pCurBlock->terminal.reset(new ILReturn{ PopTmpVar() });
+				AddElem(new ILCompIntrin{ dst, ILCompIntrinKind::SizeOf, {}, { m_FuncScope->LastIden()->Generics()[0].type } });
+				SetTerminal(new ILReturn{ PopTmpVar() });
 			});
 			implMapping.try_emplace("alignof", [this]()
 			{
 				ILVar dst = CreateDstVar(m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U16));
-				m_pCurBlock->elems.emplace_back(new ILCompIntrin{ dst, ILCompIntrinKind::AlignOf, {}, { m_FuncScope->LastIden()->Generics()[0].type } });
-				m_pCurBlock->terminal.reset(new ILReturn{ PopTmpVar() });
+				AddElem(new ILCompIntrin{ dst, ILCompIntrinKind::AlignOf, {}, { m_FuncScope->LastIden()->Generics()[0].type } });
+				SetTerminal(new ILReturn{ PopTmpVar() });
 			});
 			implMapping.try_emplace("alignofval", [this]()
 			{
 				ILVar dst = CreateDstVar(m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U16));
 				ILVar src = m_Def->params[0];
-				m_pCurBlock->elems.emplace_back(new ILCompIntrin{ dst, ILCompIntrinKind::AlignOfVal, { src }, {} });
-				m_pCurBlock->terminal.reset(new ILReturn{ PopTmpVar() });
+				AddElem(new ILCompIntrin{ dst, ILCompIntrinKind::AlignOfVal, { src }, {} });
+				SetTerminal(new ILReturn{ PopTmpVar() });
 			});
 		}
 
@@ -1060,6 +1030,9 @@ namespace Noctis
 		case ITrSwitchGroupKind::SliceIndex: ProcessSliceIndex(node, group); break;
 		default: ;
 		}
+
+		if (!group.bindName.empty())
+			ValueBindSwitchVar(group.bindName, group.cases);
 	}
 
 	void ILGen::ProcessSwitchBase(ITrSwitch& node, ITrSwitchGroup& group)
@@ -1081,11 +1054,11 @@ namespace Noctis
 				u32 termId = AddCaseToTerm();
 				ITrVisitor::Visit(case_.expr);
 				ILVar cond = PopTmpVar();
-				m_pCurBlock->terminal.reset(new ILIf{ cond, caseId, termId });
+				SetTerminal(new ILIf{ cond, caseId, termId });
 			}
 			else
 			{
-				m_pCurBlock->terminal.reset(new ILGoto{ caseId });
+				SetTerminal(new ILGoto{ caseId });
 			}
 		}
 		else
@@ -1106,13 +1079,13 @@ namespace Noctis
 				SetCurBlock(curId);
 				ITrVisitor::Visit(case_.expr);
 				ILVar cond = PopTmpVar();
-				m_pCurBlock->terminal.reset(new ILIf{ cond, caseId, termId });
+				SetTerminal(new ILIf{ cond, caseId, termId });
 			}
 
 			if (finalCaseIdx != usize(-1))
 			{
 				u32 caseId = AddCaseToBody(finalCaseIdx);
-				m_pCurBlock->terminal.reset(new ILGoto{ caseId });
+				SetTerminal(new ILGoto{ caseId });
 			}
 			else
 			{
@@ -1134,17 +1107,17 @@ namespace Noctis
 		SetCurBlock(curId);
 		ILVar lowerBound = CreateLitVar(m_SwitchVars.top().type, group.valOrFrom);
 		ILVar lowerCmp = CreateDstVar(boolType, false);
-		m_pCurBlock->elems.emplace_back(new ILPrimBinary{ OperatorKind::Ge, lowerCmp, m_SwitchVars.top(), lowerBound});
-		m_pCurBlock->terminal.reset(new ILIf{ lowerCmp, lowerId, falseId });
+		AddElem(new ILPrimBinary{ OperatorKind::Ge, lowerCmp, m_SwitchVars.top(), lowerBound});
+		SetTerminal(new ILIf{ lowerCmp, lowerId, falseId });
 
 		SetCurBlock(lowerId);
 		ILVar upperBound = CreateLitVar(m_SwitchVars.top().type, group.to);
 		ILVar upperCmp = CreateDstVar(boolType, false);
-		m_pCurBlock->elems.emplace_back(new ILPrimBinary{ OperatorKind::Le, upperCmp, m_SwitchVars.top(), upperBound });
-		m_pCurBlock->terminal.reset(new ILIf{ upperCmp, trueId, falseId });
+		AddElem(new ILPrimBinary{ OperatorKind::Le, upperCmp, m_SwitchVars.top(), upperBound });
+		SetTerminal(new ILIf{ upperCmp, trueId, falseId });
 
 		SetCurBlock(trueId);
-		ProcessSwitchLeaf(node, group.subGroups[0]);
+		ProcessSwitchGroup(node, group.subGroups[0]);
 
 		SetCurBlock(falseId);
 	}
@@ -1153,22 +1126,19 @@ namespace Noctis
 	{
 		u32 curId = m_pCurBlock->label;
 		u32 falseId = AddNewBlock();
+		u32 defId = falseId;
 
 		StdPairVector<ILVar, u32> cases;
-		
 		for (ITrSwitchGroup& subGroup : group.subGroups)
 		{
 			u32 id = AddNewBlock();
 			ILVar lit = CreateLitVar(m_SwitchVars.top().type, subGroup.valOrFrom);
 
-
 			if (subGroup.isDefCase)
 			{
-				SetCurBlock(falseId);
-				m_pCurBlock->terminal.reset(new ILUnreachable{});
+				SetTerminal(new ILUnreachable{}, defId);
 				SetCurBlock(id);
-				
-				falseId = id;
+				defId = id;
 			}
 			else
 			{
@@ -1176,11 +1146,10 @@ namespace Noctis
 			}
 			
 
-			ProcessSwitchLeaf(node, subGroup);
+			ProcessSwitchGroup(node, subGroup);
 		}
-
-		SetCurBlock(curId);
-		m_pCurBlock->terminal.reset(new ILSwitch{ m_SwitchVars.top(), cases, falseId });
+		
+		SetTerminal(new ILSwitch{ m_SwitchVars.top(), cases, defId }, curId);
 
 		SetCurBlock(falseId);
 	}
@@ -1197,11 +1166,11 @@ namespace Noctis
 		{
 			u32 id = AddCaseToBody(subGroup.cases[0]);
 			ILVar lit = CreateDstVar(m_SwitchVars.top().type, false);
-			m_pCurBlock->elems.emplace_back(new ILValEnumInit{ lit, subGroup.member });
+			AddElem(new ILValEnumInit{ lit, subGroup.member });
 			cases.emplace_back(lit, id);
 		}
 
-		m_pCurBlock->terminal.reset(new ILSwitch{ m_SwitchVars.top(), cases, falseId });
+		SetTerminal(new ILSwitch{ m_SwitchVars.top(), cases, falseId });
 
 		SetCurBlock(falseId);
 	}
@@ -1262,7 +1231,7 @@ namespace Noctis
 
 		ILVar elem = CreateDstVar(subType, false);
 
-		m_pCurBlock->elems.emplace_back(new ILMemberAccess{ elem, m_SwitchVars.top(), group.member });
+		AddElem(new ILMemberAccess{ elem, m_SwitchVars.top(), group.member });
 		m_SwitchVars.push(elem);
 
 		for (ITrSwitchGroup& subGroup : group.subGroups)
@@ -1303,7 +1272,7 @@ namespace Noctis
 		{
 			ILVar elem = CreateDstVar(subType, false);
 			ILVar idx = CreateLitVar(m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::USize), group.idx);
-			m_pCurBlock->elems.emplace_back(new ILIndex{ elem, m_SwitchVars.top(), idx });
+			AddElem(new ILIndex{ elem, m_SwitchVars.top(), idx });
 			m_SwitchVars.push(elem);
 		}
 
@@ -1343,7 +1312,7 @@ namespace Noctis
 			ILVar dst{ ILVarKind::Copy, m_CurVarId++, pair.second.type };
 			varData->ilVar = dst;
 			MapVar(iden, dst);
-			m_pCurBlock->elems.push_back(ILElemSPtr{ new ILAssign{ dst, pair.second } });
+			AddElem(new ILAssign{ dst, pair.second });
 		}
 	}
 
