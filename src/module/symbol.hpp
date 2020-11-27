@@ -119,8 +119,8 @@ namespace Noctis
 		bool Add(QualNameSPtr interfaceQualName, SymbolSPtr sym, usize idenIdx);
 		bool AddChild(SymbolSPtr sym, QualNameSPtr interfaceQualName = nullptr);
 
-		SymbolSPtr Find(QualNameSPtr qualName, usize idenIdx, QualNameSPtr interfaceName, const StdVector<StdString>& argNames);
-		SymbolSPtr FindChild(QualNameSPtr implQualName, IdenSPtr iden, const StdVector<StdString>& funcArgNames = {});
+		SymbolSPtr Find(QualNameSPtr qualName, usize idenIdx, QualNameSPtr interfaceName);
+		SymbolSPtr FindChild(QualNameSPtr implQualName, IdenSPtr iden);
 
 		void RemoveChild(SymbolSPtr sym);
 
@@ -184,8 +184,7 @@ namespace Noctis
 		bool RemoveFromCur(SymbolSPtr sym);
 
 		SymbolSPtr Find(QualNameSPtr qualName);
-		SymbolSPtr Find(QualNameSPtr qualName, const StdVector<StdString>& argNames);
-		SymbolSPtr Find(QualNameSPtr qualName, usize idenIdx, const StdVector<StdString>& argNames);
+		SymbolSPtr Find(QualNameSPtr qualName, usize idenIdx);
 
 		void Foreach(const std::function<void(SymbolSPtr, QualNameSPtr)>& lambda, QualNameSPtr iface);
 
@@ -197,19 +196,15 @@ namespace Noctis
 
 	private:
 		friend class ModuleSymbolTable;
-
-
-		SymbolSPtr FindFunction(IdenSPtr iden, const StdVector<StdString>& argNames);
 		
 		StdUnorderedMap<StdString, ScopedSymbolTableSPtr> m_SubTables;
 		StdUnorderedMap<StdString, SymbolSPtr> m_Symbols;
-		StdUnorderedMap<StdString, StdUnorderedMap<StdString, SymbolSPtr>> m_Functions;
 
 		Context* m_pCtx;
 	};
 
 	inline bool ScopedSymbolTable::Empty() const
 	{
-		return m_Symbols.empty() && m_Functions.empty() && m_SubTables.empty();
+		return m_Symbols.empty() && m_SubTables.empty();
 	}
 }

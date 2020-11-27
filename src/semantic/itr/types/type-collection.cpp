@@ -155,17 +155,7 @@ namespace Noctis
 
 		if (!node.params.empty())
 		{
-			StdVector<StdString> paramNames;
-			paramNames.reserve(node.params.size());
-			for (ITrParamSPtr param : node.params)
-			{
-				if (param->label)
-					paramNames.push_back(param->label->Name());
-				else
-					paramNames.push_back(param->iden->Name());
-			}
-
-			IdenSPtr newIden = Iden::Create(qualName->LastIden()->Name(), qualName->LastIden()->Generics(), paramNames);
+			IdenSPtr newIden = Iden::Create(qualName->LastIden()->Name(), qualName->LastIden()->Generics());
 			qualName = QualName::Create(qualName->Base(), newIden);
 		}
 
@@ -516,12 +506,12 @@ namespace Noctis
 				sym->kind == SymbolKind::Method)
 			{
 				
-				child = baseInterface->children->Find(tmpQualName, 0, nullptr, iden->ParamNames());
+				child = baseInterface->children->Find(tmpQualName, 0, nullptr);
 			}
 			else
 			{
 				StdVector<IdenSPtr> idens{ sym->qualName->LastIden() };
-				child = baseInterface->children->Find(tmpQualName, 0, nullptr, {});
+				child = baseInterface->children->Find(tmpQualName, 0, nullptr);
 			}
 
 			if (child)

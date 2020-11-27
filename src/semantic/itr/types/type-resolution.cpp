@@ -313,7 +313,7 @@ namespace Noctis
 				}
 			}
 
-			iden = Iden::Create(iden->Name(), gens, iden->ParamNames());
+			iden = Iden::Create(iden->Name(), gens);
 			node.interface.first = QualName::Create(ifaceQualName->Base(), iden);
 		});
 	}

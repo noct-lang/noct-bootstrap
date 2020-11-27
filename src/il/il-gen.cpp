@@ -496,7 +496,7 @@ namespace Noctis
 		{
 			ILVar caller = PopTmpVar();
 
-			const StdString& name = node.sym->qualName->LastIden()->ToFuncSymName();
+			const StdString& name = node.sym->qualName->LastIden()->Name();
 
 			if (node.typeInfo.handle.IsValid())
 			{

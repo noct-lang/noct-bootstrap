@@ -27,27 +27,22 @@ namespace Noctis
 	class Iden
 	{
 	public:
-
 		static IdenSPtr Create(StdStringView name);
 		static IdenSPtr Create(StdStringView name, const StdVector<IdenGeneric>& generics);
-		static IdenSPtr Create(StdStringView name, const StdVector<IdenGeneric>& generics, const StdVector<StdString>& paramNames);
 
 		const StdString& Name() const { return m_Name; }
 		StdVector<IdenGeneric>& Generics() { return m_Generics; }
-		StdVector<StdString>& ParamNames() { return m_ParamNames; }
 		IdenSPtr Fuzzy() { return fuzzy.lock(); }
 
-		StdString ToFuncSymName() const;
 		StdString ToString() const;
 
 	private:
-		Iden(StdString name, StdVector<IdenGeneric> generics, const StdVector<StdString>& paramNames);
+		Iden(StdString name, StdVector<IdenGeneric> generics);
 
-		static IdenSPtr CreateFuzzy(StdStringView name, const StdVector<IdenGeneric>& generics, const StdVector<StdString>& paramNames);
+		static IdenSPtr CreateFuzzy(StdStringView name, const StdVector<IdenGeneric>& generics);
 		
 		StdString m_Name;
 		StdVector<IdenGeneric> m_Generics;
-		StdVector<StdString> m_ParamNames;
 
 		IdenWPtr fuzzy;
 

@@ -629,9 +629,9 @@ namespace Noctis
 		
 		SymbolSPtr funcSym;
 		if (impl)
-			funcSym = impl->children->FindChild(ifaceQualName, funcIden, {});
+			funcSym = impl->children->FindChild(ifaceQualName, funcIden);
 		else
-			funcSym = interfaceSym->children->FindChild(nullptr, funcIden, {});
+			funcSym = interfaceSym->children->FindChild(nullptr, funcIden);
 
 		Operator op;
 		op.left = impl ? impl->type : interfaceSym->type;
@@ -672,9 +672,9 @@ namespace Noctis
 		IdenSPtr funcIden = Iden::Create(funcName);
 		SymbolSPtr funcSym;
 		if (impl)
-			funcSym = impl->children->FindChild(interfaceSym->qualName, funcIden, {});
+			funcSym = impl->children->FindChild(interfaceSym->qualName, funcIden);
 		else
-			funcSym = interfaceSym->children->FindChild(nullptr, funcIden, {});
+			funcSym = interfaceSym->children->FindChild(nullptr, funcIden);
 
  		TypeSPtr funcType = funcSym->type.Type();
 		Operator op;
@@ -730,7 +730,7 @@ namespace Noctis
 		IdenSPtr ifaceIden = Iden::Create(interfaceSym->qualName->LastIden()->Name(), { idenGen });
 		QualNameSPtr ifaceQualName = QualName::Create(interfaceSym->qualName->Base(), ifaceIden);
 
-		SymbolSPtr funcSym = impl->children->FindChild(ifaceQualName, funcIden, {});
+		SymbolSPtr funcSym = impl->children->FindChild(ifaceQualName, funcIden);
 
 		TypeSPtr funcType = funcSym->type.Type();
 		Operator op;

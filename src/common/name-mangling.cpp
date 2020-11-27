@@ -63,7 +63,7 @@ namespace Noctis::NameMangling
 
 	StdString Mangle(Context* pCtx, IdenSPtr iden)
 	{
-		StdString name = iden->ToFuncSymName();
+		StdString name = iden->Name();
 		if (iden->Generics().empty())
 		{
 			u32 len = u32(name.length());
@@ -259,9 +259,6 @@ namespace Noctis::NameMangling
 	IdenSPtr DemangleIden(Context* pCtx, StdStringView data, usize& idx)
 	{
 		StdString name = DemangleLName(data, idx);
-		StdVector<StdString> paramNames = SplitString(name, "__");
-		name = paramNames[0];
-		paramNames.erase(paramNames.begin());
 
 		StdVector<IdenGeneric> generics;
 		if (idx < data.size() && data[idx] == 'G')
@@ -323,7 +320,7 @@ namespace Noctis::NameMangling
 			++idx;
 		}
 
-		return Iden::Create(name, generics, paramNames);
+		return Iden::Create(name, generics);
 	}
 
 	TypeHandle DemangleType(Context* pCtx, StdStringView data)

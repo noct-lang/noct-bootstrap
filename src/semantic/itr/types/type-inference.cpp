@@ -572,20 +572,9 @@ namespace Noctis
 
 		Walk(node);
 
-		StdVector<StdString> paramNames;
-		for (ITrArgSPtr arg : node.args)
-		{
-			if (arg->iden)
-				paramNames.push_back(arg->iden->Name());
-			else
-				paramNames.push_back("");
-		}
-		
-		
 		if (node.isMethod)
 		{
-			paramNames.insert(paramNames.begin(), "self");
-			IdenSPtr searchIden = Iden::Create(node.iden->Name(), node.iden->Generics(), paramNames);
+			IdenSPtr searchIden = Iden::Create(node.iden->Name(), node.iden->Generics());
 			
 			TypeSPtr type = node.callerOrFunc->typeInfo.handle.Type();
 

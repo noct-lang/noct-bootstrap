@@ -18,15 +18,10 @@ namespace Noctis
 
 	IdenSPtr Iden::Create(StdStringView name)
 	{
-		return Create(name, StdVector<IdenGeneric>{}, StdVector<StdString>{});
+		return Create(name, StdVector<IdenGeneric>{});
 	}
 
 	IdenSPtr Iden::Create(StdStringView name, const StdVector<IdenGeneric>& generics)
-	{
-		return Create(name, generics, StdVector<StdString>{});
-	}
-
-	IdenSPtr Iden::Create(StdStringView name, const StdVector<IdenGeneric>& generics, const StdVector<StdString>& paramNames)
 	{
 		// Use static string to as key, to try to decrease allocations
 		s_SearchString.assign(name);
@@ -42,10 +37,9 @@ namespace Noctis
 
 		for (IdenSPtr iden : subIt->second)
 		{
-			if (iden->Generics().size() != generics.size() ||
-				iden->ParamNames() != paramNames)
+			if (iden->Generics().size() != generics.size())
 				continue;
-			
+
 			bool found = true;
 			StdVector<IdenGeneric>& idenGens = iden->Generics();
 			for (u64 i = 0; i < numGenerics; ++i)
@@ -68,22 +62,11 @@ namespace Noctis
 				return iden;
 		}
 
-		IdenSPtr iden{ new Iden{ s_SearchString, generics, paramNames } };
-		iden->m_ParamNames = paramNames;
-		iden->fuzzy = CreateFuzzy(s_SearchString, generics, paramNames);
+		IdenSPtr iden{ new Iden{ s_SearchString, generics } };
+		iden->fuzzy = CreateFuzzy(s_SearchString, generics);
 		subIt->second.push_back(iden);
 
 		return iden;
-	}
-
-	StdString Iden::ToFuncSymName() const
-	{
-		StdString str = m_Name;
-		for (const StdString& paramName : m_ParamNames)
-		{
-			str += "__" + paramName;
-		}
-		return str;
 	}
 
 	StdString Iden::ToString() const
@@ -112,30 +95,16 @@ namespace Noctis
 			str += '>';
 		}
 
-		if (!m_ParamNames.empty())
-		{
-			str += '(';
-			for (usize i = 0; i < m_ParamNames.size(); ++i)
-			{
-				if (i != 0)
-					str += ',';
-				str += m_ParamNames[i];
-			}
-			str += ')';
-		}
-
 		return str;
 	}
 
-	Iden::Iden(StdString name, StdVector<IdenGeneric> generics, const StdVector<StdString>& paramNames)
+	Iden::Iden(StdString name, StdVector<IdenGeneric> generics)
 		: m_Name(std::move(name))
 		, m_Generics(std::move(generics))
-		, m_ParamNames(paramNames)
 	{
 	}
 
-	IdenSPtr Iden::CreateFuzzy(StdStringView name, const StdVector<IdenGeneric>& generics,
-		const StdVector<StdString>& paramNames)
+	IdenSPtr Iden::CreateFuzzy(StdStringView name, const StdVector<IdenGeneric>& generics)
 	{
 		// Use static string to as key, to try to decrease allocations
 		s_SearchString.assign(name);
@@ -151,8 +120,7 @@ namespace Noctis
 
 		for (IdenSPtr iden : subIt->second)
 		{
-			if (iden->Generics().size() != generics.size() ||
-				iden->ParamNames() != paramNames)
+			if (iden->Generics().size() != generics.size())
 				continue;
 
 			bool found = true;
@@ -174,7 +142,7 @@ namespace Noctis
 				return iden;
 		}
 
-		IdenSPtr iden{ new Iden{ s_SearchString, generics, paramNames } };
+		IdenSPtr iden{ new Iden{ s_SearchString, generics } };
 		iden->fuzzy = iden;
 		subIt->second.push_back(iden);
 		return iden;

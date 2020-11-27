@@ -172,16 +172,7 @@ namespace Noctis
 
 	void IdenScopePass::Visit(AstFuncDecl& node)
 	{
-		StdVector<StdString> paramNames;
-		for (AstParamSPtr param : node.params)
-		{
-			for (AstParamVarSPtr var : param->vars)
-			{
-				paramNames.push_back(var->iden);
-			}
-		}
-		
-		FuncScope(node.ctx, node.iden, node.generics, paramNames);
+		FuncScope(node.ctx, node.iden, node.generics);
 		Walk(node);
 		m_CurScope = m_CurScope->Base();
 	}
@@ -886,8 +877,7 @@ namespace Noctis
 		m_CurScope = ctx->qualName;
 	}
 
-	void IdenScopePass::FuncScope(AstContextPtr& ctx, StdStringView name, AstGenericDeclSPtr generics,
-		const StdVector<StdString>& paramNames)
+	void IdenScopePass::FuncScope(AstContextPtr& ctx, StdStringView name, AstGenericDeclSPtr generics)
 	{
 		if (!ctx->qualName)
 		{
@@ -902,11 +892,11 @@ namespace Noctis
 					idenParam.isType = param.kind == AstGenericParamKind::TypeParam || param.kind == AstGenericParamKind::TypeSpec;
 					idenGens.push_back(idenParam);
 				}
-				iden = Iden::Create(name, idenGens, paramNames);
+				iden = Iden::Create(name, idenGens);
 			}
 			else
 			{
-				iden = Iden::Create(name, StdVector<IdenGeneric>{}, paramNames);
+				iden = Iden::Create(name, StdVector<IdenGeneric>{});
 			}
 
 			ctx->iden = iden;
