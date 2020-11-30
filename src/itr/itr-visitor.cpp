@@ -140,6 +140,11 @@ namespace Noctis
 		Walk(node);
 	}
 
+	void ITrVisitor::Visit(ITrForRange& node)
+	{
+		Walk(node);
+	}
+
 	void ITrVisitor::Visit(ITrSwitch& node)
 	{
 		Walk(node);
@@ -736,6 +741,12 @@ namespace Noctis
 		{
 			Visit(stmt);
 		}
+	}
+
+	void ITrVisitor::Walk(ITrForRange& node)
+	{
+		Visit(node.range);
+		Visit(*node.body);
 	}
 
 	void ITrVisitor::Walk(ITrSwitch& node)

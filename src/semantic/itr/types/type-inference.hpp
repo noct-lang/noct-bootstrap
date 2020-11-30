@@ -24,10 +24,11 @@ namespace Noctis
 		void Process(ITrModule& mod) override;
 		
 		void Visit(ITrBlock& node) override;
+		void Visit(ITrForRange& node) override;
 		void Visit(ITrSwitch& node) override;
 		void Visit(ITrReturn& node) override;
-
 		void Visit(ITrLocalVar& node) override;
+		
 		void Visit(ITrAssign& node) override;
 		void Visit(ITrTernary& node) override;
 		void Visit(ITrBinary& node) override;
@@ -56,7 +57,6 @@ namespace Noctis
 
 		void Visit(ITrType& node) override;
 
-		// TODO: Patterns
 		void Visit(ITrAdtAggrEnumPattern& node) override;
 		void Visit(ITrAdtTupleEnumPattern& node) override;
 		void Visit(ITrAggrPattern& node) override;

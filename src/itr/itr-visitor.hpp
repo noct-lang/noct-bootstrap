@@ -34,6 +34,7 @@ namespace Noctis
 	struct ITrBlock;
 	struct ITrIf;
 	struct ITrLoop;
+	struct ITrForRange;
 	struct ITrSwitch;
 	struct ITrLabel;
 	struct ITrBreak;
@@ -150,6 +151,7 @@ namespace Noctis
 		virtual void Visit(ITrBlock& node);
 		virtual void Visit(ITrIf& node);
 		virtual void Visit(ITrLoop& node);
+		virtual void Visit(ITrForRange& node);
 		virtual void Visit(ITrSwitch& node);
 		virtual void Visit(ITrLabel& node);
 		virtual void Visit(ITrBreak& node);
@@ -247,6 +249,7 @@ namespace Noctis
 		void Walk(ITrBlock& node);
 		void Walk(ITrIf& node);
 		void Walk(ITrLoop& node);
+		void Walk(ITrForRange& node);
 		void Walk(ITrSwitch& node);
 		void Walk(ITrLabel& node);
 		void Walk(ITrBreak& node);

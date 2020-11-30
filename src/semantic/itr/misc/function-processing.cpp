@@ -67,6 +67,20 @@ namespace Noctis
 		m_ScopeNames.pop_back();
 	}
 
+	void LocalVarCollection::Visit(ITrForRange& node)
+	{
+		m_ScopeNames.push_back(node.scopeName);
+
+		for (const StdString& iden : node.idens)
+		{
+			LocalVarDataSPtr var{ new LocalVarData{ Iden::Create(iden) } };
+			m_FuncCtx->localVars.AddLocalVarDeclSPtr(m_ScopeNames, var);
+		}
+		
+		Walk(node);
+		m_ScopeNames.pop_back();
+	}
+
 	void LocalVarCollection::Visit(ITrSwitch& node)
 	{
 		m_ScopeNames.push_back(node.scopeName);

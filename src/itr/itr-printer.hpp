@@ -30,6 +30,7 @@ namespace Noctis
 		void Visit(ITrBlock& node) override;
 		void Visit(ITrIf& node) override;
 		void Visit(ITrLoop& node) override;
+		void Visit(ITrForRange& node) override;
 		void Visit(ITrSwitch& node) override;
 		void Visit(ITrLabel& node) override;
 		void Visit(ITrBreak& node) override;

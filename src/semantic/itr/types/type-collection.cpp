@@ -505,7 +505,6 @@ namespace Noctis
 			if (sym->kind == SymbolKind::Func ||
 				sym->kind == SymbolKind::Method)
 			{
-				
 				child = baseInterface->children->Find(tmpQualName, 0, nullptr);
 			}
 			else

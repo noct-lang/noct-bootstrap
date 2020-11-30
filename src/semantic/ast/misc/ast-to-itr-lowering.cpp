@@ -877,12 +877,15 @@ namespace Noctis
 
 	void AstToITrLowering::Visit(AstForStmt& node)
 	{
-		// TODO: Need to figure out iterator API first
-		
-		//StdVector<ITrStmtSPtr> stmts;
-		//
-		//IdenSPtr itIden = LastIden::Create(Format("__it_%u", node.ctx->startIdx));
-		//ITrStmtSPtr decl{ new ITrLocalVar{ nullptr, { itIden }, nullptr, } };
+		Walk(node);
+		ITrExprSPtr range = PopExpr();
+		ITrStmtSPtr body = PopStmt();
+
+		IdenSPtr label = node.label ? Iden::Create(node.label->iden) : nullptr;
+
+		ITrStmtSPtr stmt{ new ITrForRange{ node.ctx->qualName->LastIden()->Name(), label, node.idens, range, *reinterpret_cast<ITrBlockSPtr*>(&body) } };
+		node.itr = stmt;
+		m_Stmts.push(stmt);
 	}
 
 	void AstToITrLowering::Visit(AstSwitchStmt& node)

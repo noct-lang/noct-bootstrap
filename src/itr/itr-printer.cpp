@@ -224,7 +224,16 @@ namespace Noctis
 	void ITrPrinter::Visit(ITrLoop& node)
 	{
 		PrintIndent();
-		g_Logger.Log("(loop)\n");
+		g_Logger.Log("(loop%s)\n", node.label ? Format(" label: %s", node.label->Name()) : "");
+		++m_Indent;
+		Walk(node);
+		--m_Indent;
+	}
+
+	void ITrPrinter::Visit(ITrForRange& node)
+	{
+		PrintIndent();
+		g_Logger.Log("(for-range%s)", node.label ? Format(" label: %s", node.label->Name()) : "");
 		++m_Indent;
 		Walk(node);
 		--m_Indent;

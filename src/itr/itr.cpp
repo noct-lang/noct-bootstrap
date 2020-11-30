@@ -170,6 +170,17 @@ namespace Noctis
 	{
 	}
 
+	ITrForRange::ITrForRange(const StdString& scopeName, IdenSPtr label, const StdVector<StdString>& idens,
+		ITrExprSPtr range, ITrBlockSPtr body)
+		: ITrStmt(ITrStmtKind::ForRange)
+		, label(label)
+		, idens(idens)
+		, range(range)
+		, body(body)
+		, scopeName(scopeName)
+	{
+	}
+
 	ITrSwitchCase::ITrSwitchCase()
 	{
 	}

@@ -208,6 +208,60 @@ namespace Noctis
 		m_ScopeNames.pop_back();
 	}
 
+	void TypeInference::Visit(ITrForRange& node)
+	{
+		m_ScopeNames.push_back(node.scopeName);
+		ITrVisitor::Visit(node.range);
+
+		SymbolSPtr typeSym = m_pCtx->activeModule->symTable.Find(node.range->typeInfo.handle);
+		
+		QualNameSPtr toItQualName = QualName::Create({ "core", "iter", "ToIterator" });
+		SymbolSPtr itSym = typeSym->children->FindChild(toItQualName, Iden::Create("Iter"));
+
+		SymbolSPtr itTypeSym = m_pCtx->activeModule->symTable.Find(itSym->type);
+
+		QualNameSPtr itQualName = QualName::Create({ "core", "iter", "Iterator" });
+		SymbolSPtr itemSym = itTypeSym->children->FindChild(itQualName, Iden::Create("Item"));
+
+		TypeHandle itemType = itemSym->type;
+
+		if (node.idens.size() > 1)
+		{
+			if (itemType.Kind() != TypeKind::Tuple)
+			{
+				u64 spanIdx = std::get<AstStmtSPtr>(node.astNode)->ctx->startIdx;
+				Span span = m_pCtx->spanManager.GetSpan(spanIdx);
+				g_ErrorSystem.Error(span, "Cannot expand non-tuple Item type to multiple identifiers");
+				m_ScopeNames.pop_back();
+				return;
+			}
+
+			TupleType& tupType = itemType.AsTuple();
+
+			if (tupType.subTypes.size() != node.idens.size())
+			{
+				u64 spanIdx = std::get<AstStmtSPtr>(node.astNode)->ctx->startIdx;
+				Span span = m_pCtx->spanManager.GetSpan(spanIdx);
+				g_ErrorSystem.Error(span, "Cannot expand a tuple with %u elements to %u identifier");
+				m_ScopeNames.pop_back();
+				return;
+			}
+
+			for (usize i = 0; i < tupType.subTypes.size(); ++i)
+			{
+				IdenSPtr iden = Iden::Create(node.idens[i]);
+				LocalVarDataSPtr var = m_FuncCtx->localVars.ActivateNextVar(m_ScopeNames, iden);
+				var->typeInfo.handle = tupType.subTypes[i];
+			}
+		}
+		else
+		{
+			LocalVarDataSPtr var = m_FuncCtx->localVars.ActivateNextVar(m_ScopeNames, Iden::Create(node.idens[0]));
+			var->typeInfo.handle = itemType;
+		}
+		m_ScopeNames.pop_back(); 
+	}
+
 	void TypeInference::Visit(ITrSwitch& node)
 	{
 		ITrVisitor::Visit(node.expr);
@@ -237,11 +291,11 @@ namespace Noctis
 		{
 			if (idenCount == 1)
 			{
-				TypeSPtr type = node.init->typeInfo.handle.Type();
-				if (type->typeKind == TypeKind::Func)
+				TypeHandle type = node.init->typeInfo.handle;
+				if (type.Kind() == TypeKind::Func)
 				{
 					// We don't need generic info for function returns
-					types.push_back(TypeInfo{ type->AsFunc().retType });
+					types.emplace_back(type.AsFunc().retType);
 				}
 				else
 				{
@@ -250,8 +304,19 @@ namespace Noctis
 			}
 			else
 			{
-				TypeSPtr type = node.init->typeInfo.handle.Type();
-				// TODO
+				TypeHandle type = node.init->typeInfo.handle;
+				if (type.Kind() != TypeKind::Tuple)
+				{
+					u64 spanIdx = std::get<AstStmtSPtr>(node.astNode)->ctx->startIdx;
+					Span span = m_pCtx->spanManager.GetSpan(spanIdx);
+					g_ErrorSystem.Error(span, "Cannot expand non-tuple type to multiple identifiers");
+					return;
+				}
+
+				for (TypeHandle subType : type.AsTuple().subTypes)
+				{
+					types.emplace_back(subType);
+				}
 			}
 		}
 
@@ -264,7 +329,16 @@ namespace Noctis
 			}
 			else
 			{
-				// TODO
+				for (TypeInfo& typeInfo : types)
+				{
+					if (typeInfo.handle != node.type->handle)
+					{
+						u64 spanIdx = std::get<AstStmtSPtr>(node.astNode)->ctx->startIdx;
+						Span span = m_pCtx->spanManager.GetSpan(spanIdx);
+						g_ErrorSystem.Error(span, "inferred type does not match declared type");
+						return;
+					}
+				}
 			}
 		}
 

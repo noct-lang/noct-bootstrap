@@ -72,6 +72,7 @@ namespace Noctis
 		Block,
 		If,
 		Loop,
+		ForRange,
 		Switch,
 		Label,
 		Break,
@@ -351,6 +352,17 @@ namespace Noctis
 
 		IdenSPtr label;
 		StdVector<ITrStmtSPtr> stmts;
+		StdString scopeName;
+	};
+
+	struct ITrForRange : ITrStmt
+	{
+		ITrForRange(const StdString& scopeName, IdenSPtr label, const StdVector<StdString>& idens, ITrExprSPtr range, ITrBlockSPtr body);
+
+		IdenSPtr label;
+		StdVector<StdString> idens;
+		ITrExprSPtr range;
+		ITrBlockSPtr body;
 		StdString scopeName;
 	};
 
