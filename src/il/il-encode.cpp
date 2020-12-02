@@ -88,7 +88,8 @@ namespace Noctis
 
 		// def id
 		u32 idAndMangle = 0xF0; // LE, so id at begin
-		u32 nameId = GetNameId(node.mangleName);
+		StdString name = NameMangling::Mangle(m_pCtx, node.qualName);
+		u32 nameId = GetNameId(name);
 		idAndMangle |= (nameId & 0x00FF'FFFF) << 8;
 		
 		WriteData(idAndMangle);
@@ -241,7 +242,13 @@ namespace Noctis
 	void ILEncode::Visit(ILFuncCall& node)
 	{
 		WriteData(u8(node.kind));
-		u32 nameId = GetNameId(node.func);
+		u32 nameId = m_pCtx->activeModule->encodeInfo.GetOrAddQualName(m_pCtx, node.func);
+		if (nameId == 0)
+		{
+			StdString mangled = NameMangling::Mangle(m_pCtx, node.func);
+			nameId = m_Names[mangled];
+		}
+		
 		WriteData(nameId);
 		WriteData(u8(node.args.size()));
 
@@ -456,7 +463,7 @@ namespace Noctis
 	{
 		auto it = m_Names.find(name);
 		if (it == m_Names.end())
-			return 0xFFFF'FFFF;
+			return 0;
 		return it->second;
 	}
 
@@ -591,10 +598,10 @@ namespace Noctis
 		// skip ID
 		u32 idAndMangle = ReadData<u32>();
 
-		u32 mangleId = idAndMangle >> 8;
-		StdString mangle = m_Names[mangleId];
-
-		ILFuncDefSPtr def{ new ILFuncDef{ m_pCtx, mangle, {} } };
+		u32 nameId = idAndMangle >> 8;
+		
+		QualNameSPtr qualName = m_pCtx->activeModule->encodeInfo.GetQualNameFromId(m_pCtx, nameId);
+		ILFuncDefSPtr def{ new ILFuncDef{ m_pCtx, qualName, {} } };
 		// TODO: Symbol
 
 		u32 blockCount = ReadData<u32>();
@@ -810,7 +817,18 @@ namespace Noctis
 			args.push_back(DecodeVar(false));
 		}
 
-		StdString name = m_Names[nameId];
+		QualNameSPtr name;
+		if (nameId & 0x1000'0000)
+		{
+			const StdString& tmp = m_Names[nameId & 0x0111'111];
+			name = NameMangling::DemangleQualName(m_pCtx, tmp);
+		}
+		else
+		{
+			name = m_pCtx->activeModule->encodeInfo.GetQualNameFromId(m_pCtx, nameId);
+		}
+
+		
 		if (hasRet)
 			return ILElemSPtr{ new ILFuncCall{ dst, name, args } };
 		return ILElemSPtr{ new ILFuncCall{ name, args } };

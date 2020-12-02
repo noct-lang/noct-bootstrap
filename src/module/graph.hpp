@@ -14,10 +14,10 @@ namespace Noctis
 	{
 		FuncDependencyNode(DependencyGraph* pGraph);
 		
-		FuncDependencyNodeSPtr GetOrAddDependency(const StdString& mangledName);
+		FuncDependencyNodeSPtr GetOrAddDependency(QualNameSPtr qualName);
 
 		SymbolWPtr sym;
-		StdUnorderedMap<StdString, FuncDependencyNodeSPtr> dependencies;
+		StdUnorderedMap<QualNameSPtr, FuncDependencyNodeSPtr> dependencies;
 
 		DependencyGraph* pGraph;
 	};
@@ -27,11 +27,11 @@ namespace Noctis
 	public:
 		DependencyGraph(Context* pCtx);
 
-		FuncDependencyNodeSPtr GetOrAddFuncDependency(const StdString& mangledName);
+		FuncDependencyNodeSPtr GetOrAddFuncDependency(QualNameSPtr qualName);
 
 	private:
 
-		StdUnorderedMap<StdString, FuncDependencyNodeSPtr> m_FuncDependencies;
+		StdUnorderedMap<QualNameSPtr, FuncDependencyNodeSPtr> m_FuncDependencies;
 
 		StdVector<QualNameSPtr> m_FuncsInExprGenerics;
 

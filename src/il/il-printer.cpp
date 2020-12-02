@@ -24,7 +24,7 @@ namespace Noctis
 
 	void ILPrinter::Visit(ILFuncDef& node)
 	{
-		g_Logger.Log("func %s", node.mangleName.c_str());
+		g_Logger.Log("func %s", node.qualName->ToString().c_str());
 
 		if (!node.generics.empty())
 		{
@@ -293,7 +293,7 @@ namespace Noctis
 			g_Logger.Log(" = ");
 		}
 
-		g_Logger.Log("call %s(", node.func.c_str());
+		g_Logger.Log("call %s(", node.func->ToString().c_str());
 
 		usize argCnt = node.args.size();
 		for (usize i = 0; i < argCnt; ++i)

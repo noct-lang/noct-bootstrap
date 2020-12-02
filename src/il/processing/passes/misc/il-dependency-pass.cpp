@@ -17,7 +17,7 @@ namespace Noctis
 		{
 			m_Func = func;
 			
-			m_FuncNode = m_pCtx->activeModule->dependencyGraph.GetOrAddFuncDependency(func->mangleName);
+			m_FuncNode = m_pCtx->activeModule->dependencyGraph.GetOrAddFuncDependency(func->qualName);
 			m_FuncNode->sym = func->sym;
 			
 			ILVisitor::Visit(*func);

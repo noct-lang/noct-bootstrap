@@ -187,25 +187,25 @@ namespace Noctis
 	{
 	}
 
-	void ILInterp::Interp(const StdString& funcName)
+	void ILInterp::Interp(QualNameSPtr funcName)
 	{
 		Interp(funcName, {});
 	}
 
-	void ILInterp::Interp(const StdString& funcName, const StdVector<ILInterpVar>& args)
+	void ILInterp::Interp(QualNameSPtr funcName, const StdVector<ILInterpVar>& args)
 	{
 		ILFuncDefSPtr funcDef = GetFuncDef(funcName);
 		if (funcDef)
 			Interp(*funcDef, args);
 	}
 
-	ILFuncDefSPtr ILInterp::GetFuncDef(const StdString& funcName)
+	ILFuncDefSPtr ILInterp::GetFuncDef(QualNameSPtr funcName)
 	{
 		for (StdPair<const QualNameSPtr, ModuleSPtr>& pair : m_pCtx->modules)
 		{
 			for (ILFuncDefSPtr funcDef : pair.second->ilMod.funcs)
 			{
-				if (funcDef->mangleName == funcName)
+				if (funcDef->qualName == funcName)
 					return funcDef;
 			}
 		}

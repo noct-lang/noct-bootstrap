@@ -308,14 +308,14 @@ namespace Noctis
 	{
 	}
 
-	ILFuncCall::ILFuncCall(const StdString& func, const StdVector<ILVar>& args)
+	ILFuncCall::ILFuncCall(QualNameSPtr func, const StdVector<ILVar>& args)
 		: ILElem(ILKind::FuncCallNoRet)
 		, func(func)
 		, args(args)
 	{
 	}
 
-	ILFuncCall::ILFuncCall(ILVar dst, const StdString& func, const StdVector<ILVar>& args)
+	ILFuncCall::ILFuncCall(ILVar dst, QualNameSPtr func, const StdVector<ILVar>& args)
 		: ILElem(ILKind::FuncCallRet)
 		, dst(std::move(dst))
 		, func(func)
@@ -414,9 +414,9 @@ namespace Noctis
 	{
 	}
 
-	ILFuncDef::ILFuncDef(Context* pCtx, const StdString& mangleName, StdVector<ILGeneric>&& generics)
+	ILFuncDef::ILFuncDef(Context* pCtx, QualNameSPtr qualName, StdVector<ILGeneric>&& generics)
 		: ILElem(ILKind::FuncDef)
-		, mangleName(mangleName)
+		, qualName(qualName)
 		, generics(std::move(generics))
 		, graph(pCtx)
 	{

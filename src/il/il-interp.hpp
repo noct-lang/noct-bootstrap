@@ -35,13 +35,13 @@ namespace Noctis
 		ILInterp(Context* pCtx);
 
 
-		void Interp(const StdString& funcName);
-		void Interp(const StdString& funcName, const StdVector<ILInterpVar>& args);
+		void Interp(QualNameSPtr);
+		void Interp(QualNameSPtr, const StdVector<ILInterpVar>& args);
 
 		
 	private:
 
-		ILFuncDefSPtr GetFuncDef(const StdString& funcName);
+		ILFuncDefSPtr GetFuncDef(QualNameSPtr funcName);
 
 		void SetupStackFrame(ILFuncDef& func, const StdVector<ILInterpVar>& args, u64 retIdx);
 

@@ -267,11 +267,11 @@ namespace Noctis
 
 	struct ILFuncCall : public ILElem
 	{
-		ILFuncCall(const StdString& func, const StdVector<ILVar>& args);
-		ILFuncCall(ILVar dst, const StdString& func, const StdVector<ILVar>& args);
+		ILFuncCall(QualNameSPtr func, const StdVector<ILVar>& args);
+		ILFuncCall(ILVar dst, QualNameSPtr func, const StdVector<ILVar>& args);
 
 		ILVar dst;
-		StdString func;
+		QualNameSPtr func;
 		StdVector<ILVar> args;
 	};
 
@@ -382,9 +382,10 @@ namespace Noctis
 
 	struct ILFuncDef : public ILElem
 	{
-		ILFuncDef(Context* pCtx, const StdString& mangleName, StdVector<ILGeneric>&& generics);
+		ILFuncDef(Context* pCtx, QualNameSPtr qualName, StdVector<ILGeneric>&& generics);
 		
-		StdString mangleName;
+		QualNameSPtr qualName;
+		
 		StdVector<ILGeneric> generics;
 		StdVector<ILVar> params;
 		StdVector<ILVar> localVars;

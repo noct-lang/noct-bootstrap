@@ -17,6 +17,14 @@ namespace Noctis
 	};
 #pragma pack(pop)
 
+	struct ModuleSection
+	{
+		ModuleSectionHeader header;
+		StdVector<u8> data;
+
+		void WriteTo(StdVector<u8>& buffer);
+	};
+
 	enum class SymbolLinkKind : u8
 	{
 		TypeParent, // symbols with types as parent
@@ -38,42 +46,33 @@ namespace Noctis
 		u32 GetOrAddName(const StdString& name);
 
 		void EncodeImportSection();
-		
+
+		void EncodeNameSection();
 		void EncodeSymSection();
 		void EncodeSLnkSection();
+		void EncodeILSection();
 
 		template<typename T>
 		void WriteData(StdVector<u8>& insertTo, const T& data);
 		void WriteName(StdVector<u8>& insertTo, const StdString& name);
 
 		const StdString& GetMangledQualName(QualNameSPtr qualName);
-		const StdString& GetMangledIden(IdenSPtr qualName);
 		const StdString& GetMangledType(TypeHandle type);
 
 		Context* m_pCtx;
 		Module* m_pMod;
 
-		u32 m_CurNameId;
+		StdVector<ModuleSection> m_Sections;
+		
 		StdVector<u8> m_NameSection;
-		StdUnorderedMap<StdString, u32> m_NameMapping;
-
-		StdVector<u8> m_ImportSection;
-		StdVector<u8> m_SymSection;
-		StdVector<u8> m_SLnkSection;
-
-		StdUnorderedMap<QualNameSPtr, StdString> m_QualNameMangleCache;
-		StdUnorderedMap<IdenSPtr, StdString> m_IdenMangleCache;
-		StdUnorderedMap<TypeSPtr, StdString> m_TypeMangleCache;
 	};
 
-
 	template <typename T>
-	void ModuleEncode::WriteData(StdVector<u8>& insertTo, const T& data)
+	void ModuleEncode::WriteData(StdVector<u8>& insertTo, const T& data) 
 	{
 		const u8* addr = reinterpret_cast<const u8*>(&data);
 		insertTo.insert(insertTo.end(), addr, addr + sizeof(T));
 	}
-
 
 	class ModuleDecode
 	{
@@ -97,11 +96,13 @@ namespace Noctis
 
 		template<typename T>
 		const T& ReadData();
-		const StdString& ReadName();
+		u32 ReadNameId();
 
-		QualNameSPtr GetQualNameFromMangle(const StdString& mangle);
-		IdenSPtr GetIdenFromMangle(const StdString& mangle);
-		TypeHandle GetTypeFromMangle(const StdString& mangle);
+		QualNameSPtr ReadQualName();
+		TypeHandle ReadType();
+
+		QualNameSPtr GetQualNameFromId(u32 id);
+		TypeHandle GetTypeFromId(u32 id);
 
 		Context* m_pCtx;
 		Module* m_pMod;
@@ -109,14 +110,8 @@ namespace Noctis
 		const StdVector<u8>* m_pData;
 		u64 m_DataPos;
 
-		StdVector<StdString> m_Names;
-
 		StdUnorderedMap<QualNameSPtr, SymbolSPtr> m_Syms;
 		StdUnorderedMap<QualNameSPtr, StdUnorderedMap<QualNameSPtr, SymbolSPtr>> m_ImplSyms;
-
-		StdUnorderedMap<StdString, QualNameSPtr> m_QualNameMangleCache;
-		StdUnorderedMap<StdString, IdenSPtr> m_IdenMangleCache;
-		StdUnorderedMap<StdString, TypeHandle> m_TypeMangleCache;
 	};
 
 	template <typename T>

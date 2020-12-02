@@ -12,7 +12,6 @@
 #include "ast/parser.hpp"
 #include "ast/ast.hpp"
 #include "ast/ast-printer.hpp"
-#include "common/name-mangling.hpp"
 #include "il/il-interp.hpp"
 #include "il/il-printer.hpp"
 #include "il/processing/il-processing.hpp"
@@ -21,11 +20,13 @@
 #include "semantic/semantic-analysis.hpp"
 
 //
+// core package build steps
+//
 // build "../noct/src/core/marker.nx"
-// build "../noct/src/core/ops/arith.nx" "../noct/src/core/ops/boolconv.nx" "../noct/src/core/ops/deref.nx"
-// build "../noct/src/core/ops/arith.nx" "../noct/src/core/ops/cmp.nx" -I "./"
+// build "../noct/src/core/compintrin.nx"
 // build "../noct/src/core/error.nx"
 // build "../noct/src/core/result.nx" -I "./"
+// build "../noct/src/core/ops/arith.nx" "../noct/src/core/ops/boolconv.nx" "../noct/src/core/ops/deref.nx" "../noct/src/core/ops/cmp.nx" "../noct/src/core/ops/index.nx" "../noct/src/core/ops/concat.nx" -I "./"
 // build "../noct/src/core/convert.nx" -I "./"
 //
 // build test.nx -I "./"
@@ -229,14 +230,13 @@ void ProcessInterpret(Noctis::Context& context)
 
 	timer.Stop();
 	g_Logger.Log(Noctis::Format("calculating sizes took %fms\n", timer.GetTimeMS()));
-	
-	StdString qualNameMangle = Noctis::NameMangling::Mangle(&context, toInterp);
-	StdString mainFuncName = "_NF" + qualNameMangle + "6__mainFZZ";
 
 	timer.Start();
 	
 	Noctis::ILInterp interp{ &context };
-	interp.Interp(mainFuncName);
+
+	Noctis::QualNameSPtr mainQUalName = Noctis::QualName::Create(toInterp, Noctis::Iden::Create("__main"));
+	interp.Interp(mainQUalName);
 
 	timer.Stop();
 	g_Logger.Log(Noctis::Format("interpreting took %fms\n", timer.GetTimeMS()));

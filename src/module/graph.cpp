@@ -9,14 +9,14 @@ namespace Noctis
 	{
 	}
 
-	FuncDependencyNodeSPtr FuncDependencyNode::GetOrAddDependency(const StdString& mangledName)
+	FuncDependencyNodeSPtr FuncDependencyNode::GetOrAddDependency(QualNameSPtr qualName)
 	{
-		auto it = dependencies.find(mangledName);
+		auto it = dependencies.find(qualName);
 		if (it != dependencies.end())
 			return it->second;
 
-		FuncDependencyNodeSPtr node = pGraph->GetOrAddFuncDependency(mangledName);
-		dependencies.try_emplace(mangledName, node);
+		FuncDependencyNodeSPtr node = pGraph->GetOrAddFuncDependency(qualName);
+		dependencies.try_emplace(qualName, node);
 		return node;
 	}
 
@@ -25,14 +25,14 @@ namespace Noctis
 	{
 	}
 
-	FuncDependencyNodeSPtr DependencyGraph::GetOrAddFuncDependency(const StdString& mangledName)
+	FuncDependencyNodeSPtr DependencyGraph::GetOrAddFuncDependency(QualNameSPtr qualName)
 	{
-		auto it = m_FuncDependencies.find(mangledName);
+		auto it = m_FuncDependencies.find(qualName);
 		if (it != m_FuncDependencies.end())
 			return it->second;
 
 		FuncDependencyNodeSPtr node{ new FuncDependencyNode{ this } };
-		m_FuncDependencies.try_emplace(mangledName, node);
+		m_FuncDependencies.try_emplace(qualName, node);
 		return node;
 	}
 

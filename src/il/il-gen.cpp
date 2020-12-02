@@ -53,8 +53,6 @@ namespace Noctis
 
 			m_CurLabel = 0;
 			m_CurVarId = 0;
-			
-			StdString mangleName = node.sym.lock()->mangledName;
 
 			StdVector<ILGeneric> generics;
 			if (node.genDecl)
@@ -90,10 +88,10 @@ namespace Noctis
 					}
 				}
 			}
-			
-			m_Def.reset(new ILFuncDef{ m_pCtx, mangleName, std::move(generics) });
+
+			QualNameSPtr qualName = node.sym.lock()->qualName;
+			m_Def.reset(new ILFuncDef{ m_pCtx, qualName, std::move(generics) });
 			m_Def->sym = node.sym;
-			m_pILMod->names.insert(mangleName);
 			m_FuncScope = node.qualName;
 
 			// params
@@ -399,7 +397,7 @@ namespace Noctis
 		if (node.operator_.isBuiltin)
 			AddElem(new ILPrimBinary{ node.op, dst, left, right });
 		else
-			AddElem(new ILFuncCall{ dst, node.operator_.sym->mangledName, { right, left } });
+			AddElem(new ILFuncCall{ dst, node.operator_.sym->qualName, { right, left } });
 	}
 
 	void ILGen::Visit(ITrUnary& node)
@@ -412,7 +410,7 @@ namespace Noctis
 		if (node.operator_.isBuiltin)
 			AddElem(new ILPrimUnary{ node.op, dst, var });
 		else
-			AddElem(new ILFuncCall{ dst, node.operator_.sym->mangledName, { var } });
+			AddElem(new ILFuncCall{ dst, node.operator_.sym->qualName, { var } });
 	}
 
 	void ILGen::Visit(ITrQualNameExpr& node)
@@ -512,17 +510,15 @@ namespace Noctis
 		{
 			if (node.sym)
 			{
-				const StdString& name = node.sym->mangledName;
-
 				TypeHandle retType = node.typeInfo.handle;
 				if (retType.IsValid())
 				{
 					ILVar dst = CreateDstVar(node.typeInfo.handle);
-					AddElem(new ILFuncCall{ dst, name, args });
+					AddElem(new ILFuncCall{ dst, node.sym->qualName, args });
 				}
 				else
 				{
-					AddElem(new ILFuncCall{ name, args });
+					AddElem(new ILFuncCall{ node.sym->qualName, args });
 				}
 			}
 			else
@@ -822,7 +818,7 @@ namespace Noctis
 		}
 		else
 		{
-			AddElem(new ILFuncCall{ dst, node.operator_.sym->mangledName, { src } });
+			AddElem(new ILFuncCall{ dst, node.operator_.sym->qualName, { src } });
 		}
 	}
 
