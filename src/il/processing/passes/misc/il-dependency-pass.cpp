@@ -32,7 +32,7 @@ namespace Noctis
 		ILVisitor::Visit(node);
 	}
 
-	void ILDependencyPass::Visit(ILFuncCall& node)
+	void ILDependencyPass::Visit(ILStaticCall& node)
 	{
 		//m_FuncNode->GetOrAddDependency(node.func);
 	}

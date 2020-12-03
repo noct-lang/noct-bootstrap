@@ -239,7 +239,7 @@ namespace Noctis
 		}
 	}
 
-	void ILEncode::Visit(ILFuncCall& node)
+	void ILEncode::Visit(ILStaticCall& node)
 	{
 		WriteData(u8(node.kind));
 		u32 nameId = m_pCtx->activeModule->encodeInfo.GetOrAddQualName(m_pCtx, node.func);
@@ -252,7 +252,7 @@ namespace Noctis
 		WriteData(nameId);
 		WriteData(u8(node.args.size()));
 
-		if (node.kind == ILKind::FuncCallRet)
+		if (node.kind == ILKind::StaticCallRet)
 			EncodeVarAndType(node.dst);
 
 		for (ILVar& arg : node.args)
@@ -261,14 +261,14 @@ namespace Noctis
 		}
 	}
 
-	void ILEncode::Visit(ILMethodCall& node)
+	void ILEncode::Visit(ILDynamicCall& node)
 	{
 		WriteData(u8(node.kind));
 		u32 nameId = GetNameId(node.func);
 		WriteData(nameId);
 		WriteData(u8(node.args.size()));
 
-		if (node.kind == ILKind::FuncCallRet)
+		if (node.kind == ILKind::StaticCallRet)
 			EncodeVarAndType(node.dst);
 
 		EncodeVar(node.caller);
@@ -674,10 +674,10 @@ namespace Noctis
 		case ILKind::Transmute: return DecodeTransmute();
 		case ILKind::Index: return DecodeIndex();
 		case ILKind::CompIntrin: return DecodeCompIntrin();
-		case ILKind::FuncCallNoRet: return DecodeFuncCall(false);
-		case ILKind::FuncCallRet: return DecodeFuncCall(true);
-		case ILKind::MethodCallNoRet: return DecodeMethodCall(false);
-		case ILKind::MethodCallRet: return DecodeMethodCall(true);
+		case ILKind::StaticCallNoRet: return DecodeFuncCall(false);
+		case ILKind::StaticCallRet: return DecodeFuncCall(true);
+		case ILKind::DynamicCallNoRet: return DecodeMethodCall(false);
+		case ILKind::DynamicCallRet: return DecodeMethodCall(true);
 		case ILKind::MemberAccess: return DecodeMemberAccess();
 		case ILKind::TupleAccess: return DecodeTupleAccess();
 		case ILKind::StructInit: return DecodeStructInit();
@@ -830,8 +830,8 @@ namespace Noctis
 
 		
 		if (hasRet)
-			return ILElemSPtr{ new ILFuncCall{ dst, name, args } };
-		return ILElemSPtr{ new ILFuncCall{ name, args } };
+			return ILElemSPtr{ new ILStaticCall{ dst, name, args } };
+		return ILElemSPtr{ new ILStaticCall{ name, args } };
 	}
 
 	ILElemSPtr ILDecode::DecodeMethodCall(bool hasRet)
@@ -852,8 +852,8 @@ namespace Noctis
 		
 		StdString name = m_Names[nameId];
 		if (hasRet)
-			return ILElemSPtr{ new ILMethodCall{ dst, caller, name, args } };
-		return ILElemSPtr{ new ILMethodCall{ caller, name, args } };
+			return ILElemSPtr{ new ILDynamicCall{ dst, caller, name, args } };
+		return ILElemSPtr{ new ILDynamicCall{ caller, name, args } };
 	}
 
 	ILElemSPtr ILDecode::DecodeIndirectCall(bool hasRet)

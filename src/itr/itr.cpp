@@ -170,7 +170,7 @@ namespace Noctis
 	{
 	}
 
-	ITrForRange::ITrForRange(const StdString& scopeName, IdenSPtr label, const StdVector<StdString>& idens,
+	ITrForRange::ITrForRange(const StdString& scopeName, IdenSPtr label, const StdVector<IdenSPtr>& idens,
 		ITrExprSPtr range, ITrBlockSPtr body)
 		: ITrStmt(ITrStmtKind::ForRange)
 		, label(label)

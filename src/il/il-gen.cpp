@@ -220,6 +220,72 @@ namespace Noctis
 		SetCurBlock(endId);
 	}
 
+	void ILGen::Visit(ITrForRange& node)
+	{
+		m_ScopeNames.push_back(node.scopeName);
+		
+		u32 curId = m_pCurBlock->label;
+		u32 loopStartId = AddNewBlock();
+		u32 loopId  = AddNewBlock();
+		u32 endId = AddNewBlock();
+
+		SetCurBlock(curId);
+
+		SymbolSPtr typeSym = m_pCtx->activeModule->symTable.Find(node.range->typeInfo.handle);
+		QualNameSPtr toItQualName = QualName::Create({ "core", "iter", "ToIterator" });
+		SymbolSPtr itSym = typeSym->children->FindChild(toItQualName, Iden::Create("Iter"));
+		TypeDisambiguationSPtr toItisambig = TypeDisambiguation::Create(itSym->type, toItQualName);
+		QualNameSPtr toItFuncName = QualName::Create(toItisambig);
+		toItFuncName = QualName::Create(toItFuncName, Iden::Create("ToIterator"));
+
+		ITrVisitor::Visit(node.range);
+		ILVar range = PopTmpVar();
+		ILVar itVar = CreateDstVar(itSym->type, false);
+		AddElem(new ILStaticCall{ itVar, toItFuncName, {} });
+		
+		SetTerminal(new ILGoto{ loopStartId });
+		SetCurBlock(loopStartId);
+
+		QualNameSPtr itQualName = QualName::Create({ "core", "iter", "Iterator" });
+		TypeDisambiguationSPtr nextDisambig = TypeDisambiguation::Create(itVar.type, itQualName);
+		QualNameSPtr nextFuncName = QualName::Create(QualName::Create(nextDisambig), Iden::Create("Next"));
+		
+		ILVar nextVar = CreateDstVar(itSym->type, false);
+		AddElem(new ILStaticCall{ nextVar, nextFuncName, {} });
+
+		ILVar nullLit{ ILLitType::Null, 0ull };
+		ILVar cmpRes = CreateDstVar(m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::Bool), false);
+		AddElem(new ILPrimBinary{ OperatorKind::Eq, cmpRes, nextVar, nullLit });
+		
+		SetTerminal(new ILIf{ cmpRes, loopId, endId });
+		SetCurBlock(loopId);
+
+		if (node.idens.size() == 1)
+		{
+			LocalVarDataSPtr localVar = m_FuncCtx->localVars.ActivateNextVar(m_ScopeNames, node.idens[0]);
+
+			AddElem(new ILAssign{ localVar->ilVar, nextVar });
+		}
+		else
+		{
+			for (usize i = 0; i < node.idens.size(); ++i)
+			{
+				LocalVarDataSPtr localVar = m_FuncCtx->localVars.ActivateNextVar(m_ScopeNames, node.idens[i]);
+
+				ILVar elem = CreateDstVar(localVar->typeInfo.handle, false);
+				AddElem(new ILTupleAccess{ elem, nextVar, u16(i) });
+				AddElem(new ILAssign{ localVar->ilVar, nextVar });
+			}
+		}
+
+		Visit(*node.body);
+		SetTerminal(new ILGoto{ loopId });
+		
+		m_ScopeNames.pop_back();
+
+		SetCurBlock(endId);
+	}
+
 	void ILGen::Visit(ITrSwitch& node)
 	{
 		ITrVisitor::Visit(node.expr);
@@ -397,7 +463,7 @@ namespace Noctis
 		if (node.operator_.isBuiltin)
 			AddElem(new ILPrimBinary{ node.op, dst, left, right });
 		else
-			AddElem(new ILFuncCall{ dst, node.operator_.sym->qualName, { right, left } });
+			AddElem(new ILStaticCall{ dst, node.operator_.sym->qualName, { right, left } });
 	}
 
 	void ILGen::Visit(ITrUnary& node)
@@ -410,7 +476,7 @@ namespace Noctis
 		if (node.operator_.isBuiltin)
 			AddElem(new ILPrimUnary{ node.op, dst, var });
 		else
-			AddElem(new ILFuncCall{ dst, node.operator_.sym->qualName, { var } });
+			AddElem(new ILStaticCall{ dst, node.operator_.sym->qualName, { var } });
 	}
 
 	void ILGen::Visit(ITrQualNameExpr& node)
@@ -494,16 +560,36 @@ namespace Noctis
 		{
 			ILVar caller = PopTmpVar();
 
-			const StdString& name = node.sym->qualName->LastIden()->Name();
+			SymbolSPtr methodSym = node.sym;
+			SymbolSPtr callerTypeSym = methodSym->parent.lock();
 
-			if (node.typeInfo.handle.IsValid())
+			if (callerTypeSym->kind == SymbolKind::StrongInterface ||
+				callerTypeSym->kind == SymbolKind::WeakInterface)
 			{
-				ILVar dst = CreateDstVar(node.typeInfo.handle);
-				AddElem(new ILMethodCall{ dst, caller, name, args });
+				const StdString& name = node.sym->qualName->LastIden()->Name();
+				if (node.typeInfo.handle.IsValid())
+				{
+					ILVar dst = CreateDstVar(node.typeInfo.handle);
+					AddElem(new ILDynamicCall{ dst, caller, name, args });
+				}
+				else
+				{
+					AddElem(new ILDynamicCall{ caller, name, args });
+				}
 			}
 			else
 			{
-				AddElem(new ILMethodCall{ caller, name, args });
+				args.insert(args.begin(), caller);
+				if (node.typeInfo.handle.IsValid())
+				{
+					ILVar dst = PopTmpVar();
+					AddElem(new ILStaticCall{ dst, methodSym->qualName, args });
+				}
+				else
+				{
+					AddElem(new ILStaticCall{ methodSym->qualName, args });
+				}
+				
 			}
 		}
 		else
@@ -514,11 +600,11 @@ namespace Noctis
 				if (retType.IsValid())
 				{
 					ILVar dst = CreateDstVar(node.typeInfo.handle);
-					AddElem(new ILFuncCall{ dst, node.sym->qualName, args });
+					AddElem(new ILStaticCall{ dst, node.sym->qualName, args });
 				}
 				else
 				{
-					AddElem(new ILFuncCall{ node.sym->qualName, args });
+					AddElem(new ILStaticCall{ node.sym->qualName, args });
 				}
 			}
 			else
@@ -818,7 +904,7 @@ namespace Noctis
 		}
 		else
 		{
-			AddElem(new ILFuncCall{ dst, node.operator_.sym->qualName, { src } });
+			AddElem(new ILStaticCall{ dst, node.operator_.sym->qualName, { src } });
 		}
 	}
 

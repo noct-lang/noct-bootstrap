@@ -249,14 +249,13 @@ namespace Noctis
 
 			for (usize i = 0; i < tupType.subTypes.size(); ++i)
 			{
-				IdenSPtr iden = Iden::Create(node.idens[i]);
-				LocalVarDataSPtr var = m_FuncCtx->localVars.ActivateNextVar(m_ScopeNames, iden);
+				LocalVarDataSPtr var = m_FuncCtx->localVars.ActivateNextVar(m_ScopeNames, node.idens[i]);
 				var->typeInfo.handle = tupType.subTypes[i];
 			}
 		}
 		else
 		{
-			LocalVarDataSPtr var = m_FuncCtx->localVars.ActivateNextVar(m_ScopeNames, Iden::Create(node.idens[0]));
+			LocalVarDataSPtr var = m_FuncCtx->localVars.ActivateNextVar(m_ScopeNames, node.idens[0]);
 			var->typeInfo.handle = itemType;
 		}
 		m_ScopeNames.pop_back(); 

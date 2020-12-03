@@ -308,31 +308,31 @@ namespace Noctis
 	{
 	}
 
-	ILFuncCall::ILFuncCall(QualNameSPtr func, const StdVector<ILVar>& args)
-		: ILElem(ILKind::FuncCallNoRet)
+	ILStaticCall::ILStaticCall(QualNameSPtr func, const StdVector<ILVar>& args)
+		: ILElem(ILKind::StaticCallNoRet)
 		, func(func)
 		, args(args)
 	{
 	}
 
-	ILFuncCall::ILFuncCall(ILVar dst, QualNameSPtr func, const StdVector<ILVar>& args)
-		: ILElem(ILKind::FuncCallRet)
+	ILStaticCall::ILStaticCall(ILVar dst, QualNameSPtr func, const StdVector<ILVar>& args)
+		: ILElem(ILKind::StaticCallRet)
 		, dst(std::move(dst))
 		, func(func)
 		, args(args)
 	{
 	}
 
-	ILMethodCall::ILMethodCall(ILVar caller, const StdString& func, const StdVector<ILVar>& args)
-		: ILElem(ILKind::MethodCallNoRet)
+	ILDynamicCall::ILDynamicCall(ILVar caller, const StdString& func, const StdVector<ILVar>& args)
+		: ILElem(ILKind::DynamicCallNoRet)
 		, caller(caller)
 		, func(func)
 		, args(args)
 	{
 	}
 
-	ILMethodCall::ILMethodCall(ILVar dst, ILVar caller, const StdString& func, const StdVector<ILVar>& args)
-		: ILElem(ILKind::MethodCallRet)
+	ILDynamicCall::ILDynamicCall(ILVar dst, ILVar caller, const StdString& func, const StdVector<ILVar>& args)
+		: ILElem(ILKind::DynamicCallRet)
 		, dst(std::move(dst))
 		, caller(caller)
 		, func(func)

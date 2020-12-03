@@ -18,6 +18,7 @@ namespace Noctis
 		void Visit(ITrBlock& node) override;
 		void Visit(ITrIf& node) override;
 		void Visit(ITrLoop& node) override;
+		void Visit(ITrForRange& node) override;
 		void Visit(ITrSwitch& node) override;
 		void Visit(ITrLabel& node) override;
 		void Visit(ITrBreak& node) override;
@@ -36,6 +37,7 @@ namespace Noctis
 		//void Visit(ITrCompCond& node) override;
 		
 		void Visit(ITrLocalVar& node) override;
+		
 		void Visit(ITrAssign& node) override;
 		void Visit(ITrTernary& node) override;
 		void Visit(ITrBinary& node) override;
@@ -77,22 +79,6 @@ namespace Noctis
 		//void Visit(ITrTry& node) override;
 		//void Visit(ITrSpecKw& node) override;
 		//void Visit(ITrCompRun& node) override;
-		
-		
-		//void Visit(ITrPlaceholderPattern& node) override;
-		//void Visit(ITrPatternSPtr& ptr, ITrAmbiguousIdenPattern& node) override;
-		//void Visit(ITrValueBindPattern& node) override;
-		//void Visit(ITrLiteralPattern& node) override;
-		//void Visit(ITrRangePattern& node) override;
-		//void Visit(ITrTuplePattern& node) override;
-		//void Visit(ITrValueEnumPattern& node) override;
-		//void Visit(ITrAdtTupleEnumPattern& node) override;
-		//void Visit(ITrPatternSPtr& ptr, ITrAmbiguousAggrPattern& node) override;
-		//void Visit(ITrAggrPattern& node) override;
-		//void Visit(ITrAdtAggrEnumPattern& node) override;
-		//void Visit(ITrSlicePattern& node) override;
-		//void Visit(ITrEitherPattern& node) override;
-		//void Visit(ITrTypePattern& node) override;
 		
 		//void Visit(ITrAttribs& node) override;
 		//void Visit(ITrAtAttrib& node) override;

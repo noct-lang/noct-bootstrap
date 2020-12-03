@@ -32,10 +32,10 @@ namespace Noctis
 		case ILKind::Transmute: Visit(static_cast<ILTransmute&>(elem)); break;
 		case ILKind::Index: Visit(static_cast<ILIndex&>(elem)); break;
 		case ILKind::CompIntrin: Visit(static_cast<ILCompIntrin&>(elem)); break;
-		case ILKind::FuncCallNoRet: Visit(static_cast<ILFuncCall&>(elem)); break;
-		case ILKind::FuncCallRet: Visit(static_cast<ILFuncCall&>(elem)); break;
-		case ILKind::MethodCallNoRet: Visit(static_cast<ILMethodCall&>(elem)); break;
-		case ILKind::MethodCallRet: Visit(static_cast<ILMethodCall&>(elem)); break;
+		case ILKind::StaticCallNoRet: Visit(static_cast<ILStaticCall&>(elem)); break;
+		case ILKind::StaticCallRet: Visit(static_cast<ILStaticCall&>(elem)); break;
+		case ILKind::DynamicCallNoRet: Visit(static_cast<ILDynamicCall&>(elem)); break;
+		case ILKind::DynamicCallRet: Visit(static_cast<ILDynamicCall&>(elem)); break;
 		case ILKind::IndirectCallNoRet: Visit(static_cast<ILIndirectCall&>(elem)); break;
 		case ILKind::IndirectCallRet: Visit(static_cast<ILIndirectCall&>(elem)); break;
 		case ILKind::MemberAccess: Visit(static_cast<ILMemberAccess&>(elem)); break;
@@ -124,11 +124,11 @@ namespace Noctis
 	{
 	}
 
-	void ILVisitor::Visit(ILFuncCall& node)
+	void ILVisitor::Visit(ILStaticCall& node)
 	{
 	}
 
-	void ILVisitor::Visit(ILMethodCall& node)
+	void ILVisitor::Visit(ILDynamicCall& node)
 	{
 	}
 

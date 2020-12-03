@@ -18,7 +18,7 @@ namespace Noctis
 
 		void Visit(ILBlock& node) override;
 		
-		void Visit(ILFuncCall& node) override;
+		void Visit(ILStaticCall& node) override;
 
 		void Visit(ILIf& node) override;
 		void Visit(ILSwitch& node) override;

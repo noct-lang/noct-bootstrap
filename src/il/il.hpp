@@ -21,10 +21,10 @@ namespace Noctis
 		
 		CompIntrin = 0x4E,
 
-		FuncCallNoRet = 0x50,
-		FuncCallRet = 0x51,
-		MethodCallNoRet = 0x52,
-		MethodCallRet = 0x53,
+		StaticCallNoRet = 0x50,
+		StaticCallRet = 0x51,
+		DynamicCallNoRet = 0x52,
+		DynamicCallRet = 0x53,
 		IndirectCallNoRet = 0x54, // TODO
 		IndirectCallRet = 0x55, // TODO
 		MemberAccess = 0x56,
@@ -265,20 +265,20 @@ namespace Noctis
 		StdVector<TypeHandle> types;
 	};
 
-	struct ILFuncCall : public ILElem
+	struct ILStaticCall : public ILElem
 	{
-		ILFuncCall(QualNameSPtr func, const StdVector<ILVar>& args);
-		ILFuncCall(ILVar dst, QualNameSPtr func, const StdVector<ILVar>& args);
+		ILStaticCall(QualNameSPtr func, const StdVector<ILVar>& args);
+		ILStaticCall(ILVar dst, QualNameSPtr func, const StdVector<ILVar>& args);
 
 		ILVar dst;
 		QualNameSPtr func;
 		StdVector<ILVar> args;
 	};
 
-	struct ILMethodCall : public ILElem
+	struct ILDynamicCall : public ILElem
 	{
-		ILMethodCall(ILVar caller, const StdString& func, const StdVector<ILVar>& args);
-		ILMethodCall(ILVar dst, ILVar caller, const StdString& func, const StdVector<ILVar>& args);
+		ILDynamicCall(ILVar caller, const StdString& func, const StdVector<ILVar>& args);
+		ILDynamicCall(ILVar dst, ILVar caller, const StdString& func, const StdVector<ILVar>& args);
 
 		ILVar dst;
 		ILVar caller;

@@ -325,10 +325,10 @@ namespace Noctis
 		case ILKind::Ternary: Interp(static_cast<ILTernary&>(elem)); break;
 		case ILKind::Transmute: break;
 		case ILKind::CompIntrin: break;
-		case ILKind::FuncCallNoRet: Interp(static_cast<ILFuncCall&>(elem)); break;
-		case ILKind::FuncCallRet:  Interp(static_cast<ILFuncCall&>(elem)); break;
-		case ILKind::MethodCallNoRet: break;
-		case ILKind::MethodCallRet: break;
+		case ILKind::StaticCallNoRet: Interp(static_cast<ILStaticCall&>(elem)); break;
+		case ILKind::StaticCallRet:  Interp(static_cast<ILStaticCall&>(elem)); break;
+		case ILKind::DynamicCallNoRet: break;
+		case ILKind::DynamicCallRet: break;
 		case ILKind::MemberAccess: Interp(static_cast<ILMemberAccess&>(elem)); break;
 		case ILKind::TupleAccess: Interp(static_cast<ILTupleAccess&>(elem)); break;
 		case ILKind::StructInit: Interp(static_cast<ILStructInit&>(elem)); break;
@@ -853,7 +853,7 @@ namespace Noctis
 		}
 	}
 
-	void ILInterp::Interp(ILFuncCall& call)
+	void ILInterp::Interp(ILStaticCall& call)
 	{
 		ILInterpStackFrame& stackFrame = m_Frames.top();
 		
@@ -864,7 +864,7 @@ namespace Noctis
 		}
 
 		u64 stackRet = u64(-1);
-		if (call.kind == ILKind::FuncCallRet)
+		if (call.kind == ILKind::StaticCallRet)
 		{
 			ILInterpVar& var = stackFrame.GetVar(m_pCtx, call.dst);
 			var.var = call.dst;

@@ -73,7 +73,7 @@ namespace Noctis
 		void Interp(ILTupInit& init);
 		void Interp(ILArrInit& init);
 		
-		void Interp(ILFuncCall& call);
+		void Interp(ILStaticCall& call);
 		
 
 		u8* GetDstAddr(ILInterpStackFrame& stackFrame, ILInterpVar& dst);

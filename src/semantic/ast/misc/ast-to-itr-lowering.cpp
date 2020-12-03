@@ -883,7 +883,13 @@ namespace Noctis
 
 		IdenSPtr label = node.label ? Iden::Create(node.label->iden) : nullptr;
 
-		ITrStmtSPtr stmt{ new ITrForRange{ node.ctx->qualName->LastIden()->Name(), label, node.idens, range, *reinterpret_cast<ITrBlockSPtr*>(&body) } };
+		StdVector<IdenSPtr> idens;
+		for (const StdString& iden : node.idens)
+		{
+			idens.push_back(Iden::Create(iden));
+		}
+
+		ITrStmtSPtr stmt{ new ITrForRange{ node.ctx->qualName->LastIden()->Name(), label, idens, range, *reinterpret_cast<ITrBlockSPtr*>(&body) } };
 		node.itr = stmt;
 		m_Stmts.push(stmt);
 	}

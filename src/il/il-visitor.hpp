@@ -13,8 +13,8 @@ namespace Noctis
 	struct ILTransmute;
 	struct ILIndex;
 	struct ILCompIntrin;
-	struct ILFuncCall;
-	struct ILMethodCall;
+	struct ILStaticCall;
+	struct ILDynamicCall;
 	struct ILIndirectCall;
 	struct ILMemberAccess;
 	struct ILTupleAccess;
@@ -58,8 +58,8 @@ namespace Noctis
 		virtual void Visit(ILTransmute& node);
 		virtual void Visit(ILIndex& node);
 		virtual void Visit(ILCompIntrin& node);
-		virtual void Visit(ILFuncCall& node);
-		virtual void Visit(ILMethodCall& node);
+		virtual void Visit(ILStaticCall& node);
+		virtual void Visit(ILDynamicCall& node);
 		virtual void Visit(ILIndirectCall& node);
 		virtual void Visit(ILMemberAccess& node);
 		virtual void Visit(ILTupleAccess& node);

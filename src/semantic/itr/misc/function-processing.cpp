@@ -71,9 +71,9 @@ namespace Noctis
 	{
 		m_ScopeNames.push_back(node.scopeName);
 
-		for (const StdString& iden : node.idens)
+		for (IdenSPtr iden : node.idens)
 		{
-			LocalVarDataSPtr var{ new LocalVarData{ Iden::Create(iden) } };
+			LocalVarDataSPtr var{ new LocalVarData{ iden } };
 			m_FuncCtx->localVars.AddLocalVarDeclSPtr(m_ScopeNames, var);
 		}
 		

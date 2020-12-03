@@ -284,10 +284,10 @@ namespace Noctis
 		g_Logger.Log(")\n");
 	}
 
-	void ILPrinter::Visit(ILFuncCall& node)
+	void ILPrinter::Visit(ILStaticCall& node)
 	{
 		PrintIndent();
-		if (node.kind == ILKind::FuncCallRet)
+		if (node.kind == ILKind::StaticCallRet)
 		{
 			LogVar(node.dst);
 			g_Logger.Log(" = ");
@@ -306,10 +306,10 @@ namespace Noctis
 		g_Logger.Log(")\n");
 	}
 
-	void ILPrinter::Visit(ILMethodCall& node)
+	void ILPrinter::Visit(ILDynamicCall& node)
 	{
 		PrintIndent();
-		if (node.kind == ILKind::FuncCallRet)
+		if (node.kind == ILKind::DynamicCallRet)
 		{
 			LogVar(node.dst);
 			g_Logger.Log(" = ");
@@ -333,7 +333,7 @@ namespace Noctis
 	void ILPrinter::Visit(ILIndirectCall& node)
 	{
 		PrintIndent();
-		if (node.kind == ILKind::FuncCallRet)
+		if (node.kind == ILKind::IndirectCallRet)
 		{
 			LogVar(node.dst);
 			g_Logger.Log(" = ");
