@@ -99,7 +99,7 @@ namespace Noctis
 
 		void MapVar(IdenSPtr iden, ILVar var);
 
-		ILVar CreateDstVar(TypeHandle type, bool addToTmp = true);
+		ILVar CreateDstVar(TypeHandle type);
 		ILVar PopTmpVar();
 
 		QualNameSPtr GetCurScope();
@@ -117,7 +117,6 @@ namespace Noctis
 		void SetTerminal(T* terminal, u32 label = u32(-1));
 
 		// Switch
-		// TODO: ValueBind
 		void ProcessSwitchGroup(ITrSwitch& node, ITrSwitchGroup& group);
 		void ProcessSwitchBase(ITrSwitch& node, ITrSwitchGroup& group);
 
