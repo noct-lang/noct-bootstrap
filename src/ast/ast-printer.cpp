@@ -335,6 +335,7 @@ namespace Noctis
 		switch (node.rec)
 		{
 		case AstMethodReceiverKind::None: rec = "none"; break;
+		case AstMethodReceiverKind::Move: rec = "move self"; break;
 		case AstMethodReceiverKind::Value: rec = "self"; break;
 		case AstMethodReceiverKind::Ref: rec = "&self"; break;
 		case AstMethodReceiverKind::MutRef: rec = "&mut self"; break;
@@ -394,26 +395,6 @@ namespace Noctis
 			AstVisitor::Visit(stmt);
 		}
 		m_Indent -= 2;
-	}
-
-	void AstPrinter::Visit(AstEmptyMethodDecl& node)
-	{
-		PrintIndent();
-		const char* rec;
-		switch (node.rec)
-		{
-		case AstMethodReceiverKind::None: rec = "none"; break;
-		case AstMethodReceiverKind::Value: rec = "self"; break;
-		case AstMethodReceiverKind::Ref: rec = "&self"; break;
-		case AstMethodReceiverKind::MutRef: rec = "&mut self"; break;
-		default: rec = "";
-		}
-
-		g_Logger.Log("(empty-method-decl '%s'", node.iden.c_str());
-		PrintContextAndClose(node.ctx);
-		++m_Indent;
-		Walk(node);
-		--m_Indent;
 	}
 
 	void AstPrinter::Visit(AstImplDecl& node)

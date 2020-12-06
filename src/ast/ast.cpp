@@ -71,9 +71,8 @@ namespace Noctis
 		ctx->endIdx = this->idens.back()->ctx->endIdx;
 	}
 
-	AstParamVar::AstParamVar(AstAttribsSPtr attribs, u64 startIdx, StdString&& label, StdString&& iden, u64 endIdx)
+	AstParamVar::AstParamVar(AstAttribsSPtr attribs, u64 startIdx, StdString&& iden, u64 endIdx)
 		: attribs(attribs)
-		, label(std::move(label))
 		, iden(std::move(iden))
 		, ctx(new AstContext{})
 	{
@@ -271,32 +270,20 @@ namespace Noctis
 	AstMethodDecl::AstMethodDecl(AstAttribsSPtr attribs, u64 startIdx, AstMethodReceiverKind rec, StdString&& iden,
 		AstGenericDeclSPtr generics, StdVector<AstParamSPtr>&& params, bool throws, AstTypeSPtr errorType, AstTypeSPtr retType,
 		StdPairVector<StdVector<StdString>, AstTypeSPtr>&& namedRet, AstGenericWhereClauseSPtr whereClause,
-	    StdVector<AstStmtSPtr>&& stmts, u64 endIdx)
+	    StdVector<AstStmtSPtr>&& stmts, bool empty, u64 endIdx)
 		: AstDecl(AstDeclKind::Method, attribs ? attribs->ctx->startIdx : startIdx, endIdx)
 		, attribs(attribs)
 		, rec(rec)
 		, iden(std::move(iden))
 		, generics(generics)
 		, params(std::move(params))
-		, throws(throws)
 		, errorType(errorType)
 		, retType(retType)
 		, namedRet(std::move(namedRet))
 		, whereClause(whereClause)
 		, stmts(std::move(stmts))
-	{
-	}
-
-	AstEmptyMethodDecl::AstEmptyMethodDecl(AstAttribsSPtr attribs, u64 startIdx, AstMethodReceiverKind rec,
-	    StdString&& iden, AstGenericDeclSPtr generics, StdVector<AstParamSPtr>&& params,
-		AstTypeSPtr retType, u64 endIdx)
-		: AstDecl(AstDeclKind::EmptyMethod, attribs ? attribs->ctx->startIdx : startIdx, endIdx)
-		, attribs(attribs)
-		, rec(rec)
-		, iden(std::move(iden))
-		, generics(generics)
-		, params(std::move(params))
-		, retType(retType)
+		, throws(throws)
+		, empty(empty)
 	{
 	}
 

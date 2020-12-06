@@ -6,22 +6,20 @@
 
 namespace Noctis
 {
-	ITrArg::ITrArg(IdenSPtr iden, ITrExprSPtr expr)
-		: iden(iden)
-		, expr(expr)
-	{
-	}
-
-	ITrIden::ITrIden(IdenSPtr iden, StdPairVector<ITrTypeSPtr, ITrExprSPtr>&& assocArgs)
+	ITrIden::ITrIden(IdenSPtr iden, StdPairVector<ITrTypeSPtr, ITrExprSPtr>&& assocArgs, u64 startIdx, u64 endIdx)
 		: iden(iden)
 		, assocArgs(std::move(assocArgs))
+		, startIdx(startIdx)
+		, endIdx(endIdx)
 	{
 	}
 
-	ITrTypeDisambiguation::ITrTypeDisambiguation(TypeDisambiguationSPtr disambiguation, ITrTypeSPtr assocType, ITrQualNameSPtr assocQualName)
+	ITrTypeDisambiguation::ITrTypeDisambiguation(TypeDisambiguationSPtr disambiguation, ITrTypeSPtr assocType, ITrQualNameSPtr assocQualName, u64 startIdx, u64 endIdx)
 		: disambiguation(disambiguation)
 		, assocType(assocType)
 		, assocQualName(assocQualName)
+		, startIdx(startIdx)
+		, endIdx(endIdx)
 	{
 	}
 
@@ -30,23 +28,37 @@ namespace Noctis
 		, assocDisambiguation(assocDisambiguation)
 		, assocIdens(std::move(assocIdens))
 	{
+		startIdx = assocDisambiguation ? assocDisambiguation->startIdx : assocIdens.front()->startIdx;
+		endIdx = assocIdens.back()->endIdx;
 	}
 
-	ITrParam::ITrParam(ITrAttribsSPtr attribs, IdenSPtr label, IdenSPtr iden, ITrTypeSPtr type)
+	ITrParam::ITrParam(ITrAttribsSPtr attribs, IdenSPtr iden, ITrTypeSPtr type, u64 startIdx, u64 endIdx)
 		: attribs(attribs)
-		, label(label)
 		, iden(iden)
 		, type(type)
+		, startIdx(startIdx)
+		, endIdx(endIdx)
 	{
 	}
 
-	ITrDef::ITrDef(ITrDefKind kind, ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr qualName, bool isModDef)
+	ITrArg::ITrArg(IdenSPtr iden, ITrExprSPtr expr, u64 startIdx)
+		: iden(iden)
+		, expr(expr)
+		, startIdx(startIdx)
+		, endIdx(expr->endIdx)
+	{
+	}
+
+	ITrDef::ITrDef(ITrDefKind kind, ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr qualName, bool isModDef, u64 startIdx, u64 endIdx)
 		: kind(kind)
 		, attribs(attribs)
 		, qualName(qualName)
 		, genDecl(genDecl)
 		, bodyIdx(u64(-1))
 		, isModDef(isModDef)
+		, isDummyDef(false)
+		, startIdx(startIdx)
+		, endIdx(endIdx)
 	{
 	}
 
@@ -54,74 +66,74 @@ namespace Noctis
 	{
 	}
 
-	ITrStruct::ITrStruct(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr qualName, bool isModDef)
-		: ITrDef(ITrDefKind::Struct, attribs, genDecl, qualName, isModDef)
+	ITrStruct::ITrStruct(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr qualName, bool isModDef, u64 startIdx, u64 endIdx)
+		: ITrDef(ITrDefKind::Struct, attribs, genDecl, qualName, isModDef, startIdx, endIdx)
 	{
 	}
 
-	ITrUnion::ITrUnion(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr qualName, bool isModDef)
-		: ITrDef(ITrDefKind::Union, attribs, genDecl, qualName, isModDef)
+	ITrUnion::ITrUnion(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr qualName, bool isModDef, u64 startIdx, u64 endIdx)
+		: ITrDef(ITrDefKind::Union, attribs, genDecl, qualName, isModDef, startIdx, endIdx)
 	{
 	}
 
-	ITrValEnum::ITrValEnum(ITrAttribsSPtr attribs, QualNameSPtr qualName, bool isModDef)
-		: ITrDef(ITrDefKind::ValEnum, attribs, nullptr, qualName, isModDef)
+	ITrValEnum::ITrValEnum(ITrAttribsSPtr attribs, QualNameSPtr qualName, bool isModDef, u64 startIdx, u64 endIdx)
+		: ITrDef(ITrDefKind::ValEnum, attribs, nullptr, qualName, isModDef, startIdx, endIdx)
 	{
 	}
 
-	ITrValEnumMember::ITrValEnumMember(QualNameSPtr parent, IdenSPtr iden, ITrExprSPtr val)
-		: ITrDef(ITrDefKind::ValEnumMember, nullptr, nullptr, QualName::Create(parent, iden), false)
+	ITrValEnumMember::ITrValEnumMember(QualNameSPtr parent, IdenSPtr iden, ITrExprSPtr val, u64 startIdx, u64 endIdx)
+		: ITrDef(ITrDefKind::ValEnumMember, nullptr, nullptr, QualName::Create(parent, iden), false, startIdx, endIdx)
 		, val(val)
 	{
 	}
 
-	ITrAdtEnum::ITrAdtEnum(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr qualName, bool isModDef)
-		: ITrDef(ITrDefKind::AdtEnum, attribs, genDecl, qualName, isModDef)
+	ITrAdtEnum::ITrAdtEnum(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr qualName, bool isModDef, u64 startIdx, u64 endIdx)
+		: ITrDef(ITrDefKind::AdtEnum, attribs, genDecl, qualName, isModDef, startIdx, endIdx)
 	{
 	}
 
-	ITrAdtEnumMember::ITrAdtEnumMember(QualNameSPtr parent, IdenSPtr iden, ITrTypeSPtr type)
-		: ITrDef(ITrDefKind::AdtEnumMember, nullptr, nullptr, QualName::Create(parent, iden), false)
+	ITrAdtEnumMember::ITrAdtEnumMember(QualNameSPtr parent, IdenSPtr iden, ITrTypeSPtr type, u64 startIdx, u64 endIdx)
+		: ITrDef(ITrDefKind::AdtEnumMember, nullptr, nullptr, QualName::Create(parent, iden), false, startIdx, endIdx)
 		, type(type)
 	{
 	}
 
-	ITrMarkerInterface::ITrMarkerInterface(ITrAttribsSPtr attribs, QualNameSPtr qualName)
-		: ITrDef(ITrDefKind::MarkerInterface, attribs, nullptr, qualName, true)
+	ITrMarkerInterface::ITrMarkerInterface(ITrAttribsSPtr attribs, QualNameSPtr qualName, u64 startIdx, u64 endIdx)
+		: ITrDef(ITrDefKind::MarkerInterface, attribs, nullptr, qualName, true, startIdx, endIdx)
 	{
 	}
 
-	ITrStrongInterface::ITrStrongInterface(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr qualName, StdPairVector<QualNameSPtr, SpanId>&& implInterfaces)
-		: ITrDef(ITrDefKind::StrongInterface, attribs, genDecl, qualName, true)
+	ITrStrongInterface::ITrStrongInterface(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr qualName, StdPairVector<QualNameSPtr, SpanId>&& implInterfaces, u64 startIdx, u64 endIdx)
+		: ITrDef(ITrDefKind::StrongInterface, attribs, genDecl, qualName, true, startIdx, endIdx)
 		, implInterfaces(std::move(implInterfaces))
 	{
 	}
 
-	ITrWeakInterface::ITrWeakInterface(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr qualName)
-		: ITrDef(ITrDefKind::WeakInterface, attribs, genDecl, qualName, true)
+	ITrWeakInterface::ITrWeakInterface(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr qualName, u64 startIdx, u64 endIdx)
+		: ITrDef(ITrDefKind::WeakInterface, attribs, genDecl, qualName, true, startIdx, endIdx)
 	{
 	}
 
-	ITrTypealias::ITrTypealias(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr qualName, ITrTypeSPtr type, bool isModDef)
-		: ITrDef(ITrDefKind::Typealias, attribs, genDecl, qualName, isModDef)
+	ITrTypealias::ITrTypealias(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr qualName, ITrTypeSPtr type, bool isModDef, u64 startIdx, u64 endIdx)
+		: ITrDef(ITrDefKind::Typealias, attribs, genDecl, qualName, isModDef, startIdx, endIdx)
 		, type(type)
 	{
 	}
 
-	ITrTypedef::ITrTypedef(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr qualName, ITrTypeSPtr type, bool isModDef)
-		: ITrDef(ITrDefKind::Typedef, attribs, genDecl, qualName, isModDef)
+	ITrTypedef::ITrTypedef(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr qualName, ITrTypeSPtr type, bool isModDef, u64 startIdx, u64 endIdx)
+		: ITrDef(ITrDefKind::Typedef, attribs, genDecl, qualName, isModDef, startIdx, endIdx)
 		, type(type)
 	{
 	}
 
-	ITrVar::ITrVar(ITrAttribsSPtr attribs, QualNameSPtr qualName, ITrTypeSPtr type, bool isModDef)
-		: ITrDef(ITrDefKind::Var, attribs, nullptr, qualName, isModDef)
+	ITrVar::ITrVar(ITrAttribsSPtr attribs, QualNameSPtr qualName, ITrTypeSPtr type, bool isModDef, u64 startIdx, u64 endIdx)
+		: ITrDef(ITrDefKind::Var, attribs, nullptr, qualName, isModDef, startIdx, endIdx)
 		, type(type)
 	{
 	}
 
-	ITrFunc::ITrFunc(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr qualName, StdVector<ITrParamSPtr>&& params, ITrTypeSPtr retType, ITrFuncKind funcKind, bool isModDef)
-		: ITrDef(ITrDefKind::Func, attribs, genDecl, qualName, isModDef)
+	ITrFunc::ITrFunc(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr qualName, StdVector<ITrParamSPtr>&& params, ITrTypeSPtr retType, ITrFuncKind funcKind, bool isModDef, u64 startIdx, u64 endIdx)
+		: ITrDef(ITrDefKind::Func, attribs, genDecl, qualName, isModDef, startIdx, endIdx)
 		, funcKind(funcKind)
 		, params(std::move(params))
 		, retType(retType)
@@ -129,15 +141,17 @@ namespace Noctis
 	{
 	}
 
-	ITrImpl::ITrImpl(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr scope, ITrTypeSPtr type, StdPair<QualNameSPtr, SpanId> interface)
-		: ITrDef(ITrDefKind::Impl, attribs, genDecl, scope, true)
+	ITrImpl::ITrImpl(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr scope, ITrTypeSPtr type, StdPair<QualNameSPtr, SpanId> interface, u64 startIdx, u64 endIdx)
+		: ITrDef(ITrDefKind::Impl, attribs, genDecl, scope, true, startIdx, endIdx)
 		, type(type)
 		, interface(interface)
 	{
 	}
 
-	ITrStmt::ITrStmt(ITrStmtKind kind)
+	ITrStmt::ITrStmt(ITrStmtKind kind, u64 startIdx, u64 endIdx)
 		: stmtKind(kind)
+		, startIdx(startIdx)
+		, endIdx(endIdx)
 	{
 	}
 
@@ -145,15 +159,15 @@ namespace Noctis
 	{
 	}
 
-	ITrBlock::ITrBlock(const StdString& scopeName, StdVector<ITrStmtSPtr>&& stmts)
-		: ITrStmt(ITrStmtKind::Block)
+	ITrBlock::ITrBlock(const StdString& scopeName, StdVector<ITrStmtSPtr>&& stmts, u64 startIdx, u64 endIdx)
+		: ITrStmt(ITrStmtKind::Block, startIdx, endIdx)
 		, stmts(std::move(stmts))
 		, scopeName(scopeName)
 	{
 	}
 
-	ITrIf::ITrIf(bool isComptime, ITrLocalVarSPtr decl, ITrExprSPtr cond, ITrBlockSPtr tBlock, ITrBlockSPtr fBlock)
-		: ITrStmt(ITrStmtKind::If)
+	ITrIf::ITrIf(bool isComptime, ITrLocalVarSPtr decl, ITrExprSPtr cond, ITrBlockSPtr tBlock, ITrBlockSPtr fBlock, u64 startIdx)
+		: ITrStmt(ITrStmtKind::If, startIdx, fBlock ? fBlock->endIdx : tBlock->endIdx)
 		, isComptime(isComptime)
 		, decl(decl)
 		, cond(cond)
@@ -162,8 +176,8 @@ namespace Noctis
 	{
 	}
 
-	ITrLoop::ITrLoop(const StdString& scopeName, IdenSPtr label, StdVector<ITrStmtSPtr>&& stmts)
-		: ITrStmt(ITrStmtKind::Loop)
+	ITrLoop::ITrLoop(const StdString& scopeName, IdenSPtr label, StdVector<ITrStmtSPtr>&& stmts, u64 startIdx, u64 endIdx)
+		: ITrStmt(ITrStmtKind::Loop, startIdx, endIdx)
 		, label(label)
 		, stmts(stmts)
 		, scopeName(scopeName)
@@ -171,8 +185,8 @@ namespace Noctis
 	}
 
 	ITrForRange::ITrForRange(const StdString& scopeName, IdenSPtr label, const StdVector<IdenSPtr>& idens,
-		ITrExprSPtr range, ITrBlockSPtr body)
-		: ITrStmt(ITrStmtKind::ForRange)
+		ITrExprSPtr range, ITrBlockSPtr body, u64 startIdx)
+		: ITrStmt(ITrStmtKind::ForRange, startIdx, body->endIdx)
 		, label(label)
 		, idens(idens)
 		, range(range)
@@ -192,8 +206,8 @@ namespace Noctis
 	{
 	}
 
-	ITrSwitch::ITrSwitch(const StdString& scopeName, IdenSPtr label, ITrExprSPtr expr, StdVector<ITrSwitchCase>&& cases)
-		: ITrStmt(ITrStmtKind::Switch)
+	ITrSwitch::ITrSwitch(const StdString& scopeName, IdenSPtr label, ITrExprSPtr expr, StdVector<ITrSwitchCase>&& cases, u64 startIdx, u64 endIdx)
+		: ITrStmt(ITrStmtKind::Switch, startIdx, endIdx)
 		, label(label)
 		, expr(expr)
 		, cases(std::move(cases))
@@ -202,69 +216,69 @@ namespace Noctis
 	{
 	}
 
-	ITrLabel::ITrLabel(IdenSPtr label)
-		: ITrStmt(ITrStmtKind::Label)
+	ITrLabel::ITrLabel(IdenSPtr label, u64 startIdx, u64 endIdx)
+		: ITrStmt(ITrStmtKind::Label, startIdx, endIdx)
 		, label(label)
 	{
 	}
 
-	ITrBreak::ITrBreak(IdenSPtr label)
-		: ITrStmt(ITrStmtKind::Break)
+	ITrBreak::ITrBreak(IdenSPtr label, u64 startIdx, u64 endIdx)
+		: ITrStmt(ITrStmtKind::Break, startIdx, endIdx)
 		, label(label)
 	{
 	}
 
-	ITrContinue::ITrContinue(IdenSPtr label)
-		: ITrStmt(ITrStmtKind::Continue)
+	ITrContinue::ITrContinue(IdenSPtr label, u64 startIdx, u64 endIdx)
+		: ITrStmt(ITrStmtKind::Continue, startIdx, endIdx)
 		, label(label)
 	{
 	}
 
-	ITrFallthrough::ITrFallthrough()
-		: ITrStmt(ITrStmtKind::Fallthrough)
+	ITrFallthrough::ITrFallthrough(u64 startIdx, u64 endIdx)
+		: ITrStmt(ITrStmtKind::Fallthrough, startIdx, endIdx)
 	{
 	}
 
-	ITrGoto::ITrGoto(IdenSPtr label)
-		: ITrStmt(ITrStmtKind::Goto)
+	ITrGoto::ITrGoto(IdenSPtr label, u64 startIdx, u64 endIdx)
+		: ITrStmt(ITrStmtKind::Goto, startIdx, endIdx)
 		, label(label)
 	{
 	}
 
-	ITrReturn::ITrReturn(ITrExprSPtr expr)
-		: ITrStmt(ITrStmtKind::Return)
+	ITrReturn::ITrReturn(ITrExprSPtr expr, u64 startIdx, u64 endIdx)
+		: ITrStmt(ITrStmtKind::Return, startIdx, endIdx)
 		, expr(expr)
 	{
 	}
 
-	ITrThrow::ITrThrow(ITrExprSPtr expr)
-		: ITrStmt(ITrStmtKind::Throw)
+	ITrThrow::ITrThrow(ITrExprSPtr expr, u64 startIdx, u64 endIdx)
+		: ITrStmt(ITrStmtKind::Throw, startIdx, endIdx)
 		, expr(expr)
 	{
 	}
 
-	ITrDefer::ITrDefer(bool isErr, ITrExprSPtr block)
-		: ITrStmt(ITrStmtKind::Defer)
+	ITrDefer::ITrDefer(bool isErr, ITrExprSPtr block, u64 startIdx, u64 endIdx)
+		: ITrStmt(ITrStmtKind::Defer, startIdx, endIdx)
 		, isErr(isErr)
 		, block(block)
 	{
 	}
 
-	ITrUnsafe::ITrUnsafe(ITrBlockSPtr block)
-		: ITrStmt(ITrStmtKind::Unsafe)
+	ITrUnsafe::ITrUnsafe(ITrBlockSPtr block, u64 startIdx)
+		: ITrStmt(ITrStmtKind::Unsafe, startIdx, block->endIdx)
 		, block(block)
 	{
 	}
 
-	ITrErrHandler::ITrErrHandler(StdVector<ITrStmtSPtr>&& stmts)
-		: ITrStmt(ITrStmtKind::ErrorHandler)
+	ITrErrHandler::ITrErrHandler(StdVector<ITrStmtSPtr>&& stmts, u64 startIdx, u64 endIdx)
+		: ITrStmt(ITrStmtKind::ErrorHandler, startIdx, endIdx)
 		, stmts(std::move(stmts))
 	{
 	}
 
 	ITrCompCond::ITrCompCond(bool isDebug, IdenSPtr iden, OperatorKind op, u64 cmpVal, ITrBlockSPtr tBlock,
-		ITrBlockSPtr fBlock)
-		: ITrStmt(ITrStmtKind::CompCond)
+		ITrBlockSPtr fBlock, u64 startIdx)
+		: ITrStmt(ITrStmtKind::CompCond, startIdx, fBlock ? fBlock->endIdx : tBlock->endIdx)
 		, isDebug(isDebug)
 		, op(op)
 		, iden(iden)
@@ -274,8 +288,8 @@ namespace Noctis
 	{
 	}
 
-	ITrLocalVar::ITrLocalVar(ITrAttribsSPtr attribs, StdVector<IdenSPtr>&& idens, ITrTypeSPtr type, ITrExprSPtr init)
-		: ITrStmt(ITrStmtKind::LocalDecl)
+	ITrLocalVar::ITrLocalVar(ITrAttribsSPtr attribs, StdVector<IdenSPtr>&& idens, ITrTypeSPtr type, ITrExprSPtr init, u64 startIdx, u64 endIdx)
+		: ITrStmt(ITrStmtKind::LocalDecl, startIdx, endIdx)
 		, attribs(attribs)
 		, idens(std::move(idens))
 		, type(type)
@@ -283,8 +297,8 @@ namespace Noctis
 	{
 	}
 
-	ITrExpr::ITrExpr(ITrExprKind kind)
-		: ITrStmt(ITrStmtKind::Expr) 
+	ITrExpr::ITrExpr(ITrExprKind kind, u64 startIdx, u64 endIdx)
+		: ITrStmt(ITrStmtKind::Expr, startIdx, endIdx)
 		, exprKind(kind)
 	{
 	}
@@ -294,7 +308,7 @@ namespace Noctis
 	}
 
 	ITrAssign::ITrAssign(OperatorKind op, ITrExprSPtr lExpr, ITrExprSPtr rExpr)
-		: ITrExpr(ITrExprKind::Assign)
+		: ITrExpr(ITrExprKind::Assign, lExpr->startIdx, rExpr->endIdx)
 		, op(op)
 		, lExpr(lExpr)
 		, rExpr(rExpr)
@@ -302,7 +316,7 @@ namespace Noctis
 	}
 
 	ITrTernary::ITrTernary(ITrExprSPtr cond, ITrExprSPtr tExpr, ITrExprSPtr fExpr)
-		: ITrExpr(ITrExprKind::Ternary)
+		: ITrExpr(ITrExprKind::Ternary, cond->startIdx, fExpr->endIdx)
 		, cond(cond)
 		, tExpr(tExpr)
 		, fExpr(fExpr)
@@ -310,37 +324,37 @@ namespace Noctis
 	}
 
 	ITrBinary::ITrBinary(OperatorKind op, ITrExprSPtr lExpr, ITrExprSPtr rExpr)
-		: ITrExpr(ITrExprKind::Binary)
+		: ITrExpr(ITrExprKind::Binary, lExpr->startIdx, rExpr->endIdx)
 		, op(op)
 		, lExpr(lExpr)
 		, rExpr(rExpr)
 	{
 	}
 
-	ITrUnary::ITrUnary(OperatorKind op, ITrExprSPtr expr)
-		: ITrExpr(ITrExprKind::Unary)
+	ITrUnary::ITrUnary(OperatorKind op, ITrExprSPtr expr, u64 startIdx, u64 endIdx)
+		: ITrExpr(ITrExprKind::Unary, startIdx, endIdx)
 		, op(op)
 		, expr(expr)
 	{
 	}
 
 	ITrQualNameExpr::ITrQualNameExpr(ITrQualNameSPtr qualName)
-		: ITrExpr(ITrExprKind::QualName)
+		: ITrExpr(ITrExprKind::QualName, qualName->startIdx, qualName->endIdx)
 		, qualName(qualName->qualName)
 		, itrQualName(qualName)
 	{
 	}
 
-	ITrIndexSlice::ITrIndexSlice(ITrExprSPtr expr, ITrExprSPtr index)
-		: ITrExpr(ITrExprKind::IndexSlice)
+	ITrIndexSlice::ITrIndexSlice(ITrExprSPtr expr, ITrExprSPtr index, u64 endIdx)
+		: ITrExpr(ITrExprKind::IndexSlice, expr->startIdx, endIdx)
 		, explicitSlice(false)
 		, expr(expr)
 		, index(index)
 	{
 	}
 
-	ITrIndexSlice::ITrIndexSlice(ITrExprSPtr expr, ITrExprSPtr from, ITrExprSPtr to)
-		: ITrExpr(ITrExprKind::IndexSlice)
+	ITrIndexSlice::ITrIndexSlice(ITrExprSPtr expr, ITrExprSPtr from, ITrExprSPtr to, u64 endIdx)
+		: ITrExpr(ITrExprKind::IndexSlice, expr->startIdx, endIdx)
 		, explicitSlice(true)
 		, expr(expr)
 		, index(from)
@@ -348,30 +362,22 @@ namespace Noctis
 	{
 	}
 
-	ITrAmbiguousCall::ITrAmbiguousCall(ITrExprSPtr expr, StdVector<ITrArgSPtr>&& args)
-		: ITrExpr(ITrExprKind::AmbiguousCall)
+	ITrAmbiguousCall::ITrAmbiguousCall(ITrExprSPtr expr, StdVector<ITrArgSPtr>&& args, u64 endIdx)
+		: ITrExpr(ITrExprKind::AmbiguousCall, expr->startIdx, endIdx)
 		, expr(expr)
 		, args(std::move(args))
 	{
 	}
 
-	ITrAdtTupleEnumInit::ITrAdtTupleEnumInit(ITrExprSPtr expr, StdVector<ITrArgSPtr>&& args)
-		: ITrExpr(ITrExprKind::AdtTupleEnumInit)
+	ITrAdtTupleEnumInit::ITrAdtTupleEnumInit(ITrExprSPtr expr, StdVector<ITrArgSPtr>&& args, u64 endIdx)
+		: ITrExpr(ITrExprKind::AdtTupleEnumInit, expr->startIdx, endIdx)
 		, expr(expr)
 		, args(std::move(args))
 	{
 	}
 
-	ITrMemberAccess::ITrMemberAccess(bool nullCoalesce, ITrExprSPtr expr, IdenSPtr iden)
-		: ITrExpr(ITrExprKind::MemberAccess)
-		, nullCoalesce(nullCoalesce)
-		, expr(expr)
-		, iden(iden)
-	{
-	}
-
-	ITrFuncCall::ITrFuncCall(ITrExprSPtr func, StdVector<ITrArgSPtr>&& args)
-		: ITrExpr(ITrExprKind::FuncOrMethodCall)
+	ITrFuncCall::ITrFuncCall(ITrExprSPtr func, StdVector<ITrArgSPtr>&& args, u64 endIdx)
+		: ITrExpr(ITrExprKind::FuncOrMethodCall, func->startIdx, endIdx)
 		, isMethod(false)
 		, nullCoalesce(false)
 		, callerOrFunc(func)
@@ -379,8 +385,8 @@ namespace Noctis
 	{
 	}
 
-	ITrFuncCall::ITrFuncCall(ITrExprSPtr caller, bool nullCoalesce, IdenSPtr iden, StdVector<ITrArgSPtr>&& args)
-		: ITrExpr(ITrExprKind::FuncOrMethodCall)
+	ITrFuncCall::ITrFuncCall(ITrExprSPtr caller, bool nullCoalesce, IdenSPtr iden, StdVector<ITrArgSPtr>&& args, u64 endIdx)
+		: ITrExpr(ITrExprKind::FuncOrMethodCall, caller->startIdx, endIdx)
 		, isMethod(true)
 		, nullCoalesce(nullCoalesce)
 		, callerOrFunc(caller)
@@ -389,8 +395,16 @@ namespace Noctis
 	{
 	}
 
-	ITrTupleAccess::ITrTupleAccess(ITrExprSPtr expr, bool nullCoalesce, u16 index)
-		: ITrExpr(ITrExprKind::TupleAccess)
+	ITrMemberAccess::ITrMemberAccess(bool nullCoalesce, ITrExprSPtr expr, IdenSPtr iden, u64 endIdx)
+		: ITrExpr(ITrExprKind::MemberAccess, expr->startIdx, endIdx)
+		, nullCoalesce(nullCoalesce)
+		, expr(expr)
+		, iden(iden)
+	{
+	}
+
+	ITrTupleAccess::ITrTupleAccess(ITrExprSPtr expr, bool nullCoalesce, u16 index, u64 endIdx)
+		: ITrExpr(ITrExprKind::TupleAccess, expr->startIdx, endIdx)
 		, nullCoalesce(nullCoalesce)
 		, index(index)
 		, expr(expr)
@@ -398,13 +412,13 @@ namespace Noctis
 	}
 
 	ITrLiteral::ITrLiteral(Token lit)
-		: ITrExpr(ITrExprKind::Literal)
+		: ITrExpr(ITrExprKind::Literal, lit.Idx(), lit.Idx())
 		, lit(lit)
 	{
 	}
 
-	ITrAmbiguousAggrInit::ITrAmbiguousAggrInit(ITrTypeSPtr type, StdVector<ITrArgSPtr>&& args, bool hasDefInit, ITrExprSPtr defExpr)
-		: ITrExpr(ITrExprKind::AmbiguousAggrInit)
+	ITrAmbiguousAggrInit::ITrAmbiguousAggrInit(ITrTypeSPtr type, StdVector<ITrArgSPtr>&& args, bool hasDefInit, ITrExprSPtr defExpr, u64 endIdx)
+		: ITrExpr(ITrExprKind::AmbiguousAggrInit, type->startIdx, endIdx)
 		, type(type)
 		, args(std::move(args))
 		, defExpr(defExpr)
@@ -412,8 +426,8 @@ namespace Noctis
 	{
 	}
 
-	ITrStructInit::ITrStructInit(ITrTypeSPtr type, StdVector<ITrArgSPtr>&& args, bool hasDefInit, ITrExprSPtr defExpr)
-		: ITrExpr(ITrExprKind::StructInit)
+	ITrStructInit::ITrStructInit(ITrTypeSPtr type, StdVector<ITrArgSPtr>&& args, bool hasDefInit, ITrExprSPtr defExpr, u64 endIdx)
+		: ITrExpr(ITrExprKind::StructInit, type->startIdx, endIdx)
 		, type(type)
 		, args(std::move(args))
 		, defExpr(defExpr)
@@ -421,35 +435,35 @@ namespace Noctis
 	{
 	}
 
-	ITrUnionInit::ITrUnionInit(ITrTypeSPtr type, StdVector<ITrArgSPtr>&& args)
-		: ITrExpr(ITrExprKind::UnionInit)
+	ITrUnionInit::ITrUnionInit(ITrTypeSPtr type, StdVector<ITrArgSPtr>&& args, u64 endIdx)
+		: ITrExpr(ITrExprKind::UnionInit, type->startIdx, endIdx)
 		, type(type)
 		, args(std::move(args))
 	{
 	}
 
-	ITrAdtAggrEnumInit::ITrAdtAggrEnumInit(ITrTypeSPtr type, StdVector<ITrArgSPtr>&& args)
-		: ITrExpr(ITrExprKind::AdtAggrEnumInit)
+	ITrAdtAggrEnumInit::ITrAdtAggrEnumInit(ITrTypeSPtr type, StdVector<ITrArgSPtr>&& args, u64 endIdx)
+		: ITrExpr(ITrExprKind::AdtAggrEnumInit, type->startIdx, endIdx)
 		, type(type)
 		, args(std::move(args))
 		, hasDefInit(false)
 	{
 	}
 
-	ITrTupleInit::ITrTupleInit(StdVector<ITrExprSPtr>&& exprs)
-		: ITrExpr(ITrExprKind::TupleInit)
+	ITrTupleInit::ITrTupleInit(StdVector<ITrExprSPtr>&& exprs, u64 startIdx, u64 endIdx)
+		: ITrExpr(ITrExprKind::TupleInit, startIdx, endIdx)
 		, exprs(std::move(exprs))
 	{
 	}
 
-	ITrArrayInit::ITrArrayInit(StdVector<ITrExprSPtr>&& exprs)
-		: ITrExpr(ITrExprKind::ArrayInit)
+	ITrArrayInit::ITrArrayInit(StdVector<ITrExprSPtr>&& exprs, u64 startIdx, u64 endIdx)
+		: ITrExpr(ITrExprKind::ArrayInit, startIdx, endIdx)
 		, exprs(std::move(exprs))
 	{
 	}
 
 	ITrCast::ITrCast(ITrCastKind castKind, ITrExprSPtr expr, ITrTypeSPtr type)
-		: ITrExpr(ITrExprKind::CastOrTransmute)
+		: ITrExpr(ITrExprKind::CastOrTransmute, expr->startIdx, type->endIdx)
 		, castKind(castKind)
 		, expr(expr)
 		, type(type)
@@ -457,209 +471,226 @@ namespace Noctis
 	{
 	}
 
-	ITrBlockExpr::ITrBlockExpr(const StdString& scopeName, StdVector<ITrStmtSPtr> stmts)
-		: ITrExpr(ITrExprKind::Block)
+	ITrBlockExpr::ITrBlockExpr(const StdString& scopeName, StdVector<ITrStmtSPtr> stmts, u64 startIdx, u64 endIdx)
+		: ITrExpr(ITrExprKind::Block, startIdx, endIdx)
 		, stmts(std::move(stmts))
 		, scopeName(scopeName)
 	{
 	}
 
-	ITrUnsafeExpr::ITrUnsafeExpr(ITrExprSPtr expr)
-		: ITrExpr(ITrExprKind::Unsafe)
+	ITrUnsafeExpr::ITrUnsafeExpr(ITrExprSPtr expr, u64 startIdx)
+		: ITrExpr(ITrExprKind::Unsafe, startIdx, expr->endIdx)
 		, expr(expr)
 	{
 	}
 
-	ITrMove::ITrMove(ITrExprSPtr expr)
-		: ITrExpr(ITrExprKind::Move)
+	ITrMove::ITrMove(ITrExprSPtr expr, u64 startIdx)
+		: ITrExpr(ITrExprKind::Move, startIdx, expr->endIdx)
 		, expr(expr)
 	{
 	}
 
-	ITrComma::ITrComma(StdVector<ITrExprSPtr>&& exprs)
-		: ITrExpr(ITrExprKind::Comma)
+	ITrComma::ITrComma(StdVector<ITrExprSPtr>&& exprs, u64 startIdx, u64 endIdx)
+		: ITrExpr(ITrExprKind::Comma, startIdx, endIdx)
 		, exprs(std::move(exprs))
 	{
 	}
 
-	ITrClosure::ITrClosure(ITrDefSPtr def)
-		: ITrExpr(ITrExprKind::Closure)
+	ITrClosure::ITrClosure(ITrDefSPtr def, u64 startIdx, u64 endIdx)
+		: ITrExpr(ITrExprKind::Closure, startIdx, endIdx)
 		, def(def)
 	{
 	}
 
 	ITrIs::ITrIs(ITrExprSPtr expr, ITrTypeSPtr type)
-		: ITrExpr(ITrExprKind::Is)
+		: ITrExpr(ITrExprKind::Is, expr->startIdx, type->endIdx)
 		, expr(expr)
 		, type(type)
 	{
 	}
 
-	ITrTry::ITrTry(ITrExprSPtr expr)
-		: ITrExpr(ITrExprKind::Try)
+	ITrTry::ITrTry(ITrExprSPtr expr, u64 startIdx)
+		: ITrExpr(ITrExprKind::Try, startIdx, expr->endIdx)
 		, expr(expr)
 	{
 	}
 
-	ITrSpecKw::ITrSpecKw(TokenType kw)
-		: ITrExpr(ITrExprKind::SpecKw)
+	ITrSpecKw::ITrSpecKw(TokenType kw, u64 tokIdx)
+		: ITrExpr(ITrExprKind::SpecKw, tokIdx, tokIdx)
 		, kw(kw)
 	{
 	}
 
-	ITrCompRun::ITrCompRun(ITrExprSPtr expr)
-		: ITrExpr(ITrExprKind::CompRun)
+	ITrCompRun::ITrCompRun(ITrExprSPtr expr, u64 startIdx)
+		: ITrExpr(ITrExprKind::CompRun, startIdx, expr->endIdx)
 		, expr(expr)
 	{
 	}
 
-	ITrType::ITrType(ITrAttribsSPtr attribs, TypeHandle handle, StdVector<ITrTypeSPtr>&& subTypes, ITrExprSPtr expr)
+	ITrType::ITrType(ITrAttribsSPtr attribs, TypeHandle handle, StdVector<ITrTypeSPtr>&& subTypes, ITrExprSPtr expr, u64 startIdx, u64 endIdx)
 		: attribs(attribs)
 		, subTypes(std::move(subTypes))
 		, expr(expr)
 		, handle(handle)
-		, bodyIdx(u64(-1))
+		, startIdx(startIdx)
+		, endIdx(endIdx)
 	{
 	}
 
-	ITrAttribs::ITrAttribs(Visibility vis, Attribute attribs, StdVector<ITrAtAttribSPtr>&& atAttribs)
-		: vis(vis)
-		, attribs(attribs)
-		, atAttribs(std::move(atAttribs))
-	{
-	}
-
-	ITrAtAttrib::ITrAtAttrib(bool isCompAttrib, IdenSPtr iden, StdVector<ITrArgSPtr>&& args)
-		: isCompAttrib(isCompAttrib)
-		, iden(iden)
-		, args(std::move(args))
-	{
-	}
-
-	ITrGenParam::ITrGenParam(bool isType)
-		: isType(isType)
-	{
-	}
-
-	ITrGenTypeParam::ITrGenTypeParam(IdenSPtr name, ITrTypeSPtr defType)
-		: ITrGenParam(true)
-		, iden(name)
-		, defType(defType)
-	{
-	}
-
-	ITrGenValParam::ITrGenValParam(IdenSPtr iden, ITrTypeSPtr type, ITrExprSPtr defExpr)
-		: ITrGenParam(false)
-		, iden(iden)
-		, type(type)
-		, defExpr(defExpr)
-	{
-	}
-
-	ITrGenAssocBound::ITrGenAssocBound(const StdString& iden, ITrGenBoundTypeSPtr type)
-		: iden(iden)
-		, type(type)
-	{
-	}
-
-	ITrGenBoundType::ITrGenBoundType(ITrTypeSPtr type, StdVector<ITrGenAssocBound>&& assocBounds)
-		: type(type)
-		, assocBounds(std::move(assocBounds))
-	{
-	}
-
-	ITrGenTypeBound::ITrGenTypeBound(ITrTypeSPtr type, ITrGenBoundTypeSPtr bound)
-		: type(type)
-		, bound(bound)
-	{
-	}
-
-	ITrPattern::ITrPattern(ITrPatternKind kind)
+	ITrPattern::ITrPattern(ITrPatternKind kind, u64 startIdx, u64 endIdx)
 		: patternKind(kind)
+		, startIdx(startIdx)
+		, endIdx(endIdx)
 	{
 	}
 
-	ITrPlaceholderPattern::ITrPlaceholderPattern(bool isWildcard)
-		: ITrPattern(isWildcard ? ITrPatternKind::Wildcard : ITrPatternKind::Placeholder)
+	ITrPlaceholderPattern::ITrPlaceholderPattern(bool isWildcard, u64 tokIdx)
+		: ITrPattern(isWildcard ? ITrPatternKind::Wildcard : ITrPatternKind::Placeholder, tokIdx, tokIdx)
 	{
 	}
 
-	ITrValueBindPattern::ITrValueBindPattern(IdenSPtr iden, ITrPatternSPtr subPattern)
-		: ITrPattern(ITrPatternKind::ValueBind)
+	ITrValueBindPattern::ITrValueBindPattern(IdenSPtr iden, ITrPatternSPtr subPattern, u64 startIdx, u64 endIdx)
+		: ITrPattern(ITrPatternKind::ValueBind, startIdx, endIdx)
 		, iden(iden)
 		, subPattern(subPattern)
 	{
 	}
 
 	ITrLiteralPattern::ITrLiteralPattern(Token lit)
-		: ITrPattern(ITrPatternKind::Literal)
+		: ITrPattern(ITrPatternKind::Literal, lit.Idx(), lit.Idx())
 		, lit(lit)
 	{
 	}
 
 	ITrRangePattern::ITrRangePattern(bool isInclusive, Token from, Token to)
-		: ITrPattern(ITrPatternKind::Range)
+		: ITrPattern(ITrPatternKind::Range, from.Idx(), to.Idx())
 		, isInclusive(isInclusive)
 		, from(std::move(from))
 		, to(std::move(to))
 	{
 	}
 
-	ITrTuplePattern::ITrTuplePattern(StdVector<ITrPatternSPtr>&& subPatterns)
-		: ITrPattern(ITrPatternKind::Tuple)
+	ITrTuplePattern::ITrTuplePattern(StdVector<ITrPatternSPtr>&& subPatterns, u64 startIdx, u64 endIdx)
+		: ITrPattern(ITrPatternKind::Tuple, startIdx, endIdx)
 		, subPatterns(std::move(subPatterns))
 	{
 	}
 
-	ITrValueEnumPattern::ITrValueEnumPattern(QualNameSPtr qualName)
-		: ITrPattern(ITrPatternKind::ValueEnum)
+	ITrValueEnumPattern::ITrValueEnumPattern(QualNameSPtr qualName, u64 startIdx, u64 endIdx)
+		: ITrPattern(ITrPatternKind::ValueEnum, startIdx, endIdx)
 		, qualName(qualName)
 	{
 	}
 
-	ITrAdtTupleEnumPattern::ITrAdtTupleEnumPattern(QualNameSPtr qualName, StdVector<ITrPatternSPtr>&& subPatterns)
-		: ITrPattern(ITrPatternKind::AdtTupleEnum)
+	ITrAdtTupleEnumPattern::ITrAdtTupleEnumPattern(QualNameSPtr qualName, StdVector<ITrPatternSPtr>&& subPatterns, u64 startIdx, u64 endIdx)
+		: ITrPattern(ITrPatternKind::AdtTupleEnum, startIdx, endIdx)
 		, qualName(qualName)
 		, subPatterns(std::move(subPatterns))
 	{
 	}
 
-	ITrAmbiguousAggrPattern::ITrAmbiguousAggrPattern(QualNameSPtr qualName,	StdPairVector<StdString, ITrPatternSPtr>&& args)
-		: ITrPattern(ITrPatternKind::AmbiguousAggr)
+	ITrAmbiguousAggrPattern::ITrAmbiguousAggrPattern(QualNameSPtr qualName, StdPairVector<StdString, ITrPatternSPtr>&& args, u64 startIdx, u64 endIdx)
+		: ITrPattern(ITrPatternKind::AmbiguousAggr, startIdx, endIdx)
 		, qualName(qualName)
 		, args(std::move(args))
 	{
 	}
 
-	ITrAggrPattern::ITrAggrPattern(QualNameSPtr qualName, StdPairVector<StdString, ITrPatternSPtr>&& args)
-		: ITrPattern(ITrPatternKind::Aggr)
+	ITrAggrPattern::ITrAggrPattern(QualNameSPtr qualName, StdPairVector<StdString, ITrPatternSPtr>&& args, u64 startIdx, u64 endIdx)
+		: ITrPattern(ITrPatternKind::Aggr, startIdx, endIdx)
 		, qualName(qualName)
 		, args(std::move(args))
 	{
 	}
 
-	ITrAdtAggrEnumPattern::ITrAdtAggrEnumPattern(QualNameSPtr qualName, StdPairVector<StdString, ITrPatternSPtr>&& args)
-		: ITrPattern(ITrPatternKind::AdtAggrEnum)
+	ITrAdtAggrEnumPattern::ITrAdtAggrEnumPattern(QualNameSPtr qualName, StdPairVector<StdString, ITrPatternSPtr>&& args, u64 startIdx, u64 endIdx)
+		: ITrPattern(ITrPatternKind::AdtAggrEnum, startIdx, endIdx)
 		, qualName(qualName)
 		, args(std::move(args))
 	{
 	}
 
-	ITrSlicePattern::ITrSlicePattern(StdVector<ITrPatternSPtr>&& subPatterns)
-		: ITrPattern(ITrPatternKind::Slice)
+	ITrSlicePattern::ITrSlicePattern(StdVector<ITrPatternSPtr>&& subPatterns, u64 startIdx, u64 endIdx)
+		: ITrPattern(ITrPatternKind::Slice, startIdx, endIdx)
 		, subPatterns(std::move(subPatterns))
 	{
 	}
 
 	ITrEitherPattern::ITrEitherPattern(StdVector<ITrPatternSPtr>&& subPatterns)
-		: ITrPattern(ITrPatternKind::Either)
+		: ITrPattern(ITrPatternKind::Either, 0, 0)
 		, subPatterns(std::move(subPatterns))
+	{
+		startIdx = subPatterns.front()->startIdx;
+		endIdx = subPatterns.back()->endIdx;
+	}
+
+	ITrTypePattern::ITrTypePattern(ITrTypeSPtr type, u64 startIdx)
+		: ITrPattern(ITrPatternKind::Type, startIdx, type->endIdx)
+		, type(type)
 	{
 	}
 
-	ITrTypePattern::ITrTypePattern(ITrTypeSPtr type)
-		: ITrPattern(ITrPatternKind::Type)
+	ITrAttribs::ITrAttribs(Visibility vis, Attribute attribs, StdVector<ITrAtAttribSPtr>&& atAttribs, u64 startIdx, u64 endIdx)
+		: vis(vis)
+		, attribs(attribs)
+		, atAttribs(std::move(atAttribs))
+		, startIdx(startIdx)
+		, endIdx(endIdx)
+	{
+	}
+
+	ITrAtAttrib::ITrAtAttrib(bool isCompAttrib, IdenSPtr iden, StdVector<ITrArgSPtr>&& args, u64 startIdx, u64 endIdx)
+		: isCompAttrib(isCompAttrib)
+		, iden(iden)
+		, args(std::move(args))
+		, startIdx(startIdx)
+		, endIdx(endIdx)
+	{
+	}
+
+	ITrGenParam::ITrGenParam(bool isType, u64 startIdx, u64 endIdx)
+		: isType(isType)
+		, startIdx(startIdx)
+		, endIdx(endIdx)
+	{
+	}
+
+	ITrGenTypeParam::ITrGenTypeParam(IdenSPtr name, ITrTypeSPtr defType, u64 startIdx, u64 endIdx)
+		: ITrGenParam(true, startIdx, endIdx)
+		, iden(name)
+		, defType(defType)
+	{
+	}
+
+	ITrGenValParam::ITrGenValParam(IdenSPtr iden, ITrTypeSPtr type, ITrExprSPtr defExpr, u64 startIdx, u64 endIdx)
+		: ITrGenParam(false, startIdx, endIdx)
+		, iden(iden)
 		, type(type)
+		, defExpr(defExpr)
+	{
+	}
+
+	ITrGenAssocBound::ITrGenAssocBound(const StdString& iden, ITrGenBoundTypeSPtr type, u64 startIdx, u64 endIdx)
+		: iden(iden)
+		, type(type)
+		, startIdx(startIdx)
+		, endIdx(endIdx)
+	{
+	}
+
+	ITrGenBoundType::ITrGenBoundType(ITrTypeSPtr type, StdVector<ITrGenAssocBound>&& assocBounds, u64 startIdx, u64 endIdx)
+		: type(type)
+		, assocBounds(std::move(assocBounds))
+		, startIdx(startIdx)
+		, endIdx(endIdx)
+	{
+	}
+
+	ITrGenTypeBound::ITrGenTypeBound(ITrTypeSPtr type, ITrGenBoundTypeSPtr bound, u64 startIdx, u64 endIdx)
+		: type(type)
+		, bound(bound)
+		, startIdx(startIdx)
+		, endIdx(endIdx)
 	{
 	}
 

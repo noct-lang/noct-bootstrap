@@ -30,7 +30,6 @@ namespace Noctis
 	struct AstVarDecl;
 	struct AstFuncDecl;
 	struct AstMethodDecl;
-	struct AstEmptyMethodDecl;
 	struct AstImplDecl;
 
 	struct AstImportStmt;
@@ -178,7 +177,6 @@ namespace Noctis
 		virtual void Visit(AstVarDecl& node);
 		virtual void Visit(AstFuncDecl& node);
 		virtual void Visit(AstMethodDecl& node);
-		virtual void Visit(AstEmptyMethodDecl& node);
 		virtual void Visit(AstImplDecl& node);
 
 		virtual void Visit(AstImportStmt& node);
@@ -319,7 +317,6 @@ namespace Noctis
 		void Walk(AstVarDecl& node);
 		void Walk(AstFuncDecl& node);
 		void Walk(AstMethodDecl& node);
-		void Walk(AstEmptyMethodDecl& node);
 		void Walk(AstImplDecl& node);
 
 		void Walk(AstImportStmt& node);

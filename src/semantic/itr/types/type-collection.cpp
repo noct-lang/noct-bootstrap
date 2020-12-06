@@ -87,18 +87,7 @@ namespace Noctis
 		m_Syms.top()->children->AddChild(sym);
 
 		if (node.type)
-		{
 			sym->type = node.type->handle;
-
-			if (node.type->bodyIdx != u64(-1))
-			{
-				ITrBodySPtr body = m_pMod->GetBody(node.type->bodyIdx);
-				for (ITrDefSPtr def : body->defs)
-				{
-					ITrVisitor::Visit(def);
-				}
-			}
-		}
 	}
 
 	void TypeCollectionCommon::Visit(ITrTypealias& node)
@@ -649,11 +638,11 @@ namespace Noctis
 					TypeHandle handle = origParam->type->handle;
 					handle = m_pCtx->typeReg.ReplaceSubType(handle, parent->type, m_ImplSymbol->type);
 
-					ITrTypeSPtr itrType{ new ITrType{ origParam->type->attribs, handle, {} } };
-					params.emplace_back(new ITrParam{ origParam->attribs, origParam->label, origParam->iden, itrType });
+					ITrTypeSPtr itrType{ new ITrType{ origParam->type->attribs, handle, {}, nullptr, origParam->type->startIdx, origParam->type->endIdx } };
+					params.emplace_back(new ITrParam{ origParam->attribs, origParam->iden, itrType, origParam->startIdx, origParam->endIdx });
 				}
 				
-				ITrDefSPtr childDef{ new ITrFunc{ nullptr, nullptr, qualName, std::move(params), func.retType, srcDef.funcKind, false } };
+				ITrDefSPtr childDef{ new ITrFunc{ nullptr, nullptr, qualName, std::move(params), func.retType, srcDef.funcKind, false, u64(-1), u64(-1) } };
 				child->associatedITr = childDef;
 				childDef->isDummyDef = true;
 				childDef->bodyIdx = srcDef.bodyIdx;
@@ -675,7 +664,7 @@ namespace Noctis
 				ITrTypealias& alias = static_cast<ITrTypealias&>(*def);
 				ITrTypealias& srcDef = static_cast<ITrTypealias&>(*sym->associatedITr.lock());
 
-				ITrDefSPtr childDef{ new ITrTypealias{ nullptr, nullptr, qualName, alias.type, false } };
+				ITrDefSPtr childDef{ new ITrTypealias{ nullptr, nullptr, qualName, alias.type, false, u64(-1), u64(-1) } };
 				child->associatedITr = childDef;
 				childDef->isDummyDef = true;
 				childDef->bodyIdx = srcDef.bodyIdx;

@@ -4,7 +4,6 @@
 
 namespace Noctis
 {
-
 	class AstPrinter : public AstVisitor
 	{
 	public:
@@ -34,7 +33,6 @@ namespace Noctis
 		void Visit(AstVarDecl& node) override;
 		void Visit(AstFuncDecl& node) override;
 		void Visit(AstMethodDecl& node) override;
-		void Visit(AstEmptyMethodDecl& node) override;
 		void Visit(AstImplDecl& node) override;
 		
 		void Visit(AstImportStmt& node) override;

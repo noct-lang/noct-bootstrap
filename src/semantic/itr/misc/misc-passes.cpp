@@ -196,7 +196,7 @@ namespace Noctis
 			StdVector<ITrPatternSPtr> patterns;
 			for (ITrPatternSPtr subPattern : subPatterns)
 			{
-				patterns.emplace_back(new ITrValueBindPattern{ valueBind.iden, subPattern });
+				patterns.emplace_back(new ITrValueBindPattern{ valueBind.iden, subPattern, subPattern->startIdx, subPattern->endIdx });
 			}
 			return patterns;
 		}
@@ -256,11 +256,11 @@ namespace Noctis
 			for (StdVector<ITrPatternSPtr>& tmp0 : tmp)
 			{
 				if (pattern->patternKind == ITrPatternKind::Tuple)
-					patterns.emplace_back(new ITrTuplePattern{ std::move(tmp0) });
+					patterns.emplace_back(new ITrTuplePattern{ std::move(tmp0), pattern->startIdx, pattern->endIdx });
 				else if (pattern->patternKind == ITrPatternKind::AdtTupleEnum)
-					patterns.emplace_back(new ITrAdtTupleEnumPattern{ static_cast<ITrAdtTupleEnumPattern&>(*pattern).qualName, std::move(tmp0) });
+					patterns.emplace_back(new ITrAdtTupleEnumPattern{ static_cast<ITrAdtTupleEnumPattern&>(*pattern).qualName, std::move(tmp0), pattern->startIdx, pattern->endIdx });
 				else
-					patterns.emplace_back(new ITrSlicePattern{ std::move(tmp0) });
+					patterns.emplace_back(new ITrSlicePattern{ std::move(tmp0), pattern->startIdx, pattern->endIdx });
 			}
 
 			return patterns;
@@ -324,9 +324,9 @@ namespace Noctis
 			for (StdPairVector<StdString, ITrPatternSPtr>& tmp0 : tmp)
 			{
 				if (pattern->patternKind == ITrPatternKind::AdtAggrEnum)
-					patterns.emplace_back(new ITrAdtAggrEnumPattern{ qualName, std::move(tmp0) });
+					patterns.emplace_back(new ITrAdtAggrEnumPattern{ qualName, std::move(tmp0), pattern->startIdx, pattern->endIdx });
 				else
-					patterns.emplace_back(new ITrAggrPattern{ qualName, std::move(tmp0) });
+					patterns.emplace_back(new ITrAggrPattern{ qualName, std::move(tmp0), pattern->startIdx, pattern->endIdx });
 			}
 
 			return patterns;
@@ -437,7 +437,7 @@ namespace Noctis
 
 		if (pattern->patternKind != ITrPatternKind::ValueEnum)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(pattern->astNode->ctx->startIdx);
+			Span span = m_pCtx->spanManager.GetSpan(pattern->startIdx);
 			g_ErrorSystem.Error(span, "No members are matched");
 			return CreateLeaf(pattern, type, caseId, depth);
 		}
@@ -500,14 +500,14 @@ namespace Noctis
 			{
 				if (foundWildcard)
 				{
-					Span span = m_pCtx->spanManager.GetSpan(subPattern->astNode->ctx->startIdx);
+					Span span = m_pCtx->spanManager.GetSpan(subPattern->startIdx);
 					g_ErrorSystem.Error(span, "Cannot have more than 1 wildcard in a tuple pattern");
 				}
 				foundWildcard = true;
 
-				subPatterns[i].reset(new ITrPlaceholderPattern{ false });
+				subPatterns[i].reset(new ITrPlaceholderPattern{ false, subPattern->startIdx } );
 				for (usize j = subPatterns.size(); j < numElems; ++i, ++j)
-					subPatterns.emplace(subPatterns.begin() + i, new ITrPlaceholderPattern{ false });
+					subPatterns.emplace(subPatterns.begin() + i, new ITrPlaceholderPattern{ false, subPattern->startIdx });
 			}
 		}
 
@@ -615,7 +615,7 @@ namespace Noctis
 			{
 				if (subPattern->patternKind == ITrPatternKind::Wildcard)
 				{
-					Span span = m_pCtx->spanManager.GetSpan(subPattern->astNode->ctx->startIdx);
+					Span span = m_pCtx->spanManager.GetSpan(subPattern->startIdx);
 					g_ErrorSystem.Error(span, "Cannot have more than 1 wildcard");
 					continue;
 				}

@@ -24,6 +24,9 @@ namespace Noctis
 	
 	FWDECL_STRUCT_SPTR(AstArg);
 	FWDECL_STRUCT_SPTR(AstParam);
+	FWDECL_STRUCT_SPTR(AstAttribs);
+	FWDECL_STRUCT_SPTR(AstGenericDecl);
+	FWDECL_STRUCT_SPTR(AstGenericBoundType);
 
 	class AstToITrLowering : public AstSemanticPass
 	{
@@ -51,7 +54,6 @@ namespace Noctis
 		void Visit(AstVarDecl& node) override;
 		void Visit(AstFuncDecl& node) override;
 		void Visit(AstMethodDecl& node) override;
-		void Visit(AstEmptyMethodDecl& node) override;
 		void Visit(AstImplDecl& node) override;
 		
 		void Visit(AstImportStmt& node) override;
@@ -107,7 +109,6 @@ namespace Noctis
 		void Visit(AstSpecKwExpr& node) override;
 		void Visit(AstCompRunExpr& node) override;
 
-		void Visit(AstTypeSPtr& node) override;
 		void Visit(AstBuiltinType& node) override;
 		void Visit(AstIdentifierType& node) override;
 		void Visit(AstPointerType& node) override;
@@ -150,7 +151,7 @@ namespace Noctis
 
 		void HandleGenerics(ITrGenDeclSPtr genDecl, QualNameSPtr qualName);
 
-		void AddMethodReceiverToParams(AstMethodReceiverKind recKind, StdVector<ITrParamSPtr>& params);
+		void AddMethodReceiverToParams(AstMethodDecl& node, StdVector<ITrParamSPtr>& params);
 		void GetNamedReturns(ITrTypeSPtr& retType, StdVector<ITrStmtSPtr> stmts, StdPairVector<StdVector<StdString>, AstTypeSPtr>& astNamedRets);
 
 		void HandleWhereClause(AstGenericWhereClause& clause, ITrGenDeclSPtr genDecl);
@@ -159,21 +160,21 @@ namespace Noctis
 		void PushDef(ITrDefSPtr def);
 		StdVector<ITrDefSPtr> PopDefFrame();
 		bool IsModDef();
-		
-		ITrStmtSPtr PopStmt();
-		ITrExprSPtr PopExpr();
-		ITrTypeSPtr PopType();
-		ITrPatternSPtr PopPattern();
-		ITrAttribsSPtr PopAttribs();
-		ITrGenDeclSPtr PopGenDecl();
+
+		ITrStmtSPtr VisitAndGetStmt(AstStmtSPtr stmt);
+		ITrExprSPtr VisitAndGetExpr(AstExprSPtr expr);
+		ITrTypeSPtr VisitAndGetType(AstTypeSPtr type);
+		ITrPatternSPtr VisitAndGetPattern(AstPatternSPtr pattern);
+		ITrAttribsSPtr VisitAndGetAttribs(AstAttribsSPtr attribs);
+		ITrGenDeclSPtr VisitAndGetGenDecl(AstGenericDeclSPtr genDecl);
+		ITrGenBoundTypeSPtr VisitAndGetGenBoundType(AstGenericBoundTypeSPtr bound);
 		
 		StdStack<StdVector<ITrDefSPtr>> m_Defs;
-		StdStack<ITrStmtSPtr> m_Stmts;
-		StdStack<ITrExprSPtr> m_Exprs;
-		StdStack<ITrTypeSPtr> m_Types;
-		StdStack<ITrPatternSPtr> m_Patterns;
-		StdStack<ITrAttribsSPtr> m_Attribs;
-		StdStack<ITrGenDeclSPtr> m_GenDecls;
+		ITrStmtSPtr m_Stmt;
+		ITrExprSPtr m_Expr;
+		ITrTypeSPtr m_Type;
+		ITrPatternSPtr m_Pattern;
+		ITrAttribsSPtr m_Attribs;
 		StdStack<ITrGenBoundTypeSPtr> m_BoundTypes;
 		ITrGenDeclSPtr m_GenDecl;
 		ITrExprSPtr m_NamedRet;
@@ -181,7 +182,6 @@ namespace Noctis
 		ITrTypeSPtr m_ITrImplType;
 		bool m_InFunc;
 		StdString m_TreeFilename;
-		AstDeclSPtr m_DeclNode;
 		StdVector<ITrIdenSPtr> m_Idens;
 		ITrTypeDisambiguationSPtr m_TypeDisambiguation;
 		ITrQualNameSPtr m_QualName;

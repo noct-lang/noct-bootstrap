@@ -61,7 +61,6 @@ namespace Noctis
 		Var,
 		Func,
 		Method,
-		EmptyMethod,
 		Impl,
 		DeclMacro,
 		RulesDeclMacro,
@@ -167,14 +166,6 @@ namespace Noctis
 	FWDECL_STRUCT_SPTR(AstGenericTypeParam);
 	FWDECL_STRUCT_SPTR(AstGenericValueParam);
 	FWDECL_STRUCT_SPTR(AstMacroPattern);
-
-	FWDECL_STRUCT_WPTR(ITrDef);
-	FWDECL_STRUCT_WPTR(ITrStmt);
-	FWDECL_STRUCT_WPTR(ITrExpr);
-	FWDECL_STRUCT_WPTR(ITrType);
-	FWDECL_STRUCT_WPTR(ITrPattern);
-	FWDECL_STRUCT_WPTR(ITrGenParam);
-	FWDECL_STRUCT_WPTR(ITrGenTypeBound);
 	
 	struct AstStmt
 	{
@@ -183,7 +174,6 @@ namespace Noctis
 		
 		AstStmtKind stmtKind;
 		AstContextPtr ctx;
-		ITrStmtWPtr itr;
 	};
 	using AstStmtSPtr = StdSharedPtr<AstStmt>;
 
@@ -192,7 +182,6 @@ namespace Noctis
 		AstDecl(AstDeclKind kind, u64 startIdx, u64 endIdx);
 
 		AstDeclKind declKind;
-		ITrDefWPtr defItr;
 	};
 	using AstDeclSPtr = StdSharedPtr<AstDecl>;
 
@@ -202,7 +191,6 @@ namespace Noctis
 
 		AstExprKind exprKind;
 		AstContextPtr ctx;
-		ITrExprWPtr itr;
 	};
 	using AstExprSPtr = StdSharedPtr<AstExpr>;
 
@@ -213,7 +201,6 @@ namespace Noctis
 		AstAttribsSPtr attribs;
 		AstTypeKind typeKind;
 		AstContextPtr ctx;
-		ITrTypeWPtr itr;
 	};
 	using AstTypeSPtr = StdSharedPtr<AstType>;
 
@@ -227,10 +214,9 @@ namespace Noctis
 
 	struct AstParamVar
 	{
-		AstParamVar(AstAttribsSPtr attribs, u64 startIdx, StdString&& label, StdString&& iden, u64 endIdx);
+		AstParamVar(AstAttribsSPtr attribs, u64 startIdx, StdString&& iden, u64 endIdx);
 
 		AstAttribsSPtr attribs;
-		StdString label;
 		StdString iden;
 		AstContextPtr ctx;
 	};
@@ -468,6 +454,7 @@ namespace Noctis
 	enum class AstMethodReceiverKind : u8
 	{
 		None,
+		Move,
 		Value,
 		Ref,
 		MutRef
@@ -479,35 +466,22 @@ namespace Noctis
 			StdString&& iden, AstGenericDeclSPtr generics, StdVector<AstParamSPtr>&& params, 
 			bool throws, AstTypeSPtr errorType, AstTypeSPtr retType, 
 			StdPairVector<StdVector<StdString>, AstTypeSPtr>&& namedRet, AstGenericWhereClauseSPtr whereClause,
-			StdVector<AstStmtSPtr>&& stmts, u64 endIdx);
+			StdVector<AstStmtSPtr>&& stmts, bool empty, u64 endIdx);
 
 		AstAttribsSPtr attribs;
 		AstMethodReceiverKind rec;
 		StdString iden;
 		AstGenericDeclSPtr generics;
 		StdVector<AstParamSPtr> params;
-		bool throws;
 		AstTypeSPtr errorType;
 		AstTypeSPtr retType;
 		StdPairVector<StdVector<StdString>, AstTypeSPtr> namedRet;
 		AstGenericWhereClauseSPtr whereClause;
 		StdVector<AstStmtSPtr> stmts;
+		bool throws : 1;
+		bool empty : 1;
 	};
-
-	struct AstEmptyMethodDecl : public AstDecl
-	{
-		AstEmptyMethodDecl(AstAttribsSPtr attribs, u64 startIdx, AstMethodReceiverKind rec,
-			StdString&& iden, AstGenericDeclSPtr generics, StdVector<AstParamSPtr>&& params,
-			AstTypeSPtr retType, u64 endIdx);
-
-		AstAttribsSPtr attribs;
-		AstMethodReceiverKind rec;
-		StdString iden;
-		AstGenericDeclSPtr generics;
-		StdVector<AstParamSPtr> params;
-		AstTypeSPtr retType;
-	};
-
+	
 	struct AstImplDecl : public AstDecl
 	{
 		AstImplDecl(AstAttribsSPtr attribs, u64 startIdx, AstGenericDeclSPtr generics,
@@ -1052,7 +1026,6 @@ namespace Noctis
 
 		AstPatternKind patternKind;
 		AstContextPtr ctx;
-		ITrPatternWPtr itr;
 	};
 
 	struct AstPlaceholderPattern : public AstPattern
@@ -1226,9 +1199,6 @@ namespace Noctis
 		StdVector<AstIdentifierTypeSPtr> implTypes;
 		AstTypeSPtr defType;
 		AstContextPtr ctx;
-
-		ITrGenParamWPtr itr;
-		ITrGenTypeBoundWPtr itrBound;
 	};
 
 	struct AstGenericValueParam
@@ -1239,8 +1209,6 @@ namespace Noctis
 		AstTypeSPtr type;
 		AstExprSPtr defExpr;
 		AstContextPtr ctx;
-
-		ITrGenParamWPtr itr;
 	};
 
 	FWDECL_STRUCT_SPTR(AstGenericBoundType);
@@ -1268,8 +1236,6 @@ namespace Noctis
 		AstTypeSPtr type;
 		AstGenericBoundTypeSPtr bound;
 		AstContextPtr ctx;
-
-		ITrGenTypeBoundWPtr itr;
 	};
 	using AstGenericTypeBoundSPtr = StdSharedPtr<AstGenericTypeBound>;
 	

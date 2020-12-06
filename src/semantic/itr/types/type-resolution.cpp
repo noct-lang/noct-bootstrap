@@ -235,7 +235,7 @@ namespace Noctis
 
 						ITrFunc& func = static_cast<ITrFunc&>(*parentIfaceChild->associatedITr.lock());
 						StdVector<ITrParamSPtr> params = func.params;
-						ITrDefSPtr def{ new ITrFunc{ nullptr, nullptr, childQualName, std::move(params), func.retType, ITrFuncKind::EmptyMethod, false } };
+						ITrDefSPtr def{ new ITrFunc{ nullptr, nullptr, childQualName, std::move(params), func.retType, ITrFuncKind::EmptyMethod, false, u64(-1), u64(-1) } };
 						child->associatedITr = def;
 						def->isDummyDef = true;
 						def->bodyIdx = defChild->associatedITr.lock()->bodyIdx;

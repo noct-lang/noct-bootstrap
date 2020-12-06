@@ -229,8 +229,7 @@ namespace Noctis
 		{
 			if (itemType.Kind() != TypeKind::Tuple)
 			{
-				u64 spanIdx = std::get<AstStmtSPtr>(node.astNode)->ctx->startIdx;
-				Span span = m_pCtx->spanManager.GetSpan(spanIdx);
+				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 				g_ErrorSystem.Error(span, "Cannot expand non-tuple Item type to multiple identifiers");
 				m_ScopeNames.pop_back();
 				return;
@@ -240,8 +239,7 @@ namespace Noctis
 
 			if (tupType.subTypes.size() != node.idens.size())
 			{
-				u64 spanIdx = std::get<AstStmtSPtr>(node.astNode)->ctx->startIdx;
-				Span span = m_pCtx->spanManager.GetSpan(spanIdx);
+				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 				g_ErrorSystem.Error(span, "Cannot expand a tuple with %u elements to %u identifier");
 				m_ScopeNames.pop_back();
 				return;
@@ -306,8 +304,7 @@ namespace Noctis
 				TypeHandle type = node.init->typeInfo.handle;
 				if (type.Kind() != TypeKind::Tuple)
 				{
-					u64 spanIdx = std::get<AstStmtSPtr>(node.astNode)->ctx->startIdx;
-					Span span = m_pCtx->spanManager.GetSpan(spanIdx);
+					Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 					g_ErrorSystem.Error(span, "Cannot expand non-tuple type to multiple identifiers");
 					return;
 				}
@@ -332,8 +329,7 @@ namespace Noctis
 				{
 					if (typeInfo.handle != node.type->handle)
 					{
-						u64 spanIdx = std::get<AstStmtSPtr>(node.astNode)->ctx->startIdx;
-						Span span = m_pCtx->spanManager.GetSpan(spanIdx);
+						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 						g_ErrorSystem.Error(span, "inferred type does not match declared type");
 						return;
 					}
@@ -375,7 +371,7 @@ namespace Noctis
 			TypeHandle baseRTypeHandle = m_pCtx->typeReg.Mod(TypeMod::None, rTypeHandle);
 			if (lTypeHandle != baseRTypeHandle)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
+				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 				g_ErrorSystem.Error(span, "Condition should be of type 'bool'\n");
 			}
 		}
@@ -384,7 +380,7 @@ namespace Noctis
 			const Operator& op = m_pCtx->activeModule->opTable.GetOperator(node.op, lTypeHandle, rTypeHandle);
 			if (!op.sym)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
+				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 				StdStringView opName = GetOpName(node.op);
 				StdString lTypeName = lTypeHandle.ToString();
 				StdString rTypeName = rTypeHandle.ToString();
@@ -410,7 +406,7 @@ namespace Noctis
 		if (condType->typeKind != TypeKind::Builtin ||
 			condType->AsBuiltin().builtin != BuiltinTypeKind::Bool)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.cond->astNode)->ctx->startIdx);
+			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 			g_ErrorSystem.Error(span, "Condition should be of type 'bool'\n");
 		}
 
@@ -418,7 +414,7 @@ namespace Noctis
 		TypeHandle fTypeHandle = node.fExpr->typeInfo.handle;
 		if (tTypeHandle != fTypeHandle)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
+			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 			g_ErrorSystem.Error(span, "Both sides need to be of the same type\n");
 		}
 
@@ -441,7 +437,7 @@ namespace Noctis
 
 		if (!op.sym)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
+			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 			StdStringView opName = GetOpName(node.op);
 			StdString lTypeName = lTypeHandle.ToString();
 			StdString rTypeName = rTypeHandle.ToString();
@@ -507,7 +503,7 @@ namespace Noctis
 
 		if (!node.operator_.left.IsValid())
 		{
-			Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
+			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 			StdStringView opName = GetOpName(node.op);
 			StdString typeName = exprTypeHandle.ToString();
 			g_ErrorSystem.Error(span, "Unary operator '%s' not found for '%s'\n", opName.data(), typeName.c_str());
@@ -559,7 +555,7 @@ namespace Noctis
 			sym = m_pCtx->activeModule->symTable.Find(GetCurScope(), qualName);
 		if (!sym)
 		{
-			MultiSpan span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx, std::get<AstExprSPtr>(node.astNode)->ctx->endIdx);
+			MultiSpan span = m_pCtx->spanManager.GetSpan(node.startIdx, node.endIdx);
 			StdString varName = qualName->ToString();
 			g_ErrorSystem.Error(span, "Cannot find '%s'", varName.c_str());
 			return;
@@ -600,7 +596,7 @@ namespace Noctis
 
 			if (!op.sym)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
+				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 				StdStringView opName = GetOpName(opKind);
 				StdString typeName = exprTypeHandle.ToString();
 				g_ErrorSystem.Error(span, "Index operator '%s' not found for '%s'\n", opName.data(), typeName.c_str());
@@ -617,19 +613,15 @@ namespace Noctis
 			SymbolSPtr sym = node.expr->sym;
 			if (sym->kind == SymbolKind::AdtEnumMember)
 			{
-				auto astNode = node.astNode;
-				ptr.reset(new ITrAdtTupleEnumInit{ node.expr, std::move(node.args) });
+				ptr.reset(new ITrAdtTupleEnumInit{ node.expr, std::move(node.args), node.endIdx });
 				ptr->sym = sym;
 				ptr->typeInfo.handle = sym->parent.lock()->SelfType();
-				ptr->astNode = astNode;
 			}
 			else
 			{
-				auto astNode = node.astNode;
-				ptr.reset(new ITrFuncCall{ node.expr, std::move(node.args) });
+				ptr.reset(new ITrFuncCall{ node.expr, std::move(node.args), node.endIdx });
 				ptr->sym = sym;
 				ptr->typeInfo.handle = sym->type.AsFunc().retType;
-				ptr->astNode = astNode;
 			}
 		}
 		else
@@ -733,7 +725,7 @@ namespace Noctis
 
 			if (!methodSym)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
+				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 				StdString methodName = node.iden->Name();
 				StdString callerTypeName = m_pCtx->typeReg.ToString(type);
 				g_ErrorSystem.Error(span, "Cannot find method '%s' with caller '%s'\n", methodName.c_str(), callerTypeName.c_str());
@@ -768,7 +760,7 @@ namespace Noctis
 
 		if (type->typeKind != TypeKind::Iden)
 		{
-			MultiSpan span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx, std::get<AstExprSPtr>(node.astNode)->ctx->endIdx);
+			MultiSpan span = m_pCtx->spanManager.GetSpan(node.startIdx, node.endIdx);
 			StdString typeName = m_pCtx->typeReg.ToString(type);
 			g_ErrorSystem.Error(span, "Cannot use a member access on a value of type '%s'", typeName);
 			return;
@@ -777,7 +769,7 @@ namespace Noctis
 		SymbolSPtr sym = m_pCtx->activeModule->symTable.Find(GetCurScope(), type->AsIden().qualName);
 		if (!sym)
 		{
-			MultiSpan span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx, std::get<AstExprSPtr>(node.astNode)->ctx->endIdx);
+			MultiSpan span = m_pCtx->spanManager.GetSpan(node.startIdx, node.endIdx);
 			StdString typeName = m_pCtx->typeReg.ToString(type);
 			g_ErrorSystem.Error(span, "Cannot find symbol for type '%s'", typeName);
 			return;
@@ -786,7 +778,7 @@ namespace Noctis
 		SymbolSPtr child = sym->children->FindChild(nullptr, node.iden);
 		if (!child || child->kind != SymbolKind::Var)
 		{
-			MultiSpan span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx, std::get<AstExprSPtr>(node.astNode)->ctx->endIdx);
+			MultiSpan span = m_pCtx->spanManager.GetSpan(node.startIdx, node.endIdx);
 			StdString typeName = m_pCtx->typeReg.ToString(type);
 			StdString varName = node.iden->Name();
 			g_ErrorSystem.Error(span, "'%s' does not have a member named '%s'", typeName, varName);
@@ -812,7 +804,7 @@ namespace Noctis
 
 		if (type->typeKind != TypeKind::Tuple)
 		{
-			MultiSpan span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx, std::get<AstExprSPtr>(node.astNode)->ctx->endIdx);
+			MultiSpan span = m_pCtx->spanManager.GetSpan(node.startIdx, node.endIdx);
 			StdString typeName = node.expr->typeInfo.handle.ToString();
 			g_ErrorSystem.Error(span, "Cannot use a tuple access on a value of type '%s'", typeName);
 			return;
@@ -821,7 +813,7 @@ namespace Noctis
 		TupleType& tupType = type->AsTuple();
 		if (node.index >= tupType.subTypes.size())
 		{
-			MultiSpan span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx, std::get<AstExprSPtr>(node.astNode)->ctx->endIdx);
+			MultiSpan span = m_pCtx->spanManager.GetSpan(node.startIdx, node.endIdx);
 			g_ErrorSystem.Error(span, "Tuple index out of range, trying to use index %u on a tuple with size %u", node.index, tupType.subTypes.size());
 			return;
 		}
@@ -933,7 +925,7 @@ namespace Noctis
 		TypeSPtr objType = node.type->handle.Type();
 		if (objType->typeKind != TypeKind::Iden)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
+			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_pCtx->typeReg.ToString(objType);
 			g_ErrorSystem.Error(span, "'%s' is not a valid type in an aggregate initializer\n", node.args.size());
 			return;
@@ -950,17 +942,15 @@ namespace Noctis
 			TypeSPtr type = sym->type.Type();
 			if (type->typeKind == TypeKind::Tuple)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
+				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 				StdString typeName = m_pCtx->typeReg.ToString(objType);
 				g_ErrorSystem.Error(span, "'%s' needs to be initialized with parenthesis\n", node.args.size());
 				return;
 			}
 
-			auto astNode = ptr->astNode;
-			ptr.reset(new ITrAdtAggrEnumInit{ node.type, std::move(node.args) });
+			ptr.reset(new ITrAdtAggrEnumInit{ node.type, std::move(node.args), node.endIdx });
 			ptr->typeInfo.handle = sym->parent.lock()->SelfType();
 			ptr->sym = sym;
-			ptr->astNode = astNode;
 			checkAggrArgs = m_pCtx->typeReg.IsType(sym->type, TypeKind::Iden);
 
 			ITrAdtAggrEnumInit& adtNode = *reinterpret_cast<ITrAdtAggrEnumInit*>(ptr.get());
@@ -987,7 +977,7 @@ namespace Noctis
 
 			if (adtNode.args.size() > children.size())
 			{
-				Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(adtNode.astNode)->ctx->startIdx);
+				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 				g_ErrorSystem.Error(span, "Found more arguments then expected, found %u, expected %u\n", adtNode.args.size(), children.size());
 				return;
 			}
@@ -1003,7 +993,7 @@ namespace Noctis
 					}
 					else if (!hasIden)
 					{
-						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(adtNode.astNode)->ctx->startIdx);
+						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 						g_ErrorSystem.Error(span, "Cannot mix named and unnamed arguments when initializing an adt enum\n");
 						return;
 					}
@@ -1011,7 +1001,7 @@ namespace Noctis
 					auto it = childrenNameMapping.find(arg->iden->Name());
 					if (it == childrenNameMapping.end())
 					{
-						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(adtNode.astNode)->ctx->startIdx);
+						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 						const StdString& name = arg->iden->Name();
 						g_ErrorSystem.Error(span, "The adt enum does not contain any variable named '%s'\n", name.c_str());
 						return;
@@ -1020,7 +1010,7 @@ namespace Noctis
 					u32 idx = it->second;
 					if (argTypes[idx].IsValid())
 					{
-						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(adtNode.astNode)->ctx->startIdx);
+						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 						const StdString& name = arg->iden->Name();
 						g_ErrorSystem.Error(span, "Variable '%s' has already been assigned\n", name.c_str());
 						return;
@@ -1030,7 +1020,7 @@ namespace Noctis
 					TypeHandle argType = arg->expr->typeInfo.handle;
 					if (!m_pCtx->typeReg.CanPassTo(expected, argType))
 					{
-						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(arg->expr->astNode)->ctx->startIdx);
+						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 						StdString expectedName = expected.ToString();
 						StdString argName = argType.ToString();
 						g_ErrorSystem.Error(span, "Cannot pass '%s' to '%s'\n", argName.c_str(), expectedName.c_str());
@@ -1042,7 +1032,7 @@ namespace Noctis
 				{
 					if (hasIden && i != 0)
 					{
-						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(adtNode.astNode)->ctx->startIdx);
+						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 						g_ErrorSystem.Error(span, "Cannot mix named and unnamed arguments when initializing an adt enum\n");
 						return;
 					}
@@ -1051,7 +1041,7 @@ namespace Noctis
 					TypeHandle argType = arg->expr->typeInfo.handle;
 					if (!m_pCtx->typeReg.CanPassTo(expected, argType))
 					{
-						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(arg->expr->astNode)->ctx->startIdx);
+						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 						StdString expectedName = expected.ToString();
 						StdString argName = argType.ToString();
 						g_ErrorSystem.Error(span, "Cannot pass '%s' to '%s'\n", argName.c_str(), expectedName.c_str());
@@ -1092,7 +1082,7 @@ namespace Noctis
 
 					if (!implsDefault)
 					{
-						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
+						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 						StdString symName = sym->qualName->ToString();
 						g_ErrorSystem.Error(span, "'%s' does not implement 'core.default.Default' or 'std.default.Default'\n", symName.c_str());
 					}
@@ -1121,7 +1111,7 @@ namespace Noctis
 
 					if (!validDef)
 					{
-						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
+						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 						StdString typeName = defType.ToString();
 						g_ErrorSystem.Error(span, "cannot initialize unspecified members from an expression with type '%s'\n", typeName.c_str());
 					}
@@ -1129,7 +1119,7 @@ namespace Noctis
 				}
 				else
 				{
-					Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
+					Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 					g_ErrorSystem.Error(span, "Not all arguments have been initialized\n");
 					return;
 				}
@@ -1137,11 +1127,9 @@ namespace Noctis
 		}
 		else if (sym->kind == SymbolKind::Struct)
 		{
-			auto astNode = ptr->astNode;
-			ptr.reset(new ITrStructInit{ node.type, std::move(node.args), false, nullptr });
+			ptr.reset(new ITrStructInit{ node.type, std::move(node.args), false, nullptr, node.endIdx });
 			ptr->typeInfo.handle = sym->SelfType();
 			ptr->sym = sym;
-			ptr->astNode = astNode;
 			checkAggrArgs = true;
 
 			ITrStructInit& structNode = *reinterpret_cast<ITrStructInit*>(ptr.get());
@@ -1165,7 +1153,7 @@ namespace Noctis
 
 			if (structNode.args.size() > children.size())
 			{
-				Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(structNode.astNode)->ctx->startIdx);
+				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 				g_ErrorSystem.Error(span, "Found more arguments then expected, found %u, expected %u\n", structNode.args.size(), children.size());
 				return;
 			}
@@ -1181,7 +1169,7 @@ namespace Noctis
 					}
 					else if (!hasIden)
 					{
-						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(structNode.astNode)->ctx->startIdx);
+						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 						g_ErrorSystem.Error(span, "Cannot mix named and unnamed arguments when initializing a structure\n");
 						return;
 					}
@@ -1189,7 +1177,7 @@ namespace Noctis
 					auto it = childrenNameMapping.find(arg->iden->Name());
 					if (it == childrenNameMapping.end())
 					{
-						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(structNode.astNode)->ctx->startIdx);
+						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 						const StdString& name = arg->iden->Name();
 						g_ErrorSystem.Error(span, "The structure does not contain any variable named '%s'\n", name.c_str());
 						return;
@@ -1198,7 +1186,7 @@ namespace Noctis
 					u32 idx = it->second;
 					if (argTypes[idx].IsValid())
 					{
-						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(structNode.astNode)->ctx->startIdx);
+						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 						const StdString& name = arg->iden->Name();
 						g_ErrorSystem.Error(span, "Variable '%s' has already been assigned\n", name.c_str());
 						return;
@@ -1208,7 +1196,7 @@ namespace Noctis
 					TypeHandle argType = arg->expr->typeInfo.handle;
 					if (!m_pCtx->typeReg.CanPassTo(expected, argType))
 					{
-						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(arg->expr->astNode)->ctx->startIdx);
+						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 						StdString expectedName = expected.ToString();
 						StdString argName = argType.ToString();
 						g_ErrorSystem.Error(span, "Cannot pass '%s' to '%s'\n", argName.c_str(), expectedName.c_str());
@@ -1222,7 +1210,7 @@ namespace Noctis
 				{
 					if (hasIden && i != 0)
 					{
-						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(structNode.astNode)->ctx->startIdx);
+						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 						g_ErrorSystem.Error(span, "Cannot mix named and unnamed arguments when initializing a structure\n");
 						return;
 					}
@@ -1231,7 +1219,7 @@ namespace Noctis
 					TypeHandle argType = arg->expr->typeInfo.handle;
 					if (!m_pCtx->typeReg.CanPassTo(expected, argType))
 					{
-						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(arg->expr->astNode)->ctx->startIdx);
+						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 						StdString expectedName = expected.ToString();
 						StdString argName = argType.ToString();
 						g_ErrorSystem.Error(span, "Cannot pass '%s' to '%s'\n", argName.c_str(), expectedName.c_str());
@@ -1272,7 +1260,7 @@ namespace Noctis
 
 					if (!implsDefault)
 					{
-						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
+						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 						StdString symName = sym->qualName->ToString();
 						g_ErrorSystem.Error(span, "'%s' does not implement 'core.default.Default' or 'std.default.Default'\n", symName.c_str());
 					}
@@ -1301,7 +1289,7 @@ namespace Noctis
 
 					if (!validDef)
 					{
-						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
+						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 						StdString typeName = defType.ToString();
 						g_ErrorSystem.Error(span, "cannot initialize unspecified members from an expression with type '%s'\n", typeName.c_str());
 					}
@@ -1309,7 +1297,7 @@ namespace Noctis
 				}
 				else
 				{
-					Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
+					Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 					g_ErrorSystem.Error(span, "Not all arguments have been initialized\n");
 					return;
 				}
@@ -1317,11 +1305,9 @@ namespace Noctis
 		}
 		else if (sym->kind == SymbolKind::Union)
 		{
-			auto astNode = ptr->astNode;
-			ptr.reset(new ITrUnionInit{ node.type, std::move(node.args) });
+			ptr.reset(new ITrUnionInit{ node.type, std::move(node.args), node.endIdx });
 			ptr->typeInfo.handle = sym->SelfType();
 			ptr->sym = sym;
-			ptr->astNode = astNode;
 
 			ITrUnionInit& unionNode = *reinterpret_cast<ITrUnionInit*>(ptr.get());
 
@@ -1343,7 +1329,7 @@ namespace Noctis
 
 				if (!arg->iden)
 				{
-					Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(unionNode.astNode)->ctx->startIdx);
+					Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 					g_ErrorSystem.Error(span, "Argument used to initialize a union require an identifier\n");
 					return;
 				}
@@ -1365,7 +1351,7 @@ namespace Noctis
 					TypeHandle argType = arg->expr->typeInfo.handle;
 					if (!m_pCtx->typeReg.CanPassTo(expected, argType))
 					{
-						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(arg->expr->astNode)->ctx->startIdx);
+						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 						StdString expectedName = expected.ToString();
 						StdString argName = argType.ToString();
 						g_ErrorSystem.Error(span, "Cannot pass '%s' to '%s'\n", argName.c_str(), expectedName.c_str());
@@ -1374,14 +1360,14 @@ namespace Noctis
 
 					if (unionNode.args.size() > 1)
 					{
-						Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(unionNode.astNode)->ctx->startIdx);
+						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 						g_ErrorSystem.Error(span, "Cannot initialize more than 1 union member\n");
 						return;
 					}
 				}
 				else
 				{
-					Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(unionNode.astNode)->ctx->startIdx);
+					Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 					const StdString& name = arg->iden->Name();
 					g_ErrorSystem.Error(span, "No member with the name '%s' exists\n", name.c_str());
 					return;
@@ -1389,14 +1375,14 @@ namespace Noctis
 			}
 			else
 			{
-				Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(unionNode.astNode)->ctx->startIdx);
+				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 				g_ErrorSystem.Error(span, "Cannot initialize a union without any members\n");
 				return;
 			}
 		}
 		else
 		{
-			Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
+			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_pCtx->typeReg.ToString(objType);
 			g_ErrorSystem.Error(span, "'%s' is not an aggregate or a adt-enum\n", typeName.c_str());
 			return;
@@ -1429,7 +1415,7 @@ namespace Noctis
 			}
 			else if (expr->typeInfo.handle != type)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
+				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 				StdString type0Name = type.ToString();
 				StdString type1Name = expr->typeInfo.handle.ToString();
 				g_ErrorSystem.Error(span, "An array connot contain values of different types, found '%s' and '%s'", type0Name.c_str(), type1Name.c_str());
@@ -1469,7 +1455,7 @@ namespace Noctis
 
 			if (!op.sym)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
+				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 				StdString lTypeName = fromType.ToString();
 				StdString rTypeName = toType.ToString();
 				StdString castName;
@@ -1493,7 +1479,7 @@ namespace Noctis
 
 			if (fromSize != toSize)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(std::get<AstExprSPtr>(node.astNode)->ctx->startIdx);
+				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 				StdString lTypeName = fromType.ToString();
 				StdString rTypeName = toType.ToString();
 				g_ErrorSystem.Error(span, "cannot transmute %s -> %s, since they are different sizes\n", lTypeName.c_str(), rTypeName.c_str());
@@ -1841,7 +1827,7 @@ namespace Noctis
 		if (m_ExpectedHandle.Kind() != TypeKind::Iden ||
 			m_ExpectedHandle.AsIden().sym.lock()->kind != SymbolKind::AdtEnumMember)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "cannot match an adt enum pattern with '%s'\n", typeName.c_str());
 			return;
@@ -1863,7 +1849,7 @@ namespace Noctis
 
 		if (node.args.size() > children.size())
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "'%s' does not have %u children, cannot match\n", typeName.c_str(), node.args.size());
 			return;
@@ -1882,7 +1868,7 @@ namespace Noctis
 			{
 				if (hasWildcard)
 				{
-					Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+					Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 					g_ErrorSystem.Error(span, "Cannot have more than 1 wildcard in a pattern\n");
 					return;
 				}
@@ -1893,7 +1879,7 @@ namespace Noctis
 			SymbolSPtr child = !arg.first.empty() ? memberSym->children->FindChild(nullptr, Iden::Create(arg.first)) : children[i];
 			if (!child)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(arg.second->astNode->ctx->startIdx);
+				Span span = m_pCtx->spanManager.GetSpan(arg.second->startIdx);
 				StdString name = memberSym->qualName->ToString();
 				g_ErrorSystem.Error(span, "adt enum '%s' does not have child '%s'\n", name.c_str(), arg.first);
 			}
@@ -1906,7 +1892,7 @@ namespace Noctis
 
 		if (!hasWildcard && node.args.size() < children.size())
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "'%s' does not have %u children, cannot match\n", typeName.c_str(), node.args.size());
 		}
@@ -1920,7 +1906,7 @@ namespace Noctis
 		
 		if (m_ExpectedHandle.Kind() != TypeKind::Iden)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "cannot match an tuple enum pattern with '%s'\n", typeName.c_str());
 			return;
@@ -1932,7 +1918,7 @@ namespace Noctis
 
 		if (memberSym->type.Kind() != TypeKind::Tuple)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 			StdString typeName = memberSym->qualName->ToString();
 			g_ErrorSystem.Error(span, "cannot match an tuple enum pattern with '%s'\n", typeName.c_str());
 			return;
@@ -1941,7 +1927,7 @@ namespace Noctis
 		TupleType& tupType = memberSym->type.AsTuple();
 		if (node.subPatterns.size() > tupType.subTypes.size())
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "'%s' does not have %u children, cannot match\n", typeName.c_str(), node.subPatterns.size());
 			return;
@@ -1955,7 +1941,7 @@ namespace Noctis
 			{
 				if (i != node.subPatterns.size() - 1)
 				{
-					Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+					Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 					g_ErrorSystem.Error(span, "wildcard pattern is only allowed as last sub-pattern\n");
 				}
 				hasWildcard = true;
@@ -1968,7 +1954,7 @@ namespace Noctis
 
 		if (!hasWildcard && node.subPatterns.size() < tupType.subTypes.size())
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "'%s' does not have %u children, cannot match\n", typeName.c_str(), node.subPatterns.size());
 		}
@@ -1982,7 +1968,7 @@ namespace Noctis
 		
 		if (m_ExpectedHandle.Kind() != TypeKind::Iden)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "cannot match an aggregate with '%s'\n", typeName.c_str());
 			return;
@@ -1991,7 +1977,7 @@ namespace Noctis
 		SymbolSPtr handleSym = m_ExpectedHandle.AsIden().sym.lock();
 		if (handleSym->kind != SymbolKind::Struct)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "cannot match an aggregate with '%s'\n", typeName.c_str());
 		}
@@ -2010,7 +1996,7 @@ namespace Noctis
 
 		if (node.args.size() > children.size())
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "'%s' does not have %u children, cannot match\n", typeName.c_str(), node.args.size());
 			return;
@@ -2029,7 +2015,7 @@ namespace Noctis
 			{
 				if (hasWildcard)
 				{
-					Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+					Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 					g_ErrorSystem.Error(span, "Cannot have more than 1 wildcard in a pattern\n");
 					return;
 				}
@@ -2040,7 +2026,7 @@ namespace Noctis
 			SymbolSPtr child = !arg.first.empty() ? aggrSym->children->FindChild(nullptr, Iden::Create(arg.first)) : children[i];
 			if (!child)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(arg.second->astNode->ctx->startIdx);
+				Span span = m_pCtx->spanManager.GetSpan(arg.second->startIdx);
 				StdString name = aggrSym->qualName->ToString();
 				g_ErrorSystem.Error(span, "adt enum '%s' does not have child '%s'\n", name.c_str(), arg.first);
 			}
@@ -2053,7 +2039,7 @@ namespace Noctis
 
 		if (!hasWildcard && node.args.size() < children.size())
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "'%s' does not have %u children, cannot match\n", typeName.c_str(), node.args.size());
 		}
@@ -2074,7 +2060,7 @@ namespace Noctis
 		}
 		case TokenType::Null:
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 			g_ErrorSystem.Error(span, "null literal patterns are not allowed");
 			return;
 		}
@@ -2088,7 +2074,7 @@ namespace Noctis
 		case TokenType::F64Lit:
 		case TokenType::F128Lit:
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 			g_ErrorSystem.Error(span, "Float literal patterns are not allowed");
 			return;
 		}
@@ -2113,7 +2099,7 @@ namespace Noctis
 		
 		if (!doesMatch)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "cannot match '%s' to a literal.\n", typeName.c_str());
 		}
@@ -2135,17 +2121,17 @@ namespace Noctis
 		
 		if (sym->kind == SymbolKind::Struct)
 		{
-			ptr.reset(new ITrAggrPattern{ node.qualName, std::move(node.args) });
+			ptr.reset(new ITrAggrPattern{ node.qualName, std::move(node.args), node.startIdx, node.endIdx });
 			ITrVisitor::Visit(ptr);
 		}
 		else if (sym->kind == SymbolKind::AdtEnumMember)
 		{
-			ptr.reset(new ITrAdtAggrEnumPattern{ node.qualName, std::move(node.args) });
+			ptr.reset(new ITrAdtAggrEnumPattern{ node.qualName, std::move(node.args), node.startIdx, node.endIdx });
 			ITrVisitor::Visit(ptr);
 		}
 		else
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "unknown aggregate match pattern of type '%s'\n", typeName.c_str());
 		}
@@ -2157,7 +2143,7 @@ namespace Noctis
 		if (m_ExpectedHandle.Kind() != TypeKind::Array &&
 			m_ExpectedHandle.Kind() != TypeKind::Slice)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "cannot match a slice pattern with '%s'\n", typeName.c_str());
 		}
@@ -2174,7 +2160,7 @@ namespace Noctis
 	{
 		if (m_ExpectedHandle.Kind() != TypeKind::Tuple)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "cannot match a tuple pattern with '%s'\n", typeName.c_str());
 		}
@@ -2182,7 +2168,7 @@ namespace Noctis
 		TupleType& tupType = m_ExpectedHandle.AsTuple();
 		if (node.subPatterns.size() > tupType.subTypes.size())
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "'%s' does not have %u elements, cannot match\n", typeName.c_str(), node.subPatterns.size());
 			return;
@@ -2196,7 +2182,7 @@ namespace Noctis
 			{
 				if (i != node.subPatterns.size() - 1)
 				{
-					Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+					Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 					g_ErrorSystem.Error(span, "wildcard pattern is only allowed as last sub-pattern\n");
 				}
 				hasWildcard = true;
@@ -2209,7 +2195,7 @@ namespace Noctis
 
 		if (!hasWildcard && node.subPatterns.size() < tupType.subTypes.size())
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "'%s' does not have %u children, cannot match\n", typeName.c_str(), node.subPatterns.size());
 		}
@@ -2222,7 +2208,7 @@ namespace Noctis
 		Visit(*node.type);
 		if (m_pCtx->typeReg.MatchTypes(m_ExpectedHandle, node.type->handle, *m_pCtx->activeModule))
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "cannot match a type pattern with '%s'\n", typeName.c_str());
 		}
@@ -2243,7 +2229,7 @@ namespace Noctis
 		
 		if (m_ExpectedHandle.Kind() != TypeKind::Iden)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "cannot match a value enum pattern with '%s'\n", typeName.c_str());
 		}
@@ -2255,7 +2241,7 @@ namespace Noctis
 			enumSym->kind != SymbolKind::ValEnum &&
 			enumSym->kind != SymbolKind::AdtEnum)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 			StdString name = enumSym->qualName->ToString();
 			g_ErrorSystem.Error(span, "'%s' is not a value enum'\n", name.c_str(), node.qualName->LastIden()->Name());
 			return;
@@ -2265,7 +2251,7 @@ namespace Noctis
 		{
 			if (!enumSym->children->Empty())
 			{
-				Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 				StdString name = enumSym->qualName->ToString();
 				g_ErrorSystem.Error(span, "adt enum value '%s' has unmatched children\n", name.c_str());
 			}
@@ -2393,7 +2379,7 @@ namespace Noctis
 						StdVector<TypeSPtr> extractedGens = m_pCtx->typeReg.ExtractGenerics(handle.Type());
 						if (extractedGens.empty())
 						{
-							Span span = m_pCtx->spanManager.GetSpan(bound->type->astNode->ctx->startIdx);
+							Span span = m_pCtx->spanManager.GetSpan(bound->type->startIdx);
 							g_ErrorSystem.Error(span, "Type should be associated with a generic type to be bound");
 						}
 						else
@@ -2408,7 +2394,7 @@ namespace Noctis
 				StdVector<TypeSPtr> extractedGens = m_pCtx->typeReg.ExtractGenerics(handle.Type());
 				if (extractedGens.empty())
 				{
-					Span span = m_pCtx->spanManager.GetSpan(bound->type->astNode->ctx->startIdx);
+					Span span = m_pCtx->spanManager.GetSpan(bound->type->startIdx);
 					g_ErrorSystem.Error(span, "Type should be associated with a generic type to be bound");
 				}
 				else

@@ -184,13 +184,6 @@ namespace Noctis
 		m_CurScope = m_CurScope->Base();
 	}
 
-	void IdenScopePass::Visit(AstEmptyMethodDecl& node)
-	{
-		GenericScope(node.ctx, node.iden, node.generics);
-		Walk(node);
-		m_CurScope = m_CurScope->Base();
-	}
-
 	void IdenScopePass::Visit(AstImplDecl& node)
 	{
 		UnnamedScope(node.ctx, "impl", node.generics);

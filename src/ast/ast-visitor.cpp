@@ -126,11 +126,6 @@ namespace Noctis
 		Walk(node);
 	}
 
-	void AstVisitor::Visit(AstEmptyMethodDecl& node)
-	{
-		Walk(node);
-	}
-
 	void AstVisitor::Visit(AstImplDecl& node)
 	{
 		Walk(node);
@@ -686,7 +681,6 @@ namespace Noctis
 		case AstDeclKind::Var: Visit(*static_cast<AstVarDecl*>(node.get())); break;
 		case AstDeclKind::Func: Visit(*static_cast<AstFuncDecl*>(node.get())); break;
 		case AstDeclKind::Method: Visit(*static_cast<AstMethodDecl*>(node.get())); break;
-		case AstDeclKind::EmptyMethod: Visit(*static_cast<AstEmptyMethodDecl*>(node.get())); break;
 		case AstDeclKind::Impl: Visit(*static_cast<AstImplDecl*>(node.get())); break;
 		case AstDeclKind::DeclMacro: Visit(*static_cast<AstDeclMacro*>(node.get())); break;
 		case AstDeclKind::RulesDeclMacro: Visit(*static_cast<AstRulesDeclMacro*>(node.get())); break;
@@ -999,20 +993,6 @@ namespace Noctis
 		{
 			Visit(stmt);
 		}
-	}
-
-	void AstVisitor::Walk(AstEmptyMethodDecl& node)
-	{
-		if (node.attribs)
-			Visit(*node.attribs);
-		if (node.generics)
-			Visit(*node.generics);
-		for (AstParamSPtr param : node.params)
-		{
-			Visit(*param);
-		}
-		if (node.retType)
-			Visit(node.retType);
 	}
 
 	void AstVisitor::Walk(AstImplDecl& node)

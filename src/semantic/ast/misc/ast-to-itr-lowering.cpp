@@ -17,6 +17,10 @@ namespace Noctis
 
 	void AstToITrLowering::Visit(AstTypeDisambiguation& node)
 	{
+		ITrTypeSPtr type = VisitAndGetType(node.type);
+		Visit(*node.interface->qualName);
+		TypeDisambiguationSPtr disambiguation = TypeDisambiguation::Create(type->handle, node.interface->qualName->ctx->qualName);
+		m_TypeDisambiguation.reset(new ITrTypeDisambiguation{disambiguation , type, m_QualName, node.ctx->startIdx, node.ctx->endIdx });
 	}
 
 	void AstToITrLowering::Visit(AstIden& node)
@@ -29,14 +33,11 @@ namespace Noctis
 		{
 			if (arg.kind == GenericArgKind::Type)
 			{
-				AstVisitor::Visit(arg.type);
-				ITrTypeSPtr type = PopType();
-				
+				ITrTypeSPtr type = VisitAndGetType(arg.type);
 				IdenGeneric genArg;
 				genArg.isType = true;
 				genArg.isSpecialized = true;
 				genArg.type = type->handle;
-
 				generics.push_back(genArg);
 				assocArgs.emplace_back(type, nullptr);
 			}
@@ -45,17 +46,14 @@ namespace Noctis
 				IdenGeneric genArg;
 				genArg.isType = false;
 				genArg.isSpecialized = true;
-				
-				AstVisitor::Visit(arg.expr);
-				genArg.itrExpr = PopExpr();
-
+				genArg.itrExpr = VisitAndGetExpr(arg.expr);
 				generics.push_back(genArg);
 				assocArgs.emplace_back(nullptr, nullptr);
 			}
 		}
 
 		IdenSPtr iden = Iden::Create(node.iden, generics);
-		ITrIdenSPtr itrIden{ new ITrIden{ iden, std::move(assocArgs) } };
+		ITrIdenSPtr itrIden{ new ITrIden{ iden, std::move(assocArgs), node.ctx->startIdx, node.ctx->endIdx } };
 		m_Idens.push_back(itrIden);
 	}
 
@@ -72,16 +70,14 @@ namespace Noctis
 
 		QualNameSPtr qualName;
 		if (m_TypeDisambiguation)
-		{
 			qualName = QualName::Create(m_TypeDisambiguation->disambiguation);
-			m_TypeDisambiguation = nullptr;
-		}
 		qualName = QualName::Create(qualName, idens);
 
 		m_QualName.reset(new ITrQualName{ qualName, m_TypeDisambiguation, std::move(m_Idens) });
 		new (&m_Idens) StdVector<ITrIdenSPtr>{};
 		
 		node.ctx->qualName = qualName;
+		m_TypeDisambiguation = nullptr;
 	}
 
 	void AstToITrLowering::Visit(AstParam& node)
@@ -113,65 +109,47 @@ namespace Noctis
 
 	void AstToITrLowering::Visit(AstStructDecl& node)
 	{
-		PushDefFrame();
-		Walk(node);
-		StdVector<ITrDefSPtr> subDefs = PopDefFrame();
-
-		ITrBodySPtr body{ new ITrBody{ std::move(subDefs), {} } };
 		
-		ITrAttribsSPtr attribs;
-		if (node.attribs)
-		{
-			attribs = PopAttribs();
-			attribs->astNode = node.attribs;
-		}
-		ITrGenDeclSPtr genDecl;
-		if (node.generics)
-		{
-			genDecl = PopGenDecl();
-			genDecl->astNode = node.generics;
+		ITrAttribsSPtr attribs = VisitAndGetAttribs(node.attribs);
+		ITrGenDeclSPtr genDecl = VisitAndGetGenDecl(node.generics);
+		if (genDecl)
 			HandleGenerics(genDecl, node.ctx->qualName);
+
+		PushDefFrame();
+		for (AstStmtSPtr member : node.members)
+		{
+			AstVisitor::Visit(member);
 		}
+		ITrBodySPtr body{ new ITrBody{ PopDefFrame(), {} } };
 		
-		ITrDefSPtr def{ new ITrStruct{ attribs, genDecl, node.ctx->qualName, IsModDef() } };
-		node.defItr = def;
+		ITrDefSPtr def{ new ITrStruct{ attribs, genDecl, node.ctx->qualName, IsModDef(), node.ctx->startIdx, node.ctx->endIdx } };
 		def->ptr = def;
 
 		ITrModule& mod = m_pCtx->activeModule->itrModule;
 		def->fileName = m_TreeFilename;
-		def->astNode = m_DeclNode;
 		mod.AddDefinition(def, body);
 		PushDef(def);
 	}
 
 	void AstToITrLowering::Visit(AstUnionDecl& node)
 	{
-		PushDefFrame();
-		Walk(node);
-		StdVector<ITrDefSPtr> subDefs = PopDefFrame();
-
-		ITrBodySPtr body{ new ITrBody{ std::move(subDefs), {} } };
-
-		ITrAttribsSPtr attribs;
-		if (node.attribs)
-		{
-			attribs = PopAttribs();
-			attribs->astNode = node.attribs;
-		}
-		ITrGenDeclSPtr genDecl;
-		if (node.generics)
-		{
-			genDecl = PopGenDecl();
-			genDecl->astNode = node.generics;
+		ITrAttribsSPtr attribs = VisitAndGetAttribs(node.attribs);
+		ITrGenDeclSPtr genDecl = VisitAndGetGenDecl(node.generics);
+		if (genDecl)
 			HandleGenerics(genDecl, node.ctx->qualName);
+
+		PushDefFrame();
+		for (AstStmtSPtr member : node.members)
+		{
+			AstVisitor::Visit(member);
 		}
-		ITrDefSPtr def{ new ITrUnion{ attribs, genDecl, node.ctx->qualName, IsModDef() } };
-		node.defItr = def;
+		ITrBodySPtr body{ new ITrBody{ PopDefFrame(), {} } };
+		
+		ITrDefSPtr def{ new ITrUnion{ attribs, genDecl, node.ctx->qualName, IsModDef(), node.ctx->startIdx, node.ctx->endIdx } };
 		def->ptr = def;
 
 		ITrModule& mod = m_pCtx->activeModule->itrModule;
 		def->fileName = m_TreeFilename;
-		def->astNode = m_DeclNode;
 		mod.AddDefinition(def, body);
 		PushDef(def);
 	}
@@ -186,13 +164,9 @@ namespace Noctis
 		{
 			ITrExprSPtr expr;
 			if (astMember.second)
-			{
-				AstVisitor::Visit(astMember.second);
-				expr = PopExpr();
-				expr->astNode = astMember.second;
-			}
+				expr = VisitAndGetExpr(astMember.second);
 
-			ITrDefSPtr member{ new ITrValEnumMember{ enumQualName, Iden::Create(astMember.first), expr } };
+			ITrDefSPtr member{ new ITrValEnumMember{ enumQualName, Iden::Create(astMember.first), expr, node.ctx->startIdx, node.ctx->endIdx } };
 			member->ptr = member;
 			member->fileName = m_TreeFilename;
 			mod.AddDefinition(member);
@@ -201,19 +175,11 @@ namespace Noctis
 
 		ITrBodySPtr body{ new ITrBody{ std::move(members) , {} } };
 
-		ITrAttribsSPtr attribs;
-		if (node.attribs)
-		{
-			Visit(*node.attribs);
-			attribs = PopAttribs();
-			attribs->astNode = node.attribs;
-		}
-		ITrDefSPtr def{ new ITrValEnum{ attribs, enumQualName, IsModDef() } };
-		node.defItr = def;
+		ITrAttribsSPtr attribs = VisitAndGetAttribs(node.attribs);
+		ITrDefSPtr def{ new ITrValEnum{ attribs, enumQualName, IsModDef(), node.ctx->startIdx, node.ctx->endIdx } };
 		def->ptr = def;
 
 		def->fileName = m_TreeFilename;
-		def->astNode = m_DeclNode;
 		mod.AddDefinition(def, body);
 		PushDef(def);
 	}
@@ -228,15 +194,8 @@ namespace Noctis
 		StdVector<ITrDefSPtr> members;
 		for (StdPair<StdString, AstTypeSPtr> astMember : node.members)
 		{
-			ITrTypeSPtr type;
-			if (astMember.second)
-			{
-				AstVisitor::Visit(astMember.second);
-				type = PopType();
-				type->astNode = astMember.second;
-			}
-			
-			ITrDefSPtr member{ new ITrAdtEnumMember{ enumQualName, Iden::Create(astMember.first), type } };
+			ITrTypeSPtr type = VisitAndGetType(astMember.second);
+			ITrDefSPtr member{ new ITrAdtEnumMember{ enumQualName, Iden::Create(astMember.first), type, node.ctx->startIdx, node.ctx->endIdx } };
 			member->ptr = member;
 			member->fileName = m_TreeFilename;
 			mod.AddDefinition(member);
@@ -248,27 +207,14 @@ namespace Noctis
 
 		ITrBodySPtr body{ new ITrBody{ std::move(members) , {} } };
 
-		ITrAttribsSPtr attribs;
-		if (node.attribs)
-		{
-			Visit(*node.attribs);
-			attribs = PopAttribs();
-			attribs->astNode = node.attribs;
-		}
-		ITrGenDeclSPtr genDecl;
-		if (node.generics)
-		{
-			Visit(*node.generics);
-			genDecl = PopGenDecl();
-			genDecl->astNode = node.generics;
+		ITrAttribsSPtr attribs = VisitAndGetAttribs(node.attribs);
+		ITrGenDeclSPtr genDecl = VisitAndGetGenDecl(node.generics);
+		if (genDecl)
 			HandleGenerics(genDecl, node.ctx->qualName);
-		}
-		ITrDefSPtr def{ new ITrAdtEnum{ attribs, genDecl, enumQualName, IsModDef() } };
-		node.defItr = def;
+		ITrDefSPtr def{ new ITrAdtEnum{ attribs, genDecl, enumQualName, IsModDef(), node.ctx->startIdx, node.ctx->endIdx } };
 		def->ptr = def;
 
 		def->fileName = m_TreeFilename;
-		def->astNode = m_DeclNode;
 		mod.AddDefinition(def, body);
 		PushDef(def);
 	}
@@ -276,178 +222,113 @@ namespace Noctis
 	void AstToITrLowering::Visit(AstMarkerInterfaceDecl& node)
 	{
 		m_ImplType = m_pCtx->typeReg.Iden(TypeMod::None, node.ctx->qualName);
-		Walk(node);
 		m_ImplType = TypeHandle{};
 		
-		ITrAttribsSPtr attribs;
-		if (node.attribs)
-		{
-			attribs = PopAttribs();
-			attribs->astNode = node.attribs;
-		}
-		ITrDefSPtr def{ new ITrMarkerInterface{ attribs, node.ctx->qualName } };
-		node.defItr = def;
+		ITrAttribsSPtr attribs = VisitAndGetAttribs(node.attribs);
+		ITrDefSPtr def{ new ITrMarkerInterface{ attribs, node.ctx->qualName, node.ctx->startIdx, node.ctx->endIdx } };
 		def->ptr = def;
 
 		ITrModule& mod = m_pCtx->activeModule->itrModule;
 		def->fileName = m_TreeFilename;
-		def->astNode = m_DeclNode;
 		mod.AddDefinition(def);
 		PushDef(def);
 	}
 
 	void AstToITrLowering::Visit(AstWeakInterfaceDecl& node)
 	{
+		ITrAttribsSPtr attribs = VisitAndGetAttribs(node.attribs);
+		ITrGenDeclSPtr genDecl;// = VisitAndGetGenDecl(node.generics);
+		if (genDecl)
+			HandleGenerics(genDecl, node.ctx->qualName);
+
 		PushDefFrame();
 		m_ImplType = m_pCtx->typeReg.Iden(TypeMod::None, node.ctx->qualName);
-		Walk(node);
-		m_ImplType = TypeHandle{};
-		StdVector<ITrDefSPtr> subDefs = PopDefFrame();
-
-		ITrBodySPtr body{ new ITrBody{ std::move(subDefs), {} } };
-
-		ITrAttribsSPtr attribs;
-		if (node.attribs)
+		for (AstStmtSPtr member : node.members)
 		{
-			attribs = PopAttribs();
-			attribs->astNode = node.attribs;
+			AstVisitor::Visit(member);
 		}
-		ITrGenDeclSPtr genDecl;
-		//if (node.generics)
-		//{
-		//	genDecl = PopGenDecl();
-		//	genDecl->astNode = node.generics;
-		//}
-		ITrDefSPtr def{ new ITrWeakInterface{ attribs, genDecl, node.ctx->qualName } };
-		node.defItr = def;
+		m_ImplType = TypeHandle{};
+		ITrBodySPtr body{ new ITrBody{ PopDefFrame(), {} } };
+		
+		ITrDefSPtr def{ new ITrWeakInterface{ attribs, genDecl, node.ctx->qualName, node.ctx->startIdx, node.ctx->endIdx } };
 		def->ptr = def;
 
 		ITrModule& mod = m_pCtx->activeModule->itrModule;
 		def->fileName = m_TreeFilename;
-		def->astNode = m_DeclNode;
 		mod.AddDefinition(def, body);
 		PushDef(def);
 	}
 
 	void AstToITrLowering::Visit(AstStrongInterfaceDecl& node)
 	{
-		PushDefFrame();
-		m_ImplType = m_pCtx->typeReg.Iden(TypeMod::None, node.ctx->qualName);
-		Walk(node);
-		m_ImplType = TypeHandle{};
-		StdVector<ITrDefSPtr> subDefs = PopDefFrame();
-
-		ITrBodySPtr body{ new ITrBody{ std::move(subDefs), {} } };
-
-		ITrAttribsSPtr attribs;
-		if (node.attribs)
-		{
-			attribs = PopAttribs();
-			attribs->astNode = node.attribs;
-		}
-		ITrGenDeclSPtr genDecl;
-		if (node.generics)
-		{
-			genDecl = PopGenDecl();
-			genDecl->astNode = node.generics;
+		ITrAttribsSPtr attribs = VisitAndGetAttribs(node.attribs);
+		ITrGenDeclSPtr genDecl = VisitAndGetGenDecl(node.generics);
+		if (genDecl)
 			HandleGenerics(genDecl, node.ctx->qualName);
-		}
 
 		StdPairVector<QualNameSPtr, SpanId> interfaces;
 		usize size = node.implInterfaces.size();
 		interfaces.resize(size);
 		for (usize i = 0; i< size; ++i)
 		{
-			Visit(*node.implInterfaces[i]);
-			ITrTypeSPtr interface = PopType();
-			interface->astNode = node.implInterfaces[i];
+			ITrTypeSPtr interface = VisitAndGetType(node.implInterfaces[i]);
 			TypeSPtr interfaceType = interface->handle.Type();
 			interfaces[i].first = interfaceType->AsIden().qualName;
-			interfaces[i].second = interface->astNode->ctx->startIdx;
+			interfaces[i].second = interface->startIdx;
 		}
+
+		PushDefFrame();
+		m_ImplType = m_pCtx->typeReg.Iden(TypeMod::None, node.ctx->qualName);
+		for (AstStmtSPtr member : node.members)
+		{
+			AstVisitor::Visit(member);
+		}
+		m_ImplType = TypeHandle{};
+		ITrBodySPtr body{ new ITrBody{ PopDefFrame(), {} } };
 		
-		ITrDefSPtr def{ new ITrStrongInterface{ attribs, genDecl, node.ctx->qualName, std::move(interfaces) } };
-		node.defItr = def;
+		ITrDefSPtr def{ new ITrStrongInterface{ attribs, genDecl, node.ctx->qualName, std::move(interfaces), node.ctx->startIdx, node.ctx->endIdx } };
 		def->ptr = def;
 
 		ITrModule& mod = m_pCtx->activeModule->itrModule;
 		def->fileName = m_TreeFilename;
-		def->astNode = m_DeclNode;
 		mod.AddDefinition(def, body);
 		PushDef(def);
 	}
 
 	void AstToITrLowering::Visit(AstTypeAliasDecl& node)
 	{
-		PushDefFrame();
-		Walk(node);
-		StdVector<ITrDefSPtr> subDefs = PopDefFrame();
-
-		ITrBodySPtr body{ new ITrBody{ std::move(subDefs), {} } };
-
-		ITrAttribsSPtr attribs;
-		if (node.attribs)
-		{
-			attribs = PopAttribs();
-			attribs->astNode = node.attribs;
-		}
-		ITrGenDeclSPtr genDecl;
-		if (node.generics)
-		{
-			genDecl = PopGenDecl();
-			genDecl->astNode = node.generics;
+		ITrAttribsSPtr attribs = VisitAndGetAttribs(node.attribs);
+		ITrGenDeclSPtr genDecl = VisitAndGetGenDecl(node.generics);
+		if (genDecl)
 			HandleGenerics(genDecl, node.ctx->qualName);
-		}
 
-		ITrTypeSPtr type = node.type ? PopType() : nullptr;
-		ITrDefSPtr def{ new ITrTypealias{ attribs, genDecl, node.ctx->qualName, type, IsModDef() } };
-		node.defItr = def;
+		ITrTypeSPtr type = VisitAndGetType(node.type);
+		ITrDefSPtr def{ new ITrTypealias{ attribs, genDecl, node.ctx->qualName, type, IsModDef(), node.ctx->startIdx, node.ctx->endIdx } };
 		def->ptr = def;
 
 		ITrModule& mod = m_pCtx->activeModule->itrModule;
 		def->fileName = m_TreeFilename;
-		def->astNode = m_DeclNode;
-		mod.AddDefinition(def, body);
 		PushDef(def);
 	}
 
 	void AstToITrLowering::Visit(AstTypeDefDecl& node)
 	{
-		PushDefFrame();
-		Walk(node);
-		StdVector<ITrDefSPtr> subDefs = PopDefFrame();
-
-		ITrBodySPtr body{ new ITrBody{ std::move(subDefs), {} } };
-
-		ITrAttribsSPtr attribs;
-		if (node.attribs)
-		{
-			attribs = PopAttribs();
-			attribs->astNode = node.attribs;
-		}
-		ITrGenDeclSPtr genDecl;
-		if (node.generics)
-		{
-			genDecl = PopGenDecl();
-			genDecl->astNode = node.generics;
+		ITrAttribsSPtr attribs = VisitAndGetAttribs(node.attribs);
+		ITrGenDeclSPtr genDecl = VisitAndGetGenDecl(node.generics);
+		if (genDecl)
 			HandleGenerics(genDecl, node.ctx->qualName);
-		}
 
-		ITrTypeSPtr type = PopType();
-		ITrDefSPtr def{ new ITrTypedef{ attribs, genDecl, node.ctx->qualName, type, IsModDef() } };
-		node.defItr = def;
+		ITrTypeSPtr type = VisitAndGetType(node.type);
+		ITrDefSPtr def{ new ITrTypedef{ attribs, genDecl, node.ctx->qualName, type, IsModDef(), node.ctx->startIdx, node.ctx->endIdx } };
 		def->ptr = def;
 
 		ITrModule& mod = m_pCtx->activeModule->itrModule;
 		def->fileName = m_TreeFilename;
-		def->astNode = m_DeclNode;
-		mod.AddDefinition(def, body);
 		PushDef(def);
 	}
 
 	void AstToITrLowering::Visit(AstVarDecl& node)
 	{
-		Walk(node);
 		if (m_InFunc)
 		{
 			StdVector<IdenSPtr> idens;
@@ -456,50 +337,24 @@ namespace Noctis
 				idens.push_back(Iden::Create(iden));
 			}
 
-			ITrTypeSPtr type;
-			if (node.type)
-			{
-				type = PopType();
-				type->astNode = node.type;
-			}
-
-			ITrExprSPtr expr;
-			if (node.expr)
-			{
-				expr = PopExpr();
-				expr->astNode = node.expr;
-			}
-
-			ITrAttribsSPtr attribs;
-			if (node.attribs)
-			{
-				attribs = PopAttribs();
-				attribs->astNode = node.attribs;
-			}
-			ITrStmtSPtr stmt{ new ITrLocalVar{ attribs, std::move(idens), type, expr } };
-			node.itr = stmt;
-			m_Stmts.push(stmt);
+			ITrAttribsSPtr attribs = VisitAndGetAttribs(node.attribs);
+			ITrTypeSPtr type = VisitAndGetType(node.type);
+			ITrExprSPtr expr = VisitAndGetExpr(node.expr);
+			ITrStmtSPtr stmt{ new ITrLocalVar{ attribs, std::move(idens), type, expr, node.ctx->startIdx, node.ctx->endIdx } };
+			m_Stmt = stmt;
 		}
 		else
 		{
-			ITrAttribsSPtr attribs;
-			if (node.attribs)
-			{
-				attribs = PopAttribs();
-				attribs->astNode = node.attribs;
-			}
-			
-			ITrTypeSPtr type = PopType();
-			type->astNode = node.type;
+			ITrAttribsSPtr attribs = VisitAndGetAttribs(node.attribs);
+			ITrTypeSPtr type = VisitAndGetType(node.type);
 			
 			ITrModule& mod = m_pCtx->activeModule->itrModule;
 			for (StdString& iden : node.idens)
 			{
 				QualNameSPtr qualName = QualName::Create(node.ctx->scope, iden);
-				ITrDefSPtr def{ new ITrVar{ attribs, qualName, type, IsModDef() } };
+				ITrDefSPtr def{ new ITrVar{ attribs, qualName, type, IsModDef(), node.ctx->startIdx, node.ctx->endIdx } };
 				def->ptr = def;
 				def->fileName = m_TreeFilename;
-				def->astNode = m_DeclNode;
 				def->ptr = def;
 				mod.AddDefinition(def);
 				PushDef(def);
@@ -514,21 +369,11 @@ namespace Noctis
 		bool prevInFunc = m_InFunc;
 		m_InFunc = true;
 		
-		ITrAttribsSPtr attribs;
-		if (node.attribs)
+		ITrAttribsSPtr attribs = VisitAndGetAttribs(node.attribs);
+		ITrGenDeclSPtr genDecl = VisitAndGetGenDecl(node.generics);
+		if (genDecl)
 		{
-			Visit(*node.attribs);
-			attribs = PopAttribs();
-			attribs->astNode = node.attribs;
-		}
-
-		ITrGenDeclSPtr genDecl;
-		if (node.generics)
-		{
-			Visit(*node.generics);
-			genDecl = PopGenDecl();
-			genDecl->astNode = node.generics;
-
+			HandleGenerics(genDecl, node.ctx->qualName);
 			if (node.whereClause)
 				HandleWhereClause(*node.whereClause, genDecl);
 		}
@@ -543,30 +388,21 @@ namespace Noctis
 		}
 		else if (node.retType)
 		{
-			AstVisitor::Visit(node.retType);
-			retType = PopType();
-			retType->astNode = node.retType;
+			retType = VisitAndGetType(node.retType);
 		}
 		
-		ITrDefSPtr def{ new ITrFunc{ attribs, genDecl, node.ctx->qualName, std::move(params), retType, ITrFuncKind::Func, IsModDef() } };
-		node.defItr = def;
+		ITrDefSPtr def{ new ITrFunc{ attribs, genDecl, node.ctx->qualName, std::move(params), retType, ITrFuncKind::Func, IsModDef(), node.ctx->startIdx, node.ctx->endIdx } };
 		def->ptr = def;
 
 		PushDefFrame();
 		for (AstStmtSPtr astStmt : node.stmts)
 		{
-			AstVisitor::Visit(astStmt);
-			ITrStmtSPtr stmt = PopStmt();
-			stmt->astNode = astStmt;
-			stmts.push_back(stmt);
+			stmts.push_back(VisitAndGetStmt(astStmt));
 		}
-		StdVector<ITrDefSPtr> defs = PopDefFrame();
-
-		ITrBodySPtr body{ new ITrBody{ std::move(defs), std::move(stmts) } };
+		ITrBodySPtr body{ new ITrBody{ PopDefFrame(), std::move(stmts) } };
 
 		ITrModule& mod = m_pCtx->activeModule->itrModule;
 		def->fileName = m_TreeFilename;
-		def->astNode = m_DeclNode;
 		mod.AddDefinition(def, body);
 		PushDef(def);
 
@@ -577,27 +413,17 @@ namespace Noctis
 	{
 		// TODO: throws
 		
-		ITrAttribsSPtr attribs;
-		if (node.attribs)
+		ITrAttribsSPtr attribs = VisitAndGetAttribs(node.attribs);
+		ITrGenDeclSPtr genDecl = VisitAndGetGenDecl(node.generics);
+		if (genDecl)
 		{
-			Visit(*node.attribs);
-			attribs = PopAttribs();
-			attribs->astNode = node.attribs;
-		}
-
-		ITrGenDeclSPtr genDecl;
-		if (node.generics)
-		{
-			Visit(*node.generics);
-			genDecl = PopGenDecl();
-			genDecl->astNode = node.generics;
-
+			HandleGenerics(genDecl, node.ctx->qualName);
 			if (node.whereClause)
 				HandleWhereClause(*node.whereClause, genDecl);
 		}
 		
 		StdVector<ITrParamSPtr> params = GetParams(node.params);
-		AddMethodReceiverToParams(node.rec, params);
+		AddMethodReceiverToParams(node, params);
 
 		StdVector<ITrStmtSPtr> stmts;
 		ITrTypeSPtr retType;
@@ -607,81 +433,28 @@ namespace Noctis
 		}
 		else if (node.retType)
 		{
-			AstVisitor::Visit(node.retType);
-			retType = PopType();
-			retType->astNode = node.retType;
+			retType = VisitAndGetType(node.retType);
 		}
 
-		ITrDefSPtr def{ new ITrFunc{ attribs, genDecl, node.ctx->qualName, std::move(params), retType, ITrFuncKind::Method, IsModDef() } };
-		node.defItr = def;
+		ITrDefSPtr def{ new ITrFunc{ attribs, genDecl, node.ctx->qualName, std::move(params), retType, ITrFuncKind::Method, IsModDef(), node.ctx->startIdx, node.ctx->endIdx } };
 		def->ptr = def;
 
 		PushDefFrame();
 		for (AstStmtSPtr astStmt : node.stmts)
 		{
-			AstVisitor::Visit(astStmt);
-			ITrStmtSPtr stmt = PopStmt();
-			stmt->astNode = astStmt;
-			stmts.push_back(stmt);
+			stmts.push_back(VisitAndGetStmt(astStmt));
 		}
-		StdVector<ITrDefSPtr> defs = PopDefFrame();
-
-		ITrBodySPtr body{ new ITrBody{ std::move(defs), std::move(stmts) } };
+		ITrBodySPtr body{ new ITrBody{ PopDefFrame(), std::move(stmts) } };
 
 		ITrModule& mod = m_pCtx->activeModule->itrModule;
 		def->fileName = m_TreeFilename;
-		def->astNode = m_DeclNode;
 		mod.AddDefinition(def, body);
-		PushDef(def);
-	}
-
-	void AstToITrLowering::Visit(AstEmptyMethodDecl& node)
-	{
-		// TODO: throws
-		
-		ITrAttribsSPtr attribs;
-		if (node.attribs)
-		{
-			Visit(*node.attribs);
-			attribs = PopAttribs();
-			attribs->astNode = node.attribs;
-		}
-
-		ITrGenDeclSPtr genDecl;
-		if (node.generics)
-		{
-			Visit(*node.generics);
-			genDecl = PopGenDecl();
-			genDecl->astNode = node.generics;
-		}
-		
-		StdVector<ITrParamSPtr> params = GetParams(node.params);
-		AddMethodReceiverToParams(node.rec, params);
-
-		ITrTypeSPtr retType;
-		if (node.retType)
-		{
-			AstVisitor::Visit(node.retType);
-			retType = PopType();
-			retType->astNode = node.retType;
-		}
-
-		ITrDefSPtr def{ new ITrFunc{ attribs, genDecl, node.ctx->qualName, std::move(params), retType, ITrFuncKind::EmptyMethod, false } };
-		node.defItr = def;
-		def->ptr = def;
-
-		ITrModule& mod = m_pCtx->activeModule->itrModule;
-		def->fileName = m_TreeFilename;
-		def->astNode = m_DeclNode;
-		mod.AddDefinition(def);
 		PushDef(def);
 	}
 
 	void AstToITrLowering::Visit(AstImplDecl& node)
 	{
-		Visit(node.type);
-		ITrTypeSPtr type = PopType();
-		type->astNode = node.type;
+		ITrTypeSPtr type = VisitAndGetType(node.type);
 
 		PushDefFrame();
 		m_ITrImplType = type;
@@ -694,20 +467,11 @@ namespace Noctis
 		m_ITrImplType = nullptr;
 		StdVector<ITrDefSPtr> defs = PopDefFrame();
 		
-		ITrAttribsSPtr attribs;
-		if (node.attribs)
+		ITrAttribsSPtr attribs = VisitAndGetAttribs(node.attribs);
+		ITrGenDeclSPtr genDecl = VisitAndGetGenDecl(node.generics);
+		if (genDecl)
 		{
-			Visit(*node.attribs);
-			attribs = PopAttribs();
-			attribs->astNode = node.attribs;
-		}
-		ITrGenDeclSPtr genDecl;
-		if (node.generics)
-		{
-			Visit(*node.generics);
-			genDecl = PopGenDecl();
-			genDecl->astNode = node.generics;
-
+			HandleGenerics(genDecl, node.ctx->qualName);
 			if (node.whereClause)
 				HandleWhereClause(*node.whereClause, genDecl);
 		}
@@ -715,22 +479,18 @@ namespace Noctis
 		StdPair<QualNameSPtr, SpanId> interface;
 		if (node.interface)
 		{
-			Visit(*node.interface);
-			ITrTypeSPtr interfaceType = PopType();
-			interfaceType->astNode = node.interface;
+			ITrTypeSPtr interfaceType = VisitAndGetType(node.interface);
 			interface.first = interfaceType->handle.AsIden().qualName;
-			interface.second = interfaceType->astNode->ctx->startIdx;
+			interface.second = interfaceType->startIdx;
 		}
 		
-		ITrDefSPtr def{ new ITrImpl{ attribs, genDecl, node.ctx->qualName, type, interface } };
-		node.defItr = def;
+		ITrDefSPtr def{ new ITrImpl{ attribs, genDecl, node.ctx->qualName, type, interface, node.ctx->startIdx, node.ctx->endIdx } };
 		def->ptr = def;
 		
 		ITrBodySPtr body{ new ITrBody{ std::move(defs), {} } };
 
 		ITrModule& mod = m_pCtx->activeModule->itrModule;
 		def->fileName = m_TreeFilename;
-		def->astNode = m_DeclNode;
 		mod.AddDefinition(def, body);
 		PushDef(def);
 	}
@@ -745,13 +505,10 @@ namespace Noctis
 		StdVector<ITrStmtSPtr> stmts;
 		for (AstStmtSPtr astStmt : node.stmts)
 		{
-			AstVisitor::Visit(astStmt);
-			if (astStmt->stmtKind != AstStmtKind::Decl)
-			{
-				ITrStmtSPtr stmt = PopStmt();
-				stmt->astNode = astStmt;
-				stmts.push_back(stmt);
-			}
+			if (astStmt->stmtKind == AstStmtKind::Decl)
+				AstVisitor::Visit(astStmt);
+			else
+				stmts.push_back(VisitAndGetStmt(astStmt));
 		}
 
 		if (stmts.size() == 1)
@@ -760,8 +517,7 @@ namespace Noctis
 			if (stmt->stmtKind == ITrStmtKind::Block ||
 				stmt->stmtKind == ITrStmtKind::Unsafe)
 			{
-				node.itr = stmt;
-				m_Stmts.push(stmt);
+				m_Stmt = stmt;
 				return;
 			}
 		}
@@ -769,46 +525,38 @@ namespace Noctis
 		QualNameSPtr blockName = node.ctx->qualName;
 		if (!blockName)
 			blockName = node.ctx->scope;
-		ITrStmtSPtr stmt{ new ITrBlock{ blockName->LastIden()->Name(), std::move(stmts) } };
-		node.itr = stmt;
-		m_Stmts.push(stmt);
+		ITrStmtSPtr stmt{ new ITrBlock{ blockName->LastIden()->Name(), std::move(stmts), node.ctx->startIdx, node.ctx->endIdx } };
+		m_Stmt = stmt;
 	}
 
 	void AstToITrLowering::Visit(AstIfStmt& node)
 	{
-		Walk(node);
 		ITrBlockSPtr fBlock;
 		if (node.elseBody)
 		{
-			ITrStmtSPtr fBlockStmt = PopStmt();
+			ITrStmtSPtr fBlockStmt = VisitAndGetStmt(node.elseBody);
 			fBlock = *reinterpret_cast<ITrBlockSPtr*>(&fBlockStmt);
-			fBlock->astNode = node.elseBody;
 		}
-		ITrStmtSPtr tBlockStmt = PopStmt();
+		ITrStmtSPtr tBlockStmt = VisitAndGetStmt(node.body);
 		ITrBlockSPtr tBlock = *reinterpret_cast<ITrBlockSPtr*>(&tBlockStmt);
-		tBlock->astNode = node.body;
 
-		ITrExprSPtr cond = PopExpr();
+		ITrExprSPtr cond = VisitAndGetExpr(node.cond);
 
 		ITrLocalVarSPtr decl;
 		if (node.decl)
 		{
-			ITrStmtSPtr declStmt = PopStmt();
-			declStmt->astNode = node.decl;
+			ITrStmtSPtr declStmt = VisitAndGetStmt(node.decl);
 			decl = *reinterpret_cast<ITrLocalVarSPtr*>(&declStmt);
 		}
 
-		ITrStmtSPtr stmt{ new ITrIf{ false, decl, cond, tBlock, fBlock } };
-		stmt.reset(new ITrBlock{ node.ctx->qualName->LastIden()->Name(), { stmt } });
-		node.itr = stmt;
-		m_Stmts.push(stmt);
+		ITrStmtSPtr stmt{ new ITrIf{ false, decl, cond, tBlock, fBlock, node.ctx->startIdx } };
+		stmt.reset(new ITrBlock{ node.ctx->qualName->LastIden()->Name(), { stmt }, node.ctx->startIdx, node.ctx->endIdx });
+		m_Stmt = stmt;
 	}
 
 	void AstToITrLowering::Visit(AstLoopStmt& node)
 	{
-		Walk(node);
-		ITrStmtSPtr body = PopStmt();
-		body->astNode = node.body;
+		ITrStmtSPtr body = VisitAndGetStmt(node.body);
 
 		StdVector<ITrStmtSPtr> stmts;
 		if (body->stmtKind == ITrStmtKind::Block)
@@ -818,16 +566,13 @@ namespace Noctis
 
 		IdenSPtr label = node.label ? Iden::Create(node.label->iden) : nullptr;
 
-		ITrStmtSPtr stmt{ new ITrLoop{ node.ctx->qualName->LastIden()->Name(), label, std::move(stmts) } };
-		node.itr = stmt;
-		m_Stmts.push(stmt);
+		ITrStmtSPtr stmt{ new ITrLoop{ node.ctx->qualName->LastIden()->Name(), label, std::move(stmts), node.ctx->startIdx, node.ctx->endIdx } };
+		m_Stmt = stmt;
 	}
 
 	void AstToITrLowering::Visit(AstWhileStmt& node)
 	{
-		Walk(node);
-		ITrStmtSPtr body = PopStmt();
-		body->astNode = node.body;
+		ITrStmtSPtr body = VisitAndGetStmt(node.body);
 
 		StdVector<ITrStmtSPtr> stmts;
 		if (body->stmtKind == ITrStmtKind::Block)
@@ -836,24 +581,21 @@ namespace Noctis
 			stmts.push_back(body);
 
 		// Condition
-		ITrExprSPtr cond = PopExpr();
-		cond = ITrExprSPtr{ new ITrUnary{ OperatorKind::Not, cond } };
-		ITrStmtSPtr breakStmt{ new ITrBreak{} };
-		ITrBlockSPtr breakBlock{ new ITrBlock{ "", { breakStmt } } };
-		stmts.insert(stmts.begin(), ITrStmtSPtr{ new ITrIf{ false, nullptr, cond, breakBlock, nullptr } });
+		ITrExprSPtr cond = VisitAndGetExpr(node.cond);
+		cond = ITrExprSPtr{ new ITrUnary{ OperatorKind::Not, cond, cond->startIdx, cond->endIdx } };
+		ITrStmtSPtr breakStmt{ new ITrBreak{ nullptr, cond->startIdx, cond->endIdx } };
+		ITrBlockSPtr breakBlock{ new ITrBlock{ "", { breakStmt }, cond->startIdx, cond->endIdx } };
+		stmts.insert(stmts.begin(), ITrStmtSPtr{ new ITrIf{ false, nullptr, cond, breakBlock, nullptr, node.ctx->startIdx } });
 
 		IdenSPtr label = node.label ? Iden::Create(node.label->iden) : nullptr;
 
-		ITrStmtSPtr stmt{ new ITrLoop{ node.ctx->qualName->LastIden()->Name(), label, std::move(stmts) } };
-		node.itr = stmt;
-		m_Stmts.push(stmt);
+		ITrStmtSPtr stmt{ new ITrLoop{ node.ctx->qualName->LastIden()->Name(), label, std::move(stmts), node.ctx->startIdx, node.ctx->endIdx } };
+		m_Stmt = stmt;
 	}
 
 	void AstToITrLowering::Visit(AstDoWhileStmt& node)
 	{
-		Walk(node);
-		ITrStmtSPtr body = PopStmt();
-		body->astNode = node.body;
+		ITrStmtSPtr body = VisitAndGetStmt(node.body);
 
 		StdVector<ITrStmtSPtr> stmts;
 		if (body->stmtKind == ITrStmtKind::Block)
@@ -862,24 +604,22 @@ namespace Noctis
 			stmts.push_back(body);
 
 		// Condition
-		ITrExprSPtr cond = PopExpr();
-		cond = ITrExprSPtr{ new ITrUnary{ OperatorKind::Not, cond } };
-		ITrStmtSPtr breakStmt{ new ITrBreak{} };
-		ITrBlockSPtr breakBlock{ new ITrBlock{ "", { breakStmt } } };
-		stmts.push_back(ITrStmtSPtr{ new ITrIf{ false, nullptr, cond, breakBlock, nullptr } });
+		ITrExprSPtr cond = VisitAndGetExpr(node.cond);
+		cond = ITrExprSPtr{ new ITrUnary{ OperatorKind::Not, cond, cond->startIdx, cond->endIdx } };
+		ITrStmtSPtr breakStmt{ new ITrBreak{ nullptr, cond->startIdx, cond->endIdx } };
+		ITrBlockSPtr breakBlock{ new ITrBlock{ "", { breakStmt }, cond->startIdx, cond->endIdx } };
+		stmts.push_back(ITrStmtSPtr{ new ITrIf{ false, nullptr, cond, breakBlock, nullptr, cond->startIdx } });
 
 		IdenSPtr label = node.label ? Iden::Create(node.label->iden) : nullptr;
 		
-		ITrStmtSPtr stmt{ new ITrLoop{ node.ctx->qualName->LastIden()->Name(), label, std::move(stmts) } };
-		node.itr = stmt;
-		m_Stmts.push(stmt);
+		ITrStmtSPtr stmt{ new ITrLoop{ node.ctx->qualName->LastIden()->Name(), label, std::move(stmts), node.ctx->startIdx, node.ctx->endIdx } };
+		m_Stmt = stmt;
 	}
 
 	void AstToITrLowering::Visit(AstForStmt& node)
 	{
-		Walk(node);
-		ITrExprSPtr range = PopExpr();
-		ITrStmtSPtr body = PopStmt();
+		ITrExprSPtr range = VisitAndGetExpr(node.range);
+		ITrStmtSPtr body = VisitAndGetStmt(node.body);
 
 		IdenSPtr label = node.label ? Iden::Create(node.label->iden) : nullptr;
 
@@ -889,9 +629,8 @@ namespace Noctis
 			idens.push_back(Iden::Create(iden));
 		}
 
-		ITrStmtSPtr stmt{ new ITrForRange{ node.ctx->qualName->LastIden()->Name(), label, idens, range, *reinterpret_cast<ITrBlockSPtr*>(&body) } };
-		node.itr = stmt;
-		m_Stmts.push(stmt);
+		ITrStmtSPtr stmt{ new ITrForRange{ node.ctx->qualName->LastIden()->Name(), label, idens, range, *reinterpret_cast<ITrBlockSPtr*>(&body), node.ctx->startIdx } };
+		m_Stmt = stmt;
 	}
 
 	void AstToITrLowering::Visit(AstSwitchStmt& node)
@@ -901,128 +640,86 @@ namespace Noctis
 		cases.reserve(size);
 		for (AstSwitchCase& case_ : node.cases)
 		{
-			AstVisitor::Visit(case_.pattern);
-			ITrPatternSPtr pattern = PopPattern();
-			pattern->astNode = case_.pattern;
-			
-			ITrExprSPtr expr;
-			if (case_.expr)
-			{
-				AstVisitor::Visit(case_.expr);
-				expr = PopExpr();
-				expr->astNode = case_.expr;
-			}
-
-			AstVisitor::Visit(case_.body);
-			ITrStmtSPtr tmp = PopStmt();
-			tmp->astNode = case_.body;
-			
+			ITrPatternSPtr pattern = VisitAndGetPattern(case_.pattern);
+			ITrExprSPtr expr = VisitAndGetExpr(case_.expr);
+			ITrStmtSPtr tmp = VisitAndGetStmt(case_.body);
 			ITrBlockSPtr block = *reinterpret_cast<ITrBlockSPtr*>(&tmp);
-
 			cases.emplace_back(pattern, expr, block);
 		}
 
-		AstVisitor::Visit(node.cond);
-		ITrExprSPtr expr = PopExpr();
-		expr->astNode = node.cond;
-
+		ITrExprSPtr expr = VisitAndGetExpr(node.cond);
 		IdenSPtr label = node.label ? Iden::Create(node.label->iden) : nullptr;
-		
-		ITrStmtSPtr stmt{ new ITrSwitch{ node.ctx->qualName->LastIden()->Name(), label, expr, std::move(cases) } };
-		node.itr = stmt;
-		m_Stmts.push(stmt);
+		ITrStmtSPtr stmt{ new ITrSwitch{ node.ctx->qualName->LastIden()->Name(), label, expr, std::move(cases), node.ctx->startIdx, node.ctx->endIdx } };
+		m_Stmt = stmt;
 	}
 
 	void AstToITrLowering::Visit(AstLabelStmt& node)
 	{
-		ITrStmtSPtr stmt{ new ITrLabel{ Iden::Create(node.iden) } };
-		node.itr = stmt;
-		m_Stmts.push(stmt);
+		ITrStmtSPtr stmt{ new ITrLabel{ Iden::Create(node.iden), node.ctx->startIdx, node.ctx->endIdx } };
+		m_Stmt = stmt;
 	}
 
 	void AstToITrLowering::Visit(AstBreakStmt& node)
 	{
-		ITrStmtSPtr stmt{ new ITrBreak{ Iden::Create(node.iden) } };
-		node.itr = stmt;
-		m_Stmts.push(stmt);
+		ITrStmtSPtr stmt{ new ITrBreak{ Iden::Create(node.iden), node.ctx->startIdx, node.ctx->endIdx } };
+		m_Stmt = stmt;
 	}
 
 	void AstToITrLowering::Visit(AstContinueStmt& node)
 	{
-		ITrStmtSPtr stmt{ new ITrContinue{ Iden::Create(node.iden) } };
-		node.itr = stmt;
-		m_Stmts.push(stmt);
+		ITrStmtSPtr stmt{ new ITrContinue{ Iden::Create(node.iden), node.ctx->startIdx, node.ctx->endIdx } };
+		m_Stmt = stmt;
 	}
 
 	void AstToITrLowering::Visit(AstFallthroughStmt& node)
 	{
-		ITrStmtSPtr stmt{ new ITrFallthrough{} };
-		node.itr = stmt;
-		m_Stmts.push(stmt);
+		ITrStmtSPtr stmt{ new ITrFallthrough{ node.ctx->startIdx, node.ctx->endIdx } };
+		m_Stmt = stmt;
 	}
 
 	void AstToITrLowering::Visit(AstGotoStmt& node)
 	{
-		ITrStmtSPtr stmt{ new ITrGoto{ Iden::Create(node.iden) } };
-		node.itr = stmt;
-		m_Stmts.push(stmt);
+		ITrStmtSPtr stmt{ new ITrGoto{ Iden::Create(node.iden), node.ctx->startIdx, node.ctx->endIdx } };
+		m_Stmt = stmt;
 	}
 
 	void AstToITrLowering::Visit(AstReturnStmt& node)
 	{
 		Walk(node);
-		ITrExprSPtr expr;
-		if (node.expr)
-		{
-			expr = PopExpr();
-			expr->astNode = node.expr;
-		}
+		ITrExprSPtr expr = VisitAndGetExpr(node.expr);
 
-		ITrStmtSPtr stmt{ new ITrReturn{ expr } };
-		node.itr = stmt;
-		m_Stmts.push(stmt);
+		ITrStmtSPtr stmt{ new ITrReturn{ expr, node.ctx->startIdx, node.ctx->endIdx } };
+		m_Stmt = stmt;
 	}
 
 	void AstToITrLowering::Visit(AstThrowStmt& node)
 	{
-		Walk(node);
-		ITrExprSPtr expr = PopExpr();
-		expr->astNode = node.expr;
-
-		ITrStmtSPtr stmt{ new ITrReturn{ expr } };
-		node.itr = stmt;
-		m_Stmts.push(stmt);
+		// TODO: incorrect
+		ITrExprSPtr expr = VisitAndGetExpr(node.expr);
+		ITrStmtSPtr stmt{ new ITrReturn{ expr, node.ctx->startIdx, node.ctx->endIdx } };
+		m_Stmt = stmt;
 	}
 
 	void AstToITrLowering::Visit(AstExprStmt& node)
 	{
-		Walk(node);
-		ITrExprSPtr expr = PopExpr();
+		ITrExprSPtr expr = VisitAndGetExpr(node.expr);
 		ITrStmtSPtr stmt = *reinterpret_cast<ITrStmtSPtr*>(&expr);
-		node.itr = stmt;
-		m_Stmts.push(stmt);
+		m_Stmt = stmt;
 	}
 
 	void AstToITrLowering::Visit(AstDeferStmt& node)
 	{
-		Walk(node);
-		ITrExprSPtr expr = PopExpr();
-		expr->astNode = node.expr;
-
-		ITrStmtSPtr stmt{ new ITrDefer{ false, expr } };
-		node.itr = stmt;
-		m_Stmts.push(stmt);
+		ITrExprSPtr expr = VisitAndGetExpr(node.expr);
+		ITrStmtSPtr stmt{ new ITrDefer{ false, expr, node.ctx->startIdx, node.ctx->endIdx } };
+		m_Stmt = stmt;
 	}
 
 	void AstToITrLowering::Visit(AstErrDeferStmt& node)
 	{
-		Walk(node);
-		ITrExprSPtr expr = PopExpr();
-		expr->astNode = node.expr;
-
-		ITrStmtSPtr stmt{ new ITrDefer{ true, expr } };
-		node.itr = stmt;
-		m_Stmts.push(stmt);
+		// TODO: incorrect
+		ITrExprSPtr expr = VisitAndGetExpr(node.expr);
+		ITrStmtSPtr stmt{ new ITrDefer{ true, expr, node.ctx->startIdx, node.ctx->endIdx } };
+		m_Stmt = stmt;
 	}
 
 	void AstToITrLowering::Visit(AstUnsafeStmt& node)
@@ -1030,13 +727,10 @@ namespace Noctis
 		StdVector<ITrStmtSPtr> stmts;
 		for (AstStmtSPtr astStmt : node.stmts)
 		{
-			AstVisitor::Visit(astStmt);
-			if (astStmt->stmtKind != AstStmtKind::Decl)
-			{
-				ITrStmtSPtr stmt = PopStmt();
-				stmt->astNode = astStmt;
-				stmts.push_back(stmt);
-			}
+			if (astStmt->stmtKind == AstStmtKind::Decl)
+				AstVisitor::Visit(astStmt);
+			else
+				stmts.push_back(VisitAndGetStmt(astStmt));
 		}
 
 		if (stmts.size() == 1)
@@ -1045,16 +739,14 @@ namespace Noctis
 			if (stmt->stmtKind == ITrStmtKind::Block ||
 				stmt->stmtKind == ITrStmtKind::Unsafe)
 			{
-				node.itr = stmt;
-				m_Stmts.push(stmt);
+				m_Stmt = stmt;
 				return;
 			}
 		}
 
-		ITrBlockSPtr block{ new ITrBlock{ node.ctx->qualName->LastIden()->Name(), std::move(stmts) } };
-		ITrStmtSPtr stmt{ new ITrUnsafe{ block } };
-		node.itr = stmt;
-		m_Stmts.push(stmt);
+		ITrBlockSPtr block{ new ITrBlock{ node.ctx->qualName->LastIden()->Name(), std::move(stmts), node.ctx->startIdx, node.ctx->endIdx } };
+		ITrStmtSPtr stmt{ new ITrUnsafe{ block, node.ctx->startIdx } };
+		m_Stmt = stmt;
 	}
 
 	void AstToITrLowering::Visit(AstErrorHandlerStmt& node)
@@ -1062,331 +754,222 @@ namespace Noctis
 		StdVector<ITrStmtSPtr> stmts;
 		for (AstStmtSPtr astStmt : node.stmts)
 		{
-			AstVisitor::Visit(astStmt);
-			if (astStmt->stmtKind != AstStmtKind::Decl)
-			{
-				ITrStmtSPtr stmt = PopStmt();
-				stmt->astNode = astStmt;
-				stmts.push_back(stmt);
-			}
+			if (astStmt->stmtKind == AstStmtKind::Decl)
+				AstVisitor::Visit(astStmt);
+			else
+				stmts.push_back(VisitAndGetStmt(astStmt));
 		}
 
-		ITrStmtSPtr stmt{ new ITrErrHandler{ std::move(stmts) } };
-		node.itr = stmt;
-		m_Stmts.push(stmt);
+		ITrStmtSPtr stmt{ new ITrErrHandler{ std::move(stmts), node.ctx->startIdx, node.ctx->endIdx } };
+		m_Stmt = stmt;
 	}
 
 	void AstToITrLowering::Visit(AstCompIfStmt& node)
 	{
-		Walk(node);
 		ITrBlockSPtr fBlock;
 		if (node.elseBody)
 		{
-			ITrStmtSPtr fBlockStmt = PopStmt();
+			ITrStmtSPtr fBlockStmt = VisitAndGetStmt(node.elseBody);
 			fBlock = *reinterpret_cast<ITrBlockSPtr*>(&fBlockStmt);
-			fBlock->astNode = node.elseBody;
 		}
-		ITrStmtSPtr tBlockStmt = PopStmt();
+		ITrStmtSPtr tBlockStmt = VisitAndGetStmt(node.body);
 		ITrBlockSPtr tBlock = *reinterpret_cast<ITrBlockSPtr*>(&tBlockStmt);
-		tBlock->astNode = node.body;
 
-		ITrExprSPtr cond = PopExpr();
+		ITrExprSPtr cond = VisitAndGetExpr(node.cond);
 
 		ITrLocalVarSPtr decl;
 		if (node.decl)
 		{
-			ITrStmtSPtr declStmt = PopStmt();
-			declStmt->astNode = node.decl;
+			ITrStmtSPtr declStmt = VisitAndGetStmt(node.decl);
 			decl = *reinterpret_cast<ITrLocalVarSPtr*>(&declStmt);
 		}
 
-		ITrStmtSPtr stmt{ new ITrIf{ true, decl, cond, tBlock, fBlock } };
-		stmt.reset(new ITrBlock{ node.ctx->qualName->LastIden()->Name(), { stmt } });
-		node.itr = stmt;
-		m_Stmts.push(stmt);
+		ITrStmtSPtr stmt{ new ITrIf{ true, decl, cond, tBlock, fBlock, node.ctx->startIdx } };
+		stmt.reset(new ITrBlock{ node.ctx->qualName->LastIden()->Name(), { stmt }, stmt->startIdx, stmt->endIdx });
+		m_Stmt = stmt;
 	}
 
 	void AstToITrLowering::Visit(AstCompCondStmt& node)
 	{
-		Walk(node);
 		ITrBlockSPtr fBlock;
 		if (node.elseBody)
 		{
-			ITrStmtSPtr fBlockStmt = PopStmt();
+			ITrStmtSPtr fBlockStmt = VisitAndGetStmt(node.elseBody);
 			fBlock = *reinterpret_cast<ITrBlockSPtr*>(&fBlockStmt);
-			fBlock->astNode = node.elseBody;
 		}
-		ITrStmtSPtr tBlockStmt = PopStmt();
+		ITrStmtSPtr tBlockStmt = VisitAndGetStmt(node.body);
 		ITrBlockSPtr tBlock = *reinterpret_cast<ITrBlockSPtr*>(&tBlockStmt);
-		tBlock->astNode = node.body;
 		
 		IdenSPtr cond = Iden::Create(node.cond.Text());
 		OperatorKind op = TokenTypeToOperator(node.cmp.Type());
 		u64 val = node.val.Unsigned();
 
-		ITrStmtSPtr stmt{ new ITrCompCond{ false, cond, op, val, tBlock, fBlock } };
+		ITrStmtSPtr stmt{ new ITrCompCond{ false, cond, op, val, tBlock, fBlock, node.ctx->startIdx } };
 	}
 
 	void AstToITrLowering::Visit(AstCompDebugStmt& node)
 	{
-		Walk(node);
 		ITrBlockSPtr fBlock;
 		if (node.elseBody)
 		{
-			ITrStmtSPtr fBlockStmt = PopStmt();
+			ITrStmtSPtr fBlockStmt = VisitAndGetStmt(node.elseBody);
 			fBlock = *reinterpret_cast<ITrBlockSPtr*>(&fBlockStmt);
-			fBlock->astNode = node.elseBody;
 		}
-		ITrStmtSPtr tBlockStmt = PopStmt();
+		ITrStmtSPtr tBlockStmt = VisitAndGetStmt(node.body);
 		ITrBlockSPtr tBlock = *reinterpret_cast<ITrBlockSPtr*>(&tBlockStmt);
-		tBlock->astNode = node.body;
 
 		IdenSPtr cond = Iden::Create(node.cond.Text());
 		OperatorKind op = TokenTypeToOperator(node.cmp.Type());
 		u64 val = node.val.Unsigned();
 
-		ITrStmtSPtr stmt{ new ITrCompCond{ true, cond, op, val, tBlock, fBlock } };
+		ITrStmtSPtr stmt{ new ITrCompCond{ true, cond, op, val, tBlock, fBlock, node.ctx->startIdx } };
 	}
 
 	void AstToITrLowering::Visit(AstAssignExpr& node)
 	{
 		OperatorKind op = TokenTypeToOperator(node.op);
-
-		Walk(node);
-		ITrExprSPtr rExpr = PopExpr();
-		rExpr->astNode = node.rExpr;
-		ITrExprSPtr lExpr = PopExpr();
-		lExpr->astNode = node.lExpr;
-
+		ITrExprSPtr lExpr = VisitAndGetExpr(node.lExpr);
+		ITrExprSPtr rExpr = VisitAndGetExpr(node.rExpr);
 		ITrExprSPtr expr{ new ITrAssign{ op, lExpr, rExpr } };
-		node.itr = expr;
-		m_Exprs.push(expr);
+		m_Expr = expr;
 	}
 
 	void AstToITrLowering::Visit(AstTernaryExpr& node)
 	{
-		Walk(node);
-		
-		ITrExprSPtr fExpr = PopExpr();
-		fExpr->astNode = node.falseExpr;
-		ITrExprSPtr tExpr = PopExpr();
-		tExpr->astNode = node.trueExpr;
-		ITrExprSPtr cond = PopExpr();
-		cond->astNode = node.cond;
-
+		ITrExprSPtr cond = VisitAndGetExpr(node.cond);
+		ITrExprSPtr tExpr = VisitAndGetExpr(node.trueExpr);
+		ITrExprSPtr fExpr = VisitAndGetExpr(node.falseExpr);
 		ITrExprSPtr expr{ new ITrTernary{ cond, tExpr, fExpr } };
-		node.itr = expr;
-		m_Exprs.push(expr);
+		m_Expr = expr;
 	}
 
 	void AstToITrLowering::Visit(AstBinaryExpr& node)
 	{
-		Walk(node);
-		
 		OperatorKind op = TokenTypeToOperator(node.op);
-
-		ITrExprSPtr rExpr = PopExpr();
-		rExpr->astNode = node.rExpr;
-		ITrExprSPtr lExpr = PopExpr();
-		lExpr->astNode = node.lExpr;
-
+		ITrExprSPtr lExpr = VisitAndGetExpr(node.lExpr);
+		ITrExprSPtr rExpr = VisitAndGetExpr(node.rExpr);
 		ITrExprSPtr expr{ new ITrBinary{ op, lExpr, rExpr } };
-		node.itr = expr;
-		m_Exprs.push(expr);
+		m_Expr = expr;
 	}
 
 	void AstToITrLowering::Visit(AstPostfixExpr& node)
 	{
 		OperatorKind op = TokenTypeToOperator(node.op, true, true);
-
-		Walk(node);
-		ITrExprSPtr expr = PopExpr();
-		expr->astNode = node.expr;
-
-		expr = ITrExprSPtr{ new ITrUnary{ op, expr } };
-		node.itr = expr;
-		m_Exprs.push(expr);
+		ITrExprSPtr expr = VisitAndGetExpr(node.expr);
+		expr = ITrExprSPtr{ new ITrUnary{ op, expr, node.ctx->startIdx, node.ctx->endIdx } };
+		m_Expr = expr;
 	}
 
 	void AstToITrLowering::Visit(AstPrefixExpr& node)
 	{
 		OperatorKind op = TokenTypeToOperator(node.op, true, false);
-		Walk(node);
-		ITrExprSPtr expr = PopExpr();
-		expr->astNode = node.expr;
-
-		expr = ITrExprSPtr{ new ITrUnary{ op, expr } };
-		node.itr = expr;
-		m_Exprs.push(expr);
+		ITrExprSPtr expr = VisitAndGetExpr(node.expr);
+		expr = ITrExprSPtr{ new ITrUnary{ op, expr, node.ctx->startIdx, node.ctx->endIdx } };
+		m_Expr = expr;
 	}
 
 	void AstToITrLowering::Visit(AstQualNameExpr& node)
 	{
 		Visit(*node.qualName);
 		ITrExprSPtr expr{ new ITrQualNameExpr{ m_QualName } };
-		node.itr = expr;
-		m_Exprs.push(expr);
+		m_Expr = expr;
 	}
 
 	void AstToITrLowering::Visit(AstIndexSliceExpr& node)
 	{
-		Walk(node);
-		ITrExprSPtr index = PopExpr();
-		index->astNode = node.expr;
-		ITrExprSPtr expr = PopExpr();
-		expr->astNode = node.expr;
-
-		expr = ITrExprSPtr{ new ITrIndexSlice{ expr, index } };
-		node.itr = expr;
-		m_Exprs.push(expr);
+		ITrExprSPtr expr = VisitAndGetExpr(node.expr);
+		ITrExprSPtr index = VisitAndGetExpr(node.index);
+		expr = ITrExprSPtr{ new ITrIndexSlice{ expr, index, node.ctx->endIdx } };
+		m_Expr = expr;
 	}
 
 	void AstToITrLowering::Visit(AstSliceExpr& node)
 	{
-		Walk(node);
-
-		ITrExprSPtr from, to;
-
-		if (node.end)
-		{
-			to = PopExpr();
-			to->astNode = node.end;
-		}
-		if (node.begin)
-		{
-			from = PopExpr();
-			from->astNode = node.begin;
-		}
-		
-		ITrExprSPtr expr = PopExpr();
-		expr->astNode = node.expr;
-
-		expr = ITrExprSPtr{ new ITrIndexSlice{ expr, from, to } };
-		node.itr = expr;
-		m_Exprs.push(expr);
+		ITrExprSPtr expr = VisitAndGetExpr(node.expr);
+		ITrExprSPtr from = VisitAndGetExpr(node.begin);
+		ITrExprSPtr to = VisitAndGetExpr(node.end);
+		expr = ITrExprSPtr{ new ITrIndexSlice{ expr, from, to, node.ctx->endIdx } };
+		m_Expr = expr;
 	}
 
 	void AstToITrLowering::Visit(AstFuncCallExpr& node)
 	{
-		Walk(node);
-
+		ITrExprSPtr expr = VisitAndGetExpr(node.func);
 		StdVector<ITrArgSPtr> args = GetArgs(node.args);
-		ITrExprSPtr expr = PopExpr();
-		expr->astNode = node.func;
-
-		expr = ITrExprSPtr{ new ITrAmbiguousCall{ expr, std::move(args) } };
-		node.itr = expr;
-		m_Exprs.push(expr);
+		expr = ITrExprSPtr{ new ITrAmbiguousCall{ expr, std::move(args), node.ctx->endIdx } };
+		m_Expr = expr;
 	}
 
 	void AstToITrLowering::Visit(AstMemberAccessExpr& node)
 	{
-		Walk(node);
-		ITrExprSPtr expr = PopExpr();
-		expr->astNode = node.caller;
-
-		expr = ITrExprSPtr{ new ITrMemberAccess{ node.nullCoalesce, expr, Iden::Create(node.iden) } };
-		node.itr = expr;
-		m_Exprs.push(expr);
+		ITrExprSPtr expr = VisitAndGetExpr(node.caller);
+		expr = ITrExprSPtr{ new ITrMemberAccess{ node.nullCoalesce, expr, Iden::Create(node.iden), node.ctx->endIdx } };
+		m_Expr = expr;
 	}
 
 	void AstToITrLowering::Visit(AstMethodCallExpr& node)
 	{
-		Walk(node);
-
+		ITrExprSPtr expr = VisitAndGetExpr(node.caller);
 		StdVector<ITrArgSPtr> args = GetArgs(node.args);
-		ITrExprSPtr expr = PopExpr();
-		expr->astNode = node.caller;
-		IdenSPtr iden = Iden::Create(node.iden);
-		
-		expr = ITrExprSPtr{ new ITrFuncCall{ expr, node.nullCoalesce, iden, std::move(args) } };
-		node.itr = expr;
-		m_Exprs.push(expr);
+		IdenSPtr iden = Iden::Create(node.iden);	
+		expr = ITrExprSPtr{ new ITrFuncCall{ expr, node.nullCoalesce, iden, std::move(args), node.ctx->endIdx } };
+		m_Expr = expr;
 	}
 
 	void AstToITrLowering::Visit(AstTupleAccessExpr& node)
 	{
-		Walk(node);
-
-		ITrExprSPtr expr = PopExpr();
-		expr->astNode = node.expr;
-			
-		expr = ITrExprSPtr{ new ITrTupleAccess{ expr, node.nullCoalesce, node.index } };
-		node.itr = expr;
-		m_Exprs.push(expr);
+		ITrExprSPtr expr = VisitAndGetExpr(node.expr);
+		expr = ITrExprSPtr{ new ITrTupleAccess{ expr, node.nullCoalesce, node.index, node.ctx->endIdx } };
+		m_Expr = expr;
 	}
 
 	void AstToITrLowering::Visit(AstLiteralExpr& node)
 	{
 		ITrExprSPtr expr{ new ITrLiteral{ node.literal } };
-		node.itr = expr;
-		m_Exprs.push(expr);
+		m_Expr = expr;
 	}
 
 	void AstToITrLowering::Visit(AstAggrInitExpr& node)
 	{
-		Walk(node);
-
-		ITrExprSPtr defExpr;
-		if (node.defExpr)
-			defExpr = PopExpr();
-
+		ITrTypeSPtr type = VisitAndGetType(node.type);
 		StdVector<ITrArgSPtr> args = GetArgs(node.args);
-		ITrTypeSPtr type = PopType();
-		type->astNode = node.type;
-
-		ITrExprSPtr expr{ new ITrAmbiguousAggrInit{ type, std::move(args), node.hasDefInit, defExpr } };
-		node.itr = expr;
-		m_Exprs.push(expr);
+		ITrExprSPtr defExpr = VisitAndGetExpr(node.defExpr);
+		ITrExprSPtr expr{ new ITrAmbiguousAggrInit{ type, std::move(args), node.hasDefInit, defExpr, node.ctx->endIdx } };
+		m_Expr = expr;
 	}
 
 	void AstToITrLowering::Visit(AstTupleInitExpr& node)
 	{
-		Walk(node);
-		
 		StdVector<ITrExprSPtr> exprs;
 		usize size = node.exprs.size();
-		exprs.resize(size);
-		for (usize i = size; i > 0;)
+		exprs.reserve(size);
+		for (AstExprSPtr expr : node.exprs)
 		{
-			--i;
-			ITrExprSPtr expr = PopExpr();
-			expr->astNode = node.exprs[i];
-			exprs[i] = expr;
+			exprs.push_back(VisitAndGetExpr(expr));
 		}
 
-		ITrExprSPtr expr{ new ITrTupleInit{ std::move(exprs) } };
-		node.itr = expr;
-		m_Exprs.push(expr);
+		ITrExprSPtr expr{ new ITrTupleInit{ std::move(exprs), node.ctx->startIdx, node.ctx->endIdx } };
+		m_Expr = expr;
 	}
 
 	void AstToITrLowering::Visit(AstArrayInitExpr& node)
 	{
-		Walk(node);
-
 		StdVector<ITrExprSPtr> exprs;
 		usize size = node.exprs.size();
-		exprs.resize(size);
-		for (usize i = size; i > 0;)
+		exprs.reserve(size);
+		for (AstExprSPtr expr : node.exprs)
 		{
-			--i;
-			ITrExprSPtr expr = PopExpr();
-			expr->astNode = node.exprs[i];
-			exprs[i] = expr;
+			exprs.push_back(VisitAndGetExpr(expr));
 		}
 
-		ITrExprSPtr expr{ new ITrArrayInit{ std::move(exprs) } };
-		node.itr = expr;
-		m_Exprs.push(expr);
+		ITrExprSPtr expr{ new ITrArrayInit{ std::move(exprs), node.ctx->startIdx, node.ctx->endIdx } };
+		m_Expr = expr;
 	}
 
 	void AstToITrLowering::Visit(AstCastExpr& node)
 	{
-		Walk(node);
-		ITrExprSPtr expr = PopExpr();
-		expr->astNode = node.expr;
-		ITrTypeSPtr type = PopType();
-		type->astNode = node.type;
+		ITrExprSPtr expr = VisitAndGetExpr(node.expr);
+		ITrTypeSPtr type = VisitAndGetType(node.type);
 
 		ITrCastKind castKind;
 		switch (node.castType)
@@ -1397,38 +980,27 @@ namespace Noctis
 		}
 
 		expr = ITrExprSPtr{ new ITrCast{ castKind, expr, type } };
-		node.itr = expr;
-		m_Exprs.push(expr);
+		m_Expr = expr;
 	}
 
 	void AstToITrLowering::Visit(AstTransmuteExpr& node)
 	{
-		Walk(node);
-		ITrExprSPtr expr = PopExpr();
-		expr->astNode = node.expr;
-		ITrTypeSPtr type = PopType();
-		type->astNode = node.type;
-		
+		ITrExprSPtr expr = VisitAndGetExpr(node.expr);
+		ITrTypeSPtr type = VisitAndGetType(node.type);
 		expr = ITrExprSPtr{ new ITrCast{ ITrCastKind::Transmute, expr, type } };
-		node.itr = expr;
-		m_Exprs.push(expr);
+		m_Expr = expr;
 	}
 
 	void AstToITrLowering::Visit(AstMoveExpr& node)
 	{
-		Walk(node);
-		ITrExprSPtr expr = PopExpr();
-		expr->astNode = node.expr;
-
-		expr = ITrExprSPtr{ new ITrMove{ expr } };
-		node.itr = expr;
-		m_Exprs.push(expr);
+		ITrExprSPtr expr = VisitAndGetExpr(node.expr);
+		expr = ITrExprSPtr{ new ITrMove{ expr, node.ctx->startIdx } };
+		m_Expr = expr;
 	}
 
 	void AstToITrLowering::Visit(AstBracketExpr& node)
 	{
 		AstVisitor::Visit(node.expr);
-		node.itr = m_Exprs.top();
 	}
 
 	void AstToITrLowering::Visit(AstBlockExpr& node)
@@ -1436,73 +1008,52 @@ namespace Noctis
 		StdVector<ITrStmtSPtr> stmts;
 		for (AstStmtSPtr astStmt : node.stmts)
 		{
-			AstVisitor::Visit(astStmt);
-			if (astStmt->stmtKind != AstStmtKind::Decl)
-			{
-				ITrStmtSPtr stmt = PopStmt();
-				stmt->astNode = astStmt;
-				stmts.push_back(stmt);
-			}
+			if (astStmt->stmtKind == AstStmtKind::Decl)
+				AstVisitor::Visit(astStmt);
+			else
+				stmts.push_back(VisitAndGetStmt(astStmt));
 		}
 
-		ITrExprSPtr expr{ new ITrBlockExpr{ node.ctx->qualName->LastIden()->Name(), std::move(stmts) } };
-		node.itr = expr;
-		m_Exprs.push(expr);
+		ITrExprSPtr expr{ new ITrBlockExpr{ node.ctx->qualName->LastIden()->Name(), std::move(stmts), node.ctx->startIdx, node.ctx->endIdx } };
+		m_Expr = expr;
 	}
 
 	void AstToITrLowering::Visit(AstUnsafeExpr& node)
 	{
-		Walk(node);
-		ITrExprSPtr expr = PopExpr();
-		expr->astNode = node.expr;
-
-		expr = ITrExprSPtr{ new ITrUnsafeExpr{ expr } };
-		node.itr = expr;
-		m_Exprs.push(expr);
+		ITrExprSPtr expr = VisitAndGetExpr(node.expr);
+		expr = ITrExprSPtr{ new ITrUnsafeExpr{ expr, node.ctx->startIdx } };
+		m_Expr = expr;
 	}
 
 	void AstToITrLowering::Visit(AstCommaExpr& node)
 	{
-		Walk(node);
-
 		StdVector<ITrExprSPtr> exprs;
 		usize size = node.exprs.size();
-		exprs.resize(size);
-		for (usize i = size; i > 0;)
+		exprs.reserve(size);
+		for (AstExprSPtr expr : node.exprs)
 		{
-			--i;
-			ITrExprSPtr expr = PopExpr();
-			expr->astNode = node.exprs[i];
-			exprs[i] = expr;
+			exprs.push_back(VisitAndGetExpr(expr));
 		}
 
-		ITrExprSPtr expr{ new ITrComma{ std::move(exprs) } };
-		node.itr = expr;
-		m_Exprs.push(expr);
+		ITrExprSPtr expr{ new ITrComma{ std::move(exprs), node.ctx->startIdx, node.ctx->endIdx } };
+		m_Expr = expr;
 	}
 
 	void AstToITrLowering::Visit(AstClosureExpr& node)
 	{
 		StdVector<ITrParamSPtr> params = GetParams(node.params);
-		ITrTypeSPtr retType;
-		if (node.ret)
-		{
-			AstVisitor::Visit(node.ret);
-			retType = PopType();
-			retType->astNode = node.ret;
-		}
+		ITrTypeSPtr retType = VisitAndGetType(node.ret);
 
-		ITrDefSPtr def{ new ITrFunc{ nullptr, nullptr, node.ctx->qualName, std::move(params), retType, ITrFuncKind::Closure, false } };
+		ITrDefSPtr def{ new ITrFunc{ nullptr, nullptr, node.ctx->qualName, std::move(params), retType, ITrFuncKind::Closure, false, node.ctx->startIdx, node.ctx->endIdx } };
 		def->ptr = def;
 
-		AstVisitor::Visit(node.expr);
 		PushDefFrame();
-		ITrExprSPtr expr = PopExpr();
+		ITrExprSPtr expr = VisitAndGetExpr(node.expr);
 		StdVector<ITrDefSPtr> defs = PopDefFrame();
 		
 		StdVector<ITrStmtSPtr> stmts;
 		if (retType)
-			stmts.emplace_back(new ITrReturn{ expr });
+			stmts.emplace_back(new ITrReturn{ expr, node.ctx->startIdx, node.ctx->endIdx });
 		else
 			stmts.push_back(expr);
 		
@@ -1510,65 +1061,38 @@ namespace Noctis
 
 		ITrModule& mod = m_pCtx->activeModule->itrModule;
 		def->fileName = m_TreeFilename;
-		def->astNode = m_DeclNode;
 		mod.AddDefinition(def, body);
 
-		ITrExprSPtr closure{ new ITrClosure{ def } };
-		node.itr = closure;
-		m_Exprs.push(closure);
+		ITrExprSPtr closure{ new ITrClosure{ def, node.ctx->startIdx, node.ctx->endIdx } };
+		m_Expr = closure;
 	}
 
 	void AstToITrLowering::Visit(AstIsExpr& node)
 	{
-		Walk(node);
-		ITrExprSPtr expr = PopExpr();
-		expr->astNode = node.expr;
-		ITrTypeSPtr type = PopType();
-		type->astNode = node.type;
-
+		ITrExprSPtr expr = VisitAndGetExpr(node.expr);
+		ITrTypeSPtr type = VisitAndGetType(node.type);
 		expr = ITrExprSPtr{ new ITrIs{ expr, type } };
-		node.itr = expr;
-		m_Exprs.push(expr);
+		m_Expr = expr;
 	}
 
 	void AstToITrLowering::Visit(AstTryExpr& node)
 	{
-		Walk(node);
-		ITrExprSPtr expr = PopExpr();
-		expr->astNode = node.call;
-
-		expr = ITrExprSPtr{ new ITrTry{ expr } };
-		node.itr = expr;
-		m_Exprs.push(expr);
+		ITrExprSPtr expr = VisitAndGetExpr(node.call);
+		expr = ITrExprSPtr{ new ITrTry{ expr, node.ctx->startIdx } };
+		m_Expr = expr;
 	}
 
 	void AstToITrLowering::Visit(AstSpecKwExpr& node)
 	{
-		ITrExprSPtr expr{ new ITrSpecKw{ node.specKw } };
-		node.itr = expr;
-		m_Exprs.push(expr);
+		ITrExprSPtr expr{ new ITrSpecKw{ node.specKw, node.ctx->startIdx } };
+		m_Expr = expr;
 	}
 
 	void AstToITrLowering::Visit(AstCompRunExpr& node)
 	{
-		Walk(node);
-		ITrExprSPtr expr = PopExpr();
-		expr->astNode = node.expr;
-
-		expr = ITrExprSPtr{ new ITrCompRun{ expr } };
-		node.itr = expr;
-		m_Exprs.push(expr);
-	}
-
-	void AstToITrLowering::Visit(AstTypeSPtr& node)
-	{
-		if (node->itr.lock())
-		{
-			m_Types.push(node->itr.lock());
-			return;
-		}
-		
-		AstVisitor::Visit(node);
+		ITrExprSPtr expr = VisitAndGetExpr(node.expr);
+		expr = ITrExprSPtr{ new ITrCompRun{ expr, node.ctx->startIdx } };
+		m_Expr = expr;
 	}
 
 	void AstToITrLowering::Visit(AstBuiltinType& node)
@@ -1597,210 +1121,136 @@ namespace Noctis
 		default:               builtin = BuiltinTypeKind::Count; break;
 		}
 
-		ITrAttribsSPtr attribs;
+		ITrAttribsSPtr attribs = VisitAndGetAttribs(node.attribs);
 		TypeMod mod = TypeMod::None;
-		if (node.attribs)
-		{
-			Visit(*node.attribs);
-			attribs = PopAttribs();
-
-			if (ENUM_IS_SET(attribs->attribs, Attribute::Mut))
-				mod = TypeMod::Mut;
-		}
+		if (attribs && ENUM_IS_SET(attribs->attribs, Attribute::Mut))
+			mod = TypeMod::Mut;
 		
 		TypeHandle handle = m_pCtx->typeReg.Builtin(mod, builtin);
-		ITrTypeSPtr type{ new ITrType{ attribs, handle, {} } };
-		node.itr = type;
-		m_Types.push(type);
+		ITrTypeSPtr type{ new ITrType{ attribs, handle, {}, nullptr, node.ctx->startIdx, node.ctx->endIdx } };
+		m_Type = type;
 	}
 
 	void AstToITrLowering::Visit(AstIdentifierType& node)
 	{
-		ITrAttribsSPtr attribs;
+		ITrAttribsSPtr attribs = VisitAndGetAttribs(node.attribs);
 		TypeMod mod = TypeMod::None;
-		if (node.attribs)
-		{
-			Visit(*node.attribs);
-			attribs = PopAttribs();
-
-			if (ENUM_IS_SET(attribs->attribs, Attribute::Mut))
-				mod = TypeMod::Mut;
-		}
+		if (attribs && ENUM_IS_SET(attribs->attribs, Attribute::Mut))
+			mod = TypeMod::Mut;
 
 		Visit(*node.qualName);
 		QualNameSPtr qualName = node.qualName->ctx->qualName;
 
 		TypeHandle handle = m_pCtx->typeReg.Iden(mod, qualName);
-		ITrTypeSPtr type{ new ITrType{ attribs, handle, {} } };
-		node.itr = type;
-		m_Types.push(type);
+		ITrTypeSPtr type{ new ITrType{ attribs, handle, {}, nullptr, node.ctx->startIdx, node.ctx->endIdx } };
+		m_Type = type;
 	}
 
 	void AstToITrLowering::Visit(AstPointerType& node)
 	{
-		Walk(node);
-		
-		ITrAttribsSPtr attribs;
+		ITrAttribsSPtr attribs = VisitAndGetAttribs(node.attribs);
 		TypeMod mod = TypeMod::None;
-		if (node.attribs)
-		{
-			attribs = PopAttribs();
-			
-			if (ENUM_IS_SET(attribs->attribs, Attribute::Mut))
-				mod = TypeMod::Mut;
-		}
+		if (attribs && ENUM_IS_SET(attribs->attribs, Attribute::Mut))
+			mod = TypeMod::Mut;
 		
-		ITrTypeSPtr subType = PopType();
-		subType->astNode = node.subType;
+		ITrTypeSPtr subType = VisitAndGetType(node.subType);
 		TypeHandle handle = m_pCtx->typeReg.Ptr(mod, subType->handle);
 
-		ITrTypeSPtr type{ new ITrType{ attribs, handle, { subType } } };
-		node.itr = type;
-		m_Types.push(type);
+		ITrTypeSPtr type{ new ITrType{ attribs, handle, { subType }, nullptr, node.ctx->startIdx, node.ctx->endIdx } };
+		m_Type = type;
 	}
 
 	void AstToITrLowering::Visit(AstReferenceType& node)
 	{
-		Walk(node);
-		
-		ITrAttribsSPtr attribs;
+		ITrAttribsSPtr attribs = VisitAndGetAttribs(node.attribs);
 		TypeMod mod = TypeMod::None;
-		if (node.attribs)
-		{
-			attribs = PopAttribs();
-
-			if (ENUM_IS_SET(attribs->attribs, Attribute::Mut))
-				mod = TypeMod::Mut;
-		}
+		if (attribs && ENUM_IS_SET(attribs->attribs, Attribute::Mut))
+			mod = TypeMod::Mut;
 		
-		ITrTypeSPtr subType = PopType();
-		subType->astNode = node.subType;
+		ITrTypeSPtr subType = VisitAndGetType(node.subType);
 		TypeHandle handle = m_pCtx->typeReg.Ref(mod, subType->handle);
 
-		ITrTypeSPtr type{ new ITrType{ attribs, handle, { subType } } };
-		node.itr = type;
-		m_Types.push(type);
+		ITrTypeSPtr type{ new ITrType{ attribs, handle, { subType }, nullptr, node.ctx->startIdx, node.ctx->endIdx } };
+		m_Type = type;
 	}
 
 	void AstToITrLowering::Visit(AstArrayType& node)
 	{
-		Walk(node);
-
-		ITrAttribsSPtr attribs;
+		ITrAttribsSPtr attribs = VisitAndGetAttribs(node.attribs);
 		TypeMod mod = TypeMod::None;
-		if (node.attribs)
-		{
-			attribs = PopAttribs();
-
-			if (ENUM_IS_SET(attribs->attribs, Attribute::Mut))
-				mod = TypeMod::Mut;
-		}
+		if (attribs && ENUM_IS_SET(attribs->attribs, Attribute::Mut))
+			mod = TypeMod::Mut;
 		
-		ITrExprSPtr expr = PopExpr();
-		expr->astNode = node.arraySize;
 		
-		ITrTypeSPtr subType = PopType();
-		subType->astNode = node.subType;
+		ITrTypeSPtr subType = VisitAndGetType(node.subType);
+		ITrExprSPtr expr = VisitAndGetExpr(node.arraySize);
 		TypeHandle handle = m_pCtx->typeReg.Array(mod, subType->handle, expr);
-		ITrTypeSPtr type{ new ITrType{ attribs, handle, { subType }, expr }};
-		node.itr = type;
-		m_Types.push(type);
+		ITrTypeSPtr type{ new ITrType{ attribs, handle, { subType }, expr, node.ctx->startIdx, node.ctx->endIdx }};
+		m_Type = type;
 	}
 
 	void AstToITrLowering::Visit(AstSliceType& node)
 	{
-		Walk(node);
-
-		ITrAttribsSPtr attribs;
+		ITrAttribsSPtr attribs = VisitAndGetAttribs(node.attribs);
 		TypeMod mod = TypeMod::None;
-		if (node.attribs)
-		{
-			attribs = PopAttribs();
-
-			if (ENUM_IS_SET(attribs->attribs, Attribute::Mut))
-				mod = TypeMod::Mut;
-		}
+		if (attribs && ENUM_IS_SET(attribs->attribs, Attribute::Mut))
+			mod = TypeMod::Mut;
 		
-		ITrTypeSPtr subType = PopType();
-		subType->astNode = node.subType;
+		ITrTypeSPtr subType = VisitAndGetType(node.subType);
 		TypeHandle handle = m_pCtx->typeReg.Slice(mod, subType->handle);
-		ITrTypeSPtr type{ new ITrType{ attribs, handle, { subType } } };
-		node.itr = type;
-		m_Types.push(type);
+		ITrTypeSPtr type{ new ITrType{ attribs, handle, { subType }, nullptr, node.ctx->startIdx, node.ctx->endIdx } };
+		m_Type = type;
 	}
 
 	void AstToITrLowering::Visit(AstTupleType& node)
 	{
-		Walk(node);
-		
-		ITrAttribsSPtr attribs;
+		ITrAttribsSPtr attribs = VisitAndGetAttribs(node.attribs);
 		TypeMod mod = TypeMod::None;
-		if (node.attribs)
-		{
-			attribs = PopAttribs();
-
-			if (ENUM_IS_SET(attribs->attribs, Attribute::Mut))
-				mod = TypeMod::Mut;
-		}
+		if (attribs && ENUM_IS_SET(attribs->attribs, Attribute::Mut))
+			mod = TypeMod::Mut;
 		
 		StdVector<TypeHandle> subTypesHandles;
 		StdVector<ITrTypeSPtr> subTypes;
 		usize size = node.subTypes.size();
-		subTypesHandles.resize(size);
-		subTypes.resize(size);
-		for (usize i = size; i > 0;)
+		subTypesHandles.reserve(size);
+		subTypes.reserve(size);
+		for (AstTypeSPtr astType : node.subTypes)
 		{
-			--i;
-			ITrTypeSPtr subType = PopType();
-			subType->astNode = node.subTypes[i];
-			subTypesHandles[i] = subType->handle;
-			subTypes[i] = subType;
+			ITrTypeSPtr subType = VisitAndGetType(astType);
+			subTypes.push_back(subType);
+			subTypesHandles.push_back(subType->handle);
 		}
 
 		TypeHandle handle = m_pCtx->typeReg.Tuple(mod, subTypesHandles);
-		ITrTypeSPtr type{ new ITrType{ attribs, handle, std::move(subTypes) } };
-
-		node.itr = type;
-		m_Types.push(type);
+		ITrTypeSPtr type{ new ITrType{ attribs, handle, std::move(subTypes), nullptr, node.ctx->startIdx, node.ctx->endIdx } };
+		m_Type = type;
 	}
 
 	void AstToITrLowering::Visit(AstOptionalType& node)
 	{
-		Walk(node);
-		
-		ITrAttribsSPtr attribs;
+		ITrAttribsSPtr attribs = VisitAndGetAttribs(node.attribs);
 		TypeMod mod = TypeMod::None;
-		if (node.attribs)
-		{
-			attribs = PopAttribs();
-
-			if (ENUM_IS_SET(attribs->attribs, Attribute::Mut))
-				mod = TypeMod::Mut;
-		}
+		if (attribs && ENUM_IS_SET(attribs->attribs, Attribute::Mut))
+			mod = TypeMod::Mut;
 		
-		ITrTypeSPtr subType = PopType();
-		subType->astNode = node.subType;
+		ITrTypeSPtr subType = VisitAndGetType(node.subType);
 		TypeHandle handle = m_pCtx->typeReg.Opt(mod, subType->handle);
-		ITrTypeSPtr type{ new ITrType{ attribs, handle, { subType } } };
-		node.itr = type;
-		m_Types.push(type);
+		ITrTypeSPtr type{ new ITrType{ attribs, handle, { subType }, nullptr, node.ctx->startIdx, node.ctx->endIdx } };
+		m_Type = type;
 	}
 
 	void AstToITrLowering::Visit(AstInlineStructType& node)
 	{
-		// TODO: def in type
 		ITrModule& mod = m_pCtx->activeModule->itrModule;
 		StdVector<ITrDefSPtr> members;
 		for (StdPair<StdVector<StdString>, AstTypeSPtr> astMember : node.members)
 		{
-			AstVisitor::Visit(astMember.second);
-			ITrTypeSPtr type = PopType();
-			type->astNode = astMember.second;
+			ITrTypeSPtr type = VisitAndGetType(astMember.second);
 
 			for (StdString& iden : astMember.first)
 			{
 				QualNameSPtr qualName = QualName::Create(node.ctx->qualName, Iden::Create(iden));
-				ITrDefSPtr member { new ITrVar{ nullptr, qualName, type, false } };
+				ITrDefSPtr member { new ITrVar{ nullptr, qualName, type, false, node.ctx->startIdx, node.ctx->endIdx } };
 				member->ptr = member;
 				members.push_back(member);
 				member->fileName = m_TreeFilename;
@@ -1809,30 +1259,19 @@ namespace Noctis
 		}
 
 		ITrBodySPtr body{ new ITrBody{ std::move(members), {} } };
-		ITrDefSPtr def{ new ITrStruct{ nullptr, nullptr, node.ctx->qualName, false } };
+		ITrDefSPtr def{ new ITrStruct{ nullptr, nullptr, node.ctx->qualName, false, node.ctx->startIdx, node.ctx->endIdx } };
 		def->ptr = def;
 		def->fileName = m_TreeFilename;
-		def->astNode = m_DeclNode;
 		mod.AddDefinition(def, body);
-
-		ITrBodySPtr typeBody{ new ITrBody{ { def }, {} } };
-		u64 bodyId = mod.AddBody(typeBody);
 		
-		ITrAttribsSPtr attribs;
+		ITrAttribsSPtr attribs = VisitAndGetAttribs(node.attribs);
 		TypeMod tmod = TypeMod::None;
-		if (node.attribs)
-		{
-			Visit(*node.attribs);
-			attribs = PopAttribs();
-
-			if (ENUM_IS_SET(attribs->attribs, Attribute::Mut))
-				tmod = TypeMod::Mut;
-		}
+		if (attribs && ENUM_IS_SET(attribs->attribs, Attribute::Mut))
+			tmod = TypeMod::Mut;
 
 		TypeHandle handle = m_pCtx->typeReg.Iden(tmod, node.ctx->qualName);
-		ITrTypeSPtr type{ new ITrType{ attribs, handle, {} } };
-		type->bodyIdx = bodyId;
-		m_Types.push(type);
+		ITrTypeSPtr type{ new ITrType{ attribs, handle, {}, nullptr, node.ctx->startIdx, node.ctx->endIdx } };
+		m_Type = type;
 	}
 
 	void AstToITrLowering::Visit(AstInlineEnumType& node)
@@ -1844,15 +1283,8 @@ namespace Noctis
 		for (StdPair<StdString, AstExprSPtr>& astMember : node.members)
 		{
 			IdenSPtr iden = Iden::Create(astMember.first);
-			ITrExprSPtr expr;
-			if (astMember.second)
-			{
-				AstVisitor::Visit(astMember.second);
-				expr = PopExpr();
-				expr->astNode = astMember.second;
-			}
-
-			ITrDefSPtr member{ new ITrValEnumMember{ qualName, iden, expr } };
+			ITrExprSPtr expr = VisitAndGetExpr(astMember.second);
+			ITrDefSPtr member{ new ITrValEnumMember{ qualName, iden, expr, node.ctx->startIdx, node.ctx->endIdx } };
 			member->ptr = member;
 			members.push_back(member);
 			member->fileName = m_TreeFilename;
@@ -1860,48 +1292,35 @@ namespace Noctis
 		}
 
 		ITrBodySPtr body{ new ITrBody{ std::move(members), {} } };
-		ITrDefSPtr def{ new ITrStruct{ nullptr, nullptr, qualName, false } };
+		ITrDefSPtr def{ new ITrStruct{ nullptr, nullptr, qualName, false, node.ctx->startIdx, node.ctx->endIdx } };
 		def->ptr = def;
 		def->fileName = m_TreeFilename;
-		def->astNode = m_DeclNode;
 		mod.AddDefinition(def, body);
 
-		ITrAttribsSPtr attribs;
+		ITrAttribsSPtr attribs = VisitAndGetAttribs(node.attribs);
 		TypeMod tmod = TypeMod::None;
-		if (node.attribs)
-		{
-			Visit(*node.attribs);
-			attribs = PopAttribs();
-
-			if (ENUM_IS_SET(attribs->attribs, Attribute::Mut))
-				tmod = TypeMod::Mut;
-		}
+		if (attribs && ENUM_IS_SET(attribs->attribs, Attribute::Mut))
+			tmod = TypeMod::Mut;
 
 		TypeHandle handle = m_pCtx->typeReg.Iden(tmod, qualName);
-		ITrTypeSPtr type{ new ITrType{ attribs, handle, {} } };
-		m_Types.push(type);
+		ITrTypeSPtr type{ new ITrType{ attribs, handle, {}, nullptr, node.ctx->startIdx, node.ctx->endIdx } };
+		m_Type = type;
 	}
 
 	void AstToITrLowering::Visit(AstCompoundInterfaceType& node)
 	{
-		Walk(node);
-
-		ITrAttribsSPtr attribs;
-		if (node.attribs)
-			attribs = PopAttribs();
+		ITrAttribsSPtr attribs = VisitAndGetAttribs(node.attribs);
 		
 		StdVector<TypeHandle> subTypesHandles;
 		StdVector<ITrTypeSPtr> subTypes;
 		usize size = node.interfaces.size();
 		subTypesHandles.reserve(size);
-		subTypes.resize(size);
-		for (usize i = size; i > 0;)
+		subTypes.reserve(size);
+		for (AstTypeSPtr astType : node.interfaces)
 		{
-			--i;
-			ITrTypeSPtr type = PopType();
-			type->astNode = node.interfaces[i];
-			subTypesHandles[i] = type->handle;
-			subTypes[i] = type;
+			ITrTypeSPtr subType = VisitAndGetType(astType);
+			subTypes.push_back(subType);
+			subTypesHandles.push_back(subType->handle);
 		}
 
 		TypeHandle handle;
@@ -1909,191 +1328,140 @@ namespace Noctis
 			handle = subTypesHandles[0];
 		else
 			handle = m_pCtx->typeReg.Compound(TypeMod::None, subTypesHandles);
-		ITrTypeSPtr type{ new ITrType{ attribs, handle, std::move(subTypes) } };
-		node.itr = type;
-		m_Types.push(type);
+		ITrTypeSPtr type{ new ITrType{ attribs, handle, std::move(subTypes), nullptr, node.ctx->startIdx, node.ctx->endIdx } };
+		m_Type = type;
 	}
 
 	void AstToITrLowering::Visit(AstPlaceholderPattern& node)
 	{
-		Walk(node);
-		ITrPatternSPtr pattern{ new ITrPlaceholderPattern{ false } };
-		node.itr = pattern;
-		m_Patterns.push(pattern);
+		ITrPatternSPtr pattern{ new ITrPlaceholderPattern{ false, node.ctx->startIdx } };
+		m_Pattern = pattern;
 	}
 
 	void AstToITrLowering::Visit(AstWildcardPattern& node)
 	{
-		Walk(node);
-		ITrPatternSPtr pattern{ new ITrPlaceholderPattern{ true } };
-		node.itr = pattern;
-		m_Patterns.push(pattern);
+		ITrPatternSPtr pattern{ new ITrPlaceholderPattern{ true, node.ctx->startIdx } };
+		m_Pattern = pattern;
 	}
 
 	void AstToITrLowering::Visit(AstValueBindPattern& node)
 	{
-		Walk(node);
 		IdenSPtr iden = Iden::Create(node.iden);
-		ITrPatternSPtr subPattern;
-		if (node.subPattern)
-		{
-			subPattern = PopPattern();
-			subPattern->astNode = node.subPattern;
-		}
-
-		ITrPatternSPtr pattern{ new ITrValueBindPattern{ iden, std::move(subPattern) } };
-		node.itr = pattern;
-		m_Patterns.push(pattern);
+		ITrPatternSPtr subPattern = VisitAndGetPattern(node.subPattern);
+		ITrPatternSPtr pattern{ new ITrValueBindPattern{ iden, std::move(subPattern), node.ctx->startIdx, node.ctx->endIdx } };
+		m_Pattern = pattern;
 	}
 
 	void AstToITrLowering::Visit(AstLiteralPattern& node)
 	{
-		Walk(node);
 		ITrPatternSPtr pattern{ new ITrLiteralPattern{ node.literal } };
-		node.itr = pattern;
-		m_Patterns.push(pattern);
+		m_Pattern = pattern;
 	}
 
 	void AstToITrLowering::Visit(AstRangePattern& node)
 	{
-		Walk(node);
-
 		ITrPatternSPtr pattern{ new ITrRangePattern{ node.inclusive, node.from, node.to } };
-		node.itr = pattern;
-		m_Patterns.push(pattern);
+		m_Pattern = pattern;
 	}
 
 	void AstToITrLowering::Visit(AstTuplePattern& node)
 	{
-		Walk(node);
 		StdVector<ITrPatternSPtr> subPatterns;
 		usize size = node.subPatterns.size();
-		subPatterns.resize(size);
-		for (usize i = size; i > 0;)
+		subPatterns.reserve(size);
+		for (AstPatternSPtr astPattern : node.subPatterns)
 		{
-			--i;
-			ITrPatternSPtr tmp = PopPattern();
-			tmp->astNode = node.subPatterns[i];
-			subPatterns[i] = tmp;
+			subPatterns.push_back(VisitAndGetPattern(astPattern));
 		}
 
-		ITrPatternSPtr pattern{ new ITrTuplePattern{ std::move(subPatterns) } };
-		node.itr = pattern;
-		m_Patterns.push(pattern);
+		ITrPatternSPtr pattern{ new ITrTuplePattern{ std::move(subPatterns), node.ctx->startIdx, node.ctx->endIdx } };
+		m_Pattern = pattern;
 	}
 
 	void AstToITrLowering::Visit(AstEnumPattern& node)
 	{
-		Walk(node);
 		QualNameSPtr qualName = node.qualName->ctx->qualName;
 		if (node.subPatterns.empty())
 		{
-			ITrPatternSPtr pattern{ new ITrValueEnumPattern{ qualName } };
-			node.itr = pattern;
-			m_Patterns.push(pattern);
+			ITrPatternSPtr pattern{ new ITrValueEnumPattern{ qualName, node.ctx->startIdx, node.ctx->endIdx } };
+			m_Pattern = pattern;
 		}
 		else
 		{
 			StdVector<ITrPatternSPtr> subPatterns;
 			usize size = node.subPatterns.size();
-			subPatterns.resize(size);
-			for (usize i = size; i > 0;)
+			subPatterns.reserve(size);
+			for (AstPatternSPtr astPattern : node.subPatterns)
 			{
-				--i;
-				ITrPatternSPtr tmp = PopPattern();
-				tmp->astNode = node.subPatterns[i];
-				subPatterns[i] = tmp;
+				subPatterns.push_back(VisitAndGetPattern(astPattern));
 			}
 
-			ITrPatternSPtr pattern{ new ITrAdtTupleEnumPattern{ qualName, std::move(subPatterns) } };
-			node.itr = pattern;
-			m_Patterns.push(pattern);
+			ITrPatternSPtr pattern{ new ITrAdtTupleEnumPattern{ qualName, std::move(subPatterns), node.ctx->startIdx, node.ctx->endIdx } };
+			m_Pattern = pattern;
 		}
 	}
 
 	void AstToITrLowering::Visit(AstAggrPattern& node)
 	{
-		Walk(node);
 		QualNameSPtr qualName = node.qualName->ctx->qualName;
 		
 		StdPairVector<StdString, ITrPatternSPtr> subPatterns;
 		usize size = node.subPatterns.size();
-		subPatterns.resize(size);
-		for (usize i = size; i > 0;)
+		subPatterns.reserve(size);
+		for (StdPair<StdString, AstPatternSPtr>& astPattern : node.subPatterns)
 		{
-			--i;
-			ITrPatternSPtr tmp = PopPattern();
-			tmp->astNode = node.subPatterns[i].second;
-			StdString name = node.subPatterns[i].first;
-			subPatterns[i] = std::pair{ name, tmp };
+			subPatterns.emplace_back(astPattern.first, VisitAndGetPattern(astPattern.second));
 		}
 
 		if (node.qualName->global && node.qualName->idens.size() == 1)
 		{
-			ITrPatternSPtr pattern{ new ITrAdtAggrEnumPattern{ qualName, std::move(subPatterns) } };
-			node.itr = pattern;
-			m_Patterns.push(pattern);
+			ITrPatternSPtr pattern{ new ITrAdtAggrEnumPattern{ qualName, std::move(subPatterns), node.ctx->startIdx, node.ctx->endIdx } };
+			m_Pattern = pattern;
 		}
 		else
 		{
-			ITrPatternSPtr pattern{ new ITrAmbiguousAggrPattern{ qualName, std::move(subPatterns) } };
-			node.itr = pattern;
-			m_Patterns.push(pattern);
+			ITrPatternSPtr pattern{ new ITrAmbiguousAggrPattern{ qualName, std::move(subPatterns), node.ctx->startIdx, node.ctx->endIdx } };
+			m_Pattern = pattern;
 		}
 	}
 
 	void AstToITrLowering::Visit(AstSlicePattern& node)
 	{
-		Walk(node);
 		StdVector<ITrPatternSPtr> subPatterns;
 		usize size = node.subPatterns.size();
-		subPatterns.resize(size);
-		for (usize i = size; i > 0;)
+		subPatterns.reserve(size);
+		for (AstPatternSPtr astPattern : node.subPatterns)
 		{
-			--i;
-			ITrPatternSPtr tmp = PopPattern();
-			tmp->astNode = node.subPatterns[i];
-			subPatterns[i] = tmp;
+			subPatterns.emplace_back(VisitAndGetPattern(astPattern));
 		}
 
-		ITrPatternSPtr pattern{ new ITrSlicePattern{ std::move(subPatterns) } };
-		node.itr = pattern;
-		m_Patterns.push(pattern);
+		ITrPatternSPtr pattern{ new ITrSlicePattern{ std::move(subPatterns), node.ctx->startIdx, node.ctx->endIdx } };
+		m_Pattern = pattern;
 	}
 
 	void AstToITrLowering::Visit(AstEitherPattern& node)
 	{
-		Walk(node);
 		StdVector<ITrPatternSPtr> subPatterns;
 		usize size = node.subPatterns.size();
-		subPatterns.resize(size);
-		for (usize i = size; i > 0;)
+		subPatterns.reserve(size);
+		for (AstPatternSPtr astPattern : node.subPatterns)
 		{
-			--i;
-			ITrPatternSPtr tmp = PopPattern();
-			tmp->astNode = node.subPatterns[i];
-			subPatterns[i] = tmp;
+			subPatterns.emplace_back(VisitAndGetPattern(astPattern));
 		}
 
 		ITrPatternSPtr pattern{ new ITrEitherPattern{ std::move(subPatterns) } };
-		node.itr = pattern;
-		m_Patterns.push(pattern);
+		m_Pattern = pattern;
 	}
 
 	void AstToITrLowering::Visit(AstTypePattern& node)
 	{
-		Walk(node);
-		ITrTypeSPtr type = PopType();
-		type->astNode = node.type;
-		ITrPatternSPtr pattern{ new ITrTypePattern{ type } };
-		node.itr = pattern;
-		m_Patterns.push(pattern);
+		ITrTypeSPtr type = VisitAndGetType(node.type);
+		ITrPatternSPtr pattern{ new ITrTypePattern{ type, node.ctx->startIdx } };
+		m_Pattern = pattern;
 	}
 
 	void AstToITrLowering::Visit(AstAttribs& node)
 	{
-		Walk(node);
-		
 		Visibility vis = Visibility::Private;
 		if (node.visibility)
 		{
@@ -2139,7 +1507,7 @@ namespace Noctis
 		{
 			StdVector<ITrArgSPtr> args = GetArgs(compAttrib->args);
 			IdenSPtr iden = Iden::Create(compAttrib->iden);
-			ITrAtAttribSPtr attr{ new ITrAtAttrib { true, iden, std::move(args) } };
+			ITrAtAttribSPtr attr{ new ITrAtAttrib { true, iden, std::move(args), compAttrib->ctx->startIdx, compAttrib->ctx->endIdx } };
 			atAttribs.push_back(attr);
 		}
 
@@ -2147,11 +1515,11 @@ namespace Noctis
 		{
 			StdVector<ITrArgSPtr> args = GetArgs(userAttrib->args);
 			IdenSPtr iden = Iden::Create(userAttrib->iden);
-			ITrAtAttribSPtr attr{ new ITrAtAttrib { false, iden, std::move(args) } };
+			ITrAtAttribSPtr attr{ new ITrAtAttrib { false, iden, std::move(args), userAttrib->ctx->startIdx, userAttrib->ctx->endIdx } };
 			atAttribs.push_back(attr);
 		}
 
-		m_Attribs.push(ITrAttribsSPtr{ new ITrAttribs{ vis, attribs, std::move(atAttribs) } });
+		m_Attribs.reset(new ITrAttribs{ vis, attribs, std::move(atAttribs), node.ctx->startIdx, node.ctx->endIdx });
 	}
 
 	void AstToITrLowering::Visit(AstMacroLoopStmt& node)
@@ -2159,61 +1527,43 @@ namespace Noctis
 		StdVector<ITrStmtSPtr> stmts;
 		for (AstStmtSPtr astStmt : node.stmts)
 		{
-			AstVisitor::Visit(astStmt);
-			if (astStmt->stmtKind != AstStmtKind::Decl)
-			{
-				ITrStmtSPtr stmt = PopStmt();
-				stmt->astNode = astStmt;
-				stmts.push_back(stmt);
-			}
+			if (astStmt->stmtKind == AstStmtKind::Decl)
+				AstVisitor::Visit(astStmt);
+			else
+				stmts.push_back(VisitAndGetStmt(astStmt));
 		}
 
-		ITrStmtSPtr stmt{ new ITrBlock{ "", std::move(stmts) } };
-		node.itr = stmt;
-		m_Stmts.push(stmt);
+		ITrStmtSPtr stmt{ new ITrBlock{ "", std::move(stmts), node.ctx->startIdx, node.ctx->endIdx } };
+		m_Stmt = stmt;
 	}
 
 	void AstToITrLowering::Visit(AstGenericDecl& node)
 	{
 		m_GenDecl = ITrGenDeclSPtr{ new ITrGenDecl{} };
 		Walk(node);
-		m_GenDecls.push(m_GenDecl);
-		m_GenDecl = nullptr;
 	}
 
 	void AstToITrLowering::Visit(AstGenericTypeParam& node)
 	{
-		Walk(node); 
 		IdenSPtr iden = Iden::Create(node.iden);
+		ITrTypeSPtr def = VisitAndGetType(node.defType);
 
-		ITrTypeSPtr def;
-		if (node.defType)
-		{
-			def = PopType();
-			def->astNode = node.defType;
-		}
-
-		ITrGenParamSPtr param{ new ITrGenTypeParam{ iden, def } };
-		node.itr = param;
+		ITrGenParamSPtr param{ new ITrGenTypeParam{ iden, def, node.ctx->startIdx, node.ctx->endIdx } };
 		m_GenDecl->params.push_back(param);
 
 		if (!node.implTypes.empty())
 		{
 			TypeHandle idenType = m_pCtx->typeReg.Iden(TypeMod::None, QualName::Create(iden));
-			ITrTypeSPtr toBindType{ new ITrType{ nullptr, idenType, {} } };
-			
-			usize size = node.implTypes.size();
-			for (usize i = size; i > 0;)
+			ITrTypeSPtr toBindType{ new ITrType{ nullptr, idenType, {}, nullptr, u64(-1), u64(-1) } };
+
+			for (AstIdentifierTypeSPtr implType : node.implTypes)
 			{
-				--i;
-				ITrTypeSPtr type = PopType();
-				type->astNode = node.implTypes[i];
-
+				ITrTypeSPtr type = VisitAndGetType(implType);
+				
 				StdVector<ITrGenAssocBound> assocBounds;
-				ITrGenBoundTypeSPtr boundType{ new ITrGenBoundType{ type, std::move(assocBounds) } };
+				ITrGenBoundTypeSPtr boundType{ new ITrGenBoundType{ type, std::move(assocBounds), u64(-1), u64(-1) } };
 
-				ITrGenTypeBoundSPtr bound{ new ITrGenTypeBound{ toBindType, boundType } };
-				node.itrBound = bound;
+				ITrGenTypeBoundSPtr bound{ new ITrGenTypeBound{ toBindType, boundType, u64(-1), u64(-1) } };
 				m_GenDecl->bounds.push_back(bound);
 			}
 		}
@@ -2222,62 +1572,39 @@ namespace Noctis
 
 	void AstToITrLowering::Visit(AstGenericValueParam& node)
 	{
-		Walk(node);
 		IdenSPtr iden = Iden::Create(node.iden);
-
-		ITrExprSPtr def;
-		if (node.defExpr)
-		{
-			def = PopExpr();
-			def->astNode = node.defExpr;
-		}
-
-		ITrTypeSPtr type = PopType();
-		type->astNode = node.type;
-
-		ITrGenParamSPtr param{ new ITrGenValParam{ iden, type, def } };
-		node.itr = param;
+		ITrTypeSPtr type = VisitAndGetType(node.type);
+		ITrExprSPtr def = VisitAndGetExpr(node.defExpr);
+		ITrGenParamSPtr param{ new ITrGenValParam{ iden, type, def, u64(-1), u64(-1) } };
 		m_GenDecl->params.push_back(param);
 	}
 
 	void AstToITrLowering::Visit(AstGenericTypeBound& node)
 	{
-		Visit(node.type);
-		ITrTypeSPtr type = PopType();
-		type->astNode = node.type;
-		
-		Visit(*node.bound);
-		ITrGenBoundTypeSPtr boundType = m_BoundTypes.top();
-		m_BoundTypes.pop();
-
-		ITrGenTypeBoundSPtr bound{ new ITrGenTypeBound{ type, boundType } };
-		node.itr = bound;
+		ITrTypeSPtr type = VisitAndGetType(node.type);
+		ITrGenBoundTypeSPtr boundType = VisitAndGetGenBoundType(node.bound);
+		ITrGenTypeBoundSPtr bound{ new ITrGenTypeBound{ type, boundType, u64(-1), u64(-1) } };
 		m_GenDecl->bounds.push_back(bound);
 	}
 
 	void AstToITrLowering::Visit(AstGenericBoundType& node)
 	{
-		Visit(node.type);
-		ITrTypeSPtr type = PopType();
+		ITrTypeSPtr type = VisitAndGetType(node.type);
 
 		StdVector<ITrGenAssocBound> assocBounds;
 		for (AstGenericAssocTypeBound& assocBound : node.assocBounds)
 		{
-			Visit(*assocBound.type);
-
-			ITrGenBoundTypeSPtr boundType = m_BoundTypes.top();
-			m_BoundTypes.pop();
-			ITrGenAssocBound bound{ assocBound.iden, boundType };
+			ITrGenBoundTypeSPtr boundType = VisitAndGetGenBoundType(assocBound.type);
+			ITrGenAssocBound bound{ assocBound.iden, boundType, u64(-1), u64(-1) };
 			assocBounds.push_back(bound);
 		}
 
-		ITrGenBoundTypeSPtr boundType = ITrGenBoundTypeSPtr{ new ITrGenBoundType{ type, std::move(assocBounds) } };
+		ITrGenBoundTypeSPtr boundType = ITrGenBoundTypeSPtr{ new ITrGenBoundType{ type, std::move(assocBounds), u64(-1), u64(-1) } };
 		m_BoundTypes.push(boundType);
 	}
 
 	void AstToITrLowering::Visit(AstDeclSPtr& node)
 	{
-		m_DeclNode = node;
 		AstVisitor::Visit(node);
 	}
 
@@ -2288,29 +1615,13 @@ namespace Noctis
 		params.reserve(size);
 		for (AstParamSPtr astParam : astParams)
 		{
-			AstVisitor::Visit(astParam->type);
-			ITrTypeSPtr type = PopType();
-			type->astNode = astParam->type;
+			ITrTypeSPtr type = VisitAndGetType(astParam->type);
 			
 			for (AstParamVarSPtr paramVar : astParam->vars)
 			{
-				ITrAttribsSPtr attribs;
-				if (paramVar->attribs)
-				{
-					Walk(*paramVar->attribs);
-					attribs = PopAttribs();
-					attribs->astNode = paramVar->attribs;
-				}
-
-				IdenSPtr label;
-				if (!paramVar->label.empty())
-					label = Iden::Create(paramVar->label);
-
+				ITrAttribsSPtr attribs = VisitAndGetAttribs(paramVar->attribs);
 				IdenSPtr iden = Iden::Create(paramVar->iden);
-				
-				ITrParamSPtr param{ new ITrParam{ attribs, label, iden, type } };
-				param->astNode = astParam;
-				param->astVarNode = paramVar;
+				ITrParamSPtr param{ new ITrParam{ attribs, iden, type, astParam->ctx->startIdx, astParam->ctx->endIdx } };
 				params.push_back(param);
 			}
 		}
@@ -2322,18 +1633,12 @@ namespace Noctis
 		StdVector<ITrArgSPtr> args;
 		usize size = astArgs.size();
 		args.reserve(size);
-		for (usize i = astArgs.size(); i > 0; --i)
+		for (AstArgSPtr astArg : astArgs)
 		{
-			AstArgSPtr astArg = astArgs[i - 1];
-			
-			ITrExprSPtr expr = PopExpr();
-			expr->astNode = astArg->expr;
-
+			ITrExprSPtr expr = VisitAndGetExpr(astArg->expr);
 			const StdString& idenName = astArg->iden;
 			IdenSPtr iden = idenName.empty() ? nullptr : Iden::Create(idenName);
-
-			ITrArgSPtr arg{ new ITrArg{ iden, expr } };
-			arg->astNode = astArg;
+			ITrArgSPtr arg{ new ITrArg{ iden, expr, astArg->ctx->startIdx } };
 			args.push_back(arg);
 		}
 		std::reverse(args.begin(), args.end());
@@ -2342,8 +1647,6 @@ namespace Noctis
 
 	void AstToITrLowering::HandleGenerics(ITrGenDeclSPtr genDecl, QualNameSPtr qualName)
 	{
-		StdVector<ITrGenTypeBoundSPtr>& bounds = genDecl->bounds;
-		
 		// Update generic type argument names
 		for (usize i = 0; i < genDecl->params.size(); ++i)
 		{
@@ -2363,15 +1666,22 @@ namespace Noctis
 		}
 	}
 
-	void AstToITrLowering::AddMethodReceiverToParams(AstMethodReceiverKind recKind, StdVector<ITrParamSPtr>& params)
+	void AstToITrLowering::AddMethodReceiverToParams(AstMethodDecl& node, StdVector<ITrParamSPtr>& params)
 	{
 		ITrTypeSPtr recType;
 		if (m_ITrImplType)
 			recType = m_ITrImplType;
 		else
-			recType.reset(new ITrType { nullptr, m_ImplType, {} });
-		switch (recKind)
+			recType.reset(new ITrType { nullptr, m_ImplType, {}, nullptr, u64(-1), u64(-1) });
+		switch (node.rec)
 		{
+		case AstMethodReceiverKind::Move:
+		{
+			ITrAttribsSPtr attribs{ new ITrAttribs{ Visibility::Private, Attribute::Move, {}, u64(-1), u64(-1) } };
+			ITrParamSPtr recParam{ new ITrParam{ attribs, Iden::Create("self"), recType, u64(-1), u64(-1) } };
+			params.insert(params.begin(), recParam);
+			break;
+		}
 		case AstMethodReceiverKind::MutRef:
 		{
 			TypeHandle tmp = m_pCtx->typeReg.Mod(TypeMod::Mut, recType->handle);
@@ -2382,19 +1692,19 @@ namespace Noctis
 			}
 			else
 			{
-				recType = ITrTypeSPtr{ new ITrType { nullptr, tmp, {} } };
+				recType = ITrTypeSPtr{ new ITrType { nullptr, tmp, {}, nullptr, u64(-1), u64(-1) } };
 			}
 			// fallthrough
 		}
 		case AstMethodReceiverKind::Ref:
 		{
 			TypeHandle tmp = m_pCtx->typeReg.Ref(TypeMod::None, recType->handle);
-			recType = ITrTypeSPtr{ new ITrType { nullptr, tmp, { recType } } };
+			recType = ITrTypeSPtr{ new ITrType { nullptr, tmp, { recType }, nullptr, u64(-1), u64(-1) } };
 			// fallthrough
 		}
 		case AstMethodReceiverKind::Value:
 		{
-			ITrParamSPtr recParam{ new ITrParam{ nullptr, nullptr, Iden::Create("self"), recType } };
+			ITrParamSPtr recParam{ new ITrParam{ nullptr, Iden::Create("self"), recType, u64(-1), u64(-1) } };
 			params.insert(params.begin(), recParam);
 			break;
 		}
@@ -2409,9 +1719,7 @@ namespace Noctis
 		StdVector<ITrExprSPtr> retSubExprs;
 		for (StdPair<StdVector<StdString>, AstTypeSPtr>& namedRet : astNamedRets)
 		{
-			AstVisitor::Visit(namedRet.second);
-			ITrTypeSPtr tmp = PopType();
-			tmp->astNode = namedRet.second;
+			ITrTypeSPtr tmp = VisitAndGetType(namedRet.second);
 
 			for (StdString& name : namedRet.first)
 			{
@@ -2419,16 +1727,16 @@ namespace Noctis
 				subTypes.push_back(tmp);
 
 				IdenSPtr iden = Iden::Create(name);
-				stmts.emplace_back(new ITrLocalVar{ nullptr,  { iden }, tmp, nullptr });
+				stmts.emplace_back(new ITrLocalVar{ nullptr,  { iden }, tmp, nullptr, u64(-1), u64(-1) });
 				ITrQualNameSPtr itrQualName{ new ITrQualName{ QualName::Create(iden), nullptr, StdVector<ITrIdenSPtr>{} } };
 				retSubExprs.emplace_back(new ITrQualNameExpr{ itrQualName });
 			}
 		}
 
-		m_NamedRet = ITrExprSPtr{ new ITrTupleInit{ std::move(retSubExprs) } };
+		m_NamedRet = ITrExprSPtr{ new ITrTupleInit{ std::move(retSubExprs), u64(-1), u64(-1) } };
 
 		TypeHandle handle = m_pCtx->typeReg.Tuple(TypeMod::None, subTypesHandles);
-		retType = ITrTypeSPtr{ new ITrType{ nullptr, handle, std::move(subTypes) } };
+		retType = ITrTypeSPtr{ new ITrType{ nullptr, handle, std::move(subTypes), nullptr, u64(-1), u64(-1) } };
 	}
 
 	void AstToITrLowering::HandleWhereClause(AstGenericWhereClause& clause, ITrGenDeclSPtr genDecl)
@@ -2464,45 +1772,61 @@ namespace Noctis
 		return m_Defs.empty();
 	}
 
-	ITrStmtSPtr AstToITrLowering::PopStmt()
+	ITrStmtSPtr AstToITrLowering::VisitAndGetStmt(AstStmtSPtr stmt)
 	{
-		ITrStmtSPtr tmp = m_Stmts.top();
-		m_Stmts.pop();
-		return tmp;
+		if (!stmt)
+			return nullptr;
+		AstVisitor::Visit(stmt);
+		return m_Stmt;
 	}
 
-	ITrExprSPtr AstToITrLowering::PopExpr()
+	ITrExprSPtr AstToITrLowering::VisitAndGetExpr(AstExprSPtr expr)
 	{
-		ITrExprSPtr tmp = m_Exprs.top();
-		m_Exprs.pop();
-		return tmp;
+		if (!expr)
+			return nullptr;
+		AstVisitor::Visit(expr);
+		return m_Expr;
 	}
 
-	ITrTypeSPtr AstToITrLowering::PopType()
+	ITrTypeSPtr AstToITrLowering::VisitAndGetType(AstTypeSPtr type)
 	{
-		ITrTypeSPtr tmp = m_Types.top();
-		m_Types.pop();
-		return tmp;
+		if (!type)
+			return nullptr;
+		AstVisitor::Visit(type);
+		return m_Type;
 	}
 
-	ITrPatternSPtr AstToITrLowering::PopPattern()
+	ITrPatternSPtr AstToITrLowering::VisitAndGetPattern(AstPatternSPtr pattern)
 	{
-		ITrPatternSPtr tmp = m_Patterns.top();
-		m_Patterns.pop();
-		return tmp;
+		if (!pattern)
+			return nullptr;
+		AstVisitor::Visit(pattern);
+		return m_Pattern;
 	}
 
-	ITrAttribsSPtr AstToITrLowering::PopAttribs()
+	ITrAttribsSPtr AstToITrLowering::VisitAndGetAttribs(AstAttribsSPtr attribs)
 	{
-		ITrAttribsSPtr tmp = m_Attribs.top();
-		m_Attribs.pop();
-		return tmp;
+		if (!attribs)
+			return nullptr;
+		Visit(*attribs);
+		return m_Attribs;
 	}
 
-	ITrGenDeclSPtr AstToITrLowering::PopGenDecl()
+	ITrGenDeclSPtr AstToITrLowering::VisitAndGetGenDecl(AstGenericDeclSPtr genDecl)
 	{
-		ITrGenDeclSPtr tmp = m_GenDecls.top();
-		m_GenDecls.pop();
+		if (!genDecl)
+			return nullptr;
+		Visit(*genDecl);
+		return m_GenDecl;
+	}
+
+	ITrGenBoundTypeSPtr AstToITrLowering::VisitAndGetGenBoundType(AstGenericBoundTypeSPtr bound)
+	{
+		if (!bound)
+			return nullptr;
+		Visit(*bound);
+		ITrGenBoundTypeSPtr tmp = m_BoundTypes.top();
+		m_BoundTypes.pop();
 		return tmp;
-	} 
+	}
 }

@@ -410,7 +410,11 @@ namespace Noctis
 		AstMethodReceiverKind recKind = AstMethodReceiverKind::None;
 		if (asMethod && TryEatToken(TokenType::LParen))
 		{
-			if (TryEatToken(TokenType::And))
+			if (TryEatToken(TokenType::Move))
+			{
+				recKind = AstMethodReceiverKind::Move;
+			}
+			else if (TryEatToken(TokenType::And))
 			{
 				if (TryEatToken(TokenType::Mut))
 					recKind = AstMethodReceiverKind::MutRef;
@@ -493,7 +497,7 @@ namespace Noctis
 
 			u64 endIdx = EatToken(TokenType::Semicolon).Idx();
 			if (asMethod)
-				return AstDeclSPtr{ new AstEmptyMethodDecl { attribs, startIdx, recKind, std::move(iden), generics, std::move(params), retType, endIdx } };
+				return AstDeclSPtr{ new AstMethodDecl { attribs, startIdx, recKind, std::move(iden), generics, std::move(params), false, nullptr, retType, {}, nullptr, {}, true, endIdx } };
 			else
 				return AstDeclSPtr{ new AstFuncDecl{ attribs, startIdx, std::move(iden), generics, std::move(params), throws, errorType,
 					retType, std::move(namedRets), whereClause, {}, endIdx } };
@@ -509,7 +513,7 @@ namespace Noctis
 
 		if (asMethod)
 			return AstDeclSPtr{ new AstMethodDecl { attribs, startIdx, recKind, std::move(iden), generics, std::move(params),
-				throws, errorType, retType, std::move(namedRets), whereClause, std::move(stmts), endIdx } };
+				throws, errorType, retType, std::move(namedRets), whereClause, std::move(stmts), false, endIdx } };
 		
 		return AstDeclSPtr{ new AstFuncDecl { attribs, startIdx, std::move(iden), generics, std::move(params), throws,
 			errorType, retType, std::move(namedRets), whereClause, std::move(stmts), endIdx } };
@@ -2785,15 +2789,7 @@ namespace Noctis
 			u64 tmpIdx = m_TokIdx;
 			StdString iden = ParseIden();
 			endIdx = m_TokIdx - 1;
-
-			StdString label;
-			if (TryEatToken(TokenType::DblArrow))
-			{
-				label = iden;
-				iden = ParseIden();
-				endIdx = m_TokIdx - 1;
-			}
-			vars.emplace_back(new AstParamVar{ attribs, tmpIdx, std::move(label), std::move(iden), endIdx });
+			vars.emplace_back(new AstParamVar{ attribs, tmpIdx, std::move(iden), endIdx });
 		}
 		else
 		{
@@ -2802,15 +2798,7 @@ namespace Noctis
 			u64 tmpIdx = m_TokIdx;
 			StdString iden = ParseIden();
 			endIdx = m_TokIdx - 1;
-
-			StdString label;
-			if (TryEatToken(TokenType::DblArrow))
-			{
-				label = iden;
-				iden = ParseIden();
-				endIdx = m_TokIdx - 1;
-			}
-			vars.emplace_back(new AstParamVar{ attribs, tmpIdx, std::move(label), std::move(iden), endIdx });
+			vars.emplace_back(new AstParamVar{ attribs, tmpIdx, std::move(iden), endIdx });
 		}
 
 		while (TryEatToken(TokenType::Comma))
@@ -2821,15 +2809,7 @@ namespace Noctis
 			u64 tmpIdx = m_TokIdx;
 			StdString iden = ParseIden();
 			endIdx = m_TokIdx - 1;
-
-			StdString label;
-			if (TryEatToken(TokenType::DblArrow))
-			{
-				label = iden;
-				iden = ParseIden();
-				endIdx = m_TokIdx - 1;
-			}
-			vars.emplace_back(new AstParamVar{ attribs, tmpIdx, std::move(label), std::move(iden), endIdx });
+			vars.emplace_back(new AstParamVar{ attribs, tmpIdx, std::move(iden), endIdx });
 		}
 
 		if (PeekToken().Type() != TokenType::Colon && allowNoType)

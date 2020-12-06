@@ -101,7 +101,7 @@ namespace Noctis
 				Attribute validSingle = attribs & singleMask;
 				if (CountBits(validSingle) > 1)
 				{
-					Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+					Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 					StdString name = ToString(validSingle);
 					const char* pName = name.c_str();
 					g_ErrorSystem.Error(span, "'%s' can't be used together for a variable declaration, only one of these is allowed per variable declaration", pName);
@@ -151,7 +151,7 @@ namespace Noctis
 				
 				Attribute attribs = param->attribs->attribs;
 				Attribute paramValidMask = Attribute::Comptime | Attribute::Lazy | Attribute::Move;
-				SpanId spanId = param->astNode->ctx->startIdx;
+				SpanId spanId = param->startIdx;
 				CheckAttribs(attribs, paramValidMask, spanId, "function parameter");
 				CheckSingleAttrib(attribs, paramValidMask, spanId, "parameter");
 			}
@@ -174,7 +174,7 @@ namespace Noctis
 		{
 			Attribute attribs = node.attribs->attribs;
 			Attribute validMask = Attribute::Const | Attribute::Mut | Attribute::Lazy;
-			SpanId spanId = std::get<AstStmtSPtr>(node.astNode)->ctx->startIdx;
+			SpanId spanId = node.startIdx;
 			CheckAttribs(attribs, validMask, spanId, "local variable");
 			CheckSingleAttrib(attribs, validMask, spanId, "local variable");
 		}
@@ -190,7 +190,7 @@ namespace Noctis
 		{
 			Attribute attribs = node.attribs->attribs;
 			Attribute validMask = Attribute::Mut;
-			SpanId spanId = node.astNode->ctx->startIdx;
+			SpanId spanId = node.startIdx;
 			CheckAttribs(attribs, validMask, spanId, "type");
 			CheckSingleAttrib(attribs, validMask, spanId, "type");
 		}
@@ -205,7 +205,7 @@ namespace Noctis
 
 			if (invalid != Attribute::None)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(node.astNode->ctx->startIdx);
+				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
 				StdString name = ToString(invalid);
 				g_ErrorSystem.Error(span, "'%s' are invalid for %s definitions", name.c_str(), defName.data());
 			}
