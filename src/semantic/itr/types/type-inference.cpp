@@ -31,6 +31,17 @@ namespace Noctis
 				m_Scope = node.qualName;
 				if (node.genDecl)
 					HandleGenerics(node, node.qualName->LastIden());
+
+				ITrBodySPtr body = m_pMod->GetBody(node);
+				for (ITrDefSPtr def : body->defs)
+				{
+					if (def->kind == ITrDefKind::Var)
+					{
+						ITrVar& var = static_cast<ITrVar&>(*def);
+						Visit(*var.type);
+						var.sym.lock()->SetType(var.type->handle);
+					}
+				}
 			});
 
 			Foreach(ITrVisitorDefKind::Any, [&](ITrUnion& node)
@@ -38,6 +49,17 @@ namespace Noctis
 				m_Scope = node.qualName;
 				if (node.genDecl)
 					HandleGenerics(node, node.qualName->LastIden());
+
+				ITrBodySPtr body = m_pMod->GetBody(node);
+				for (ITrDefSPtr def : body->defs)
+				{
+					if (def->kind == ITrDefKind::Var)
+					{
+						ITrVar& var = static_cast<ITrVar&>(*def);
+						Visit(*var.type);
+						var.sym.lock()->SetType(var.type->handle);
+					}
+				}
 			});
 
 			Foreach(ITrVisitorDefKind::Any, [&](ITrAdtEnum& node)
@@ -61,26 +83,33 @@ namespace Noctis
 					HandleGenerics(node, node.qualName->LastIden());
 			});
 
+			Foreach(ITrVisitorDefKind::Any, [&](ITrTypealias& node)
+			{
+				m_Scope = node.qualName;
+				if (node.type)
+				{
+					Visit(*node.type);
+					node.sym.lock()->SetType(node.type->handle);
+				}
+			});
+
+			Foreach(ITrVisitorDefKind::Any, [&](ITrTypedef& node)
+			{
+				m_Scope = node.qualName;
+				if (node.type)
+				{
+					Visit(*node.type);
+					node.sym.lock()->SetType(node.type->handle);
+				}
+			});
+
 			Foreach(ITrVisitorDefKind::Any, [&](ITrImpl& node)
 			{
 				m_Scope = node.qualName;
 				m_Impl = node.ptr.lock();
 
 				Visit(*node.type);
-
-				SymbolSPtr sym = node.sym.lock();
-				sym->type = node.type->handle;
-				if (sym->kind == SymbolKind::Impl)
-				{
-					SymbolSPtr tmp = symTable.Find(sym->type);
-					if (!tmp)
-					{
-						tmp = sym->Copy();
-						tmp->kind = SymbolKind::Type;
-					}
-					node.sym = tmp;
-					symTable.Add(tmp);
-				}
+				node.sym.lock()->SetType(node.type->handle);
 
 				if (node.genDecl)
 					HandleGenerics(node, node.qualName->LastIden());
@@ -174,7 +203,7 @@ namespace Noctis
 				}
 
 				TypeHandle type = m_pCtx->typeReg.Func(TypeMod::None, paramTypes, retType);
-				sym->type = type;
+				sym->SetType(type);
 			}
 			else
 			{
@@ -583,7 +612,16 @@ namespace Noctis
 		}
 		else
 		{
-			OperatorKind opKind = node.expr->typeInfo.handle.Type()->Mod() == TypeMod::Mut ? OperatorKind::MutIndex : OperatorKind::Index;
+			TypeHandle elemType = node.expr->typeInfo.handle;
+			if (elemType.Kind() == TypeKind::Ref)
+				elemType = elemType.AsRef().subType;
+
+			if (elemType.Kind() == TypeKind::Array)
+				elemType = elemType.AsArray().subType;
+			else
+				elemType = elemType.AsSlice().subType;
+			
+			OperatorKind opKind = elemType.AsBase().mod == TypeMod::Mut ? OperatorKind::MutIndex : OperatorKind::Index;
 			Operator op = m_pCtx->activeModule->opTable.GetOperator(opKind, exprTypeHandle, node.index->typeInfo.handle);
 
 			if (opKind == OperatorKind::MutIndex && !op.sym)
@@ -597,9 +635,9 @@ namespace Noctis
 			if (!op.sym)
 			{
 				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
-				StdStringView opName = GetOpName(opKind);
 				StdString typeName = exprTypeHandle.ToString();
-				g_ErrorSystem.Error(span, "Index operator '%s' not found for '%s'\n", opName.data(), typeName.c_str());
+				const char* begin = opKind == OperatorKind::MutIndex ? "Mutable i" : "I";
+				g_ErrorSystem.Error(span, "%sndex operator not found for '%s'\n", begin, typeName.c_str());
 			}
 		}
 	}
@@ -1305,7 +1343,14 @@ namespace Noctis
 		}
 		else if (sym->kind == SymbolKind::Union)
 		{
-			ptr.reset(new ITrUnionInit{ node.type, std::move(node.args), node.endIdx });
+			if (node.args.size() > 1)
+			{
+				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+				g_ErrorSystem.Error(span, "A union must be initialized with exactly 1 member\n");
+				return;
+			}
+			
+			ptr.reset(new ITrUnionInit{ node.type, node.args[0], node.endIdx });
 			ptr->typeInfo.handle = sym->SelfType();
 			ptr->sym = sym;
 
@@ -1323,9 +1368,9 @@ namespace Noctis
 				children.push_back(child);
 			}
 
-			if (unionNode.args.size() > 0)
+			if (unionNode.arg)
 			{
-				ITrArgSPtr arg = unionNode.args[0];
+				ITrArgSPtr arg = unionNode.arg;
 
 				if (!arg->iden)
 				{
@@ -1357,13 +1402,6 @@ namespace Noctis
 						g_ErrorSystem.Error(span, "Cannot pass '%s' to '%s'\n", argName.c_str(), expectedName.c_str());
 						return;
 					}
-
-					if (unionNode.args.size() > 1)
-					{
-						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
-						g_ErrorSystem.Error(span, "Cannot initialize more than 1 union member\n");
-						return;
-					}
 				}
 				else
 				{
@@ -1376,7 +1414,7 @@ namespace Noctis
 			else
 			{
 				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
-				g_ErrorSystem.Error(span, "Cannot initialize a union without any members\n");
+				g_ErrorSystem.Error(span, "Cannot initialize a union without a member\n");
 				return;
 			}
 		}
@@ -2309,8 +2347,7 @@ namespace Noctis
 				if (generic.isType)
 				{
 					generic.type = m_pCtx->typeReg.Generic(TypeMod::None, generic.iden, generic.typeConstraints);
-
-					param->sym.lock()->type = generic.type;
+					param->sym.lock()->SetType(generic.type);
 				}
 
 				if (param->isType)

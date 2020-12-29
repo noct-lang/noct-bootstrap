@@ -1,5 +1,6 @@
 #pragma once
 #include "common/type.hpp"
+#include "itr/itr.hpp"
 #include "semantic/semantic-pass.hpp"
 
 namespace Noctis
@@ -162,6 +163,7 @@ namespace Noctis
 		bool IsModDef();
 
 		ITrStmtSPtr VisitAndGetStmt(AstStmtSPtr stmt);
+		ITrBlockSPtr VisitAndGetBlock(AstStmtSPtr stmt, const StdString& scopeName);
 		ITrExprSPtr VisitAndGetExpr(AstExprSPtr expr);
 		ITrTypeSPtr VisitAndGetType(AstTypeSPtr type);
 		ITrPatternSPtr VisitAndGetPattern(AstPatternSPtr pattern);

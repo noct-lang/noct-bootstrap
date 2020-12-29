@@ -43,6 +43,7 @@ namespace Noctis
 		void Visit(ILTernary& node) override;
 		void Visit(ILTransmute& node) override;
 		void Visit(ILIndex& node) override;
+		void Visit(ILGenVal& node) override;
 		void Visit(ILCompIntrin& node) override;
 		void Visit(ILStaticCall& node) override;
 		void Visit(ILDynamicCall& node) override;
@@ -59,6 +60,9 @@ namespace Noctis
 	private:
 		template<typename T>
 		void WriteData(const T& val);
+
+		void EncodeQualName(QualNameSPtr qualName);
+		void EncodeName(const StdString& name);
 
 		void EncodeVarAndType(ILVar& var);
 		void EncodeVar(ILVar& var);
@@ -87,7 +91,7 @@ namespace Noctis
 	class ILDecode
 	{
 	public:
-		ILDecode(Context* pCtx);
+		ILDecode(Context* pCtx, Module* pNxMod);
 
 		ILModule Decode(const StdVector<u8>& bytecode);
 
@@ -113,6 +117,7 @@ namespace Noctis
 		ILElemSPtr DecodeTernary();
 		ILElemSPtr DecodeTransmute();
 		ILElemSPtr DecodeIndex();
+		ILElemSPtr DecodeGenVal();
 		ILElemSPtr DecodeCompIntrin();
 		ILElemSPtr DecodeFuncCall(bool hasRet);
 		ILElemSPtr DecodeMethodCall(bool hasRet);
@@ -130,14 +135,20 @@ namespace Noctis
 		TypeHandle DecodeType();
 		ILVar DecodeVar(bool typeStored);
 
+		StdString DecodeName();
+
 		template<typename T>
 		T ReadData();
 
 		template<typename T>
 		T ReadData(usize numBytes);
 
+		StdString GetNameFromId(u32 id);
+		QualNameSPtr GetQualNameFromId(u32 id);
+
 		Context* m_pCtx;
 		ILModule* m_pMod;
+		Module* m_pNxMod;
 
 		const StdVector<u8>* m_pByteCode;
 		u64 m_BCPos;

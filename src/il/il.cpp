@@ -298,8 +298,15 @@ namespace Noctis
 	{
 	}
 
+	ILGenVal::ILGenVal(ILVar dst, const StdString& genName)
+		: ILElem(ILKind::GenVal)
+		, dst(dst)
+		, genName(genName)
+	{
+	}
+
 	ILCompIntrin::ILCompIntrin(ILVar dst, ILCompIntrinKind kind, const StdVector<ILVar>& vars,
-		const StdVector<TypeHandle>& types)
+	                           const StdVector<TypeHandle>& types)
 		: ILElem(ILKind::CompIntrin)
 		, dst(dst)
 		, intrin(kind)
@@ -378,9 +385,10 @@ namespace Noctis
 	{
 	}
 
-	ILUnionInit::ILUnionInit(ILVar dst, ILVar arg)
+	ILUnionInit::ILUnionInit(ILVar dst, const StdString& member, ILVar arg)
 		: ILElem(ILKind::UnionInit)
 		, dst(std::move(dst))
+		, member(member)
 		, arg(std::move(arg))
 	{
 	}

@@ -737,10 +737,7 @@ namespace Noctis
 
 	void ITrVisitor::Walk(ITrLoop& node)
 	{
-		for (ITrStmtSPtr stmt : node.stmts)
-		{
-			Visit(stmt);
-		}
+		Visit(*node.block);
 	}
 
 	void ITrVisitor::Walk(ITrForRange& node)
@@ -925,10 +922,7 @@ namespace Noctis
 	void ITrVisitor::Walk(ITrUnionInit& node)
 	{
 		Visit(*node.type);
-		for (ITrArgSPtr arg : node.args)
-		{
-			Visit(arg->expr);
-		}
+		Visit(node.arg->expr);
 	}
 
 	void ITrVisitor::Walk(ITrAdtAggrEnumInit& node)

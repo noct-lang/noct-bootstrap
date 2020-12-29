@@ -17,18 +17,22 @@ namespace Noctis
 	StdVector<u8> ILEncode::Encode(ILModule& mod)
 	{
 		StdVector<u8> encoded;
+
 		// Write type table
-		encoded.push_back(0xFE);
-		u32 typeCount = u32(mod.types.size());
-		encoded.insert(encoded.end(), reinterpret_cast<u8*>(&typeCount), reinterpret_cast<u8*>(&typeCount) + sizeof(u32));
-		
-		u32 typeId = 0;
-		for (TypeSPtr type : mod.types)
+		if (!mod.types.empty())
 		{
-			m_Types.try_emplace(type, typeId++);
-			StdString typeStr = NameMangling::Mangle(m_pCtx, type);
-			encoded.insert(encoded.end(), typeStr.begin(), typeStr.end());
-			encoded.push_back(0);
+			encoded.push_back(0xFE);
+			u32 typeCount = u32(mod.types.size());
+			encoded.insert(encoded.end(), reinterpret_cast<u8*>(&typeCount), reinterpret_cast<u8*>(&typeCount) + sizeof(u32));
+
+			u32 typeId = 0;
+			for (TypeSPtr type : mod.types)
+			{
+				m_Types.try_emplace(type, typeId++);
+				StdString typeStr = NameMangling::Mangle(m_pCtx, type);
+				encoded.insert(encoded.end(), typeStr.begin(), typeStr.end());
+				encoded.push_back(0);
+			}
 		}
 		u64 typeTableSize = u64(encoded.size());
 
@@ -41,16 +45,19 @@ namespace Noctis
 
 		
 		// Write name table
-		encoded.push_back(0xFD);
-		u32 nameCount = u32(mod.names.size());
-		encoded.insert(encoded.end(), reinterpret_cast<u8*>(&nameCount), reinterpret_cast<u8*>(&nameCount) + sizeof(u32));
-
-		u32 nameId = 0;
-		for (const StdString& name : mod.names)
+		if (!mod.names.empty())
 		{
-			m_Names.try_emplace(name, nameId++);
-			encoded.insert(encoded.end(), name.begin(), name.end());
-			encoded.push_back(0);
+			encoded.push_back(0xFD);
+			u32 nameCount = u32(mod.names.size());
+			encoded.insert(encoded.end(), reinterpret_cast<u8*>(&nameCount), reinterpret_cast<u8*>(&nameCount) + sizeof(u32));
+
+			u32 nameId = 0;
+			for (const StdString& name : mod.names)
+			{
+				m_Names.try_emplace(name, nameId++);
+				encoded.insert(encoded.end(), name.begin(), name.end());
+				encoded.push_back(0);
+			}
 		}
 		u64 nameTableSize = u64(encoded.size()) - typeTableSize;
 
@@ -86,10 +93,12 @@ namespace Noctis
 		m_EncodedFuncs.emplace_back(StdVector<u8>{});
 		m_pCurEncodingFunc = &m_EncodedFuncs.back();
 
+		if (node.qualName->LastIden()->Name() == "opLt")
+			int br = 0;
+		
 		// def id
 		u32 idAndMangle = 0xF0; // LE, so id at begin
-		StdString name = NameMangling::Mangle(m_pCtx, node.qualName);
-		u32 nameId = GetNameId(name);
+		u32 nameId = m_pCtx->activeModule->encodeInfo.GetOrAddQualName(m_pCtx, node.qualName);
 		idAndMangle |= (nameId & 0x00FF'FFFF) << 8;
 		
 		WriteData(idAndMangle);
@@ -223,6 +232,13 @@ namespace Noctis
 		EncodeVar(node.idx);
 	}
 
+	void ILEncode::Visit(ILGenVal& node)
+	{
+		WriteData(u8(node.kind));
+		EncodeName(node.genName);
+		EncodeVarAndType(node.dst);
+	}
+
 	void ILEncode::Visit(ILCompIntrin& node)
 	{
 		WriteData(u8(node.kind));
@@ -242,14 +258,7 @@ namespace Noctis
 	void ILEncode::Visit(ILStaticCall& node)
 	{
 		WriteData(u8(node.kind));
-		u32 nameId = m_pCtx->activeModule->encodeInfo.GetOrAddQualName(m_pCtx, node.func);
-		if (nameId == 0)
-		{
-			StdString mangled = NameMangling::Mangle(m_pCtx, node.func);
-			nameId = m_Names[mangled];
-		}
-		
-		WriteData(nameId);
+		EncodeQualName(node.func);
 		WriteData(u8(node.args.size()));
 
 		if (node.kind == ILKind::StaticCallRet)
@@ -264,11 +273,10 @@ namespace Noctis
 	void ILEncode::Visit(ILDynamicCall& node)
 	{
 		WriteData(u8(node.kind));
-		u32 nameId = GetNameId(node.func);
-		WriteData(nameId);
+		EncodeName(node.func);
 		WriteData(u8(node.args.size()));
 
-		if (node.kind == ILKind::StaticCallRet)
+		if (node.kind == ILKind::DynamicCallRet)
 			EncodeVarAndType(node.dst);
 
 		EncodeVar(node.caller);
@@ -298,8 +306,7 @@ namespace Noctis
 	void ILEncode::Visit(ILMemberAccess& node)
 	{
 		WriteData(u8(node.kind));
-		u32 nameId = GetNameId(node.name);
-		WriteData(nameId);
+		EncodeName(node.name);
 		EncodeVarAndType(node.dst);
 		EncodeVar(node.src);
 	}
@@ -326,6 +333,7 @@ namespace Noctis
 	void ILEncode::Visit(ILUnionInit& node)
 	{
 		WriteData(u8(node.kind));
+		EncodeName(node.member);
 		EncodeVarAndType(node.dst);
 		EncodeVar(node.arg);
 	}
@@ -333,16 +341,14 @@ namespace Noctis
 	void ILEncode::Visit(ILValEnumInit& node)
 	{
 		WriteData(u8(node.kind));
-		u32 nameId = GetNameId(node.member);
-		WriteData(nameId);
+		EncodeName(node.member);
 		EncodeVarAndType(node.dst);
 	}
 
 	void ILEncode::Visit(ILAdtEnumInit& node)
 	{
 		WriteData(u8(node.kind));
-		u32 nameId = GetNameId(node.member);
-		WriteData(nameId);
+		EncodeName(node.member);
 		WriteData(u8(node.args.size()));
 		EncodeVarAndType(node.dst);
 		for (ILVar& arg : node.args)
@@ -371,6 +377,29 @@ namespace Noctis
 		{
 			EncodeVar(arg);
 		}
+	}
+
+	void ILEncode::EncodeQualName(QualNameSPtr qualName)
+	{
+		u32 id = m_pCtx->activeModule->encodeInfo.GetQualNameId(qualName);
+		if (id == 0)
+		{
+			id = u32(m_Names.size());
+			StdString mangled = NameMangling::Mangle(m_pCtx, qualName);
+			m_Names.try_emplace(mangled, id);
+		}
+		WriteData(id);
+	}
+
+	void ILEncode::EncodeName(const StdString& name)
+	{
+		u32 id = m_pCtx->activeModule->encodeInfo.GetNameId(name);
+		if (id == 0)
+		{
+			id = u32(m_Names.size());
+			m_Names.try_emplace(name, id);
+		}
+		WriteData(id);
 	}
 
 	void ILEncode::EncodeVarAndType(ILVar& var)
@@ -467,9 +496,10 @@ namespace Noctis
 		return it->second;
 	}
 
-	ILDecode::ILDecode(Context* pCtx)
+	ILDecode::ILDecode(Context* pCtx, Module* pNxMod)
 		: m_pCtx(pCtx)
 		, m_pMod(nullptr)
+		, m_pNxMod(pNxMod)
 		, m_pByteCode(nullptr)
 		, m_BCPos(0)
 		, m_CurVarId(0)
@@ -600,7 +630,7 @@ namespace Noctis
 
 		u32 nameId = idAndMangle >> 8;
 		
-		QualNameSPtr qualName = m_pCtx->activeModule->encodeInfo.GetQualNameFromId(m_pCtx, nameId);
+		QualNameSPtr qualName = m_pNxMod->encodeInfo.GetQualNameFromId(m_pCtx, nameId);
 		ILFuncDefSPtr def{ new ILFuncDef{ m_pCtx, qualName, {} } };
 		// TODO: Symbol
 
@@ -673,6 +703,7 @@ namespace Noctis
 		case ILKind::Ternary: return DecodeTernary();
 		case ILKind::Transmute: return DecodeTransmute();
 		case ILKind::Index: return DecodeIndex();
+		case ILKind::GenVal: return DecodeGenVal();
 		case ILKind::CompIntrin: return DecodeCompIntrin();
 		case ILKind::StaticCallNoRet: return DecodeFuncCall(false);
 		case ILKind::StaticCallRet: return DecodeFuncCall(true);
@@ -782,6 +813,13 @@ namespace Noctis
 		return ILElemSPtr{ new ILIndex{ dst, src, idx } };
 	}
 
+	ILElemSPtr ILDecode::DecodeGenVal()
+	{
+		StdString name = DecodeName();
+		ILVar dst = DecodeVar(true);
+		return ILElemSPtr{ new ILGenVal{ dst, name } };
+	}
+
 	ILElemSPtr ILDecode::DecodeCompIntrin()
 	{
 		ILCompIntrinKind intrin = static_cast<ILCompIntrinKind>(ReadData<u8>());
@@ -805,6 +843,8 @@ namespace Noctis
 	ILElemSPtr ILDecode::DecodeFuncCall(bool hasRet)
 	{
 		u32 nameId = ReadData<u32>();
+		QualNameSPtr name = GetQualNameFromId(nameId);
+		
 		u8 numArgs = ReadData<u8>();
 
 		ILVar dst;
@@ -817,18 +857,7 @@ namespace Noctis
 			args.push_back(DecodeVar(false));
 		}
 
-		QualNameSPtr name;
-		if (nameId & 0x1000'0000)
-		{
-			const StdString& tmp = m_Names[nameId & 0x0111'111];
-			name = NameMangling::DemangleQualName(m_pCtx, tmp);
-		}
-		else
-		{
-			name = m_pCtx->activeModule->encodeInfo.GetQualNameFromId(m_pCtx, nameId);
-		}
 
-		
 		if (hasRet)
 			return ILElemSPtr{ new ILStaticCall{ dst, name, args } };
 		return ILElemSPtr{ new ILStaticCall{ name, args } };
@@ -849,8 +878,9 @@ namespace Noctis
 		{
 			args.push_back(DecodeVar(false));
 		}
+
+		StdString name = GetNameFromId(nameId);
 		
-		StdString name = m_Names[nameId];
 		if (hasRet)
 			return ILElemSPtr{ new ILDynamicCall{ dst, caller, name, args } };
 		return ILElemSPtr{ new ILDynamicCall{ caller, name, args } };
@@ -878,10 +908,9 @@ namespace Noctis
 
 	ILElemSPtr ILDecode::DecodeMemberAccess()
 	{
-		u32 nameId = ReadData<u32>();
+		StdString name = DecodeName();
 		ILVar dst = DecodeVar(true);
 		ILVar src = DecodeVar(false);
-		StdString name = m_Names[nameId];
 		return ILElemSPtr{ new ILMemberAccess{ dst, src, name } };
 	}
 
@@ -907,16 +936,16 @@ namespace Noctis
 
 	ILElemSPtr ILDecode::DecodeUnionInit()
 	{
+		StdString member = DecodeName();
 		ILVar dst = DecodeVar(true);
 		ILVar arg = DecodeVar(false);
-		return ILElemSPtr{ new ILUnionInit{ dst, arg } };
+		return ILElemSPtr{ new ILUnionInit{ dst, member, arg } };
 	}
 
 	ILElemSPtr ILDecode::DecodeValEnumInit()
 	{
-		u32 nameId = ReadData<u32>();
+		StdString name = DecodeName();
 		ILVar dst = DecodeVar(true);
-		StdString name = m_Names[nameId];
 		return ILElemSPtr{ new ILValEnumInit{ dst, name } };
 	}
 
@@ -931,7 +960,7 @@ namespace Noctis
 			args.push_back(DecodeVar(false));
 		}
 		
-		StdString name = m_Names[nameId];
+		StdString name = GetNameFromId(nameId);
 		return ILElemSPtr{ new ILAdtEnumInit{ dst, name, args } };
 	}
 
@@ -1102,5 +1131,28 @@ namespace Noctis
 
 			return ILVar{ varKind, id, type };
 		}
+	}
+
+	StdString ILDecode::DecodeName()
+	{
+		u32 id = ReadData<u32>();
+		return GetNameFromId(id);
+	}
+
+	StdString ILDecode::GetNameFromId(u32 id)
+	{
+		if (id & 0x8000'0000)
+			return m_Names[id & 0x7FFF'FFFF];
+		return m_pNxMod->encodeInfo.GetNameFromId(id);
+	}
+
+	QualNameSPtr ILDecode::GetQualNameFromId(u32 id)
+	{
+		if (id & 0x8000'0000)
+		{
+			const StdString& name = m_Names[id & 0x7FFF'FFFF];
+			return NameMangling::DemangleQualName(m_pCtx, name);
+		}
+		return m_pNxMod->encodeInfo.GetQualNameFromId(m_pCtx, id);
 	}
 }

@@ -339,11 +339,10 @@ namespace Noctis
 
 	struct ITrLoop : ITrStmt
 	{
-		ITrLoop(const StdString& scopeName, IdenSPtr label, StdVector<ITrStmtSPtr>&& stmts, u64 startIdx, u64 endIdx);
+		ITrLoop(IdenSPtr label, ITrBlockSPtr block, u64 startIdx, u64 endIdx);
 
 		IdenSPtr label;
-		StdVector<ITrStmtSPtr> stmts;
-		StdString scopeName;
+		ITrBlockSPtr block;
 	};
 
 	struct ITrForRange : ITrStmt
@@ -669,10 +668,10 @@ namespace Noctis
 
 	struct ITrUnionInit : ITrExpr
 	{
-		ITrUnionInit(ITrTypeSPtr type, StdVector<ITrArgSPtr>&& args, u64 endIdx);
+		ITrUnionInit(ITrTypeSPtr type, ITrArgSPtr arg, u64 endIdx);
 
 		ITrTypeSPtr type;
-		StdVector<ITrArgSPtr> args;
+		ITrArgSPtr arg;
 	};
 
 	struct ITrAdtAggrEnumInit : ITrExpr

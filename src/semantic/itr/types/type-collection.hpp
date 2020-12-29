@@ -73,9 +73,7 @@ namespace Noctis
 		IdenGeneric GetGeneric(IdenGeneric origGen, IdenSPtr baseParentIden, IdenSPtr parentIden);
 
 		StdVector<SymbolSPtr> m_Interfaces;
-
 		StdUnorderedMap<IdenSPtr, StdPair<SymbolSPtr, SymbolSPtr>> m_NeededChildren;
-
 		SymbolSPtr m_ImplSymbol;
 	};
 

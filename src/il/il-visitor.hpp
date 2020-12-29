@@ -12,6 +12,7 @@ namespace Noctis
 	struct ILTernary;
 	struct ILTransmute;
 	struct ILIndex;
+	struct ILGenVal;
 	struct ILCompIntrin;
 	struct ILStaticCall;
 	struct ILDynamicCall;
@@ -57,6 +58,7 @@ namespace Noctis
 		virtual void Visit(ILTernary& node);
 		virtual void Visit(ILTransmute& node);
 		virtual void Visit(ILIndex& node);
+		virtual void Visit(ILGenVal& node);
 		virtual void Visit(ILCompIntrin& node);
 		virtual void Visit(ILStaticCall& node);
 		virtual void Visit(ILDynamicCall& node);

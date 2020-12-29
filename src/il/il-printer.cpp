@@ -24,7 +24,7 @@ namespace Noctis
 
 	void ILPrinter::Visit(ILFuncDef& node)
 	{
-		g_Logger.Log("func %s", node.qualName->ToString().c_str());
+		g_Logger.Log("func");
 
 		if (!node.generics.empty())
 		{
@@ -44,7 +44,8 @@ namespace Noctis
 			g_Logger.Log(">");
 		}
 
-		g_Logger.Log(" (");
+		g_Logger.Log(" %s (", node.qualName->ToString().c_str());
+		
 		u32 paramCount = u32(node.params.size());
 		for (u32 i = 0; i < paramCount; ++i)
 		{
@@ -255,6 +256,13 @@ namespace Noctis
 		g_Logger.Log("]\n");
 	}
 
+	void ILPrinter::Visit(ILGenVal& node)
+	{
+		PrintIndent();
+		LogVar(node.dst);
+		g_Logger.Log(" = gen_val %s\n", node.genName.c_str());
+	}
+
 	void ILPrinter::Visit(ILCompIntrin& node)
 	{
 		StdString intrinName = GetCompIntrinName(node.intrin);
@@ -393,7 +401,7 @@ namespace Noctis
 		PrintIndent();
 		LogVar(node.dst);
 		StdString typeName = m_pCtx->typeReg.ToString(node.dst.type);
-		g_Logger.Log(" = union %s {", typeName.c_str());
+		g_Logger.Log(" = union %s { %s: ", typeName.c_str(), node.member.c_str());
 		LogVar(node.arg);
 		g_Logger.Log("}\n");
 	}

@@ -140,10 +140,13 @@ namespace Noctis
 		
 	}
 
-	SymbolSPtr Symbol::CreateVariant(QualNameSPtr qualName)
+	SymbolSPtr Symbol::GetOrCreateVariant(QualNameSPtr qualName)
 	{
 		if (!IsBaseVariant())
-			return baseVariant.lock()->CreateVariant(qualName);
+			return baseVariant.lock()->GetOrCreateVariant(qualName);
+
+		if (this->qualName->LastIden() == qualName->LastIden())
+			return self.lock();
 
 		for (SymbolSPtr variant : variants)
 		{
@@ -268,12 +271,33 @@ namespace Noctis
 		res->markers = markers;
 		res->type = type;
 		res->associatedITr = associatedITr;
+		res->SetSelf(res);
 
 		res->impls.insert(res->impls.end(), impls.begin(), impls.end());
 		res->interfaces.insert(res->interfaces.end(), interfaces.begin(), interfaces.end());
 		res->markers.insert(res->markers.end(), markers.begin(), markers.end());
 
 		return res;
+	}
+
+	void Symbol::SetType(TypeHandle type)
+	{
+		if (kind != SymbolKind::Type)
+		{
+			this->type = type;
+			return;
+		}
+
+		if (this->type == type)
+			return;
+
+		SymbolSPtr sym = self.lock();
+		bool removed = pCtx->activeModule->symTable.RemoveType(sym);
+
+		sym->type = type;
+
+		if (removed)
+			pCtx->activeModule->symTable.Add(sym);
 	}
 
 	SymbolSPtr CreateSymbol(Context* pCtx, SymbolKind kind, QualNameSPtr qualName)
@@ -446,33 +470,15 @@ namespace Noctis
 		}
 	}
 
-	ModuleSymbolTable::ModuleSymbolTable(Context* pCtx)
+	ModuleSymbolTable::ModuleSymbolTable(Context* pCtx, QualNameSPtr scope)
 		: m_ScopedTable(new ScopedSymbolTable{ pCtx })
+		, m_ModScope(scope)
 		, m_pCtx(pCtx)
 	{
 	}
 
 	bool ModuleSymbolTable::Add(SymbolSPtr sym)
 	{
-		/*if (sym->kind == SymbolKind::Type)
-		{
-			TypeSPtr type = sym->type->type;
-			auto it = m_TypeSymbols.find(type);
-			if (it != m_TypeSymbols.end())
-				return false;
-
-			m_TypeSymbols.try_emplace(type, sym);
-			StdString typeName = m_pCtx->typeReg.ToString(type);
-			m_TypeNameSymbols.try_emplace(Iden::Create(typeName), sym);
-			return true;
-		}
-		else
-		{
-			StdVector<IdenSPtr> idens = sym->qualName->Idens();
-			std::reverse(idens.begin(), idens.end());
-			return m_ScopedTable->Add(sym, idens);
-		}*/
-
 		if (sym->kind == SymbolKind::Type)
 		{
 			TypeSPtr type = sym->type.Type();
@@ -506,6 +512,8 @@ namespace Noctis
 			scopeIdens.pop_back();
 		}
 		possibleQualNames.push_back(qualname);
+
+		possibleQualNames.push_back(QualName::Create(m_ModScope, idens));
 
 		for (QualNameSPtr baseName : m_ImportedModuleNames)
 		{
@@ -617,6 +625,29 @@ namespace Noctis
 
 		tmpIdens.assign(qualName->Idens().begin(), qualName->Idens().end());
 		return disambigSym->children->Find(qualName, 0, disambig->IfaceQualName());
+	}
+
+	bool ModuleSymbolTable::RemoveType(SymbolSPtr sym)
+	{
+		if (sym->kind != SymbolKind::Type)
+			return false;
+
+		auto it = m_TypeSymbols.find(sym->type.Type());
+		if (it != m_TypeSymbols.end())
+		{
+			m_TypeSymbols.erase(sym->type.Type());
+
+			StdString typeName = m_pCtx->typeReg.ToString(sym->type);
+			m_TypeNameSymbols.erase(Iden::Create(typeName));
+			return true;
+		}
+
+		return false;
+	}
+
+	void ModuleSymbolTable::RemoveImpl()
+	{
+		m_ScopedTable->RemoveImpl();
 	}
 
 	void ModuleSymbolTable::Merge(ModuleSymbolTable& src)
@@ -731,6 +762,26 @@ namespace Noctis
 		}
 
 		return false;
+	}
+
+	void ScopedSymbolTable::RemoveImpl()
+	{
+		StdVector<StdString> toRemove;
+		for (StdPair<const StdString, SymbolSPtr>& pair : m_Symbols)
+		{
+			if (pair.second->kind == SymbolKind::Impl)
+				toRemove.push_back(pair.first);
+		}
+
+		for (StdString name : toRemove)
+		{
+			m_Symbols.erase(name);
+		}
+
+		for (StdPair<const StdString, ScopedSymbolTableSPtr>& pair : m_SubTables)
+		{
+			pair.second->RemoveImpl();
+		}
 	}
 
 	SymbolSPtr ScopedSymbolTable::Find(QualNameSPtr qualName)

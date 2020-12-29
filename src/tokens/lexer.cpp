@@ -878,7 +878,7 @@ namespace Noctis
 			{ "yield", TokenType::Yield },
 
 			{ "#benchmark" , TokenType::SBenchmark },
-			{ "#conditional" , TokenType::SConditional },
+			{ "#cond" , TokenType::SConditional },
 			{ "#debug" , TokenType::SDebug },
 			{ "#errorhandler" , TokenType::SErrorHandler },
 			{ "#file" , TokenType::SFile },

@@ -120,8 +120,6 @@ namespace Noctis::NameMangling
 					}
 				}
 			}
-
-
 			return mangled;
 		}
 	}
@@ -203,7 +201,7 @@ namespace Noctis::NameMangling
 		}
 		case TypeKind::Opt:
 		{
-			return mod + "O" + Mangle(pCtx, type->AsSlice().subType);
+			return mod + "O" + Mangle(pCtx, type->AsOpt().subType);
 		}
 		case TypeKind::Func:
 		{
@@ -278,7 +276,18 @@ namespace Noctis::NameMangling
 					idenGen.iden = Iden::Create(genName);
 					generics.push_back(idenGen);
 
-					// TODO: constraint
+					// Constraints
+					if (idx < data.length() &&
+						data[idx] == 'C')
+					{
+						++idx;
+						while (data[idx] != 'Z')
+						{
+							TypeHandle constraint = DemangleType(pCtx, data, idx);
+							generics.back().typeConstraints.push_back(constraint);
+						}
+						++idx;
+					}
 					break;
 				}
 				case 'V':
@@ -294,7 +303,18 @@ namespace Noctis::NameMangling
 
 					generics.push_back(idenGen);
 
-					// TODO: constraint
+					// Constraints
+					if (idx < data.length() &&
+						data[idx] == 'C')
+					{
+						++idx;
+						while (data[idx] != 'Z')
+						{
+							TypeHandle constraint = DemangleType(pCtx, data, idx);
+							generics.back().typeConstraints.push_back(constraint);
+						}
+						++idx;
+					}
 					break;
 				}
 				case 'U':
@@ -379,9 +399,17 @@ namespace Noctis::NameMangling
 		case 'A':
 		{
 			++idx;
-			usize end = data.find_first_not_of("0123456789", idx);
 			u64 size;
-			std::from_chars(data.data() + idx, data.data() + end, size);
+			if (data[idx] == '_')
+			{
+				size = u64(-1);
+				++idx;
+			}
+			else
+			{
+				usize end = data.find_first_not_of("0123456789", idx);
+				std::from_chars(data.data() + idx, data.data() + end, size);
+			}
 			
 			TypeHandle subType = DemangleType(pCtx, data, idx);
 			return pCtx->typeReg.Array(mod, subType, size);

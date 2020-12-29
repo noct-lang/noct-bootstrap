@@ -2,12 +2,14 @@
 <AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
   <!--Types-->
   <Type Name="Noctis::TypeHandle">
+    <DisplayString Condition="type == 0">invalid</DisplayString>
     <DisplayString>type-handle {{{type->type}}}</DisplayString>
     <Expand>
       <ExpandedItem>type->type</ExpandedItem>
     </Expand>
   </Type>
   <Type Name="std::shared_ptr&lt;Noctis::Type&gt;">
+    <DisplayString Condition="_Ptr == 0">invalid-type</DisplayString>
     <DisplayString>{*_Ptr}</DisplayString>
     <Expand>
       <ExpandedItem>*_Ptr</ExpandedItem>
@@ -32,6 +34,7 @@
   </Type>
   <!--QualName-->
   <Type Name="std::shared_ptr&lt;Noctis::QualName&gt;">
+    <DisplayString Condition="_Ptr == 0">empty</DisplayString>
     <DisplayString>qualname {*_Ptr}</DisplayString>
     <Expand>
       <ExpandedItem>*_Ptr</ExpandedItem>
@@ -48,12 +51,33 @@
       </ArrayItems>
     </Expand>
   </Type>
+  <Type Name="std::shared_ptr&lt;Noctis::Iden&gt;">
+    <DisplayString Condition="_Ptr == 0">empty</DisplayString>
+    <DisplayString>iden {*_Ptr}</DisplayString>
+    <Expand>
+      <ExpandedItem>*_Ptr</ExpandedItem>
+      <Item Name="[ptr]">_Ptr</Item>
+    </Expand>
+  </Type>
   <Type Name="Noctis::Iden">
-    <DisplayString>{{name='{m_Name}', generics={m_Generics}, param-names={m_ParamNames}}}</DisplayString>
+    <DisplayString>{{name='{m_Name}', generics={m_Generics}}}</DisplayString>
     <Expand>
       <Item Name="[name]">m_Name</Item>
       <Item Name="[generics]">m_Generics</Item>
-      <Item Name="[param-names]">m_ParamNames</Item>
+    </Expand>
+  </Type>
+  <Type Name="Noctis::TypeDisambiguation">
+    <DisplayString>{{type='{m_Type}', iface='{m_QualName}'}}</DisplayString>
+    <Expand>
+      <Item Name="[type]">m_Type</Item>
+      <Item Name="[iface]">m_QualName</Item>
+    </Expand>
+  </Type>
+  <Type Name="std::shared_ptr&lt;Noctis::TypeDisambiguation&gt;">
+    <DisplayString>disambig {*_Ptr}</DisplayString>
+    <Expand>
+      <ExpandedItem>*_Ptr</ExpandedItem>
+      <Item Name="[ptr]">_Ptr</Item>
     </Expand>
   </Type>
 </AutoVisualizer>

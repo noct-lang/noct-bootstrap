@@ -27,6 +27,14 @@ namespace Noctis
 		return id;
 	}
 
+	u32 ModuleEncodeInfo::GetNameId(const StdString& name)
+	{
+		auto it = nameIdMapping.find(name);
+		if (it != nameIdMapping.end())
+			return it->second;
+		return 0;
+	}
+
 	QualNameSPtr ModuleEncodeInfo::GetQualNameFromId(Context* pCtx, u32 id)
 	{
 		assert(id < names.size());
@@ -100,7 +108,7 @@ namespace Noctis
 	}
 
 	Module::Module(QualNameSPtr qualName, Context* pCtx)
-		: symTable(pCtx)
+		: symTable(pCtx, qualName)
 		, qualName(qualName)
 		, opTable(pCtx)
 		, isDecoded(false)

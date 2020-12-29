@@ -27,7 +27,6 @@ namespace Noctis
 
 	enum class SymbolLinkKind : u8
 	{
-		TypeParent, // symbols with types as parent
 		InterfaceImpl, // Interface implementations per symbol
 		Variants,
 		InterfaceExt,
@@ -91,8 +90,6 @@ namespace Noctis
 		void DecodeSyms(const ModuleSectionHeader& header);
 		void DecodeSLnk(const ModuleSectionHeader& header);
 		void DecodeILBC(const ModuleSectionHeader& header);
-
-		void ParentSymbols();
 
 		template<typename T>
 		const T& ReadData();

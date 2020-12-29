@@ -207,12 +207,10 @@ namespace Noctis
 
 		m_LoopBeginLabels.push(loopId);
 		m_LoopEndLabels.push(endId);
-		m_ScopeNames.push_back(node.scopeName);
 		
 		SetCurBlock(loopId);
 		Walk(node);
 		
-		m_ScopeNames.pop_back();
 		m_LoopEndLabels.pop();
 		m_LoopBeginLabels.pop();
 
@@ -520,6 +518,12 @@ namespace Noctis
 				AddElem(new ILAdtEnumInit{ dst, node.qualName->LastIden()->Name(), {} });
 				m_TmpVars.push(dst);
 			}
+			else if (sym->kind == SymbolKind::GenVal)
+			{
+				ILVar dst = CreateDstVar(node.typeInfo.handle);
+				AddElem(new ILGenVal{ dst, node.qualName->LastIden()->Name() });
+				m_TmpVars.push(dst);
+			}
 			else
 			{
 				// TODO: Global var
@@ -590,8 +594,9 @@ namespace Noctis
 				args.insert(args.begin(), caller);
 				if (node.typeInfo.handle.IsValid())
 				{
-					ILVar dst = PopTmpVar();
+					ILVar dst = CreateDstVar(node.typeInfo.handle);
 					AddElem(new ILStaticCall{ dst, methodSym->qualName, args });
+					m_TmpVars.push(dst);
 				}
 				else
 				{
@@ -753,7 +758,7 @@ namespace Noctis
 
 		ILVar arg = PopTmpVar();
 		ILVar dst = CreateDstVar(node.typeInfo.handle);
-		AddElem(new ILUnionInit { dst, arg });
+		AddElem(new ILUnionInit { dst, node.arg->iden->Name(), arg });
 		m_TmpVars.push(dst);
 	}
 

@@ -58,13 +58,15 @@ namespace Noctis
 		
 		void CalculateSizeAlignOffset();
 
-		SymbolSPtr CreateVariant(QualNameSPtr qualName);
+		SymbolSPtr GetOrCreateVariant(QualNameSPtr qualName);
 		
 		void Log(u8 indent, bool includeImports);
 
 		bool HasMarker(QualNameSPtr name);
 
 		SymbolSPtr Copy();
+
+		void SetType(TypeHandle type);
 	
 		QualNameSPtr qualName;
 
@@ -73,7 +75,6 @@ namespace Noctis
 		StdVector<SymbolWPtr> orderedVarChildren;
 
 		// Interfaces that are implemented or types that implement the interface
-		// The boolean tells if the implemenation comes from an imported module (required for ImplType Symbols)
 		StdVector<SymbolSPtr> impls;
 		StdPairVector<QualNameSPtr, SymbolWPtr> interfaces;
 		StdVector<SymbolWPtr> markers;
@@ -144,7 +145,7 @@ namespace Noctis
 	class ModuleSymbolTable
 	{
 	public:
-		ModuleSymbolTable(Context* pCtx);
+		ModuleSymbolTable(Context* pCtx, QualNameSPtr scope);
 
 		bool Add(SymbolSPtr sym);
 
@@ -156,6 +157,9 @@ namespace Noctis
 		SymbolSPtr FindWithInterface(QualNameSPtr qualName, QualNameSPtr interfaceQualName);
 
 		SymbolSPtr FindWithDisambiguation(QualNameSPtr qualName);
+
+		bool RemoveType(SymbolSPtr sym);
+		void RemoveImpl();
 
 		void Merge(ModuleSymbolTable& src);
 		void AddImport(QualNameSPtr qualName);
@@ -169,6 +173,7 @@ namespace Noctis
 		StdUnorderedMap<TypeSPtr, SymbolSPtr> m_TypeSymbols;
 		StdUnorderedMap<IdenSPtr, SymbolSPtr> m_TypeNameSymbols;
 
+		QualNameSPtr m_ModScope;
 		StdVector<QualNameSPtr> m_ImportedModuleNames;
 
 		Context* m_pCtx;
@@ -182,6 +187,7 @@ namespace Noctis
 		bool Add(SymbolSPtr sym, usize idenIdx);
 		
 		bool RemoveFromCur(SymbolSPtr sym);
+		void RemoveImpl();
 
 		SymbolSPtr Find(QualNameSPtr qualName);
 		SymbolSPtr Find(QualNameSPtr qualName, usize idenIdx);

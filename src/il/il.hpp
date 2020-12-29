@@ -18,7 +18,8 @@ namespace Noctis
 		Ternary = 0x45,
 		Transmute = 0x46,
 		Index = 0x47,
-		
+
+		GenVal = 0x4D,
 		CompIntrin = 0x4E,
 
 		StaticCallNoRet = 0x50,
@@ -255,6 +256,14 @@ namespace Noctis
 		ILVar idx;
 	};
 
+	struct ILGenVal : public ILElem
+	{
+		ILGenVal(ILVar dst, const StdString& genName);
+
+		ILVar dst;
+		StdString genName;
+	};
+
 	struct ILCompIntrin : public ILElem
 	{
 		ILCompIntrin(ILVar dst, ILCompIntrinKind kind, const StdVector<ILVar>& vars, const StdVector<TypeHandle>& types);
@@ -324,10 +333,11 @@ namespace Noctis
 
 	struct ILUnionInit : public ILElem
 	{
-		ILUnionInit(ILVar dst, ILVar args);
+		ILUnionInit(ILVar dst, const StdString& member, ILVar args);
 
 		ILVar dst;
 		ILVar arg;
+		StdString member;
 	};
 
 	struct ILValEnumInit : public ILElem

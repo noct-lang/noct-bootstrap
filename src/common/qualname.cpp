@@ -369,7 +369,10 @@ namespace Noctis
 		: m_Base(std::move(base))
 	{
 		if (m_Base)
+		{
+			m_Disambiguation = m_Base->m_Disambiguation;
 			m_Idens = m_Base->Idens();
+		}
 		m_Idens.push_back(iden);
 	}
 

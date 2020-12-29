@@ -308,6 +308,7 @@ namespace Noctis
 
 		ITrModule& mod = m_pCtx->activeModule->itrModule;
 		def->fileName = m_TreeFilename;
+		mod.AddDefinition(def);
 		PushDef(def);
 	}
 
@@ -324,6 +325,7 @@ namespace Noctis
 
 		ITrModule& mod = m_pCtx->activeModule->itrModule;
 		def->fileName = m_TreeFilename;
+		mod.AddDefinition(def);
 		PushDef(def);
 	}
 
@@ -531,15 +533,9 @@ namespace Noctis
 
 	void AstToITrLowering::Visit(AstIfStmt& node)
 	{
-		ITrBlockSPtr fBlock;
-		if (node.elseBody)
-		{
-			ITrStmtSPtr fBlockStmt = VisitAndGetStmt(node.elseBody);
-			fBlock = *reinterpret_cast<ITrBlockSPtr*>(&fBlockStmt);
-		}
-		ITrStmtSPtr tBlockStmt = VisitAndGetStmt(node.body);
-		ITrBlockSPtr tBlock = *reinterpret_cast<ITrBlockSPtr*>(&tBlockStmt);
-
+		const StdString& baseScopeName = node.ctx->qualName->LastIden()->Name();
+		ITrBlockSPtr tBlock = VisitAndGetBlock(node.body, baseScopeName + "__tblock");
+		ITrBlockSPtr fBlock = VisitAndGetBlock(node.elseBody, baseScopeName + "__fblock");
 		ITrExprSPtr cond = VisitAndGetExpr(node.cond);
 
 		ITrLocalVarSPtr decl;
@@ -556,46 +552,35 @@ namespace Noctis
 
 	void AstToITrLowering::Visit(AstLoopStmt& node)
 	{
-		ITrStmtSPtr body = VisitAndGetStmt(node.body);
-
-		StdVector<ITrStmtSPtr> stmts;
-		if (body->stmtKind == ITrStmtKind::Block)
-			stmts = static_cast<ITrBlock*>(body.get())->stmts;
-		else
-			stmts.push_back(body);
-
+		ITrBlockSPtr body = VisitAndGetBlock(node.body, node.ctx->qualName->LastIden()->Name());
+		body->scopeName = node.ctx->qualName->LastIden()->Name();
 		IdenSPtr label = node.label ? Iden::Create(node.label->iden) : nullptr;
-
-		ITrStmtSPtr stmt{ new ITrLoop{ node.ctx->qualName->LastIden()->Name(), label, std::move(stmts), node.ctx->startIdx, node.ctx->endIdx } };
+		ITrStmtSPtr stmt{ new ITrLoop{ label, body, node.ctx->startIdx, node.ctx->endIdx } };
 		m_Stmt = stmt;
 	}
 
 	void AstToITrLowering::Visit(AstWhileStmt& node)
 	{
-		ITrStmtSPtr body = VisitAndGetStmt(node.body);
-
-		StdVector<ITrStmtSPtr> stmts;
-		if (body->stmtKind == ITrStmtKind::Block)
-			stmts = static_cast<ITrBlock*>(body.get())->stmts;
-		else
-			stmts.push_back(body);
+		ITrBlockSPtr body = VisitAndGetBlock(node.body, node.ctx->qualName->LastIden()->Name());
+		body->scopeName = node.ctx->qualName->LastIden()->Name();
 
 		// Condition
 		ITrExprSPtr cond = VisitAndGetExpr(node.cond);
 		cond = ITrExprSPtr{ new ITrUnary{ OperatorKind::Not, cond, cond->startIdx, cond->endIdx } };
 		ITrStmtSPtr breakStmt{ new ITrBreak{ nullptr, cond->startIdx, cond->endIdx } };
-		ITrBlockSPtr breakBlock{ new ITrBlock{ "", { breakStmt }, cond->startIdx, cond->endIdx } };
-		stmts.insert(stmts.begin(), ITrStmtSPtr{ new ITrIf{ false, nullptr, cond, breakBlock, nullptr, node.ctx->startIdx } });
+		ITrBlockSPtr breakBlock{ new ITrBlock{ body->scopeName + "__loop_break", { breakStmt }, cond->startIdx, cond->endIdx } };
+		body->stmts.insert(body->stmts.begin(), ITrStmtSPtr{ new ITrIf{ false, nullptr, cond, breakBlock, nullptr, node.ctx->startIdx } });
 
 		IdenSPtr label = node.label ? Iden::Create(node.label->iden) : nullptr;
 
-		ITrStmtSPtr stmt{ new ITrLoop{ node.ctx->qualName->LastIden()->Name(), label, std::move(stmts), node.ctx->startIdx, node.ctx->endIdx } };
+		ITrStmtSPtr stmt{ new ITrLoop{ label, body, node.ctx->startIdx, node.ctx->endIdx } };
 		m_Stmt = stmt;
 	}
 
 	void AstToITrLowering::Visit(AstDoWhileStmt& node)
 	{
-		ITrStmtSPtr body = VisitAndGetStmt(node.body);
+		ITrBlockSPtr body = VisitAndGetBlock(node.body, node.ctx->qualName->LastIden()->Name());
+		body->scopeName = node.ctx->qualName->LastIden()->Name();
 
 		StdVector<ITrStmtSPtr> stmts;
 		if (body->stmtKind == ITrStmtKind::Block)
@@ -607,19 +592,20 @@ namespace Noctis
 		ITrExprSPtr cond = VisitAndGetExpr(node.cond);
 		cond = ITrExprSPtr{ new ITrUnary{ OperatorKind::Not, cond, cond->startIdx, cond->endIdx } };
 		ITrStmtSPtr breakStmt{ new ITrBreak{ nullptr, cond->startIdx, cond->endIdx } };
-		ITrBlockSPtr breakBlock{ new ITrBlock{ "", { breakStmt }, cond->startIdx, cond->endIdx } };
+		ITrBlockSPtr breakBlock{ new ITrBlock{ body->scopeName + "__loop_break", { breakStmt }, cond->startIdx, cond->endIdx } };
 		stmts.push_back(ITrStmtSPtr{ new ITrIf{ false, nullptr, cond, breakBlock, nullptr, cond->startIdx } });
 
 		IdenSPtr label = node.label ? Iden::Create(node.label->iden) : nullptr;
 		
-		ITrStmtSPtr stmt{ new ITrLoop{ node.ctx->qualName->LastIden()->Name(), label, std::move(stmts), node.ctx->startIdx, node.ctx->endIdx } };
+		ITrStmtSPtr stmt{ new ITrLoop{ label, body, node.ctx->startIdx, node.ctx->endIdx } };
 		m_Stmt = stmt;
 	}
 
 	void AstToITrLowering::Visit(AstForStmt& node)
 	{
 		ITrExprSPtr range = VisitAndGetExpr(node.range);
-		ITrStmtSPtr body = VisitAndGetStmt(node.body);
+		ITrBlockSPtr body = VisitAndGetBlock(node.body, node.ctx->qualName->LastIden()->Name());
+		body->scopeName = node.ctx->qualName->LastIden()->Name();
 
 		IdenSPtr label = node.label ? Iden::Create(node.label->iden) : nullptr;
 
@@ -629,7 +615,7 @@ namespace Noctis
 			idens.push_back(Iden::Create(iden));
 		}
 
-		ITrStmtSPtr stmt{ new ITrForRange{ node.ctx->qualName->LastIden()->Name(), label, idens, range, *reinterpret_cast<ITrBlockSPtr*>(&body), node.ctx->startIdx } };
+		ITrStmtSPtr stmt{ new ITrForRange{ body->scopeName + "__loop_begin", label, idens, range, *reinterpret_cast<ITrBlockSPtr*>(&body), node.ctx->startIdx } };
 		m_Stmt = stmt;
 	}
 
@@ -638,12 +624,12 @@ namespace Noctis
 		StdVector<ITrSwitchCase> cases;
 		usize size = node.cases.size();
 		cases.reserve(size);
-		for (AstSwitchCase& case_ : node.cases)
+		for (usize i = 0; i < node.cases.size(); ++i)
 		{
+			AstSwitchCase& case_ = node.cases[i];
 			ITrPatternSPtr pattern = VisitAndGetPattern(case_.pattern);
 			ITrExprSPtr expr = VisitAndGetExpr(case_.expr);
-			ITrStmtSPtr tmp = VisitAndGetStmt(case_.body);
-			ITrBlockSPtr block = *reinterpret_cast<ITrBlockSPtr*>(&tmp);
+			ITrBlockSPtr block = VisitAndGetBlock(case_.body, case_.body->ctx->qualName->LastIden()->Name());
 			cases.emplace_back(pattern, expr, block);
 		}
 
@@ -766,15 +752,9 @@ namespace Noctis
 
 	void AstToITrLowering::Visit(AstCompIfStmt& node)
 	{
-		ITrBlockSPtr fBlock;
-		if (node.elseBody)
-		{
-			ITrStmtSPtr fBlockStmt = VisitAndGetStmt(node.elseBody);
-			fBlock = *reinterpret_cast<ITrBlockSPtr*>(&fBlockStmt);
-		}
-		ITrStmtSPtr tBlockStmt = VisitAndGetStmt(node.body);
-		ITrBlockSPtr tBlock = *reinterpret_cast<ITrBlockSPtr*>(&tBlockStmt);
-
+		const StdString& baseScopeName = node.ctx->qualName->LastIden()->Name();
+		ITrBlockSPtr tBlock = VisitAndGetBlock(node.body, baseScopeName + "__tblock");
+		ITrBlockSPtr fBlock = VisitAndGetBlock(node.elseBody, baseScopeName + "__fblock");
 		ITrExprSPtr cond = VisitAndGetExpr(node.cond);
 
 		ITrLocalVarSPtr decl;
@@ -791,14 +771,9 @@ namespace Noctis
 
 	void AstToITrLowering::Visit(AstCompCondStmt& node)
 	{
-		ITrBlockSPtr fBlock;
-		if (node.elseBody)
-		{
-			ITrStmtSPtr fBlockStmt = VisitAndGetStmt(node.elseBody);
-			fBlock = *reinterpret_cast<ITrBlockSPtr*>(&fBlockStmt);
-		}
-		ITrStmtSPtr tBlockStmt = VisitAndGetStmt(node.body);
-		ITrBlockSPtr tBlock = *reinterpret_cast<ITrBlockSPtr*>(&tBlockStmt);
+		const StdString& baseScopeName = node.ctx->qualName->LastIden()->Name();
+		ITrBlockSPtr tBlock = VisitAndGetBlock(node.body, baseScopeName + "__tblock");
+		ITrBlockSPtr fBlock = VisitAndGetBlock(node.elseBody, baseScopeName + "__fblock");
 		
 		IdenSPtr cond = Iden::Create(node.cond.Text());
 		OperatorKind op = TokenTypeToOperator(node.cmp.Type());
@@ -809,14 +784,9 @@ namespace Noctis
 
 	void AstToITrLowering::Visit(AstCompDebugStmt& node)
 	{
-		ITrBlockSPtr fBlock;
-		if (node.elseBody)
-		{
-			ITrStmtSPtr fBlockStmt = VisitAndGetStmt(node.elseBody);
-			fBlock = *reinterpret_cast<ITrBlockSPtr*>(&fBlockStmt);
-		}
-		ITrStmtSPtr tBlockStmt = VisitAndGetStmt(node.body);
-		ITrBlockSPtr tBlock = *reinterpret_cast<ITrBlockSPtr*>(&tBlockStmt);
+		const StdString& baseScopeName = node.ctx->qualName->LastIden()->Name();
+		ITrBlockSPtr tBlock = VisitAndGetBlock(node.body, baseScopeName + "__tblock");
+		ITrBlockSPtr fBlock = VisitAndGetBlock(node.elseBody, baseScopeName + "__fblock");
 
 		IdenSPtr cond = Iden::Create(node.cond.Text());
 		OperatorKind op = TokenTypeToOperator(node.cmp.Type());
@@ -1778,6 +1748,18 @@ namespace Noctis
 			return nullptr;
 		AstVisitor::Visit(stmt);
 		return m_Stmt;
+	}
+
+	ITrBlockSPtr AstToITrLowering::VisitAndGetBlock(AstStmtSPtr stmt, const StdString& scopeName)
+	{
+		if (!stmt)
+			return nullptr;
+		AstVisitor::Visit(stmt);
+
+		if (m_Stmt->stmtKind != ITrStmtKind::Block)
+			return ITrBlockSPtr{ new ITrBlock { "", { m_Stmt }, m_Stmt->startIdx, m_Stmt->endIdx } };
+		else
+			return *reinterpret_cast<ITrBlockSPtr*>(&m_Stmt);
 	}
 
 	ITrExprSPtr AstToITrLowering::VisitAndGetExpr(AstExprSPtr expr)

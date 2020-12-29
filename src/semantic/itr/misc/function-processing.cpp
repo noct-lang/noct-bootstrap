@@ -62,9 +62,7 @@ namespace Noctis
 
 	void LocalVarCollection::Visit(ITrLoop& node)
 	{
-		m_ScopeNames.push_back(node.scopeName);
 		Walk(node);
-		m_ScopeNames.pop_back();
 	}
 
 	void LocalVarCollection::Visit(ITrForRange& node)

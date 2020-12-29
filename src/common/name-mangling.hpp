@@ -8,6 +8,7 @@ namespace Noctis
 	FWDECL_STRUCT_SPTR(Symbol);
 	FWDECL_CLASS_SPTR(QualName);
 	FWDECL_CLASS_SPTR(Iden);	
+	FWDECL_CLASS_SPTR(TypeDisambiguation);	
 }
 
 namespace Noctis::NameMangling

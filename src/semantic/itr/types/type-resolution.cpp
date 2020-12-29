@@ -140,7 +140,7 @@ namespace Noctis
 					// TODO: non-generic bound
 				}
 				TypeHandle type = m_pCtx->typeReg.Generic(TypeMod::None, typeParam.iden, typeConstraints);
-				sym->type = type;
+				sym->SetType(type);
 
 				if (!generics.empty())
 				{
@@ -165,7 +165,7 @@ namespace Noctis
 				param->sym = sym;
 
 				// TODO: type
-				sym->type = valParam.type->handle;
+				sym->SetType(valParam.type->handle);
 
 				if (!generics.empty())
 				{
@@ -213,11 +213,7 @@ namespace Noctis
 				pair.first = QualName::Create(interface->qualName->Base(), iden);
 
 				SymbolSPtr parentIFace = symTable.Find(node.qualName, pair.first);
-
-				if (iden != parentIFace->qualName->LastIden())
-				{
-					parentIFace = parentIFace->CreateVariant(pair.first);
-				}
+				parentIFace = parentIFace->GetOrCreateVariant(pair.first);
 				AddUniquePair(sym->interfaces, pair.first, SymbolWPtr{ parentIFace });
 
 				// Process children

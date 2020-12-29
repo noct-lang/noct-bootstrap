@@ -613,7 +613,7 @@ namespace Noctis
 		{
 			GenericType& gen = type->AsGeneric();
 			StdString idenName = gen.iden->ToString();
-			return mod + "gen__" + idenName;
+			return mod + idenName;
 		}
 		case TypeKind::Func:
 		{
@@ -737,6 +737,11 @@ namespace Noctis
 			case TypeKind::Func: break;
 			default:;
 			}
+		}
+		else if (argType->typeKind == TypeKind::Ref)
+		{
+			TypeHandle subArgType = argType->AsRef().subType;
+			return CanPassTo(param, subArgType);
 		}
 		
 		return false;

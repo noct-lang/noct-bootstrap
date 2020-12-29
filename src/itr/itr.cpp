@@ -28,8 +28,8 @@ namespace Noctis
 		, assocDisambiguation(assocDisambiguation)
 		, assocIdens(std::move(assocIdens))
 	{
-		startIdx = assocDisambiguation ? assocDisambiguation->startIdx : assocIdens.front()->startIdx;
-		endIdx = assocIdens.back()->endIdx;
+		startIdx = assocDisambiguation ? assocDisambiguation->startIdx : this->assocIdens.front()->startIdx;
+		endIdx = this->assocIdens.back()->endIdx;
 	}
 
 	ITrParam::ITrParam(ITrAttribsSPtr attribs, IdenSPtr iden, ITrTypeSPtr type, u64 startIdx, u64 endIdx)
@@ -176,11 +176,10 @@ namespace Noctis
 	{
 	}
 
-	ITrLoop::ITrLoop(const StdString& scopeName, IdenSPtr label, StdVector<ITrStmtSPtr>&& stmts, u64 startIdx, u64 endIdx)
+	ITrLoop::ITrLoop(IdenSPtr label, ITrBlockSPtr block, u64 startIdx, u64 endIdx)
 		: ITrStmt(ITrStmtKind::Loop, startIdx, endIdx)
 		, label(label)
-		, stmts(stmts)
-		, scopeName(scopeName)
+		, block(block)
 	{
 	}
 
@@ -435,10 +434,10 @@ namespace Noctis
 	{
 	}
 
-	ITrUnionInit::ITrUnionInit(ITrTypeSPtr type, StdVector<ITrArgSPtr>&& args, u64 endIdx)
+	ITrUnionInit::ITrUnionInit(ITrTypeSPtr type, ITrArgSPtr arg, u64 endIdx)
 		: ITrExpr(ITrExprKind::UnionInit, type->startIdx, endIdx)
 		, type(type)
-		, args(std::move(args))
+		, arg(arg)
 	{
 	}
 

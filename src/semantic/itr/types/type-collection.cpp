@@ -87,7 +87,7 @@ namespace Noctis
 		m_Syms.top()->children->AddChild(sym);
 
 		if (node.type)
-			sym->type = node.type->handle;
+			sym->SetType(node.type->handle);
 	}
 
 	void TypeCollectionCommon::Visit(ITrTypealias& node)
@@ -165,7 +165,7 @@ namespace Noctis
 		SymbolSPtr parent = m_Syms.top();
 
 		SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::Var, node.qualName, node.ptr);
-		sym->type = node.type->handle;
+		sym->SetType(node.type->handle);
 
 		parent->children->AddChild(sym);
 		parent->orderedVarChildren.push_back(sym);
@@ -347,18 +347,22 @@ namespace Noctis
 
 			if (!sym)
 			{
-				if (type->typeKind == TypeKind::Iden)
-				{
-					sym = CreateSymbol(m_pCtx, SymbolKind::Impl, node.qualName, node.ptr);
-					sym->type = handle;
-					symTable.Add(sym);
-				}
-				else
-				{
-					sym = CreateSymbol(m_pCtx, SymbolKind::Type, nullptr, node.ptr);
-					sym->type = handle;
-					symTable.Add(sym);
-				}
+				sym = CreateSymbol(m_pCtx, SymbolKind::Impl, node.qualName, node.ptr);
+				sym->SetType(handle);
+				symTable.Add(sym);
+				
+				//if (type->typeKind == TypeKind::Iden)
+				//{
+				//	sym = CreateSymbol(m_pCtx, SymbolKind::Impl, node.qualName, node.ptr);
+				//	sym->SetType(handle);
+				//	symTable.Add(sym);
+				//}
+				//else
+				//{
+				//	sym = CreateSymbol(m_pCtx, SymbolKind::Type, nullptr, node.ptr);
+				//	sym->SetType(handle);
+				//	symTable.Add(sym);
+				//}
 			}
 			node.sym = sym;
 			
@@ -394,7 +398,7 @@ namespace Noctis
 					IdenSPtr iden = Iden::Create(idenType.qualName->LastIden()->Name(), sym->qualName->LastIden()->Generics());
 					SymbolSPtr typeSym = sym->children->FindChild(nullptr, iden);
 					if (typeSym)
-						sym->type = typeSym->type;
+						sym->SetType(typeSym->type);
 				}
 				m_TypeQualName = sym->qualName;
 			}
@@ -431,12 +435,25 @@ namespace Noctis
 		{
 			m_Impl = node.ptr.lock();
 
+			ModuleSymbolTable& symTable = m_pCtx->activeModule->symTable;
+			SymbolSPtr sym = node.sym.lock();
+			sym->SetType(node.type->handle);
+			if (sym->kind == SymbolKind::Impl)
+			{
+				SymbolSPtr tmp = symTable.Find(sym->type);
+				if (!tmp)
+				{
+					tmp = sym->Copy();
+					tmp->kind = SymbolKind::Type;
+				}
+				node.sym = tmp;
+				symTable.Add(tmp);
+				sym = tmp;
+			}
+
 			m_ImplType = node.type->handle;
 			TypeSPtr type = m_ImplType.Type();
 
-			ModuleSymbolTable& symTable = m_pCtx->activeModule->symTable;
-
-			SymbolSPtr sym = node.sym.lock();
 			if (type->typeKind == TypeKind::Iden)
 			{
 				IdenType& idenType = type->AsIden();
@@ -459,11 +476,17 @@ namespace Noctis
 			sym->associatedITr = node.ptr;
 
 			if (node.interface.first)
+			{
+				if (!node.interface.first->LastIden()->Generics().empty())
+					int br = 0;
+				
 				CollectInterfaces(sym, node.qualName, node.interface);
+			}
 
 			m_InImpl = true;
 			m_ImplQualName = node.qualName;
 			m_ImplSymbol = sym;
+			
 			ITrBodySPtr body = mod.GetBody(node);
 			for (ITrDefSPtr subDef : body->defs)
 			{
@@ -486,6 +509,10 @@ namespace Noctis
 		bool res = false;
 		for (SymbolSPtr interface : m_Interfaces)
 		{
+			if (!interface->qualName->LastIden()->Generics().empty() &&
+				sym->qualName->Idens().size() == 2)
+				int br = 0;
+			
 			QualNameSPtr qualName = interface->qualName;
 			SymbolSPtr baseInterface = interface->baseVariant.lock();
 			SymbolSPtr child;
@@ -504,6 +531,9 @@ namespace Noctis
 
 			if (child)
 			{
+				if (sym->qualName->LastIden()->Name() == "opGe")
+					int br = 0;
+				
 				AddUnique(sym->impls, child);
 				AddUniquePair(sym->interfaces, interface->qualName, SymbolWPtr { interface });
 				m_ImplSymbol->children->AddChild(sym, qualName);
@@ -531,13 +561,12 @@ namespace Noctis
 		QualNameSPtr interfaceQualName = implInterface.first;
 
 		SymbolSPtr baseInterfaceSym = m_pCtx->activeModule->symTable.Find(nodeQualName, interfaceQualName);
-		SymbolSPtr interfaceSym = baseInterfaceSym;
 		interfaceQualName = QualName::Create(baseInterfaceSym->qualName->Base(), interfaceQualName->LastIden());
-		if (interfaceSym->qualName->LastIden() != interfaceQualName->LastIden())
-		{
-			interfaceSym = interfaceSym->CreateVariant(interfaceQualName);
-		}
+		SymbolSPtr interfaceSym = baseInterfaceSym->GetOrCreateVariant(interfaceQualName);
 		AddUnique(m_Interfaces, interfaceSym);
+
+		if (sym->qualName && sym->qualName->LastIden()->Name() == "opGe")
+			int br = 0;
 
 		AddUnique(interfaceSym->impls, sym);
 		AddUniquePair(sym->interfaces, interfaceSym->qualName, SymbolWPtr{ interfaceSym });
@@ -565,12 +594,11 @@ namespace Noctis
 
 		iden = Iden::Create(iden->Name(), generics);
 		QualNameSPtr subInterfaceQualName = QualName::Create(pair.first->Base(), iden);
-		
-		if (subInterfaceSym->IsBaseVariant() || subInterfaceSym->qualName->LastIden() != subInterfaceQualName->LastIden())
-		{
-			subInterfaceSym = subInterfaceSym->CreateVariant(subInterfaceQualName);
-		}
+		subInterfaceSym = subInterfaceSym->GetOrCreateVariant(subInterfaceQualName);
 		AddUnique(m_Interfaces, subInterfaceSym);
+
+		if (sym->qualName && sym->qualName->LastIden()->Name() == "opGe")
+			int br = 0;
 		
 		AddUnique(subInterfaceSym->impls, sym);
 		AddUniquePair(sym->interfaces, subInterfaceSym->qualName, SymbolWPtr{ subInterfaceSym });
@@ -624,7 +652,6 @@ namespace Noctis
 				SymbolSPtr parent = sym->parent.lock();
 
 				SymbolSPtr child = CreateSymbol(m_pCtx, sym->kind, qualName);
-				child->interfaces.emplace_back(interface->qualName, interface);
 				child->isDefaultImpl = true;
 				HandleImpls(child);
 
@@ -658,7 +685,7 @@ namespace Noctis
 				SymbolSPtr child = CreateSymbol(m_pCtx, sym->kind, qualName);
 				child->interfaces.emplace_back(interface->qualName, interface);
 				child->isDefaultImpl = true;
-				child->type = m_pCtx->typeReg.Iden(TypeMod::None, qualName);
+				sym->SetType(m_pCtx->typeReg.Iden(TypeMod::None, qualName));
 				HandleImpls(child);
 
 				ITrTypealias& alias = static_cast<ITrTypealias&>(*def);

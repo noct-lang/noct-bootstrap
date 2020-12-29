@@ -38,6 +38,7 @@ namespace Noctis
 
 		const StdString& GetNameFromId(u32 id);
 		u32 GetOrAddName(const StdString& name);
+		u32 GetNameId(const StdString& name);
 
 		QualNameSPtr GetQualNameFromId(Context* pCtx, u32 id);
 		u32 GetOrAddQualName(Context* pCtx, QualNameSPtr qualName);

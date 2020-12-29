@@ -157,27 +157,30 @@ namespace Noctis
 				sym->kind == SymbolKind::GenVal)
 				return;
 
+			// Also skip types, since they are encoded in the child symbols
+			if (sym->kind == SymbolKind::Type)
+				return;
+
 			section.data.push_back(u8(sym->kind));
+
+			if (sym->qualName->LastIden()->Name() == "opGe")
+				int br = 0;
 
 			if (sym->kind == SymbolKind::Method ||
 				sym->kind == SymbolKind::Typealias)
 			{
 				if (!sym->impls.empty())
 				{
-					for (StdPair<QualNameSPtr, SymbolWPtr>& pair : sym->interfaces)
-					{
-						QualNameSPtr ifaceQualName = pair.second.lock()->qualName;
-						const StdString& mangledIFaceName = GetMangledQualName(ifaceQualName);
-						WriteName(section.data, mangledIFaceName);
-					}
+					QualNameSPtr ifaceQualName = sym->interfaces[0].first;
+					const StdString& mangledIFaceName = GetMangledQualName(ifaceQualName);
+					WriteName(section.data, mangledIFaceName);
 				}
 				else
 				{
 					WriteData(section.data, u8(0));
 				}
 
-				if (sym->kind == SymbolKind::Method &&
-					sym->parent.lock())
+				if (sym->parent.lock())
 				{
 					StdString mangledName = GetMangledType(sym->parent.lock()->SelfType());
 					WriteName(section.data, mangledName);
@@ -191,14 +194,13 @@ namespace Noctis
 			StdString mangleName;
 			switch (sym->kind)
 			{
-			case SymbolKind::Func:
-			case SymbolKind::Method:
-			case SymbolKind::Closure:
-				mangleName = GetMangledQualName(sym->qualName);
 				break;
 			case SymbolKind::Type:
 				mangleName = GetMangledType(sym->type);
 				break;
+			case SymbolKind::Func:
+			case SymbolKind::Method:
+			case SymbolKind::Closure:
 			default:
 				mangleName = GetMangledQualName(sym->qualName);
 			}
@@ -278,26 +280,6 @@ namespace Noctis
 			{
 				mangle = GetMangledQualName(sym->qualName);
 			}
-			
-			SymbolSPtr parent = sym->parent.lock();
-			if (parent && parent->kind == SymbolKind::Type)
-			{
-				section.data.push_back(u8(SymbolLinkKind::TypeParent));
-				WriteName(section.data, mangle);
-
-				if (iface)
-				{
-					const StdString& ifaceMangle = GetMangledQualName(iface);
-					WriteName(section.data, ifaceMangle);
-				}
-				else
-				{
-					WriteData(section.data, u8(0));
-				}
-				
-				const StdString& parentMangle = GetMangledType(parent->type);
-				WriteName(section.data, parentMangle);
-			}
 
 			if (!sym->impls.empty())
 			{
@@ -340,8 +322,6 @@ namespace Noctis
 			if (!sym->variants.empty())
 			{
 				section.data.push_back(u8(SymbolLinkKind::Variants));
-				u16 numVariants = u16(sym->variants.size());
-				section.data.insert(section.data.end(), reinterpret_cast<u8*>(&numVariants), reinterpret_cast<u8*>(&numVariants) + sizeof(u16));
 				WriteData(section.data, u16(sym->variants.size()));
 
 				WriteName(section.data, mangle);
@@ -596,7 +576,6 @@ namespace Noctis
 				DecodeILBC(header);
 			}
 		}
-		ParentSymbols();
 
 		for (StdPair<QualNameSPtr, SymbolSPtr> pair : m_Syms)
 		{
@@ -627,7 +606,7 @@ namespace Noctis
 
 	void ModuleDecode::DecodeImport(const ModuleSectionHeader& header)
 	{
-		const StdVector<u8> data = *m_pData;
+		const StdVector<u8>& data = *m_pData;
 		u64 sectionEnd = m_DataPos + header.size;
 		m_DataPos += sizeof(ModuleSectionHeader);
 
@@ -649,7 +628,7 @@ namespace Noctis
 
 	void ModuleDecode::DecodeName(const ModuleSectionHeader& header)
 	{
-		const StdVector<u8> data = *m_pData;
+		const StdVector<u8>& data = *m_pData;
 		u64 sectionEnd = m_DataPos + header.size;
 		m_DataPos += sizeof(ModuleSectionHeader);
 
@@ -664,12 +643,15 @@ namespace Noctis
 
 	void ModuleDecode::DecodeSyms(const ModuleSectionHeader& header)
 	{
-		const StdVector<u8> data = *m_pData;
+		const StdVector<u8>& data = *m_pData;
 		u64 sectionEnd = m_DataPos + header.size;
 		m_DataPos += sizeof(ModuleSectionHeader);
 
 		while (m_DataPos < sectionEnd)
 		{
+			if (m_DataPos > 30140)
+				int br = 0;
+			
 			SymbolKind kind = static_cast<SymbolKind>(data[m_DataPos++]);
 
 			SymbolSPtr sym;
@@ -692,18 +674,22 @@ namespace Noctis
 					}
 					else
 					{
-						IdenSPtr scope = Iden::Create(parentType.ToString());
-						qualName = QualName::Create({ scope, iden });
+						TypeDisambiguationSPtr disambig = TypeDisambiguation::Create(parentType, ifaceQualName);
+						qualName = QualName::Create(QualName::Create(disambig), iden);
 					}
 				}
 				else
 				{
 					qualName = ReadQualName();
 				}
+				if (qualName->LastIden()->Name() == "opNe")
+					int br = 0;
 			}
 			else
 			{
 				qualName = ReadQualName();
+				if (qualName->LastIden()->Name() == "opNe")
+					int br = 0;
 			}
 
 			sym = CreateSymbol(m_pCtx, kind, qualName);
@@ -798,6 +784,19 @@ namespace Noctis
 			{	
 				m_Syms.try_emplace(sym->qualName, sym);
 			}
+
+			// Get and add parent if one exists
+			QualNameSPtr possibleParentName = sym->qualName->Base();
+			if (possibleParentName)
+			{
+				auto parentIt = m_Syms.find(possibleParentName);
+				if (parentIt != m_Syms.end())
+				{
+					SymbolSPtr parent = parentIt->second;
+					parent->children->AddChild(sym, ifaceQualName);
+					sym->parent = parent;
+				}
+			}
 		}
 
 		if (m_DataPos != sectionEnd)
@@ -808,7 +807,7 @@ namespace Noctis
 
 	void ModuleDecode::DecodeSLnk(const ModuleSectionHeader& header)
 	{
-		const StdVector<u8> data = *m_pData;
+		const StdVector<u8>& data = *m_pData;
 		u64 sectionEnd = m_DataPos + header.size;
 		m_DataPos += sizeof(ModuleSectionHeader);
 
@@ -818,41 +817,6 @@ namespace Noctis
 
 			switch (lnkKind)
 			{
-			case SymbolLinkKind::TypeParent:
-			{
-				QualNameSPtr childQualName = ReadQualName();
-				QualNameSPtr ifaceQualName = ReadQualName();
-
-				TypeHandle handle = ReadType();
-				QualNameSPtr parentQualName = QualName::Create(Iden::Create(handle.ToString()));
-				
-				auto it = m_Syms.find(parentQualName);
-				if (it == m_Syms.end())
-				{
-					SymbolSPtr tmpSym = CreateSymbol(m_pCtx, SymbolKind::Type, nullptr);
-					tmpSym->type = handle;
-					it = m_Syms.try_emplace(parentQualName, tmpSym).first;
-				}
-				SymbolSPtr parent = it->second;
-
-				SymbolSPtr child;
-				if (ifaceQualName)
-				{
-					auto implIt = m_ImplSyms.find(ifaceQualName);
-					auto it = implIt->second.find(childQualName);
-					child = it->second;
-					parent->children->AddChild(child, ifaceQualName);
-				}
-				else
-				{
-					auto it = m_Syms.find(childQualName);
-					child = it->second;
-					parent->children->AddChild(child);
-				}
-
-				child->parent = parent;
-				break;
-			}
 			case SymbolLinkKind::InterfaceImpl:
 			{
 				u16 numImpls = ReadData<u16>();
@@ -951,7 +915,7 @@ namespace Noctis
 
 	void ModuleDecode::DecodeILBC(const ModuleSectionHeader& header)
 	{
-		const StdVector<u8> data = *m_pData;
+		const StdVector<u8>& data = *m_pData;
 		u64 sectionEnd = m_DataPos + header.size;
 		m_DataPos += sizeof(ModuleSectionHeader);
 
@@ -959,55 +923,8 @@ namespace Noctis
 		bytecode.insert(bytecode.end(), data.begin() + m_DataPos, data.begin() + sectionEnd);
 		m_DataPos = sectionEnd;
 
-		ILDecode decode(m_pCtx);
+		ILDecode decode(m_pCtx, m_pMod);
 		m_pMod->ilMod = decode.Decode(bytecode);
-	}
-
-
-	void ModuleDecode::ParentSymbols()
-	{
-		for (StdPair<const QualNameSPtr, SymbolSPtr>& pair : m_Syms)
-		{
-			SymbolSPtr sym = pair.second;
-			if (!sym->IsBaseVariant())
-				continue;
-
-			if (!sym->qualName)
-				continue;
-
-			QualNameSPtr possibleParentName = sym->qualName->Base();
-			if (!possibleParentName)
-				continue;
-
-			auto it = m_Syms.find(possibleParentName);
-			if (it != m_Syms.end())
-			{
-				SymbolSPtr parent = it->second;
-				parent->children->AddChild(sym);
-				sym->parent = parent;
-			}
-		}
-
-		for (StdPair<const QualNameSPtr, StdUnorderedMap<QualNameSPtr, SymbolSPtr>>& implPair : m_ImplSyms)
-		{
-			QualNameSPtr ifaceQualName = implPair.first;
-			for (StdPair<const QualNameSPtr, SymbolSPtr>& pair : implPair.second)
-			{
-				SymbolSPtr sym = pair.second;
-				if (!sym->IsBaseVariant() ||
-					sym->parent.lock())
-					continue;
-
-				QualNameSPtr possibleParentName = sym->qualName->Base();
-				auto it = m_Syms.find(possibleParentName);
-				if (it != m_Syms.end())
-				{
-					SymbolSPtr parent = it->second;
-					parent->children->AddChild(sym, ifaceQualName);
-					sym->parent = parent;
-				}
-			}
-		}
 	}
 
 	u32 ModuleDecode::ReadNameId()

@@ -104,6 +104,11 @@ void ProcessBuild(Noctis::Context& context)
 		}
 
 		g_Logger.Log("%16s : parser\n", timer.GetSMSFormat().c_str());
+		if (astTree.nodes.empty())
+		{
+			//g_ErrorSystem.Error("No module name is defined and no default name is passed to the compiler!");
+			continue;
+		}
 
 		Noctis::QualNameSPtr moduleQualName;
 		if (astTree.nodes.size() != 0 && astTree.nodes[0]->stmtKind == Noctis::AstStmtKind::Decl)
@@ -165,6 +170,8 @@ void ProcessBuild(Noctis::Context& context)
 
 		Noctis::ITrSemanticAnalysis itrSemAnalysis{ &context };
 		itrSemAnalysis.Run(pair.second->itrModule);
+
+		pair.second->symTable.RemoveImpl();
 
 		g_Logger.SetCanWriteToStdOut(false);
 		pair.second->symTable.Log(false);
@@ -256,7 +263,7 @@ int main(int argc, char* argv[])
 	{
 		Noctis::ModuleDecode decode{ &context };
 
-		const StdVector<StdString> modulePaths = context.options.ModulePaths();
+		const StdVector<StdString>& modulePaths = context.options.ModulePaths();
 		for (const StdString& modulePath : modulePaths)
 		{
 			std::filesystem::path path{ modulePath };

@@ -31,6 +31,7 @@ namespace Noctis
 		case ILKind::Ternary: Visit(static_cast<ILTernary&>(elem)); break;
 		case ILKind::Transmute: Visit(static_cast<ILTransmute&>(elem)); break;
 		case ILKind::Index: Visit(static_cast<ILIndex&>(elem)); break;
+		case ILKind::GenVal: Visit(static_cast<ILGenVal&>(elem)); break;
 		case ILKind::CompIntrin: Visit(static_cast<ILCompIntrin&>(elem)); break;
 		case ILKind::StaticCallNoRet: Visit(static_cast<ILStaticCall&>(elem)); break;
 		case ILKind::StaticCallRet: Visit(static_cast<ILStaticCall&>(elem)); break;
@@ -117,6 +118,10 @@ namespace Noctis
 	}
 
 	void ILVisitor::Visit(ILIndex& node)
+	{
+	}
+
+	void ILVisitor::Visit(ILGenVal& node)
 	{
 	}
 

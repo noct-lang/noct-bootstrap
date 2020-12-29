@@ -609,14 +609,35 @@ namespace Noctis
 		AstExprSPtr cond = ParseExpression(nullptr, true);
 		m_AllowAggrInit = prevAllowAggrInit;
 
-		AstStmtSPtr body = ParseBlockStmt();
+		AstStmtSPtr body;
+		if (TryEatToken(TokenType::Do))
+		{
+			AstExprSPtr expr = ParseExpression();
+			u64 endIdx = EatToken(TokenType::Semicolon).Idx();
+			body.reset(new AstExprStmt{ expr, endIdx });
+		}
+		else
+		{
+			body = ParseBlockStmt();
+		}
+		
 		AstStmtSPtr elseBody;
 		if (TryEatToken(TokenType::Else))
 		{
-			if (PeekToken().Type() == TokenType::If)
-				elseBody = ParseIfStmt();
+			if (TryEatToken(TokenType::Do))
+			{
+				AstExprSPtr expr = ParseExpression();
+				u64 endIdx = EatToken(TokenType::Semicolon).Idx();
+				body.reset(new AstExprStmt{ expr, endIdx });
+			}
+			else if (PeekToken().Type() == TokenType::If)
+			{
+				elseBody = ParseIfStmt();	
+			}
 			else
+			{
 				elseBody = ParseBlockStmt();
+			}
 		}
 
 		return AstStmtSPtr{ new AstIfStmt{ ifIdx, varDecl, cond, body, elseBody } };
@@ -1832,10 +1853,15 @@ namespace Noctis
 	AstTypeSPtr Parser::ParseTupleType(AstAttribsSPtr attribs)
 	{
 		u64 startIdx = EatToken(TokenType::LParen).Idx();
+		if (PeekToken().Type() == TokenType::RParen)
+		{
+			u64 endIdx = EatToken().Idx();
+			return AstTypeSPtr{ new AstTupleType{ attribs, startIdx, {}, endIdx} };
+		}
+		
 		StdVector<AstTypeSPtr> types;
-		types.push_back(ParseType());
-		while (TryEatToken(TokenType::Comma))
-			types.push_back(ParseType());
+		do { types.push_back(ParseType()); }
+			while (TryEatToken(TokenType::Comma));
 		u64 endIdx = EatToken().Idx();
 		return AstTypeSPtr{ new AstTupleType{ attribs, startIdx, std::move(types), endIdx } };
 	}
