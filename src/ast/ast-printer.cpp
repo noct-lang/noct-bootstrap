@@ -274,7 +274,7 @@ namespace Noctis
 	{
 		PrintIndent();
 		g_Logger.Log("(func-decl '%s'", node.iden.c_str());
-		if (node.throws)
+		if (node.errorType)
 			g_Logger.Log(" throws");
 		PrintContextAndClose(node.ctx);
 		++m_Indent;
@@ -343,7 +343,7 @@ namespace Noctis
 		}
 		
 		g_Logger.Log("(method-decl '%s' rec='%s'", node.iden.c_str(), rec);
-		if (node.throws)
+		if (node.errorType)
 			g_Logger.Log(" throws");
 		PrintContextAndClose(node.ctx);
 		++m_Indent;
@@ -650,7 +650,7 @@ namespace Noctis
 		--m_Indent;
 	}
 
-	void AstPrinter::Visit(AstErrorHandlerStmt& node)
+	void AstPrinter::Visit(AstErrHandler& node)
 	{
 		PrintIndent();
 		g_Logger.Log("(error-handler-stmt '%s'", node.errIden.c_str());

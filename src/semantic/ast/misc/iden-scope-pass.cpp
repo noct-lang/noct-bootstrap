@@ -316,9 +316,10 @@ namespace Noctis
 		m_CurScope = m_CurScope->Base();
 	}
 
-	void IdenScopePass::Visit(AstErrorHandlerStmt& node)
+	void IdenScopePass::Visit(AstErrHandler& node)
 	{
-		IdenScope(node.ctx, "__errhandler");
+		StdString name = Format("__errhandler_%u", node.ctx->startIdx);
+		IdenScope(node.ctx, name);
 		Walk(node);
 		m_CurScope = m_CurScope->Base();
 	}

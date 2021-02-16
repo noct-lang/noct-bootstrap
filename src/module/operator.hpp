@@ -7,6 +7,8 @@ namespace Noctis
 	enum class TokenType : u8;
 	struct Context;
 	FWDECL_STRUCT_SPTR(Symbol);
+	FWDECL_STRUCT_SPTR(SymbolInst);
+	FWDECL_STRUCT_SPTR(ITrGenDecl);
 
 	class ModuleSymbolTable;
 
@@ -22,7 +24,6 @@ namespace Noctis
 		Deref,
 		MutDeref,
 		RefOrAddrOf,
-		BoolConv,
 
 		// Unary postfix
 		PostInc,
@@ -122,20 +123,22 @@ namespace Noctis
 
 		void Collect(ModuleSymbolTable& table);
 
-		const Operator& GetOperator(OperatorKind kind, TypeHandle expr);
-		const Operator& GetOperator(OperatorKind kind, TypeHandle left, TypeHandle right);
-		
+		Operator GetOperator(OperatorKind kind, TypeHandle expr, BoundsInfo& boundsInfo);
+		Operator GetOperator(OperatorKind kind, TypeHandle left, TypeHandle right, BoundsInfo& boundsInfo);
 
+		Operator GetConstriantOperator(OperatorKind kind, TypeHandle expr, ITrGenDeclSPtr genDecl, BoundsInfo& boundsInfo);
+		Operator GetConstriantOperator(OperatorKind kind, TypeHandle left, TypeHandle right, ITrGenDeclSPtr genDecl, BoundsInfo& boundsInfo);
 	private:
-
-		void HandleBinaryOp(OperatorKind kind, SymbolSPtr impl, SymbolSPtr interfaceSym);
-		void HandleUnaryOp(OperatorKind kind, SymbolSPtr impl, SymbolSPtr interfaceSym);
-		void HandleConvOp(SymbolSPtr impl, SymbolSPtr interfaceSym);
+		
+		void HandleBinaryOp(OperatorKind kind, SymbolSPtr impl, SymbolInstSPtr ifaceInst);
+		void HandleUnaryOp(OperatorKind kind, SymbolSPtr impl, SymbolInstSPtr ifaceInst);
+		void HandleConvOp(SymbolSPtr impl, SymbolInstSPtr ifaceInst);
 		
 		QualNameSPtr GetOpInterfaceQualName(OperatorKind kind);
+		IdenSPtr GetOpFuncIden(OperatorKind kind);
 
-		bool IsBuiltinOp(TypeHandle handle);
-		bool IsBuiltinOp(TypeHandle left, TypeHandle right);
+		bool IsBuiltinOp(TypeHandle handle, BoundsInfo& boundsInfo);
+		bool IsBuiltinOp(TypeHandle left, TypeHandle right, BoundsInfo& boundsInfo);
 
 		StdArray<StdUnorderedMap<TypeSPtr, StdVector<Operator>>, u8(OperatorKind::Count)> m_OpSymbols;
 		Context* m_pCtx;

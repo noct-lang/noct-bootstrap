@@ -141,12 +141,8 @@ namespace Noctis
 		case TokenType::GreaterGreaterGreaterEq: return ">>>=";
 		case TokenType::GreaterGreaterAsteriskEq: return ">>*=";
 		case TokenType::Exclaim: return "!";
-		case TokenType::ExclaimExclaim: return "!!";
 		case TokenType::ExclaimEq: return "!=";
 		case TokenType::ExclaimLess: return "!<";
-		case TokenType::ExclaimParen: return "!(";
-		case TokenType::ExclaimBrace: return "!{";
-		case TokenType::ExclaimBracket: return "![";
 		case TokenType::LParen: return "(";
 		case TokenType::RParen: return ")";
 		case TokenType::LBrace: return "{";
@@ -171,6 +167,7 @@ namespace Noctis
 		case TokenType::QuestionDot: return "?.";
 		case TokenType::QuestionBracket: return "?[";
 		case TokenType::DollarParen: return "$(";
+		case TokenType::DollarBracket: return "$[";
 		case TokenType::DollarBrace: return "${";
 			
 		case TokenType::CharLit: return "CharLit";

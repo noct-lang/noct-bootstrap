@@ -20,7 +20,7 @@ namespace Noctis
 		Mut = 0x02,
 		
 		Static = 0x10,
-		Comptime = 0x20, // TODO: Do we really need this?
+		Comptime = 0x20,
 		Lazy = 0x40,
 		Move = 0x80,
 	};

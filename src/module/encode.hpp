@@ -12,8 +12,8 @@ namespace Noctis
 #pragma pack(push, 1)
 	struct ModuleSectionHeader
 	{
-		char iden[4];
-		u64 size;
+		char iden[4] = { '=', '=', '=', '=' };
+		u64 size = 0;
 	};
 #pragma pack(pop)
 
@@ -28,8 +28,7 @@ namespace Noctis
 	enum class SymbolLinkKind : u8
 	{
 		InterfaceImpl, // Interface implementations per symbol
-		Variants,
-		InterfaceExt,
+		TypeImpl,
 		MemberOrder,
 	};
 
@@ -44,16 +43,21 @@ namespace Noctis
 
 		u32 GetOrAddName(const StdString& name);
 
-		void EncodeImportSection();
+		u32 EncodeImports(StdVector<u8>& encoded);
 
 		void EncodeNameSection();
 		void EncodeSymSection();
+		void EncodeInstSection();
 		void EncodeSLnkSection();
 		void EncodeILSection();
 
 		template<typename T>
 		void WriteData(StdVector<u8>& insertTo, const T& data);
 		void WriteName(StdVector<u8>& insertTo, const StdString& name);
+		void WriteSymbolId(StdVector<u8>& insertTo, SymbolSPtr sym);
+		void WriteId(StdVector<u8>& insertTo, u32 id);
+		void WriteType(StdVector<u8>& insertTo, TypeHandle type);
+		void WriteQualName(StdVector<u8>& insertTo, QualNameSPtr qualName);
 
 		const StdString& GetMangledQualName(QualNameSPtr qualName);
 		const StdString& GetMangledType(TypeHandle type);
@@ -64,6 +68,10 @@ namespace Noctis
 		StdVector<ModuleSection> m_Sections;
 		
 		StdVector<u8> m_NameSection;
+
+		BoundsInfo* m_pBoundsInfo;
+
+		StdUnorderedMap<SymbolSPtr, u32> m_SymbolIdMapping;
 	};
 
 	template <typename T>
@@ -85,15 +93,20 @@ namespace Noctis
 	private:
 		void Reset();
 
-		void DecodeImport(const ModuleSectionHeader& header);
+		void UpdateImports();
 		void DecodeName(const ModuleSectionHeader& header);
 		void DecodeSyms(const ModuleSectionHeader& header);
+		void DecodeInst(const ModuleSectionHeader& header);
 		void DecodeSLnk(const ModuleSectionHeader& header);
 		void DecodeILBC(const ModuleSectionHeader& header);
 
+		void ParentSyms();
+
+		SymbolSPtr GetSymbol(QualNameSPtr qualName);
+
 		template<typename T>
 		const T& ReadData();
-		u32 ReadNameId();
+		u32 ReadId();
 
 		QualNameSPtr ReadQualName();
 		TypeHandle ReadType();
@@ -107,8 +120,13 @@ namespace Noctis
 		const StdVector<u8>* m_pData;
 		u64 m_DataPos;
 
+		StdVector<SymbolSPtr> m_SymIdMapping;
 		StdUnorderedMap<QualNameSPtr, SymbolSPtr> m_Syms;
 		StdUnorderedMap<QualNameSPtr, StdUnorderedMap<QualNameSPtr, SymbolSPtr>> m_ImplSyms;
+
+		StdUnorderedMap<QualNameSPtr, SymbolInstSPtr> m_Insts;
+
+		BoundsInfo* m_pBoundsInfo;
 	};
 
 	template <typename T>

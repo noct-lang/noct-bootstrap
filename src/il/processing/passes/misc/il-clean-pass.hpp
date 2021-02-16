@@ -26,6 +26,9 @@ namespace Noctis
 		ILRemoveGotoOnlyPass(Context* pCtx);
 
 		void Process(ILModule& mod) override;
+
+	private:
+		u32 GetGoto(u32 id, StdUnorderedMap<u32, u32>& gotoMapping);
 	};
 	
 }

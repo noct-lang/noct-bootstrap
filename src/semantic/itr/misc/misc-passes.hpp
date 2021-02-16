@@ -39,11 +39,6 @@ namespace Noctis
 		bool m_DependsOnValueGenerics;
 	};
 
-	class SwitchEitherExpansion
-	{
-		// TODO
-	};
-
 	class SwitchProcessPass : public ITrSemanticPass
 	{
 	public:
@@ -80,5 +75,47 @@ namespace Noctis
 		void MergeGroups(ITrSwitchGroup& baseGroup, ITrSwitchGroup& subGroup);
 
 		u64 GetLitVal(Token& tok);
+	};
+
+	class CopyCheckPass : public ITrSemanticPass
+	{
+	public:
+		CopyCheckPass(Context* pCtx);
+
+		void Process(ITrModule& mod) override;
+
+		void Visit(ITrAssign& node) override;
+
+	private:
+		bool CheckCopyable(TypeHandle typeInfo, BoundsInfo& boundsInfo);
+
+		BoundsInfo* m_pBoundsInfo;
+	};
+
+	class ErrHandlerCollectionPass : public ITrSemanticPass
+	{
+	public:
+		ErrHandlerCollectionPass(Context* pCtx);
+
+		void Process(ITrModule& mod) override;;
+
+		void Visit(ITrErrHandler& node) override;
+
+	private:
+		FuncContextSPtr m_FuncCtx;
+	};
+
+	class TryCheckPass : public ITrSemanticPass
+	{
+	public:
+		TryCheckPass(Context* pCtx);
+
+		void Process(ITrModule& mod) override;
+
+		void Visit(ITrTry& node) override;
+
+	private:
+		FuncContextSPtr m_FuncCtx;
+		TypeHandle m_ErrorHandle;
 	};
 }

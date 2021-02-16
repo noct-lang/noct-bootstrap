@@ -36,7 +36,6 @@ namespace Noctis
 		Defer,
 		ErrDefer,
 		Unsafe,
-		ErrorHandler,
 		CompIf,
 		CompCond,
 		CompDebug,
@@ -62,10 +61,11 @@ namespace Noctis
 		Func,
 		Method,
 		Impl,
+		ErrHandler,
 		DeclMacro,
 		RulesDeclMacro,
 		ProcMacro,
-		RulesProcMacro
+		RulesProcMacro,
 	};
 
 	enum class AstExprKind : u8
@@ -434,21 +434,21 @@ namespace Noctis
 	struct AstFuncDecl : public AstDecl
 	{
 		AstFuncDecl(AstAttribsSPtr attribs, u64 startIdx, StdString&& iden,
-			AstGenericDeclSPtr generics, StdVector<AstParamSPtr>&& params, bool thorws,
+			AstGenericDeclSPtr generics, StdVector<AstParamSPtr>&& params,
 			AstTypeSPtr errorType, AstTypeSPtr retType,
 			StdPairVector<StdVector<StdString>, AstTypeSPtr>&& namedRet, AstGenericWhereClauseSPtr whereClause,
-			StdVector<AstStmtSPtr>&& stmts, u64 endIdx);
+			StdVector<AstStmtSPtr>&& stmts, bool isUnsafe, u64 endIdx);
 
 		AstAttribsSPtr attribs;
 		StdString iden;
 		AstGenericDeclSPtr generics;
 		StdVector<AstParamSPtr> params;
-		bool throws;
 		AstTypeSPtr errorType;
 		AstTypeSPtr retType;
 		StdPairVector<StdVector<StdString>, AstTypeSPtr> namedRet;
 		AstGenericWhereClauseSPtr whereClause;
 		StdVector<AstStmtSPtr> stmts;
+		bool isUnsafe;
 	};
 
 	enum class AstMethodReceiverKind : u8
@@ -464,9 +464,9 @@ namespace Noctis
 	{
 		AstMethodDecl(AstAttribsSPtr attribs, u64 startIdx, AstMethodReceiverKind rec,
 			StdString&& iden, AstGenericDeclSPtr generics, StdVector<AstParamSPtr>&& params, 
-			bool throws, AstTypeSPtr errorType, AstTypeSPtr retType, 
+			AstTypeSPtr errorType, AstTypeSPtr retType, 
 			StdPairVector<StdVector<StdString>, AstTypeSPtr>&& namedRet, AstGenericWhereClauseSPtr whereClause,
-			StdVector<AstStmtSPtr>&& stmts, bool empty, u64 endIdx);
+			StdVector<AstStmtSPtr>&& stmts, bool isUnsafe, bool empty, u64 endIdx);
 
 		AstAttribsSPtr attribs;
 		AstMethodReceiverKind rec;
@@ -478,7 +478,7 @@ namespace Noctis
 		StdPairVector<StdVector<StdString>, AstTypeSPtr> namedRet;
 		AstGenericWhereClauseSPtr whereClause;
 		StdVector<AstStmtSPtr> stmts;
-		bool throws : 1;
+		bool isUnsafe : 1;
 		bool empty : 1;
 	};
 	
@@ -494,6 +494,15 @@ namespace Noctis
 		AstIdentifierTypeSPtr interface;
 		AstGenericWhereClauseSPtr whereClause;
 		StdVector<AstStmtSPtr> stmts;
+	};
+
+	struct AstErrHandler : public AstDecl
+	{
+		AstErrHandler(u64 startIdx, StdString&& errIden, AstTypeSPtr errType, AstStmtSPtr block);
+
+		StdString errIden;
+		AstTypeSPtr errType;
+		AstStmtSPtr block;
 	};
 
 	struct AstImportStmt : public AstStmt
@@ -648,15 +657,6 @@ namespace Noctis
 	{
 		AstUnsafeStmt(u64 startIdx, StdVector<AstStmtSPtr>&& stmts, u64 endIdx);
 
-		StdVector<AstStmtSPtr> stmts;
-	};
-
-	struct AstErrorHandlerStmt : public AstStmt
-	{
-		AstErrorHandlerStmt(u64 startIdx, StdString&& errIden, AstTypeSPtr errType, StdVector<AstStmtSPtr>&& stmts, u64 endIdx);
-
-		StdString errIden;
-		AstTypeSPtr errType;
 		StdVector<AstStmtSPtr> stmts;
 	};
 
@@ -910,8 +910,9 @@ namespace Noctis
 
 	struct AstTryExpr : public AstExpr
 	{
-		AstTryExpr(u64 startIdx, AstExprSPtr call);
+		AstTryExpr(Token& tryTok, AstExprSPtr call);
 
+		TokenType tryKind;
 		AstExprSPtr call;
 	};
 

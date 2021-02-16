@@ -51,7 +51,7 @@ namespace Noctis
 	struct AstDeferStmt;
 	struct AstErrDeferStmt;
 	struct AstUnsafeStmt;
-	struct AstErrorHandlerStmt;
+	struct AstErrHandler;
 	struct AstCompIfStmt;
 	struct AstCompCondStmt;
 	struct AstCompDebugStmt;
@@ -178,6 +178,7 @@ namespace Noctis
 		virtual void Visit(AstFuncDecl& node);
 		virtual void Visit(AstMethodDecl& node);
 		virtual void Visit(AstImplDecl& node);
+		virtual void Visit(AstErrHandler& node);
 
 		virtual void Visit(AstImportStmt& node);
 		virtual void Visit(AstBlockStmt& node);
@@ -198,7 +199,6 @@ namespace Noctis
 		virtual void Visit(AstDeferStmt& node);
 		virtual void Visit(AstErrDeferStmt& node);
 		virtual void Visit(AstUnsafeStmt& node);
-		virtual void Visit(AstErrorHandlerStmt& node);
 		virtual void Visit(AstCompIfStmt& node);
 		virtual void Visit(AstCompCondStmt& node);
 		virtual void Visit(AstCompDebugStmt& node);
@@ -318,6 +318,7 @@ namespace Noctis
 		void Walk(AstFuncDecl& node);
 		void Walk(AstMethodDecl& node);
 		void Walk(AstImplDecl& node);
+		void Walk(AstErrHandler& node);
 
 		void Walk(AstImportStmt& node);
 		void Walk(AstBlockStmt& node);
@@ -338,7 +339,6 @@ namespace Noctis
 		void Walk(AstDeferStmt& node);
 		void Walk(AstErrDeferStmt& node);
 		void Walk(AstUnsafeStmt& node);
-		void Walk(AstErrorHandlerStmt& node);
 		void Walk(AstCompIfStmt& node);
 		void Walk(AstCompCondStmt& node);
 		void Walk(AstCompDebugStmt& node);

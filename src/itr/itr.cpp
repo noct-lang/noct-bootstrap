@@ -126,18 +126,21 @@ namespace Noctis
 	{
 	}
 
-	ITrVar::ITrVar(ITrAttribsSPtr attribs, QualNameSPtr qualName, ITrTypeSPtr type, bool isModDef, u64 startIdx, u64 endIdx)
+	ITrVar::ITrVar(ITrAttribsSPtr attribs, QualNameSPtr qualName, ITrTypeSPtr type, ITrExprSPtr init, bool isModDef, u64 startIdx, u64 endIdx)
 		: ITrDef(ITrDefKind::Var, attribs, nullptr, qualName, isModDef, startIdx, endIdx)
 		, type(type)
+		, init(init)
 	{
 	}
 
-	ITrFunc::ITrFunc(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr qualName, StdVector<ITrParamSPtr>&& params, ITrTypeSPtr retType, ITrFuncKind funcKind, bool isModDef, u64 startIdx, u64 endIdx)
+	ITrFunc::ITrFunc(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr qualName, StdVector<ITrParamSPtr>&& params, ITrTypeSPtr errorType, ITrTypeSPtr retType, ITrFuncKind funcKind, bool isUnsafe, bool isModDef, u64 startIdx, u64 endIdx)
 		: ITrDef(ITrDefKind::Func, attribs, genDecl, qualName, isModDef, startIdx, endIdx)
 		, funcKind(funcKind)
 		, params(std::move(params))
+		, errorType(errorType)
 		, retType(retType)
 		, ctx(new FuncContext{})
+		, isUnsafe(isUnsafe)
 	{
 	}
 
@@ -145,6 +148,13 @@ namespace Noctis
 		: ITrDef(ITrDefKind::Impl, attribs, genDecl, scope, true, startIdx, endIdx)
 		, type(type)
 		, interface(interface)
+	{
+	}
+
+	ITrErrHandler::ITrErrHandler(QualNameSPtr qualName, StdString errIden, ITrTypeSPtr errType, u64 startIdx, u64 endIdx)
+		: ITrDef(ITrDefKind::ErrHandler, nullptr, nullptr, qualName, false, startIdx, endIdx)
+		, errIden(errIden)
+		, errType(errType)
 	{
 	}
 
@@ -266,12 +276,6 @@ namespace Noctis
 	ITrUnsafe::ITrUnsafe(ITrBlockSPtr block, u64 startIdx)
 		: ITrStmt(ITrStmtKind::Unsafe, startIdx, block->endIdx)
 		, block(block)
-	{
-	}
-
-	ITrErrHandler::ITrErrHandler(StdVector<ITrStmtSPtr>&& stmts, u64 startIdx, u64 endIdx)
-		: ITrStmt(ITrStmtKind::ErrorHandler, startIdx, endIdx)
-		, stmts(std::move(stmts))
 	{
 	}
 
@@ -508,8 +512,9 @@ namespace Noctis
 	{
 	}
 
-	ITrTry::ITrTry(ITrExprSPtr expr, u64 startIdx)
+	ITrTry::ITrTry(ITrTryKind kind, ITrExprSPtr expr, u64 startIdx)
 		: ITrExpr(ITrExprKind::Try, startIdx, expr->endIdx)
+		, kind(kind)
 		, expr(expr)
 	{
 	}

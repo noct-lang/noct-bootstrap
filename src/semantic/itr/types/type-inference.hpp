@@ -22,13 +22,17 @@ namespace Noctis
 		TypeInference(Context* pCtx, bool prepass);
 
 		void Process(ITrModule& mod) override;
+
+		void Visit(ITrErrHandler& node) override;
 		
 		void Visit(ITrBlock& node) override;
 		void Visit(ITrForRange& node) override;
 		void Visit(ITrSwitch& node) override;
 		void Visit(ITrReturn& node) override;
 		void Visit(ITrLocalVar& node) override;
-		
+		void Visit(ITrThrow& node) override;
+
+		void Visit(ITrExprSPtr& node) override;
 		void Visit(ITrAssign& node) override;
 		void Visit(ITrTernary& node) override;
 		void Visit(ITrBinary& node) override;
@@ -69,11 +73,16 @@ namespace Noctis
 		void Visit(ITrValueEnumPattern& node) override;
 
 	private:
-		void HandleGenerics(ITrDef& def, IdenSPtr iden);
-		void HandleAssocTypes(ITrGenBoundType& boundType, GenTypeInfo& genInfo);
 
-		GenTypeInfo GetSubTypeInfo(const TypeInfo& srcInfo, TypeHandle interfaceType, const StdString& subTypeName);
-		void NarrowGenBound(TypeInfo& typeInfo);
+		TypeHandle InferType(TypeHandle handle, TypeMod mod);
+		QualNameSPtr InferQualNameGenerics(QualNameSPtr origQualName);
+		IdenSPtr InferIdenGenerics(IdenSPtr origIden);
+		TypeDisambiguationSPtr InferDisambigGenerics(TypeDisambiguationSPtr origDisambig);
+		
+		void HandleGenerics(ITrDef& def, IdenSPtr iden);
+		void HandleAssocTypes(TypeHandle srcType, ITrGenBoundType& boundType);
+
+		void UpdateInstantiations(SymbolSPtr sym);
 		
 		QualNameSPtr GetCurScope();
 
@@ -87,15 +96,19 @@ namespace Noctis
 		StdVector<QualNameSPtr> m_SubInterfaceQualNames;
 
 		TypeHandle m_SelfType;
+		TypeHandle m_ErrType;
 
 		SymbolSPtr m_Sym;
 
+		ITrGenDeclSPtr m_GenDecl;
 		ITrDefSPtr m_Impl;
 
 		TypeHandle m_ReturnHandle;
+		TypeHandle m_ErrorHandle;
 		TypeHandle m_ExpectedHandle;
 
 		StdUnorderedMap<IdenSPtr, TypeHandle> m_GenMapping;
+		BoundsInfo* m_pBoundsInfo;
 
 		bool m_Prepass;
 

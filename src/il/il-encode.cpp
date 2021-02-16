@@ -11,6 +11,7 @@ namespace Noctis
 		: ILVisitor(pCtx)
 		, m_pCurEncodingFunc(nullptr)
 		, m_TypeWidth(1)
+		, m_pBoundsInfo(nullptr)
 	{
 	}
 
@@ -92,13 +93,11 @@ namespace Noctis
 	{
 		m_EncodedFuncs.emplace_back(StdVector<u8>{});
 		m_pCurEncodingFunc = &m_EncodedFuncs.back();
+		m_pBoundsInfo = &node.sym.lock()->boundsInfo;
 
-		if (node.qualName->LastIden()->Name() == "opLt")
-			int br = 0;
-		
 		// def id
 		u32 idAndMangle = 0xF0; // LE, so id at begin
-		u32 nameId = m_pCtx->activeModule->encodeInfo.GetOrAddQualName(m_pCtx, node.qualName);
+		u32 nameId = m_pCtx->activeModule->encodeInfo.GetOrAddQualName(m_pCtx, node.qualName, m_pBoundsInfo);
 		idAndMangle |= (nameId & 0x00FF'FFFF) << 8;
 		
 		WriteData(idAndMangle);
@@ -385,7 +384,7 @@ namespace Noctis
 		if (id == 0)
 		{
 			id = u32(m_Names.size());
-			StdString mangled = NameMangling::Mangle(m_pCtx, qualName);
+			StdString mangled = NameMangling::Mangle(m_pCtx, qualName, m_pBoundsInfo);
 			m_Names.try_emplace(mangled, id);
 		}
 		WriteData(id);
@@ -412,7 +411,7 @@ namespace Noctis
 	{
 		if (var.kind == ILVarKind::Lit)
 		{
-			u8 header = ((u8(ILVarKind::Lit) & 0x3) << 6) | ((u8(var.litType) & 0x1F) << 1) | (u8(var.boolBit) & 0x1);
+			u8 header = ((u8(ILVarKind::Lit) & 0x3) << 6) | (u8(var.litType) & 0x3F);
 			WriteData(header);
 			m_pCurEncodingFunc->insert(m_pCurEncodingFunc->end(), var.litData.begin(), var.litData.end());
 		}
@@ -624,13 +623,15 @@ namespace Noctis
 	void ILDecode::DecodeFunc()
 	{
 		m_CurVarId = 0;
+
+		usize curIdx = m_BCPos;
 		
 		// skip ID
 		u32 idAndMangle = ReadData<u32>();
 
 		u32 nameId = idAndMangle >> 8;
 		
-		QualNameSPtr qualName = m_pNxMod->encodeInfo.GetQualNameFromId(m_pCtx, nameId);
+		QualNameSPtr qualName = m_pNxMod->encodeInfo.GetQualNameFromId(m_pCtx, nameId, nullptr);
 		ILFuncDefSPtr def{ new ILFuncDef{ m_pCtx, qualName, {} } };
 		// TODO: Symbol
 
@@ -664,6 +665,11 @@ namespace Noctis
 		}
 		
 		m_pMod->funcs.push_back(def);
+
+		if (m_BCPos != curIdx + funcSize)
+		{
+			g_ErrorSystem.Error("Invalid IL function length found!");
+		}
 	}
 
 	ILBlock ILDecode::DecodeBlock()
@@ -1021,14 +1027,15 @@ namespace Noctis
 
 		if (varKind == ILVarKind::Lit)
 		{
-			ILLitType litType = ILLitType((byte >> 1) & 0x1F);
+			ILLitType litType = ILLitType(byte & 0x3F);
 			StdVector<u8> litData;
 			switch (litType)
 			{
-			case ILLitType::Bool:
+			case ILLitType::False:
+			case ILLitType::True:
 			{
-				bool val = byte & 0x01;
-				return ILVar{ val };
+				litData.push_back(u8(litType == ILLitType::True));
+				break;
 			}
 			case ILLitType::I8:
 			case ILLitType::U8:
@@ -1151,8 +1158,8 @@ namespace Noctis
 		if (id & 0x8000'0000)
 		{
 			const StdString& name = m_Names[id & 0x7FFF'FFFF];
-			return NameMangling::DemangleQualName(m_pCtx, name);
+			return NameMangling::DemangleQualName(m_pCtx, name, nullptr);
 		}
-		return m_pNxMod->encodeInfo.GetQualNameFromId(m_pCtx, id);
+		return m_pNxMod->encodeInfo.GetQualNameFromId(m_pCtx, id, nullptr);
 	}
 }

@@ -6,6 +6,8 @@ namespace Noctis
 {
 	struct AstTree;
 	struct Context;
+
+	FWDECL_CLASS_SPTR(QualName);
 	
 	class AstSemanticAnalysis
 	{
@@ -17,6 +19,8 @@ namespace Noctis
 	private:
 		template<typename T>
 		void RunPass();
+
+		void Import(QualNameSPtr modQualName);
 		
 		Context* m_pCtx;
 		AstTree* m_pTree;

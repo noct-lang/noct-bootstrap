@@ -24,4 +24,14 @@ namespace Noctis
 		FuncContextSPtr m_FuncCtx;
 		StdVector<StdString> m_ScopeNames;
 	};
+
+	class ErrorHandlerCollectionPass : public ITrSemanticPass
+	{
+	public:
+		ErrorHandlerCollectionPass(Context* pCtx);
+
+		void Process(ITrModule& mod) override;
+
+		void Visit(ITrErrHandler& node) override;
+	};
 }

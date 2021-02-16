@@ -1,4 +1,4 @@
-#include "simple-attribute-pass.hpp"
+#include "attribute-passes.hpp"
 #include "ast/ast.hpp"
 #include "common/context.hpp"
 #include "common/errorsystem.hpp"

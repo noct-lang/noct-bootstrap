@@ -16,18 +16,6 @@ namespace Noctis
 		void Process(ITrModule& mod) override;
 	};
 
-	class GenericDeclResolve : public ITrSemanticPass
-	{
-	public:
-		GenericDeclResolve(Context* pCtx);
-
-		void Process(ITrModule& mod) override;
-
-	private:
-		void HandleGenerics(QualNameSPtr qualName, ITrGenDeclSPtr decl, ITrDef& def);
-		SymbolSPtr m_Sym;
-	};
-
 	class InterfaceResolve : public ITrSemanticPass
 	{
 	public:
@@ -35,15 +23,7 @@ namespace Noctis
 
 		void Process(ITrModule& mod) override;
 
-		IdenGeneric GetGeneric(ITrGenDeclSPtr genDecl, IdenGeneric origGeneric);
-	};
-
-	class CompilerImplPass : public ITrSemanticPass
-	{
-	public:
-		CompilerImplPass(Context* pCtx);
-
-		void Process(ITrModule& mod) override;
+		IdenGeneric GetGeneric(ITrGenDeclSPtr genDecl, IdenGeneric origGeneric, StdUnorderedMap<IdenSPtr, TypeHandle>& genMapping);
 	};
 	
 }

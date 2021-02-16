@@ -116,6 +116,9 @@ namespace Noctis
 
 			for (ILBlock& block : funcDef->blocks)
 			{
+				if (block.terminal->kind != ILKind::Goto)
+					continue;
+				
 				ILBlockDependencyNodeSPtr depNode = funcDef->graph.GetOrAddBlockDependency(block.label);
 				if (!depNode->onlyGoto)
 					continue;
@@ -125,19 +128,6 @@ namespace Noctis
 
 				depNode->canTouch = false;
 			}
-
-			auto getGoto = [&](u32 id)
-			{
-				auto getGotoImpl = [&](u32 id, auto& getFun)
-				{
-					auto it = gotoMapping.find(id);
-					if (it == gotoMapping.end())
-						return id;
-
-					return getFun(it->second, getFun);
-				};
-				return getGotoImpl(id, getGotoImpl);
-			};
 
 			for (ILBlock& block : funcDef->blocks)
 			{
@@ -150,11 +140,11 @@ namespace Noctis
 				{
 					ILIf& term = static_cast<ILIf&>(*block.terminal);
 					
-					u32 trueLabel = getGoto(term.trueLabel);
+					u32 trueLabel = GetGoto(term.trueLabel, gotoMapping);
 					depNode->ChangeRef(term.trueLabel, trueLabel);
 					term.trueLabel = trueLabel;
 					
-					u32 falseLabel = getGoto(term.falseLabel);
+					u32 falseLabel = GetGoto(term.falseLabel, gotoMapping);
 					depNode->ChangeRef(term.falseLabel, falseLabel);
 					term.falseLabel = falseLabel;
 					break;
@@ -165,12 +155,12 @@ namespace Noctis
 
 					for (StdPair<ILVar, u32>& case_ : term.cases)
 					{
-						u32 newId = getGoto(case_.second);
+						u32 newId = GetGoto(case_.second, gotoMapping);
 						depNode->ChangeRef(case_.second, newId);
 						case_.second = newId;
 					}
 
-					u32 newId = getGoto(term.defCase);
+					u32 newId = GetGoto(term.defCase, gotoMapping);
 					depNode->ChangeRef(term.defCase, newId);
 					term.defCase = newId;
 					
@@ -179,7 +169,7 @@ namespace Noctis
 				case ILKind::Goto:
 				{
 					ILGoto& term = static_cast<ILGoto&>(*block.terminal);
-					u32 newId = getGoto(term.label);
+					u32 newId = GetGoto(term.label, gotoMapping);
 					depNode->ChangeRef(term.label, newId);
 					term.label = newId;
 					break;
@@ -188,5 +178,14 @@ namespace Noctis
 				}
 			}
 		}
+	}
+
+	u32 ILRemoveGotoOnlyPass::GetGoto(u32 id, StdUnorderedMap<u32, u32>& gotoMapping)
+	{
+		auto it = gotoMapping.find(id);
+		if (it == gotoMapping.end())
+			return id;
+
+		return GetGoto(it->second, gotoMapping);
 	}
 }

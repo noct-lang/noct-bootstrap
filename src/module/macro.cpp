@@ -558,9 +558,9 @@ namespace Noctis
 			if (m_MaxLoopIdx != it->second.size())
 			{
 				const char* pName = name.c_str();
-				u64 expected = m_MaxLoopIdx;
+				u64 expected = m_MaxLoopIdx + 1;
 				u64 found = u64(it->second.size());
-				g_ErrorSystem.Error("'%s' only appears %U times, while the other variables only loop %u times", pName);
+				g_ErrorSystem.Error("'%s' only appears %u times, while it's expected to appear %u times", pName, expected, found);
 				return invalid;
 			}
 

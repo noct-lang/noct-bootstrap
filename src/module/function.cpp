@@ -8,9 +8,9 @@ namespace Noctis
 	{
 	}
 
-	LocalVarData::LocalVarData(IdenSPtr iden, TypeInfo typeInfo, bool isParam)
+	LocalVarData::LocalVarData(IdenSPtr iden, TypeHandle handle, bool isParam)
 		: iden(iden)
-		, typeInfo(typeInfo)
+		, type(handle)
 		, isParam(isParam)
 	{
 	}

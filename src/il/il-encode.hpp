@@ -77,6 +77,8 @@ namespace Noctis
 		StdVector<u8>* m_pCurEncodingFunc;
 
 		u32 m_TypeWidth;
+
+		BoundsInfo* m_pBoundsInfo;
 	};
 
 	template <typename T>

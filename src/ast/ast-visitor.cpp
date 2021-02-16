@@ -131,6 +131,11 @@ namespace Noctis
 		Walk(node);
 	}
 
+	void AstVisitor::Visit(AstErrHandler& node)
+	{
+		Walk(node);
+	}
+
 	void AstVisitor::Visit(AstImportStmt& node)
 	{
 		Walk(node);
@@ -222,11 +227,6 @@ namespace Noctis
 	}
 
 	void AstVisitor::Visit(AstUnsafeStmt& node)
-	{
-		Walk(node);
-	}
-
-	void AstVisitor::Visit(AstErrorHandlerStmt& node)
 	{
 		Walk(node);
 	}
@@ -651,7 +651,6 @@ namespace Noctis
 		case AstStmtKind::Defer: Visit(*static_cast<AstDeferStmt*>(node.get())); break;
 		case AstStmtKind::ErrDefer: Visit(*static_cast<AstErrDeferStmt*>(node.get())); break;
 		case AstStmtKind::Unsafe: Visit(*static_cast<AstUnsafeStmt*>(node.get())); break;
-		case AstStmtKind::ErrorHandler: Visit(*static_cast<AstErrorHandlerStmt*>(node.get())); break;
 		case AstStmtKind::CompIf: Visit(*static_cast<AstCompIfStmt*>(node.get())); break;
 		case AstStmtKind::CompCond: Visit(*static_cast<AstCompCondStmt*>(node.get())); break;
 		case AstStmtKind::CompDebug: Visit(*static_cast<AstCompDebugStmt*>(node.get())); break;
@@ -682,6 +681,7 @@ namespace Noctis
 		case AstDeclKind::Func: Visit(*static_cast<AstFuncDecl*>(node.get())); break;
 		case AstDeclKind::Method: Visit(*static_cast<AstMethodDecl*>(node.get())); break;
 		case AstDeclKind::Impl: Visit(*static_cast<AstImplDecl*>(node.get())); break;
+		case AstDeclKind::ErrHandler: Visit(*static_cast<AstErrHandler*>(node.get())); break;
 		case AstDeclKind::DeclMacro: Visit(*static_cast<AstDeclMacro*>(node.get())); break;
 		case AstDeclKind::RulesDeclMacro: Visit(*static_cast<AstRulesDeclMacro*>(node.get())); break;
 		case AstDeclKind::ProcMacro: Visit(*static_cast<AstProcMacro*>(node.get())); break;
@@ -1010,6 +1010,13 @@ namespace Noctis
 		}
 	}
 
+	void AstVisitor::Walk(AstErrHandler& node)
+	{
+		if (node.errType)
+			Visit(node.errType);
+		Visit(node.block);
+	}
+
 	void AstVisitor::Walk(AstImportStmt& node)
 	{
 		if (node.attribs)
@@ -1127,16 +1134,6 @@ namespace Noctis
 
 	void AstVisitor::Walk(AstUnsafeStmt& node)
 	{
-		for (AstStmtSPtr stmt : node.stmts)
-		{
-			Visit(stmt);
-		}
-	}
-
-	void AstVisitor::Walk(AstErrorHandlerStmt& node)
-	{
-		if (node.errType)
-			Visit(node.errType);
 		for (AstStmtSPtr stmt : node.stmts)
 		{
 			Visit(stmt);

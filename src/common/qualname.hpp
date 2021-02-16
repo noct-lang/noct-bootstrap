@@ -19,8 +19,6 @@ namespace Noctis
 		IdenSPtr iden;
 		TypeHandle type;
 
-		StdVector<TypeHandle> typeConstraints;
-
 		ITrExprSPtr itrExpr;
 	};
 	
@@ -83,9 +81,10 @@ namespace Noctis
 		StdString ToString() const;
 		QualNameSPtr GetSubName(QualNameSPtr base);
 		QualNameSPtr GetSubName(usize depth);
+
+		QualNameSPtr GetBaseName(usize depth);
 		 
 		bool IsBase();
-
 		bool IsSubnameOf(QualNameSPtr base);
 
 		TypeDisambiguationSPtr Disambiguation() { return m_Disambiguation; }

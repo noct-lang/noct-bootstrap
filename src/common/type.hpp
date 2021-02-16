@@ -9,6 +9,7 @@ namespace Noctis
 	struct Context;
 	FWDECL_CLASS_SPTR(QualName);
 	FWDECL_CLASS_SPTR(Iden);
+	FWDECL_CLASS_SPTR(TypeDisambiguation);
 	FWDECL_STRUCT_WPTR(Symbol);
 
 	FWDECL_STRUCT_SPTR(AstExpr);
@@ -109,8 +110,12 @@ namespace Noctis
 		TypeKind Kind() const;
 		TypeSPtr Type();
 		const TypeSPtr Type() const;
-		BaseType& AsBase();
-		const BaseType& AsBase() const;
+
+		usize Size();
+		u16 Align();
+		TypeMod Mod() const;
+		bool HasFuzzyCompare() const;
+
 		BuiltinType& AsBuiltin();
 		IdenType& AsIden();
 		const IdenType& AsIden() const;
@@ -125,7 +130,7 @@ namespace Noctis
 		GenericType& AsGeneric();
 
 		StdString ToString();
-		
+
 		bool IsValid() const { return pReg && !!type; }
 
 		bool operator==(const TypeHandle& other) const;
@@ -133,6 +138,45 @@ namespace Noctis
 
 		StdSharedPtr<THandle> type;
 		TypeRegistry* pReg;
+	};
+}
+
+// Needs to be defined as early as possible (before first use)
+namespace std
+{
+	template<> struct hash<Noctis::TypeHandle>
+	{
+		size_t operator()(const Noctis::TypeHandle& handle) const noexcept
+		{
+			std::hash<std::shared_ptr<Noctis::THandle>> hasher;
+			return hasher(handle.type);
+		}
+	};
+}
+
+namespace Noctis
+{
+
+	struct Bounds
+	{
+		StdVector<TypeHandle> bounds;
+
+		TypeHandle NarrowType(TypeHandle type) const;
+	};
+	
+	struct BoundsInfo
+	{
+		StdUnorderedMap<TypeSPtr, Bounds> bounds;
+
+		void Merge(BoundsInfo& other);
+
+		const Bounds& GetBounds(TypeHandle type);
+		const Bounds& GetBounds(TypeSPtr type);
+
+		Bounds& GetOrAddBounds(TypeHandle type);
+		Bounds& GetOrAddBounds(TypeSPtr type);
+
+		void RemoveUnboundTypes();
 	};
 
 	// hasFuzzyCompare: does the type have a fuzzy comparison type (has value generics)
@@ -183,7 +227,7 @@ namespace Noctis
 		PtrType(TypeMod mod, TypeHandle subType)
 			: mod(mod)
 			, subType(subType)
-			, hasFuzzyCompare(subType.AsBase().hasFuzzyCompare)
+			, hasFuzzyCompare(subType.HasFuzzyCompare())
 		{}
 
 		TYPE_BASE_DATA;
@@ -195,7 +239,7 @@ namespace Noctis
 		RefType(TypeMod mod, TypeHandle subType)
 			: mod(mod)
 			, subType(subType)
-			, hasFuzzyCompare(subType.AsBase().hasFuzzyCompare)
+			, hasFuzzyCompare(subType.HasFuzzyCompare())
 		{}
 
 		TYPE_BASE_DATA;
@@ -207,7 +251,7 @@ namespace Noctis
 		SliceType(TypeMod mod, TypeHandle subType)
 			: mod(mod)
 			, subType(subType)
-			, hasFuzzyCompare(subType.AsBase().hasFuzzyCompare)
+			, hasFuzzyCompare(subType.HasFuzzyCompare())
 		{}
 
 		TYPE_BASE_DATA;
@@ -229,7 +273,7 @@ namespace Noctis
 			, subType(subType)
 			, arrSize(u64(-1))
 			, expr(expr)
-			, hasFuzzyCompare(subType.AsBase().hasFuzzyCompare)
+			, hasFuzzyCompare(subType.HasFuzzyCompare())
 		{}
 
 		TYPE_BASE_DATA;
@@ -247,7 +291,7 @@ namespace Noctis
 		{
 			for (const TypeHandle& subType : subTypes)
 			{
-				if (subType.AsBase().hasFuzzyCompare)
+				if (subType.HasFuzzyCompare())
 				{
 					hasFuzzyCompare = true;
 					break;
@@ -265,7 +309,7 @@ namespace Noctis
 		OptType(TypeMod mod, TypeHandle subType)
 			: mod(mod)
 			, subType(subType)
-			, hasFuzzyCompare(subType.AsBase().hasFuzzyCompare)
+			, hasFuzzyCompare(subType.HasFuzzyCompare())
 		{}
 
 		TYPE_BASE_DATA;
@@ -281,7 +325,7 @@ namespace Noctis
 		{
 			for (const TypeHandle& subType : subTypes)
 			{
-				if (subType.AsBase().hasFuzzyCompare)
+				if (subType.HasFuzzyCompare())
 				{
 					hasFuzzyCompare = true;
 					break;
@@ -303,14 +347,14 @@ namespace Noctis
 		{
 			for (const TypeHandle& paramType : paramTypes)
 			{
-				if (paramType.AsBase().hasFuzzyCompare)
+				if (paramType.HasFuzzyCompare())
 				{
 					hasFuzzyCompare = true;
 					break;
 				}
 			}
 			if (retType.IsValid())
-				hasFuzzyCompare |= retType.AsBase().hasFuzzyCompare;
+				hasFuzzyCompare |= retType.HasFuzzyCompare();
 		}
 
 		TYPE_BASE_DATA;
@@ -320,16 +364,14 @@ namespace Noctis
 
 	struct GenericType
 	{
-		GenericType(TypeMod mod, IdenSPtr iden, const StdVector<TypeHandle>& constraints)
+		GenericType(TypeMod mod, u16 id)
 			: mod(mod)
-			, iden(iden)
-			, constraints(constraints)
+			, id(id)
 			, hasFuzzyCompare(false)
 		{}
 
 		TYPE_BASE_DATA;
-		IdenSPtr iden;
-		StdVector<TypeHandle> constraints;
+		u16 id;
 	};
 
 #undef TYPE_BASE_DATA
@@ -353,8 +395,6 @@ namespace Noctis
 
 		void CalculateSizeAlign(TypeRegistry& typeReg);
 
-		BaseType& AsBase() { return base; }
-		const BaseType& AsBase() const { return base; }
 		BuiltinType& AsBuiltin() { assert(typeKind == TypeKind::Builtin); return builtin; }
 		IdenType& AsIden() { assert(typeKind == TypeKind::Iden); return iden; }
 		PtrType& AsPtr() { assert(typeKind == TypeKind::Ptr); return ptr; }
@@ -370,6 +410,7 @@ namespace Noctis
 		TypeMod Mod() const { return base.mod; }
 		u16 Align() const { return base.align; }
 		u64 Size() const { return base.size; }
+		bool HasFuzzyCompare() const { return base.hasFuzzyCompare; }
 
 		TypeKind typeKind;
 
@@ -392,18 +433,7 @@ namespace Noctis
 	};
 }
 
-// Needs to be defined before first use in TypeRegistry
-namespace std
-{
-	template<> struct hash<Noctis::TypeHandle>
-	{
-		size_t operator()(const Noctis::TypeHandle& handle) const noexcept
-		{
-			std::hash<std::shared_ptr<Noctis::THandle>> hasher;
-			return hasher(handle.type);
-		}
-	};
-}
+
 
 namespace Noctis
 {
@@ -419,7 +449,7 @@ namespace Noctis
 		bool CompareTypes(TypeHandle first, TypeHandle second);
 		bool CompareTypesNonFuzzy(TypeHandle first, TypeHandle second);
 		bool MatchTypes(TypeHandle toMatch, TypeHandle type, Module& mod);
-		
+
 		bool CanPassTo(TypeHandle param, TypeHandle arg);
 		void SetIdenSym(QualNameSPtr qualName, SymbolWPtr sym);
 		void SetAliasType(TypeHandle alias, TypeHandle type);
@@ -430,10 +460,12 @@ namespace Noctis
 
 		void CalculateSizeAlign();
 
-		i64 ScorePossibleVariant(TypeSPtr type, TypeSPtr candidate);
-		StdVector<TypeSPtr> GetBestVariants(TypeHandle type, const StdVector<TypeSPtr>& candidates);
+		i64 ScorePossibleVariant(TypeHandle type, TypeSPtr candidate, BoundsInfo& boundsInfo);
+		StdVector<TypeSPtr> GetBestVariants(TypeHandle type, const StdVector<TypeSPtr>& candidates, BoundsInfo& boundsInfo);
 
 		StdVector<TypeSPtr> ExtractGenerics(TypeSPtr type);
+
+		TypeHandle GetGeneralizedType(TypeHandle handle);
 
 		TypeHandle Builtin(TypeMod mod, BuiltinTypeKind builtin);
 		TypeHandle Iden(TypeMod mod, QualNameSPtr qualName);
@@ -449,8 +481,8 @@ namespace Noctis
 		TypeHandle Compound(TypeMod mod, const StdVector<TypeHandle>& subTypes);
 
 		TypeHandle Func(TypeMod mod, const StdVector<TypeHandle>& params, TypeHandle ret);
-		
-		TypeHandle Generic(TypeMod mod, IdenSPtr qualName, const StdVector<TypeHandle>& constraints);
+
+		TypeHandle Generic(TypeMod mod, u16 id);
 
 		TypeHandle Mod(TypeMod mod, TypeHandle handle);
 
@@ -458,18 +490,27 @@ namespace Noctis
 	private:
 		TypeHandle CreateHandle(TypeSPtr type);
 		TypeHandle CreateHandle(Type* pType);
-		
+
 		void ExtractGenerics(TypeSPtr type, StdVector<TypeSPtr>& gens);
+
+		QualNameSPtr ReplaceSubType(QualNameSPtr qualName, TypeHandle toReplace, TypeHandle replacement);
+		IdenSPtr ReplaceSubType(IdenSPtr iden, TypeHandle toReplace, TypeHandle replacement);
+		TypeDisambiguationSPtr ReplaceSubType(TypeDisambiguationSPtr disambig, TypeHandle toReplace, TypeHandle replacement);
+
+		void GetSubTypes(TypeHandle handle, TypeKind kind, StdVector<TypeHandle>& foundTypes);
+		void GetSubTypes(QualNameSPtr qualName, TypeKind kind, StdVector<TypeHandle>& foundTypes);
+		void GetSubTypes(IdenSPtr iden, TypeKind kind, StdVector<TypeHandle>& foundTypes);
+		void GetSubTypes(TypeDisambiguationSPtr disambig, TypeKind kind, StdVector<TypeHandle>& foundTypes);
 		
 		static constexpr u8 m_ModCount = u8(TypeMod::Count);
-		
+
 		StdArray<StdArray<TypeHandle, m_ModCount>, u8(BuiltinTypeKind::Count)> m_BuiltinMapping;
 		StdUnorderedMap<QualNameSPtr, StdArray<TypeHandle, m_ModCount>> m_IdenMapping;
 		StdUnorderedMap<TypeHandle, StdArray<TypeHandle, m_ModCount>> m_PtrMapping;
 		StdUnorderedMap<TypeHandle, StdArray<TypeHandle, m_ModCount>> m_RefMapping;
 		StdUnorderedMap<TypeHandle, StdArray<TypeHandle, m_ModCount>> m_SliceMapping;
 		StdUnorderedMap<TypeHandle, StdArray<TypeHandle, m_ModCount>> m_OptMapping;
-		
+
 		StdUnorderedMap<TypeHandle, StdUnorderedMap<ArrayExprType, StdArray<TypeHandle, m_ModCount>>> m_ArrayMapping;
 		StdUnorderedMap<TypeHandle, StdUnorderedMap<u64, StdArray<TypeHandle, m_ModCount>>> m_ArrayMappingKnownSize;
 
@@ -478,27 +519,10 @@ namespace Noctis
 		StdUnorderedMap<u64, StdUnorderedMap<TypeHandle, StdVector<StdArray<TypeHandle, m_ModCount>>>> m_CompoundMapping;
 		StdUnorderedMap<u64, StdUnorderedMap<TypeHandle, StdVector<StdArray<TypeHandle, m_ModCount>>>> m_FuncMapping;
 
-		StdUnorderedMap<IdenSPtr, StdVector<StdArray<TypeHandle, m_ModCount>>> m_GenericMapping;
-		
+		StdVector<StdArray<TypeHandle, m_ModCount>> m_GenericMapping;
+
 		StdVector<TypeSPtr> m_Types;
 
 		Context* m_pCtx;
 	};
-
-	struct GenTypeInfo
-	{
-		StdVector<TypeHandle> bounds;
-		StdUnorderedMap<TypeSPtr, StdUnorderedMap<StdString, GenTypeInfo>> subInfo;
-	};
-
-	struct TypeInfo
-	{
-		TypeInfo();
-		TypeInfo(TypeHandle handle);
-		TypeInfo(TypeHandle handle, GenTypeInfo genInfo);
-		
-		TypeHandle handle;
-		GenTypeInfo genInfo;
-	};
-	
 }

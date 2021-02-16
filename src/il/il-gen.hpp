@@ -33,7 +33,6 @@ namespace Noctis
 		// Done by ITrBlock
 		//void Visit(ITrUnsafe& node) override;
 		
-		//void Visit(ITrErrHandler& node) override;
 		//void Visit(ITrCompCond& node) override;
 		
 		void Visit(ITrLocalVar& node) override;
@@ -76,11 +75,11 @@ namespace Noctis
 		//void Visit(ITrMove& node) override;
 		
 		//void Visit(ITrIs& node) override;
-		//void Visit(ITrTry& node) override;
+		void Visit(ITrTry& node) override;
 		//void Visit(ITrSpecKw& node) override;
 		//void Visit(ITrCompRun& node) override;
 		
-		//void Visit(ITrAttribs& node) override;
+		void Visit(ITrAttribs& node) override;
 		//void Visit(ITrAtAttrib& node) override;
 		//void Visit(ITrGenDecl& node) override;
 		//void Visit(ITrGenTypeParam& node) override;
@@ -106,7 +105,7 @@ namespace Noctis
 
 		void ImplementCompilerIntrin(const StdString& intrinName);
 
-		ILVar CreateLitVar(Token& lit);
+		ILVar CreateLitVar(Token& lit, TypeHandle type);
 
 		template<typename T>
 		ILVar CreateLitVar(TypeHandle type, const T& val);
@@ -169,6 +168,7 @@ namespace Noctis
 		StdStack<u32> m_LoopEndLabels;
 
 		bool m_FallThrough;
+		TypeHandle m_ErrType;
 	};
 	
 }

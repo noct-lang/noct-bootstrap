@@ -405,13 +405,6 @@ namespace Noctis
 				++m_Index;
 				if (m_Index < size)
 				{
-					if (m_Content[m_Index] == '!')
-					{
-						++m_Index;
-						m_Tokens.push_back({ TokenType::ExclaimExclaim, tokIdx });
-						spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-						break;
-					}
 					if (m_Content[m_Index] == '=')
 					{
 						++m_Index;
@@ -423,27 +416,6 @@ namespace Noctis
 					{
 						++m_Index;
 						m_Tokens.push_back({ TokenType::ExclaimLess, tokIdx });
-						spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-						break;
-					}
-					if (m_Content[m_Index] == '(')
-					{
-						++m_Index;
-						m_Tokens.push_back({ TokenType::ExclaimParen, tokIdx });
-						spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-						break;
-					}
-					if (m_Content[m_Index] == '{')
-					{
-						++m_Index;
-						m_Tokens.push_back({ TokenType::ExclaimBrace, tokIdx });
-						spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-						break;
-					}
-					if (m_Content[m_Index] == '[')
-					{
-						++m_Index;
-						m_Tokens.push_back({ TokenType::ExclaimBracket, tokIdx });
 						spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
 						break;
 					}
@@ -646,6 +618,13 @@ namespace Noctis
 					spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
 					break;
 				}
+				else if (m_Content[m_Index] == '[')
+				{
+					++m_Index;
+					m_Tokens.push_back({ TokenType::DollarBracket, tokIdx });
+					spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+					break;
+				}
 				else if (m_Content[m_Index] == '{')
 				{
 					++m_Index;
@@ -747,14 +726,31 @@ namespace Noctis
 					{
 						m_Tokens.back() = Token{ TokenType::NotIs, tokIdx - 1 };
 					}
+					else if (it->second == TokenType::Try && m_Content.size() > m_Index + 1)
+					{
+						if (m_Content[m_Index] == '?')
+						{
+							m_Tokens.emplace_back(TokenType::TryNullable, tokIdx);
+							++m_Index;
+						}
+						else if (m_Content[m_Index] == '!')
+						{
+							m_Tokens.emplace_back(TokenType::TryPanic, tokIdx);
+							++m_Index;
+						}
+						else
+						{
+							m_Tokens.emplace_back(TokenType::Try, tokIdx);
+						}
+					}
 					else
 					{
-						m_Tokens.push_back({ it->second, StdString{ iden }, tokIdx });
+						m_Tokens.emplace_back(it->second, StdString{ iden }, tokIdx);
 					}
 				}
 				else
 				{
-					m_Tokens.push_back({ TokenType::Iden, StdString{ iden }, tokIdx });
+					m_Tokens.emplace_back(TokenType::Iden, StdString{ iden }, tokIdx);
 				}
 
 				spanManager.AddSpan(m_FilePath, { m_Index, end, m_Line, m_Column });
@@ -771,14 +767,14 @@ namespace Noctis
 	{
 		for (usize i = 0; i < m_Tokens.size(); ++i)
 		{
-			const Noctis::Token& tok = m_Tokens[i];
+			const Token& tok = m_Tokens[i];
 			std::stringstream ss;
 
-			Noctis::Span span = m_pCtx->spanManager.GetSpan(i);
+			Span span = m_pCtx->spanManager.GetSpan(i);
 
 			ss << '[' << span.line << ':' << span.column << ']';
 			ss << ", ";
-			ss << Noctis::GetTokenTypeName(tok.Type());
+			ss << GetTokenTypeName(tok.Type());
 
 			if (tok.Type() == TokenType::Iden)
 			{
@@ -786,15 +782,15 @@ namespace Noctis
 				ss << tok.Text();
 			}
 
-			if (Noctis::IsTokenTypeSignedLiteral(tok.Type()))
+			if (IsTokenTypeSignedLiteral(tok.Type()))
 				ss << ", " << tok.Signed();
-			if (Noctis::IsTokenTypeUnsignedLiteral(tok.Type()))
+			if (IsTokenTypeUnsignedLiteral(tok.Type()))
 				ss << ", " << tok.Unsigned();
-			if (Noctis::IsTokenTypeFpLiteral(tok.Type()))
+			if (IsTokenTypeFpLiteral(tok.Type()))
 				ss << ", " << tok.Fp();
-			if (tok.Type() == Noctis::TokenType::CharLit)
+			if (tok.Type() == TokenType::CharLit)
 				ss << ", " << tok.Signed();
-			if (tok.Type() == Noctis::TokenType::True || tok.Type() == Noctis::TokenType::False)
+			if (tok.Type() == TokenType::True || tok.Type() == TokenType::False)
 				ss << ", " << tok.Bool();
 
 			ss << "\n";

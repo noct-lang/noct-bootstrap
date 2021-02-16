@@ -250,27 +250,27 @@ namespace Noctis
 	}
 
 	AstFuncDecl::AstFuncDecl(AstAttribsSPtr attribs, u64 startIdx, StdString&& iden, AstGenericDeclSPtr generics,
-		StdVector<AstParamSPtr>&& params, bool throws, AstTypeSPtr errorType, AstTypeSPtr retType,
+		StdVector<AstParamSPtr>&& params, AstTypeSPtr errorType, AstTypeSPtr retType,
 		StdPairVector<StdVector<StdString>, AstTypeSPtr>&& namedRet, AstGenericWhereClauseSPtr whereClause,
-		StdVector<AstStmtSPtr>&& stmts, u64 endIdx)
+		StdVector<AstStmtSPtr>&& stmts, bool isUnsafe, u64 endIdx)
 		: AstDecl(AstDeclKind::Func, attribs ? attribs->ctx->startIdx : startIdx, endIdx)
 		, attribs(attribs)
 		, iden(std::move(iden))
 		, generics(generics)
 		, params(std::move(params))
-		, throws(throws)
 		, errorType(errorType)
 		, retType(retType)
 		, namedRet(std::move(namedRet))
 		, whereClause(whereClause)
 		, stmts(std::move(stmts))
+		, isUnsafe(isUnsafe)
 	{
 	}
 
 	AstMethodDecl::AstMethodDecl(AstAttribsSPtr attribs, u64 startIdx, AstMethodReceiverKind rec, StdString&& iden,
-		AstGenericDeclSPtr generics, StdVector<AstParamSPtr>&& params, bool throws, AstTypeSPtr errorType, AstTypeSPtr retType,
+		AstGenericDeclSPtr generics, StdVector<AstParamSPtr>&& params, AstTypeSPtr errorType, AstTypeSPtr retType,
 		StdPairVector<StdVector<StdString>, AstTypeSPtr>&& namedRet, AstGenericWhereClauseSPtr whereClause,
-	    StdVector<AstStmtSPtr>&& stmts, bool empty, u64 endIdx)
+	    StdVector<AstStmtSPtr>&& stmts, bool isUnsafe, bool empty, u64 endIdx)
 		: AstDecl(AstDeclKind::Method, attribs ? attribs->ctx->startIdx : startIdx, endIdx)
 		, attribs(attribs)
 		, rec(rec)
@@ -282,7 +282,7 @@ namespace Noctis
 		, namedRet(std::move(namedRet))
 		, whereClause(whereClause)
 		, stmts(std::move(stmts))
-		, throws(throws)
+		, isUnsafe(isUnsafe)
 		, empty(empty)
 	{
 	}
@@ -296,6 +296,14 @@ namespace Noctis
 		, interface(interface)
 		, whereClause(whereClause)
 		, stmts(std::move(stmts))
+	{
+	}
+
+	AstErrHandler::AstErrHandler(u64 startIdx, StdString&& errIden, AstTypeSPtr errType, AstStmtSPtr block)
+		: AstDecl(AstDeclKind::ErrHandler, startIdx, block->ctx->endIdx)
+		, errIden(std::move(errIden))
+		, errType(std::move(errType))
+		, block(block)
 	{
 	}
 
@@ -427,15 +435,6 @@ namespace Noctis
 
 	AstUnsafeStmt::AstUnsafeStmt(u64 startIdx, StdVector<AstStmtSPtr>&& stmts, u64 endIdx)
 		: AstStmt(AstStmtKind::Unsafe, startIdx, endIdx)
-		, stmts(std::move(stmts))
-	{
-	}
-
-	AstErrorHandlerStmt::AstErrorHandlerStmt(u64 startIdx, StdString&& errIden, AstTypeSPtr errType,
-		StdVector<AstStmtSPtr>&& stmts, u64 endIdx)
-		: AstStmt(AstStmtKind::ErrorHandler, startIdx, endIdx)
-		, errIden(std::move(errIden))
-		, errType(std::move(errType))
 		, stmts(std::move(stmts))
 	{
 	}
@@ -657,8 +656,9 @@ namespace Noctis
 	{
 	}
 
-	AstTryExpr::AstTryExpr(u64 startIdx, AstExprSPtr call)
-		: AstExpr(AstExprKind::Try, startIdx, call->ctx->endIdx)
+	AstTryExpr::AstTryExpr(Token& tok, AstExprSPtr call)
+		: AstExpr(AstExprKind::Try, tok.Idx(), call->ctx->endIdx)
+		, tryKind(tok.Type())
 		, call(call)
 	{
 	}

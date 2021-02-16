@@ -53,6 +53,7 @@ namespace Noctis
 		Var,
 		Func,
 		Impl,
+		ErrHandler,
 		Count,
 	};
 
@@ -73,7 +74,6 @@ namespace Noctis
 		Expr,
 		Defer,
 		Unsafe,
-		ErrorHandler,
 		CompIf,
 		CompCond,
 		LocalDecl
@@ -284,20 +284,23 @@ namespace Noctis
 
 	struct ITrVar : ITrDef
 	{
-		ITrVar(ITrAttribsSPtr attribs, QualNameSPtr qualName, ITrTypeSPtr type, bool isModDef, u64 startIdx, u64 endIdx);
+		ITrVar(ITrAttribsSPtr attribs, QualNameSPtr qualName, ITrTypeSPtr type, ITrExprSPtr init, bool isModDef, u64 startIdx, u64 endIdx);
 
 		ITrTypeSPtr type;
+		ITrExprSPtr init;
 	};
 
 	struct ITrFunc : ITrDef
 	{
-		ITrFunc(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr qualName, StdVector<ITrParamSPtr>&& params, ITrTypeSPtr retType, ITrFuncKind funcKind, bool isModDef, u64 startIdx, u64 endIdx);
+		ITrFunc(ITrAttribsSPtr attribs, ITrGenDeclSPtr genDecl, QualNameSPtr qualName, StdVector<ITrParamSPtr>&& params, ITrTypeSPtr errorType, ITrTypeSPtr retType, ITrFuncKind funcKind, bool isUnsafe, bool isModDef, u64 startIdx, u64 endIdx);
 
 		ITrFuncKind funcKind;
 		StdVector<ITrParamSPtr> params;
+		ITrTypeSPtr errorType;
 		ITrTypeSPtr retType;
 		TypeHandle selfType;
 		FuncContextSPtr ctx;
+		bool isUnsafe;
 	};
 
 	struct ITrImpl : ITrDef
@@ -306,6 +309,17 @@ namespace Noctis
 
 		ITrTypeSPtr type;
 		StdPair<QualNameSPtr, SpanId> interface;
+	};
+
+	struct ITrErrHandler : ITrDef
+	{
+		ITrErrHandler(QualNameSPtr qualName, StdString errIden, ITrTypeSPtr errType, u64 startIdx, u64 endIdx);
+
+		StdString errIden;
+		ITrTypeSPtr errType;
+
+		TypeHandle retType;
+		FuncContextSPtr ctx;
 	};
 
 	struct ITrStmt
@@ -488,13 +502,6 @@ namespace Noctis
 		ITrBlockSPtr block;
 	};
 
-	struct ITrErrHandler : ITrStmt
-	{
-		ITrErrHandler(StdVector<ITrStmtSPtr>&& stmts, u64 startIdx, u64 endIdx);
-
-		StdVector<ITrStmtSPtr> stmts;
-	};
-
 	struct ITrCompCond : ITrStmt
 	{
 		ITrCompCond(bool isDebug, IdenSPtr iden, OperatorKind op, u64 cmpVal, ITrBlockSPtr tBlock, ITrBlockSPtr fBlock, u64 startIdx);
@@ -523,7 +530,7 @@ namespace Noctis
 		virtual ~ITrExpr();
 
 		ITrExprKind exprKind;
-		TypeInfo typeInfo;
+		TypeHandle handle;
 		SymbolSPtr sym;
 	};
 	
@@ -761,12 +768,22 @@ namespace Noctis
 		ITrExprSPtr expr;
 		ITrTypeSPtr type;
 	};
-
+	
+	enum class ITrTryKind
+	{
+		Propagating,
+		Nullable,
+		Panic
+	};
+	
 	struct ITrTry : ITrExpr
 	{
-		ITrTry(ITrExprSPtr expr, u64 startIdx);
+		ITrTry(ITrTryKind kind, ITrExprSPtr expr, u64 startIdx);
 
+		ITrTryKind kind;
 		ITrExprSPtr expr;
+
+		QualNameSPtr errHandlerName;
 	};
 
 	struct ITrSpecKw : ITrExpr
@@ -933,7 +950,6 @@ namespace Noctis
 		ITrGenParam(bool isType, u64 startIdx, u64 endIdx);
 		
 		bool isType;
-		SymbolWPtr sym;
 		u64 startIdx, endIdx;
 	};
 

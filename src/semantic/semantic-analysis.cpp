@@ -6,7 +6,7 @@
 #include "ast/misc/ast-to-itr-lowering.hpp"
 #include "common/errorsystem.hpp"
 #include "il/il-gen.hpp"
-#include "itr/attribute/simple-attribute-pass.hpp"
+#include "itr/attribute/attribute-passes.hpp"
 #include "itr/misc/function-processing.hpp"
 #include "itr/misc/misc-passes.hpp"
 #include "itr/types/type-collection.hpp"
@@ -17,6 +17,7 @@
 #include "semantic-utils.hpp"
 #include "ast/ast-printer.hpp"
 #include "common/logger.hpp"
+#include "itr/misc/compiler-impl-passes.hpp"
 
 namespace Noctis
 {
@@ -44,32 +45,27 @@ namespace Noctis
 		RunPass<IdenScopePass>();
 
 		{
+			Timer importTimer(true);
+			
 			ModuleDecode decode(m_pCtx);
 			StdUnorderedSet<QualNameSPtr> extractedImportMods = ExtractImportModules(tree, m_pCtx);
-			for (QualNameSPtr modQualName : extractedImportMods)
+
+			StdStack<QualNameSPtr> toImport;
+			for (QualNameSPtr toImportName : extractedImportMods)
 			{
-				auto it = m_pCtx->modules.find(modQualName);
-				if (it == m_pCtx->modules.end())
-				{
-					StdString modName = modQualName->ToString();
-					StringReplace(modName, "::", ".");
-					g_ErrorSystem.Error("Could not open module: %s", modName.c_str());
-				}
-				
-				ModuleSPtr mod = it->second;
-
-				if (!mod->isDecoded)
-				{
-					decode.Decode(*mod);
-				}
-				
-				m_pCtx->modules.try_emplace(modQualName, mod);
-				m_pCtx->activeModule->imports.try_emplace(modQualName, mod);
-				m_pCtx->activeModule->symTable.Merge(mod->symTable);
-
-				// TODO: only when not a static import
-				m_pCtx->activeModule->symTable.AddImport(modQualName);
+				toImport.push(toImportName);
 			}
+
+			while (!toImport.empty())
+			{
+				QualNameSPtr modQualName = toImport.top();
+				toImport.pop();
+				
+				Import(modQualName);
+			}
+
+			importTimer.Stop();
+			g_Logger.Log("%16s : module import\n", importTimer.GetSMSFormat().c_str());
 		}
 
 		RunPass<DeclMacroContextGen>();
@@ -88,6 +84,39 @@ namespace Noctis
 
 		timer.Stop();
 		g_Logger.Log("-- TOOK %s\n", timer.GetSMSFormat().c_str());
+	}
+
+	void AstSemanticAnalysis::Import(QualNameSPtr modQualName)
+	{
+		auto it = m_pCtx->modules.find(modQualName);
+		if (it == m_pCtx->modules.end())
+		{
+			StdString modName = modQualName->ToString();
+			StringReplace(modName, "::", ".");
+			g_ErrorSystem.Error("Could not open module: %s", modName.c_str());
+		}
+
+		ModuleSPtr mod = it->second;
+		if (mod->isDecoded)
+			return;
+
+		if (!mod->isDecoded)
+		{
+			for (QualNameSPtr subImport : mod->header.imports)
+			{
+				Import(subImport);
+			}
+			
+			ModuleDecode decode{ m_pCtx };
+			decode.Decode(*mod);
+
+			m_pCtx->modules.try_emplace(modQualName, mod);
+			m_pCtx->activeModule->imports.try_emplace(modQualName, mod);
+			m_pCtx->activeModule->symTable.Merge(mod->symTable);
+
+			// TODO: only when not a static import
+			m_pCtx->activeModule->symTable.AddImport(modQualName);
+		}
 	}
 
 	template <typename T, typename... Args>
@@ -114,9 +143,7 @@ namespace Noctis
 		
 		RunPass<SimpleAttributePass>();
 		RunPass<TypeCollection>();
-		RunPass<GenericDeclResolve>();
-		
-		g_Logger.Flush();
+		RunPass<GenericTypeCollection>();
 
 		RunPass<InterfaceResolve>();
 
@@ -126,9 +153,8 @@ namespace Noctis
 
 		RunPass<CompilerImplPass>();
 
-		g_Logger.Flush();
-
 		RunPass<TypeInference>(true);
+		RunPass<ImplEliminationPass>();
 
 		RunPass<MarkingPass>();
 		
@@ -140,6 +166,11 @@ namespace Noctis
 		RunPass<TypeInference>(false);
 
 		RunPass<SwitchProcessPass>();
+
+		RunPass<ErrorHandlerCollectionPass>();
+
+		RunPass<CopyCheckPass>();
+		RunPass<TryCheckPass>();
 
 		RunPass<NameManglePass>();
 		RunPass<ILGen>();

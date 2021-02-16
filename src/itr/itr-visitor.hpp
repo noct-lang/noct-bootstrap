@@ -30,6 +30,7 @@ namespace Noctis
 	struct ITrVar;
 	struct ITrFunc;
 	struct ITrImpl;
+	struct ITrErrHandler;
 
 	struct ITrBlock;
 	struct ITrIf;
@@ -45,7 +46,6 @@ namespace Noctis
 	struct ITrThrow;
 	struct ITrDefer;
 	struct ITrUnsafe;
-	struct ITrErrHandler;
 	struct ITrCompCond;
 	struct ITrLocalVar;
 
@@ -132,6 +132,7 @@ namespace Noctis
 		void Foreach(ITrVisitorDefKind kind, const std::function<void(ITrVar&)>& func);
 		void Foreach(ITrVisitorDefKind kind, const std::function<void(ITrFunc&)>& func);
 		void Foreach(ITrVisitorDefKind kind, const std::function<void(ITrImpl&)>& func);
+		void Foreach(ITrVisitorDefKind kind, const std::function<void(ITrErrHandler&)>& func);
 		
 		virtual void Visit(ITrStruct& node);
 		virtual void Visit(ITrUnion& node);
@@ -147,6 +148,7 @@ namespace Noctis
 		virtual void Visit(ITrVar& node);
 		virtual void Visit(ITrFunc& node);
 		virtual void Visit(ITrImpl& node);
+		virtual void Visit(ITrErrHandler& node);
 
 		virtual void Visit(ITrBlock& node);
 		virtual void Visit(ITrIf& node);
@@ -162,7 +164,6 @@ namespace Noctis
 		virtual void Visit(ITrThrow& node);
 		virtual void Visit(ITrDefer& node);
 		virtual void Visit(ITrUnsafe& node);
-		virtual void Visit(ITrErrHandler& node);
 		virtual void Visit(ITrCompCond& node);
 		virtual void Visit(ITrLocalVar& node);
 
@@ -245,6 +246,7 @@ namespace Noctis
 		void Walk(ITrVar& node);
 		void Walk(ITrFunc& node);
 		void Walk(ITrImpl& node);
+		void Walk(ITrErrHandler& node);
 		
 		void Walk(ITrBlock& node);
 		void Walk(ITrIf& node);
@@ -260,7 +262,6 @@ namespace Noctis
 		void Walk(ITrThrow& node);
 		void Walk(ITrDefer& node);
 		void Walk(ITrUnsafe& node);
-		void Walk(ITrErrHandler& node);
 		void Walk(ITrCompCond& node);
 		void Walk(ITrLocalVar& node);
 

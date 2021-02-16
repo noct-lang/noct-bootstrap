@@ -6,14 +6,41 @@
 #include "common/context.hpp"
 #include "common/errorsystem.hpp"
 #include "common/logger.hpp"
+#include "common/name-mangling.hpp"
 #include "common/qualname.hpp"
 #include "module.hpp"
 
 namespace Noctis
 {
+	SymbolInst::SymbolInst(SymbolSPtr sym, QualNameSPtr qualName)
+		: sym(sym)
+		, qualName(qualName)
+		, isGeneric(false)
+	{
+		// TODO: type
+	}
+
+	TypeHandle SymbolInst::SelfType()
+	{
+		SymbolSPtr sym = this->sym.lock();
+		switch (sym->kind)
+		{
+		case SymbolKind::ValEnum:
+		case SymbolKind::AdtEnum:
+		case SymbolKind::Typedef:
+		case SymbolKind::Typealias:
+			return sym->pCtx->typeReg.Iden(TypeMod::None, qualName);
+		case SymbolKind::ValEnumMember:
+		case SymbolKind::AdtEnumMember:
+			return sym->pCtx->typeReg.Iden(TypeMod::None, qualName->Base());
+		default:
+			return type;
+		}
+	}
+
 	Symbol::Symbol(Context* pCtx, SymbolKind kind, QualNameSPtr qualName)
 		: qualName(qualName)
-		, children(new SymbolSubTable{ pCtx })
+		, children(new SymbolSubTable{pCtx})
 		, funcDefaultStart(u16(-1))
 		, size(0)
 		, aligment(0)
@@ -23,7 +50,10 @@ namespace Noctis
 		, isImported(false)
 		, isDefaultImpl(false)
 		, comptimeOnly(false)
+		, valGenSolveNeeded(false)
 		, dependsOnValueGenerics(false)
+		, attribs()
+		, vis()
 		, defImplVer(0)
 	{
 	}
@@ -32,26 +62,6 @@ namespace Noctis
 	{
 		this->self = self;
 		children->SetParent(self);
-	}
-
-	SymbolSPtr Symbol::GetVariant(IdenSPtr iden)
-	{
-		if (variants.empty() ||
-			qualName->LastIden() == iden)
-			return self.lock();
-
-		for (SymbolSPtr variant : variants)
-		{
-			if (variant->qualName->LastIden() == iden)
-				return variant;
-		}
-
-		return self.lock();
-	}
-
-	bool Symbol::IsBaseVariant()
-	{
-		return self.lock() == baseVariant.lock();
 	}
 
 	TypeHandle Symbol::SelfType()
@@ -140,26 +150,131 @@ namespace Noctis
 		
 	}
 
-	SymbolSPtr Symbol::GetOrCreateVariant(QualNameSPtr qualName)
+	SymbolInstSPtr Symbol::GetInst(QualNameSPtr qualName)
 	{
-		if (!IsBaseVariant())
-			return baseVariant.lock()->GetOrCreateVariant(qualName);
-
-		if (this->qualName->LastIden() == qualName->LastIden())
-			return self.lock();
-
-		for (SymbolSPtr variant : variants)
-		{
-			if (variant->qualName == qualName)
-				return variant;
-		}
+		if (!baseInst->isGeneric || baseInst->qualName == qualName)
+			return baseInst;
 		
-		QualNameSPtr newQualName = QualName::Create(this->qualName->Base(), qualName->LastIden());
-		SymbolSPtr variantSym = CreateSymbol(pCtx, kind, newQualName);
-		variantSym->baseVariant = self;
-		variantSym->type = pCtx->typeReg.Iden(TypeMod::None, newQualName);
-		variants.push_back(variantSym);
-		return variantSym;
+		for (SymbolInstSPtr instantiation : instantiations)
+		{
+			if (instantiation->qualName == qualName)
+				return instantiation;
+		}
+		return nullptr;
+	}
+
+	// Helper
+	IdenGeneric GetGenericForInst(const IdenGeneric& origIdenGen, IdenSPtr baseIden, IdenSPtr instIden)
+	{
+		IdenGeneric idenGen = origIdenGen;
+
+		const StdVector<IdenGeneric>& baseIdenGens = baseIden->Generics();
+		const StdVector<IdenGeneric>& instIdenGens = instIden->Generics();
+
+		StdVector<IdenGeneric> idenGens;
+		for (usize i = 0; i < baseIdenGens.size(); ++i)
+		{
+			const IdenGeneric& baseIdenGen = baseIdenGens[i];
+			if (origIdenGen.isType != baseIdenGen.isType ||
+				origIdenGen.iden != baseIdenGen.iden)
+				continue;
+
+			if (origIdenGen.isType)
+			{
+				idenGen.isSpecialized = true;
+				idenGen.type = instIdenGens[i].type;
+				break;
+			}
+			else
+			{
+				// TODO
+			}
+		}
+
+		return idenGen;
+	}
+
+	SymbolInstSPtr Symbol::GetOrCreateInst(QualNameSPtr qualName)
+	{
+		SymbolInstSPtr inst = GetInst(qualName);
+		if (inst)
+			return inst;
+
+		if (qualName->LastIden()->Name() == "OpOrd")
+			int br = 0;
+		
+		inst.reset(new SymbolInst{ self.lock(), qualName });
+
+		if (type.Kind() == TypeKind::Iden &&
+			type.AsIden().qualName == qualName)
+		{
+			inst->type = pCtx->typeReg.Iden(TypeMod::None, qualName);
+		}
+		else
+		{
+			inst->type = type;
+		}
+
+		if (parent.lock())
+			inst->parent = parent.lock()->GetOrCreateInst(qualName->Base());
+		
+		if (IsInterface() && !ifaces.empty())
+		{
+			for (SymbolInstWPtr ifaceW : ifaces)
+			{
+				SymbolInstSPtr iface = ifaceW.lock();
+				SymbolInstSPtr ifaceInst = iface;
+				if (iface->isGeneric)
+				{
+					const StdVector<IdenGeneric>& ifaceGenerics = iface->qualName->LastIden()->Generics();
+
+					IdenSPtr symIden = this->qualName->LastIden();
+					IdenSPtr instIden = qualName->LastIden();
+
+					// TODO value-generics
+					StdVector<IdenGeneric> idenGens;
+					for (const IdenGeneric& ifaceIdenGen : ifaceGenerics)
+					{
+						idenGens.push_back(GetGenericForInst(ifaceIdenGen, symIden, instIden));
+					}
+
+					IdenSPtr newIden = Iden::Create(iface->qualName->LastIden()->Name(), idenGens);
+					if (newIden != iface->qualName->LastIden())
+					{
+						QualNameSPtr ifaceQualName = QualName::Create(iface->qualName->Base(), newIden);
+						ifaceInst = iface->sym.lock()->GetOrCreateInst(ifaceQualName);
+					}
+				}
+				inst->ifaces.push_back(ifaceW);
+			}
+		}
+
+		instantiations.push_back(inst);
+		return inst;
+	}
+
+	void Symbol::AddInstForType(TypeHandle type, SymbolInstSPtr inst)
+	{
+		if (!type.IsValid())
+			return;
+		
+		TypeSPtr tmp = type.Type();
+		auto it = instsForTypes.find(tmp);
+		if (it == instsForTypes.end())
+			it = instsForTypes.try_emplace(tmp, StdVector<SymbolInstWPtr>{}).first;
+
+		AddUnique(it->second, SymbolInstWPtr{ inst });
+	}
+
+	const StdVector<SymbolInstWPtr>& Symbol::GetInstForType(TypeHandle type)
+	{
+		static StdVector<SymbolInstWPtr> empty;
+
+		auto it = instsForTypes.find(type.Type());
+		if (it != instsForTypes.end())
+			return it->second;
+
+		return empty;
 	}
 
 	void Symbol::Log(u8 indent, bool includeImports)
@@ -188,7 +303,6 @@ namespace Noctis
 		case SymbolKind::Var: kindName = "var"; break;
 		case SymbolKind::Impl: kindName = "impl"; break;
 		case SymbolKind::Type: kindName = "type"; break;
-		case SymbolKind::GenType: kindName = "gen-type"; break;
 		case SymbolKind::GenVal: kindName = "gen-val"; break;
 		default: ;
 		}
@@ -221,28 +335,29 @@ namespace Noctis
 			children->Log(indent + 1, includeImports);
 		}
 
-		if (!variants.empty())
+		if (!instantiations.empty())
 		{
 			printIndent(indent + 1);
 			g_Logger.Log("(variants)\n");
-			for (SymbolSPtr variant : variants)
-				variant->Log(indent + 2, includeImports);
+			for (SymbolInstSPtr inst : instantiations)
+			{
+				StdString instName = inst->qualName->ToString();
+				g_Logger.Log("(instantiation '%s')\n", instName.c_str());
+			}
 		}
 
-		if (!impls.empty())
+		for (StdPair<SymbolWPtr, SymbolInstWPtr> pair : impls)
 		{
-			for (SymbolSPtr implSym : impls)
-			{
-				if (implSym->kind != SymbolKind::Type && !implSym->qualName->IsSubnameOf(pCtx->activeModule->qualName))
-					continue;
-				
-				//if (pair.second)
-				//	continue;
-				
-				printIndent(indent + 1);
-				StdString tmp = implSym->kind == SymbolKind::Type ? pCtx->typeReg.ToString(implSym->type) : implSym->qualName->ToString();
-				g_Logger.Log(isInterface ? "(implemented by '%s')\n" : "(implements '%s')\n", tmp.c_str());
-			}
+			SymbolSPtr implSym = pair.first.lock();
+			if (implSym->kind != SymbolKind::Type && !implSym->qualName->IsSubnameOf(pCtx->activeModule->qualName))
+				continue;
+
+			//if (pair.second)
+			//	continue;
+
+			printIndent(indent + 1);
+			StdString tmp = implSym->kind == SymbolKind::Type ? pCtx->typeReg.ToString(implSym->type) : implSym->qualName->ToString();
+			g_Logger.Log(isInterface ? "(implemented by '%s')\n" : "(implements '%s')\n", tmp.c_str());
 		}
 	}
 
@@ -274,37 +389,16 @@ namespace Noctis
 		res->SetSelf(res);
 
 		res->impls.insert(res->impls.end(), impls.begin(), impls.end());
-		res->interfaces.insert(res->interfaces.end(), interfaces.begin(), interfaces.end());
+		res->ifaces.insert(res->ifaces.end(), ifaces.begin(), ifaces.end());
 		res->markers.insert(res->markers.end(), markers.begin(), markers.end());
 
 		return res;
-	}
-
-	void Symbol::SetType(TypeHandle type)
-	{
-		if (kind != SymbolKind::Type)
-		{
-			this->type = type;
-			return;
-		}
-
-		if (this->type == type)
-			return;
-
-		SymbolSPtr sym = self.lock();
-		bool removed = pCtx->activeModule->symTable.RemoveType(sym);
-
-		sym->type = type;
-
-		if (removed)
-			pCtx->activeModule->symTable.Add(sym);
 	}
 
 	SymbolSPtr CreateSymbol(Context* pCtx, SymbolKind kind, QualNameSPtr qualName)
 	{
 		SymbolSPtr sym{ new Symbol{ pCtx, kind, qualName } };
 		sym->SetSelf(sym);
-		sym->baseVariant = sym;
 
 		switch (kind)
 		{
@@ -332,12 +426,17 @@ namespace Noctis
 		case SymbolKind::Var:
 		case SymbolKind::Impl:
 		case SymbolKind::Type:
-		case SymbolKind::GenType:
 		case SymbolKind::GenVal:
 		default: ;
 		}
 
+		sym->baseInst.reset(new SymbolInst{ sym, qualName });
+		sym->baseInst->type = sym->type;
 		
+		sym->baseInst->isGeneric = !qualName->LastIden()->Generics().empty();
+		if (qualName->Base())
+			sym->baseInst->isGeneric |= !qualName->Base()->LastIden()->Generics().empty();
+
 		return sym;
 	}
 
@@ -345,7 +444,14 @@ namespace Noctis
 	{
 		SymbolSPtr sym = CreateSymbol(pCtx, kind, qualName);
 		sym->associatedITr = node;
-		node.lock()->sym = sym;
+
+		ITrDefSPtr nodeSPtr = node.lock();
+		nodeSPtr->sym = sym;
+		if (nodeSPtr->attribs)
+		{
+			sym->vis = nodeSPtr->attribs->vis;
+			sym->attribs = nodeSPtr->attribs->attribs;
+		}
 		return sym;
 	}
 
@@ -434,7 +540,6 @@ namespace Noctis
 		{
 			subTable = m_SubTable;
 		}
-		StdVector<IdenSPtr> idens{ iden };
 		return subTable->Find(QualName::Create(iden), 0);
 	}
 
@@ -452,9 +557,53 @@ namespace Noctis
 		}
 	}
 
+	void SymbolSubTable::Foreach(const std::function<void(SymbolInstSPtr, QualNameSPtr)>& lambda)
+	{
+		m_SubTable->Foreach(lambda, nullptr);
+		for (StdPair<const QualNameSPtr, ScopedSymbolTableSPtr>& pair : m_ImplSubtables)
+		{
+			pair.second->Foreach(lambda, pair.first);
+		}
+	}
+
+	void SymbolSubTable::Merge(SymbolSubTableSPtr from)
+	{
+		m_SubTable->Merge(from->m_SubTable);
+
+		for (StdPair<const QualNameSPtr, ScopedSymbolTableSPtr> fromPair : from->m_ImplSubtables)
+		{
+			bool merged = false;
+			for (StdPair<const QualNameSPtr, ScopedSymbolTableSPtr> pair : m_ImplSubtables)
+			{
+				if (fromPair.first != pair.first)
+					continue;
+				
+				pair.second->Merge(fromPair.second);
+				merged = true;
+				break;
+			}
+			if (merged)
+				continue;
+
+			auto it = m_ImplSubtables.try_emplace(fromPair.first, new ScopedSymbolTable{ m_pCtx }).first;
+			it->second->Merge(fromPair.second);
+		}
+	}
+
 	bool SymbolSubTable::Empty() const
 	{
 		return m_SubTable->Empty() && m_ImplSubtables.empty();
+	}
+
+	void SymbolSubTable::UpdateImplSubTableKey(QualNameSPtr oldKey, QualNameSPtr newKey)
+	{
+		auto it = m_ImplSubtables.find(oldKey);
+		if (it == m_ImplSubtables.end())
+			return;
+
+		ScopedSymbolTableSPtr tmp = it->second;
+		m_ImplSubtables.erase(it);
+		m_ImplSubtables.try_emplace(newKey, tmp);
 	}
 
 	void SymbolSubTable::Log(u8 indent, bool includeImports)
@@ -481,13 +630,15 @@ namespace Noctis
 	{
 		if (sym->kind == SymbolKind::Type)
 		{
+
+			
 			TypeSPtr type = sym->type.Type();
 			auto it = m_TypeSymbols.find(type);
 			if (it != m_TypeSymbols.end())
 				return false;
 
 			m_TypeSymbols.try_emplace(type, sym);
-			StdString typeName = m_pCtx->typeReg.ToString(type);
+			StdString typeName = NameMangling::Mangle(m_pCtx, type);
 			m_TypeNameSymbols.try_emplace(Iden::Create(typeName), sym);
 			return true;
 		}
@@ -681,7 +832,7 @@ namespace Noctis
 					itSym->impls.insert(itSym->impls.end(), sym->impls.begin(), sym->impls.end());
 				}
 
-				// TODO: Variants
+				// TODO: Instantiations
 			}
 			else
 			{
@@ -701,6 +852,16 @@ namespace Noctis
 		for (StdPair<const TypeSPtr, SymbolSPtr>& pair : m_TypeSymbols)
 		{
 			lambda(pair.second, nullptr);
+			pair.second->children->Foreach(lambda);
+		}
+	}
+
+	void ModuleSymbolTable::Foreach(const std::function<void(SymbolInstSPtr, QualNameSPtr)>& lambda)
+	{
+		m_ScopedTable->Foreach(lambda, nullptr);
+		for (StdPair<const TypeSPtr, SymbolSPtr>& pair : m_TypeSymbols)
+		{
+			lambda(pair.second->baseInst, nullptr);
 			pair.second->children->Foreach(lambda);
 		}
 	}
@@ -799,8 +960,7 @@ namespace Noctis
 		{
 			if (idenIdx == qualName->Idens().size() - 1)
 				return symIt->second;
-			SymbolSPtr variant = symIt->second->GetVariant(iden);
-			return variant->children->Find(qualName, idenIdx + 1, nullptr);
+			return symIt->second->children->Find(qualName, idenIdx + 1, nullptr);
 		}
 
 		auto subIt = m_SubTables.find(name);
@@ -819,9 +979,23 @@ namespace Noctis
 		for (StdPair<const StdString, SymbolSPtr>& pair : m_Symbols)
 		{
 			lambda(pair.second, iface);
-			for (SymbolSPtr variant : pair.second->variants)
+			pair.second->children->Foreach(lambda);
+		}
+
+		for (StdPair<const StdString, ScopedSymbolTableSPtr>& pair : m_SubTables)
+		{
+			pair.second->Foreach(lambda, nullptr);
+		}
+	}
+
+	void ScopedSymbolTable::Foreach(const std::function<void(SymbolInstSPtr, QualNameSPtr)>& lambda, QualNameSPtr iface)
+	{
+		for (StdPair<const StdString, SymbolSPtr>& pair : m_Symbols)
+		{
+			lambda(pair.second->baseInst, iface);
+			for (SymbolInstSPtr inst : pair.second->instantiations)
 			{
-				lambda(variant, iface);
+				lambda(inst, iface);
 			}
 			pair.second->children->Foreach(lambda);
 		}

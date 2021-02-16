@@ -344,6 +344,21 @@ namespace Noctis
 		return Create(idens);
 	}
 
+	QualNameSPtr QualName::GetBaseName(usize depth)
+	{
+		usize curDepth = Depth();
+		if (curDepth == depth)
+			return Create(m_Base, LastIden());
+
+		QualNameSPtr qualName = m_Base;
+		--curDepth;
+		for (;curDepth > depth; --curDepth)
+		{
+			qualName = qualName->Base();
+		}
+		return qualName;
+	}
+
 	bool QualName::IsBase()
 	{
 		return (!m_Disambiguation && m_Idens.size() == 1) ||

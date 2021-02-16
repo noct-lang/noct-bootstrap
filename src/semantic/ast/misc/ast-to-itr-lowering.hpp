@@ -56,6 +56,7 @@ namespace Noctis
 		void Visit(AstFuncDecl& node) override;
 		void Visit(AstMethodDecl& node) override;
 		void Visit(AstImplDecl& node) override;
+		void Visit(AstErrHandler& node) override;
 		
 		void Visit(AstImportStmt& node) override;
 		void Visit(AstBlockStmt& node) override;
@@ -76,7 +77,6 @@ namespace Noctis
 		void Visit(AstDeferStmt& node) override;
 		void Visit(AstErrDeferStmt& node) override;
 		void Visit(AstUnsafeStmt& node) override;
-		void Visit(AstErrorHandlerStmt& node) override;
 		void Visit(AstCompIfStmt& node) override;
 		void Visit(AstCompCondStmt& node) override;
 		void Visit(AstCompDebugStmt& node) override;
@@ -157,7 +157,7 @@ namespace Noctis
 
 		void HandleWhereClause(AstGenericWhereClause& clause, ITrGenDeclSPtr genDecl);
 
-		void PushDefFrame();
+		void PushDefFrame(ITrDefSPtr def);
 		void PushDef(ITrDefSPtr def);
 		StdVector<ITrDefSPtr> PopDefFrame();
 		bool IsModDef();
@@ -171,7 +171,7 @@ namespace Noctis
 		ITrGenDeclSPtr VisitAndGetGenDecl(AstGenericDeclSPtr genDecl);
 		ITrGenBoundTypeSPtr VisitAndGetGenBoundType(AstGenericBoundTypeSPtr bound);
 		
-		StdStack<StdVector<ITrDefSPtr>> m_Defs;
+		StdStack<StdPair<ITrDefSPtr, StdVector<ITrDefSPtr>>> m_Defs;
 		ITrStmtSPtr m_Stmt;
 		ITrExprSPtr m_Expr;
 		ITrTypeSPtr m_Type;

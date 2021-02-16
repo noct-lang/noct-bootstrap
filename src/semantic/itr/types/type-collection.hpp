@@ -10,6 +10,7 @@ namespace Noctis
 	FWDECL_CLASS_SPTR(QualName);
 	FWDECL_STRUCT_SPTR(ITrGenDecl);
 	FWDECL_STRUCT_SPTR(Symbol);
+	FWDECL_STRUCT_SPTR(SymbolInst);
 	
 	FWDECL_STRUCT_SPTR(ITrImpl);
 
@@ -66,15 +67,23 @@ namespace Noctis
 		
 		void CollectInterfaces(SymbolSPtr sym, QualNameSPtr nodeQualName, const StdPairVector<QualNameSPtr, SpanId>& implInterfaces);
 		void CollectInterfaces(SymbolSPtr sym, QualNameSPtr nodeQualName, const StdPair<QualNameSPtr, SpanId>& implInterface);
-		void CollectInterfaces(StdPair<QualNameSPtr, SymbolWPtr>& pair, SymbolSPtr baseInterfaceSym, SymbolSPtr parentInterface, SymbolSPtr sym);
-		void CollectNeededChildren(SymbolSPtr interface);
+		void CollectNeededChildren(SymbolInstSPtr ifaceInst);
 		void AddMissingChildrenWithDefImpl();
-		
-		IdenGeneric GetGeneric(IdenGeneric origGen, IdenSPtr baseParentIden, IdenSPtr parentIden);
 
-		StdVector<SymbolSPtr> m_Interfaces;
-		StdUnorderedMap<IdenSPtr, StdPair<SymbolSPtr, SymbolSPtr>> m_NeededChildren;
+		StdVector<SymbolInstSPtr> m_Interfaces;
+		StdUnorderedMap<IdenSPtr, StdPair<SymbolSPtr, SymbolInstSPtr>> m_NeededChildren;
 		SymbolSPtr m_ImplSymbol;
 	};
 
+	class GenericTypeCollection : public ITrSemanticPass
+	{
+	public:
+		GenericTypeCollection(Context* pCtx);
+
+		void Process(ITrModule& mod) override;
+
+	private:
+		void HandleGenerics(QualNameSPtr qualName, ITrGenDeclSPtr decl, ITrDef& def);
+		SymbolSPtr m_Sym;
+	};
 }

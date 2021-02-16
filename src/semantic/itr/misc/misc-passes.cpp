@@ -8,6 +8,7 @@
 #include "common/name-mangling.hpp"
 #include "common/qualname.hpp"
 #include "itr/itr.hpp"
+#include "module/function.hpp"
 #include "module/symbol.hpp"
 
 namespace Noctis
@@ -165,14 +166,14 @@ namespace Noctis
 			StdVector<ITrPatternSPtr> patterns = SplitEither(case_.pattern);
 			if (patterns.empty())
 			{
-				ITrSwitchGroup group = CreateGroup(case_.pattern, node.expr->typeInfo.handle, i);
+				ITrSwitchGroup group = CreateGroup(case_.pattern, node.expr->handle, i);
 				MergeGroups(node.baseGroup, group);
 			}
 			else
 			{
 				for (ITrPatternSPtr pattern : patterns)
 				{
-					ITrSwitchGroup group = CreateGroup(case_.pattern, node.expr->typeInfo.handle, i);
+					ITrSwitchGroup group = CreateGroup(case_.pattern, node.expr->handle, i);
 					MergeGroups(node.baseGroup, group);
 				}	
 			}
@@ -800,5 +801,185 @@ namespace Noctis
 			return 0;
 		}
 		}
+	}
+
+	CopyCheckPass::CopyCheckPass(Context* pCtx)
+		: ITrSemanticPass("Copy Check Pass", pCtx)
+		, m_pBoundsInfo(nullptr)
+	{
+	}
+
+	void CopyCheckPass::Process(ITrModule& mod)
+	{
+		SetModule(mod);
+
+		Foreach(ITrVisitorDefKind::Any, [&](ITrFunc& node)
+		{
+			m_pBoundsInfo = &node.sym.lock()->boundsInfo;
+			Walk(node);
+		});
+	}
+
+	void CopyCheckPass::Visit(ITrAssign& node)
+	{
+		bool needsCheck;
+		switch (node.rExpr->exprKind)
+		{
+		case ITrExprKind::Move:
+		case ITrExprKind::FuncOrMethodCall:
+			needsCheck = false;
+			break;
+		default:
+			needsCheck = true;
+		}
+
+		if (needsCheck && !CheckCopyable(node.rExpr->handle, *m_pBoundsInfo))
+		{
+			Span span = m_pCtx->spanManager.GetSpan(node.rExpr->startIdx);
+			StdString typeName = node.rExpr->handle.ToString();
+			g_ErrorSystem.Error(span, "type %s is not copyable", typeName.c_str());
+		}
+	}
+
+	bool CopyCheckPass::CheckCopyable(TypeHandle type, BoundsInfo& boundsInfo)
+	{
+		static QualNameSPtr coreCopyMarker = QualName::Create({ "core", "marker", "Copy" });
+
+		switch (type.Kind())
+		{
+		case TypeKind::Invalid:
+		case TypeKind::Builtin:
+		case TypeKind::Ptr:
+		case TypeKind::Ref:
+		case TypeKind::Slice:
+		case TypeKind::Func:
+			return true;
+		case TypeKind::Array:
+			return CheckCopyable(type.AsArray().subType, boundsInfo);
+		case TypeKind::Tuple:
+		{
+			TupleType& tup = type.AsTuple();
+			for (TypeHandle subType : tup.subTypes)
+			{
+				if (!CheckCopyable(subType, boundsInfo))
+					return false;
+			}
+			return true;
+		}
+		case TypeKind::Opt:
+			return CheckCopyable(type.AsOpt().subType, boundsInfo);
+		case TypeKind::Generic:
+		{
+			const Bounds& bounds = boundsInfo.GetBounds(type);
+			for (TypeHandle handle : bounds.bounds)
+			{
+				if (handle.Kind() == TypeKind::Iden)
+				{
+					QualNameSPtr qualName = handle.AsIden().qualName;
+					if (qualName == coreCopyMarker)
+						return true;
+				}
+			}
+			return false;
+		}
+		case TypeKind::Iden:
+		{
+			SymbolSPtr sym = type.AsIden().sym.lock();
+			return sym->HasMarker(coreCopyMarker);
+		}
+		default: ;
+			return false;
+		}
+	}
+
+	ErrHandlerCollectionPass::ErrHandlerCollectionPass(Context* pCtx)
+		: ITrSemanticPass("error handler collection pass", pCtx)
+	{
+	}
+
+	void ErrHandlerCollectionPass::Process(ITrModule& mod)
+	{
+		SetModule(mod);
+		m_VisitDefs = true;
+		Foreach(ITrVisitorDefKind::Any, [&](ITrFunc& node)
+		{
+			m_FuncCtx = node.ctx;
+			Walk(node);
+		});
+	}
+
+	void ErrHandlerCollectionPass::Visit(ITrErrHandler& node)
+	{
+		TypeHandle errType = node.errType->handle;
+		m_FuncCtx->errHandlers.emplace_back(errType.Type(), node.qualName);
+	}
+
+	TryCheckPass::TryCheckPass(Context* pCtx)
+		: ITrSemanticPass("try check pass", pCtx)
+	{
+	}
+
+	void TryCheckPass::Process(ITrModule& mod)
+	{
+		Foreach(ITrVisitorDefKind::Any, [&](ITrFunc& node)
+		{
+			m_FuncCtx = node.ctx;
+			m_ErrorHandle = node.errorType ? node.errorType->handle : TypeHandle{};
+			Walk(node);
+		});
+	}
+
+	void TryCheckPass::Visit(ITrTry& node)
+	{
+		TypeHandle exprType = node.expr->handle;
+		StdVector<SymbolInstWPtr>& ifaces = exprType.AsIden().sym.lock()->ifaces;
+		
+		QualNameSPtr possibleHandler;
+		for (StdPair<TypeSPtr, QualNameSPtr>& pair : m_FuncCtx->errHandlers)
+		{
+			if (exprType.Type() == pair.first)
+			{
+				possibleHandler = pair.second;
+				break;
+			}
+
+			for (SymbolInstWPtr& inst : ifaces)
+			{
+				TypeHandle ifaceType = inst.lock()->type;
+				if (ifaceType.Type() == pair.first)
+				{
+					possibleHandler = pair.second;
+					break;
+				}
+			}
+		}
+
+		if (possibleHandler)
+		{
+			TypeHandle foundType = node.expr->handle;
+			bool found = false;
+
+			if (m_ErrorHandle.IsValid())
+			{
+				for (SymbolInstWPtr& inst : ifaces)
+				{
+					if (inst.lock()->type == m_ErrorHandle)
+					{
+						found = true;
+						break;
+					}
+				}
+			}
+
+			if (!found)
+			{
+				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+				StdString foundTypeName = foundType.ToString();
+				StdString expectedTypeName = m_ErrorHandle.ToString();
+				g_ErrorSystem.Error(span, "Cannot find an error handler for type '%s', this error can also not be rethrown, since it's not compatible with '%s'", foundTypeName.c_str(), expectedTypeName.c_str());
+			}
+		}
+
+		node.errHandlerName = possibleHandler;
 	}
 }

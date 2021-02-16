@@ -33,7 +33,6 @@ namespace Noctis
 	ITrSemanticPass::~ITrSemanticPass()
 	{
 		m_Timer.Stop();
-		double timeMS = m_Timer.GetTimeMS();
 		g_Logger.Log("%16s : %s\n", m_Timer.GetSMSFormat().c_str(), m_Name.data());
 	}
 }

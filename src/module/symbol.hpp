@@ -1,9 +1,10 @@
  #pragma once
 #include <functional>
 
+#include "attributes.hpp"
 #include "common/type.hpp"
 
-namespace Noctis
+ namespace Noctis
 {
 	struct Context;
 	
@@ -28,12 +29,10 @@ namespace Noctis
 		Closure,
 
 		Var,
-		
 
 		Impl,
 		Type,
 
-		GenType,
 		AssocType,
 		GenVal,
 	};
@@ -45,20 +44,40 @@ namespace Noctis
 
 	FWDECL_STRUCT_SPTR(ITrDef);
 	FWDECL_STRUCT_WPTR(ITrDef);
+
+	FWDECL_STRUCT_SPTR(SymbolInst);
+	FWDECL_STRUCT_WPTR(SymbolInst);
+ 	struct SymbolInst
+ 	{
+		SymbolInst(SymbolSPtr sym, QualNameSPtr qualName);
+
+		TypeHandle SelfType();
+ 		
+		SymbolWPtr sym;
+		QualNameSPtr qualName;
+		TypeHandle type;
+
+		SymbolInstSPtr parent;
+		StdVector<SymbolInstWPtr> ifaces;
+
+ 		// Is the instantiation actually generic or just a reference to a symbol
+		bool isGeneric : 1;
+ 	};
 	
 	struct Symbol
 	{
 		Symbol(Context* pCtx, SymbolKind kind, QualNameSPtr qualName);
 
 		void SetSelf(SymbolWPtr self);
-		SymbolSPtr GetVariant(IdenSPtr iden);
-		bool IsBaseVariant();
 
 		TypeHandle SelfType();
 		
 		void CalculateSizeAlignOffset();
 
-		SymbolSPtr GetOrCreateVariant(QualNameSPtr qualName);
+		SymbolInstSPtr GetInst(QualNameSPtr qualName);
+		SymbolInstSPtr GetOrCreateInst(QualNameSPtr qualName);
+		void AddInstForType(TypeHandle type, SymbolInstSPtr inst);
+		const StdVector<SymbolInstWPtr>& GetInstForType(TypeHandle type);
 		
 		void Log(u8 indent, bool includeImports);
 
@@ -66,7 +85,7 @@ namespace Noctis
 
 		SymbolSPtr Copy();
 
-		void SetType(TypeHandle type);
+		bool IsInterface() const { return kind == SymbolKind::StrongInterface || kind == SymbolKind::WeakInterface || kind == SymbolKind::MarkerInterface; }
 	
 		QualNameSPtr qualName;
 
@@ -75,17 +94,23 @@ namespace Noctis
 		StdVector<SymbolWPtr> orderedVarChildren;
 
 		// Interfaces that are implemented or types that implement the interface
-		StdVector<SymbolSPtr> impls;
-		StdPairVector<QualNameSPtr, SymbolWPtr> interfaces;
+		StdPairVector<SymbolWPtr, SymbolInstWPtr> impls;
+		StdVector<SymbolInstWPtr> ifaces;
 		StdVector<SymbolWPtr> markers;
+
+
+		StdUnorderedMap<TypeSPtr, StdVector<SymbolInstWPtr>> instsForTypes;
+
+		SymbolInstSPtr baseInst;
+		StdVector<SymbolInstSPtr> instantiations;
 			
 		SymbolWPtr self;
-		SymbolWPtr baseVariant;
-		StdVector<SymbolSPtr> variants;
+
 
 		u16 funcDefaultStart;
 
 		TypeHandle type;
+		BoundsInfo boundsInfo;
 
 		u64 size;
 		u16 aligment;
@@ -104,6 +129,9 @@ namespace Noctis
 		bool comptimeOnly : 1;
 		bool valGenSolveNeeded : 1;
 		bool dependsOnValueGenerics : 1;
+
+		Attribute attribs;
+		Visibility vis;
 
 		u8 defImplVer;
 	};
@@ -126,14 +154,20 @@ namespace Noctis
 		void RemoveChild(SymbolSPtr sym);
 
 		void Foreach(const std::function<void(SymbolSPtr, QualNameSPtr)>& lambda);
+		void Foreach(const std::function<void(SymbolInstSPtr, QualNameSPtr)>& lambda);
 
+		void Merge(SymbolSubTableSPtr from);
+		
 		bool Empty() const;
+
+		void UpdateImplSubTableKey(QualNameSPtr oldKey, QualNameSPtr newKey);
 
 		void Log(u8 indent, bool includeImports);
 
 	private:
 		friend class ModuleSymbolTable;
 
+		// TODO: replace ScopedSymbolTableSPtr with StdUnorderedMap<StdString, SymbolSPtr> when GenVal kind is removed
 		ScopedSymbolTableSPtr m_SubTable;
 		StdUnorderedMap<QualNameSPtr, ScopedSymbolTableSPtr> m_ImplSubtables;
 
@@ -165,6 +199,7 @@ namespace Noctis
 		void AddImport(QualNameSPtr qualName);
 
 		void Foreach(const std::function<void(SymbolSPtr, QualNameSPtr)>& lambda);
+		void Foreach(const std::function<void(SymbolInstSPtr, QualNameSPtr)>& lambda);
 
 		void Log(bool includeImports);
 		
@@ -193,6 +228,7 @@ namespace Noctis
 		SymbolSPtr Find(QualNameSPtr qualName, usize idenIdx);
 
 		void Foreach(const std::function<void(SymbolSPtr, QualNameSPtr)>& lambda, QualNameSPtr iface);
+		void Foreach(const std::function<void(SymbolInstSPtr, QualNameSPtr)>& lambda, QualNameSPtr iface);
 
 		void Merge(ScopedSymbolTableSPtr src);
 

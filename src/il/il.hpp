@@ -50,13 +50,15 @@ namespace Noctis
 
 	enum class ILCompIntrinKind : u8
 	{
-		SizeOf = 0x00,
-		AlignOf = 0x01,
-		AlignOfVal = 0x02,
+		SizeOf         = 0x00,
+		AlignOf        = 0x01,
+		AlignOfVal     = 0x02,
+		Log2AlignOf    = 0x03,
+		Log2AlignOfVal = 0x04,
 
-		BytewiseCopy = 0x10,
+		BytewiseCopy   = 0x10,
 
-		FuzzyTypeComp = 0x80,
+		FuzzyTypeComp  = 0x80,
 	};
 
 	StdString GetCompIntrinName(ILCompIntrinKind intrin);
@@ -74,25 +76,25 @@ namespace Noctis
 
 	enum class ILLitType : u8
 	{
-		Bool = 0,
-		I8 = 1,
-		I16 = 2,
-		I32 = 3,
-		I64 = 4,
-		I128 = 5,
-		U8 = 6,
-		U16 = 7,
-		U32 = 8,
-		U64 = 9,
-		U128 = 10,
-		// F16 = 11,
-		F32 = 12,
-		F64 = 13,
-		// F128 = 14,
-
-		Char = 15,
-		String = 16,
-		Null = 17,
+		False  = 0,
+		True   = 1,
+		I8     = 2,
+		I16    = 3,
+		I32    = 4,
+		I64    = 5,
+		I128   = 6,
+		U8     = 7,
+		U16    = 8,
+		U32    = 9,
+		U64    = 10,
+		U128   = 11,
+		// F16    = 12,
+		F32    = 13,
+		F64    = 14,
+		// F128   = 15,
+		Char   = 16,
+		String = 17,
+		Null   = 18,
 	};
 
 	struct ILVar
@@ -103,7 +105,9 @@ namespace Noctis
 		ILVar(ILLitType lit, u64 val);
 		ILVar(ILLitType lit, i64 val);
 		ILVar(ILLitType lit, f64 val);
-		ILVar(bool bval);
+		ILVar(ILLitType lit);
+
+		void SetLitData(u64 val);
 
 		ILVarKind kind;
 
@@ -114,7 +118,6 @@ namespace Noctis
 			struct
 			{
 				ILLitType litType;
-				bool boolBit;
 			};
 		};
 		

@@ -6,11 +6,13 @@ namespace Noctis
 	{
 		switch (intrin)
 		{
-		case ILCompIntrinKind::SizeOf: return "sizeof";
-		case ILCompIntrinKind::AlignOf: return "alignof";
-		case ILCompIntrinKind::AlignOfVal: return "alignofval";
-		case ILCompIntrinKind::BytewiseCopy: return "bytewisecopy";
-		case ILCompIntrinKind::FuzzyTypeComp: return "fuzzytypecomp";
+		case ILCompIntrinKind::SizeOf:         return "sizeof";
+		case ILCompIntrinKind::AlignOf:        return "alignof";
+		case ILCompIntrinKind::AlignOfVal:     return "alignofval";
+		case ILCompIntrinKind::Log2AlignOf:    return "log2alignof";
+		case ILCompIntrinKind::Log2AlignOfVal: return "log2alignofval";
+		case ILCompIntrinKind::BytewiseCopy:   return "bytewisecopy";
+		case ILCompIntrinKind::FuzzyTypeComp:  return "fuzzytypecomp";
 		default: return "";
 		}
 	}
@@ -22,6 +24,8 @@ namespace Noctis
 		case ILCompIntrinKind::SizeOf:
 		case ILCompIntrinKind::AlignOf:
 		case ILCompIntrinKind::AlignOfVal:
+		case ILCompIntrinKind::Log2AlignOf:
+		case ILCompIntrinKind::Log2AlignOfVal:
 		case ILCompIntrinKind::BytewiseCopy:
 			return true;
 		case ILCompIntrinKind::FuzzyTypeComp:
@@ -34,11 +38,14 @@ namespace Noctis
 	{
 		switch (intrin)
 		{
-		case ILCompIntrinKind::SizeOf: return 0;
-		case ILCompIntrinKind::AlignOf: return 0;
-		case ILCompIntrinKind::AlignOfVal: return 1;
-		case ILCompIntrinKind::BytewiseCopy: return 1;
-		case ILCompIntrinKind::FuzzyTypeComp: return 0;
+		case ILCompIntrinKind::AlignOfVal:
+		case ILCompIntrinKind::Log2AlignOfVal:
+		case ILCompIntrinKind::BytewiseCopy:
+			return 1;
+		case ILCompIntrinKind::SizeOf:
+		case ILCompIntrinKind::AlignOf:
+		case ILCompIntrinKind::Log2AlignOf:
+		case ILCompIntrinKind::FuzzyTypeComp:
 		default: return 0;
 		}
 	}
@@ -47,11 +54,15 @@ namespace Noctis
 	{
 		switch (intrin)
 		{
-		case ILCompIntrinKind::SizeOf: return 1;
-		case ILCompIntrinKind::AlignOf: return 1;
-		case ILCompIntrinKind::AlignOfVal: return 0;
-		case ILCompIntrinKind::BytewiseCopy: return 0;
-		case ILCompIntrinKind::FuzzyTypeComp: return 2;
+		case ILCompIntrinKind::SizeOf:
+		case ILCompIntrinKind::AlignOf:
+		case ILCompIntrinKind::Log2AlignOf:
+			return 1;
+		case ILCompIntrinKind::FuzzyTypeComp:
+			return 2;
+		case ILCompIntrinKind::AlignOfVal:
+		case ILCompIntrinKind::Log2AlignOfVal:
+		case ILCompIntrinKind::BytewiseCopy:
 		default: return 0;
 		}
 	}
@@ -72,7 +83,6 @@ namespace Noctis
 	ILVar::ILVar(ILLitType lit, const StdVector<u8>& data)
 		: kind(ILVarKind::Lit)
 		, litType(lit)
-		, boolBit(false)
 		, litData(data)
 	{
 	}
@@ -80,62 +90,58 @@ namespace Noctis
 	ILVar::ILVar(ILLitType lit, u64 val)
 		: kind(ILVarKind::Lit)
 		, litType(lit)
-		, boolBit(false)
 	{
-		switch (lit)
-		{
-		case ILLitType::U8:
-		{
-			u8* addr = reinterpret_cast<u8*>(&val);
-			litData.insert(litData.begin(), addr, addr + sizeof(u8));
-			break;
-		}
-		case ILLitType::U16:
-		{
-			u8* addr = reinterpret_cast<u8*>(&val);
-			litData.insert(litData.begin(), addr, addr + sizeof(u16));
-			break;
-		}
-		case ILLitType::U32:
-		case ILLitType::Char:
-		{
-			u8* addr = reinterpret_cast<u8*>(&val);
-			litData.insert(litData.begin(), addr, addr + sizeof(u32));
-			break;
-		}
-		case ILLitType::U64:
-		{
-			u8* addr = reinterpret_cast<u8*>(&val);
-			litData.insert(litData.begin(), addr, addr + sizeof(u64));
-			break;
-		}
-		case ILLitType::U128: break;
-		default: ;
-		}
+		SetLitData(val);
 	}
 
 	ILVar::ILVar(ILLitType lit, i64 val)
 		: kind(ILVarKind::Lit)
 		, litType(lit)
-		, boolBit(false)
 	{
-		switch (lit)
+		SetLitData(val);
+	}
+
+	ILVar::ILVar(ILLitType lit, f64 val)
+		: kind(ILVarKind::Lit)
+		, litType(lit)
+	{
+		SetLitData(*reinterpret_cast<u64*>(&val));
+	}
+
+	ILVar::ILVar(ILLitType lit)
+		: kind(ILVarKind::Lit)
+		, litType(lit)
+	{
+	}
+
+	void ILVar::SetLitData(u64 val)
+	{
+		switch (litType)
 		{
+		case ILLitType::False:
+		case ILLitType::True:
+		{
+			litData.push_back(litType == ILLitType::True);
+			break;
+		}
 		case ILLitType::I8:
 		{
-			u8* addr = reinterpret_cast<u8*>(&val);
+			i8 actVal = i8(i64(val));
+			u8* addr = reinterpret_cast<u8*>(&actVal);
 			litData.insert(litData.begin(), addr, addr + sizeof(i8));
 			break;
 		}
 		case ILLitType::I16:
 		{
-			u8* addr = reinterpret_cast<u8*>(&val);
+			i16 actVal = i16(i64(val));
+			u8* addr = reinterpret_cast<u8*>(&actVal);
 			litData.insert(litData.begin(), addr, addr + sizeof(i16));
 			break;
 		}
 		case ILLitType::I32:
 		{
-			u8* addr = reinterpret_cast<u8*>(&val);
+			i32 actVal = i32(i64(val));
+			u8* addr = reinterpret_cast<u8*>(&actVal);
 			litData.insert(litData.begin(), addr, addr + sizeof(i32));
 			break;
 		}
@@ -146,39 +152,53 @@ namespace Noctis
 			break;
 		}
 		case ILLitType::I128: break;
-		default:;
-		}
-	}
-
-	ILVar::ILVar(ILLitType lit, f64 val)
-		: kind(ILVarKind::Lit)
-		, litType(lit)
-		, boolBit(false)
-	{
-		switch (lit)
+		case ILLitType::U8:
 		{
+			u8 actVal = u8(val);
+			u8* addr = reinterpret_cast<u8*>(&actVal);
+			litData.insert(litData.begin(), addr, addr + sizeof(u8));
+			break;
+		}
+		case ILLitType::U16:
+		{
+			u16 actVal = u16(val);
+			u8* addr = reinterpret_cast<u8*>(&val);
+			litData.insert(litData.begin(), addr, addr + sizeof(u16));
+			break;
+		}
+		case ILLitType::U32:
+		case ILLitType::Char:
+		{
+			u32 actVal = u32(val);
+			u8* addr = reinterpret_cast<u8*>(&actVal);
+			litData.insert(litData.begin(), addr, addr + sizeof(u32));
+			break;
+		}
+		case ILLitType::U64:
+		{
+			u8* addr = reinterpret_cast<u8*>(&val);
+			litData.insert(litData.begin(), addr, addr + sizeof(u64));
+			break;
+		}
+		case ILLitType::U128: break;
 		case ILLitType::F32:
 		{
-			f32 val32 = f32(val);
-			u8* addr = reinterpret_cast<u8*>(&val32);
-			litData.insert(litData.begin(), addr, addr + sizeof(i32));
+			f32 actVal = f32(*reinterpret_cast<f64*>(&val));
+			u8* addr = reinterpret_cast<u8*>(&actVal);
+			litData.insert(litData.begin(), addr, addr + sizeof(f32));
 			break;
 		}
 		case ILLitType::F64:
 		{
-			u8* addr = reinterpret_cast<u8*>(&val);
-			litData.insert(litData.begin(), addr, addr + sizeof(i64));
+			f64 actVal = *reinterpret_cast<f64*>(&val);
+			u8* addr = reinterpret_cast<u8*>(&actVal);
+			litData.insert(litData.begin(), addr, addr + sizeof(f64));
 			break;
 		}
-		default:;
+		case ILLitType::String: break;
+		case ILLitType::Null: break;
+		default: ;
 		}
-	}
-
-	ILVar::ILVar(bool bval)
-		: kind(ILVarKind::Lit)
-		, litType(ILLitType::Bool)
-		, boolBit(bval)
-	{
 	}
 
 	ILElem::ILElem(ILKind kind)

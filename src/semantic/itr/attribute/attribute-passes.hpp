@@ -20,5 +20,11 @@ namespace Noctis
 		void CheckAttribs(Attribute attribs, Attribute validMask, SpanId spanId, StdStringView defName);
 		void CheckSingleAttrib(Attribute attribs, Attribute singleMask, SpanId spanId, StdStringView defName);
 	};
+
+	/*class AttribSymAssignPass : public ITrSemanticPass
+	{
+	public:
+		
+	};*/
 	
 }

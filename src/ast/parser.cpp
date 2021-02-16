@@ -125,9 +125,14 @@ namespace Noctis
 		case TokenType::Throw: return ParseThrowStmt();
 		case TokenType::Defer: return ParseDeferStmt();
 		case TokenType::ErrDefer: return ParseErrDeferStmt();
-		case TokenType::Unsafe: return ParseUnsafeStmt();
 		case TokenType::LBrace: return ParseBlockStmt();
 		case TokenType::DollarBrace: return ParseMacroLoopStmt();
+		case TokenType::Unsafe:
+		{
+			if (PeekToken(1).Type() == TokenType::Func)
+				return ParseFuncDecl(attribs, funcAreMethods);
+			return ParseUnsafeStmt();
+		}
 		case TokenType::Macro:
 		{
 			if (PeekToken(1).Type() == TokenType::Func)
@@ -394,7 +399,7 @@ namespace Noctis
 			EatToken(TokenType::ColonEq);
 			expr = ParseCommaExpression();
 		}
-
+		
 		u64 endIdx = 0;
 		if (PeekToken().Type() == TokenType::Comma)
 			endIdx = EatToken(TokenType::Comma).Idx();
@@ -405,8 +410,20 @@ namespace Noctis
 
 	AstDeclSPtr Parser::ParseFuncDecl(AstAttribsSPtr attribs, bool asMethod)
 	{
-		u64 startIdx = EatToken(TokenType::Func).Idx();
-
+		u64 startIdx;
+		bool isUnsafe = PeekToken().Type() == TokenType::Unsafe;
+		if (isUnsafe)
+		{
+			Token& tok = EatToken();
+			startIdx = tok.Idx();
+			attribs->simpleAttribs.emplace_back(new AstSimpleAttrib{ tok });
+			EatToken(TokenType::Func);
+		}
+		else
+		{
+			startIdx = EatToken(TokenType::Func).Idx();
+		}
+		
 		AstMethodReceiverKind recKind = AstMethodReceiverKind::None;
 		if (asMethod && TryEatToken(TokenType::LParen))
 		{
@@ -442,16 +459,12 @@ namespace Noctis
 			params = ParseParams(false);
 		EatToken(TokenType::RParen);
 
-		bool throws = false;
 		AstTypeSPtr errorType;
 		if (TryEatIdenToken("throws"))
 		{
-			throws = true;
-			if (TryEatToken(TokenType::LParen))
-			{
-				errorType = ParseType();
-				EatToken(TokenType::RParen);
-			}
+			EatToken(TokenType::LParen);
+			errorType = ParseType();
+			EatToken(TokenType::RParen);
 		}
 		
 		AstTypeSPtr retType;
@@ -497,10 +510,10 @@ namespace Noctis
 
 			u64 endIdx = EatToken(TokenType::Semicolon).Idx();
 			if (asMethod)
-				return AstDeclSPtr{ new AstMethodDecl { attribs, startIdx, recKind, std::move(iden), generics, std::move(params), false, nullptr, retType, {}, nullptr, {}, true, endIdx } };
+				return AstDeclSPtr{ new AstMethodDecl { attribs, startIdx, recKind, std::move(iden), generics, std::move(params), errorType, retType, {}, nullptr, {}, isUnsafe, true, endIdx } };
 			else
-				return AstDeclSPtr{ new AstFuncDecl{ attribs, startIdx, std::move(iden), generics, std::move(params), throws, errorType,
-					retType, std::move(namedRets), whereClause, {}, endIdx } };
+				return AstDeclSPtr{ new AstFuncDecl{ attribs, startIdx, std::move(iden), generics, std::move(params), errorType,
+					retType, std::move(namedRets), whereClause, {}, isUnsafe, endIdx } };
 		}
 
 		StdVector<AstStmtSPtr> stmts;
@@ -513,10 +526,10 @@ namespace Noctis
 
 		if (asMethod)
 			return AstDeclSPtr{ new AstMethodDecl { attribs, startIdx, recKind, std::move(iden), generics, std::move(params),
-				throws, errorType, retType, std::move(namedRets), whereClause, std::move(stmts), false, endIdx } };
+				errorType, retType, std::move(namedRets), whereClause, std::move(stmts), isUnsafe, false, endIdx } };
 		
-		return AstDeclSPtr{ new AstFuncDecl { attribs, startIdx, std::move(iden), generics, std::move(params), throws,
-			errorType, retType, std::move(namedRets), whereClause, std::move(stmts), endIdx } };
+		return AstDeclSPtr{ new AstFuncDecl { attribs, startIdx, std::move(iden), generics, std::move(params),
+			errorType, retType, std::move(namedRets), whereClause, std::move(stmts), isUnsafe, endIdx } };
 	}
 
 	AstDeclSPtr Parser::ParseImplDecl(AstAttribsSPtr attribs)
@@ -612,9 +625,7 @@ namespace Noctis
 		AstStmtSPtr body;
 		if (TryEatToken(TokenType::Do))
 		{
-			AstExprSPtr expr = ParseExpression();
-			u64 endIdx = EatToken(TokenType::Semicolon).Idx();
-			body.reset(new AstExprStmt{ expr, endIdx });
+			body = ParseStatement(nullptr, false);
 		}
 		else
 		{
@@ -835,14 +846,8 @@ namespace Noctis
 		if (TryEatToken(TokenType::Colon))
 			type = ParseType();
 		EatToken(TokenType::RParen);
-		EatToken(TokenType::LBrace);
-		StdVector<AstStmtSPtr> stmts;
-		while (PeekToken().Type() != TokenType::RBrace)
-		{
-			stmts.push_back(ParseStatement());
-		}
-		u64 endIdx = EatToken(TokenType::RBrace).Idx();
-		return AstStmtSPtr{ new AstErrorHandlerStmt{ startIdx, std::move(iden), type, std::move(stmts), endIdx } };
+		AstStmtSPtr block = ParseBlockStmt();
+		return AstStmtSPtr{ new AstErrHandler{ startIdx, std::move(iden), type, block } };
 	}
 
 	AstStmtSPtr Parser::ParseCompIfStmt()
@@ -1006,7 +1011,6 @@ namespace Noctis
 			}
 			case TokenType::PlusPlus:
 			case TokenType::MinusMinus:
-			case TokenType::ExclaimExclaim:
 			{
 				if (expr)
 					expr = ParsePostfixExpr(expr);
@@ -1174,6 +1178,10 @@ namespace Noctis
 			switch (tok.Type())
 			{
 			case TokenType::Dot:
+			case TokenType::QuestionDot:
+			case TokenType::LBracket:
+			case TokenType::QuestionBracket:
+			case TokenType::LParen:
 			{
 				run = true;
 				break;
@@ -1293,6 +1301,9 @@ namespace Noctis
 			{
 				if (prev)
 				{
+					if (!m_AllowAggrInit)
+						return prev;
+					
 					if (prev->exprKind == AstExprKind::QualName)
 					{
 						AstQualNameExpr* pQualNameExpr = static_cast<AstQualNameExpr*>(prev.get());
@@ -1378,7 +1389,7 @@ namespace Noctis
 			}
 			case TokenType::ColonColon:
 				return ParseQualNameExpr();
-			case TokenType::ExclaimParen:
+			case TokenType::DollarParen:
 			
 			{
 				if (prev)
@@ -1396,8 +1407,8 @@ namespace Noctis
 				
 				return AstExprSPtr{ new AstPrefixExpr{ Token{ TokenType::Exclaim, m_TokIdx }, subExpr } };
 			}
-			case TokenType::ExclaimBracket:
-			case TokenType::ExclaimBrace:
+			case TokenType::DollarBracket:
+			case TokenType::DollarBrace:
 			{
 				AstQualNameSPtr qualName = static_cast<AstQualNameExpr*>(prev.get())->qualName;
 				return ParseMacroInstExpr(qualName);
@@ -1429,15 +1440,17 @@ namespace Noctis
 	AstExprSPtr Parser::ParseBinaryExpr(AstExprSPtr lExpr)
 	{
 		TokenType op = EatToken().Type();
-		AstExprSPtr expr = ParseExpression();
+		AstExprSPtr expr = ParseOperand(nullptr);
 
-		if (expr->exprKind == AstExprKind::Binary)
+		if (lExpr->exprKind == AstExprKind::Binary)
 		{
-			AstBinaryExpr* binExpr = static_cast<AstBinaryExpr*>(expr.get());
-			OpPrecedence curPrec = GetPrecedence(op);
-			OpPrecedence nextPrec = GetPrecedence(binExpr->op);
+			AstBinaryExpr* binExpr = static_cast<AstBinaryExpr*>(lExpr.get());
+			OpPrecedence prevPrec = GetPrecedence(op);
+			OpPrecedence curPrec = GetPrecedence(binExpr->op);
 
-			if (nextPrec < curPrec)
+			// When the previous binary expression has a higher precedence (i.e. will be executed later), switch both side
+			// e.g. (a + b) * c -> a + (b * c)
+			if (curPrec > prevPrec)
 			{
 				AstExprSPtr left = binExpr->lExpr;
 				AstExprSPtr cur{ new AstBinaryExpr{ lExpr, op, left } };
@@ -1678,9 +1691,9 @@ namespace Noctis
 
 	AstExprSPtr Parser::ParseTryExpr()
 	{
-		u64 startIdx = EatToken(TokenType::Try).Idx();
+		Token& tok = EatToken();
 		AstExprSPtr	expr = ParseOperand(nullptr);
-		return AstExprSPtr{ new AstTryExpr{ startIdx, expr } };
+		return AstExprSPtr{ new AstTryExpr{ tok, expr } };
 	}
 
 	AstExprSPtr Parser::ParseSpecKwExpr()
@@ -1897,7 +1910,13 @@ namespace Noctis
 			while (TryEatToken(TokenType::Comma));
 			EatToken(TokenType::Colon);
 			AstTypeSPtr type = ParseType();
-			members.push_back(std::pair{ std::move(idens), type });
+			AstExprSPtr bitfield;
+			if (TryEatToken(TokenType::Colon))
+			{
+				bitfield = ParseCommaExpression();
+			}
+			
+			members.emplace_back(std::move(idens), type);
 		}
 		while(TryEatToken(TokenType::Comma));
 		u64 endIdx = EatToken(TokenType::RBrace).Idx();
@@ -1993,9 +2012,9 @@ namespace Noctis
 
 			AstQualNameSPtr qualName = ParseQualName(false);
 			Token& curTok = PeekToken();
-			if (curTok.Type() == TokenType::ExclaimParen ||
-				curTok.Type() == TokenType::ExclaimBracket ||
-				curTok.Type() == TokenType::ExclaimBrace)
+			if (curTok.Type() == TokenType::DollarParen ||
+				curTok.Type() == TokenType::DollarBracket ||
+				curTok.Type() == TokenType::DollarBrace)
 			{
 				pattern = ParseMacroInstPattern(qualName);
 				break;
@@ -2594,20 +2613,18 @@ namespace Noctis
 		switch (firstTok.Type())
 		{
 		case TokenType::LParen:
-		case TokenType::ExclaimParen:
 		case TokenType::DollarParen:
 		{
 			closeType = TokenType::RParen;
 			break;
 		}
 		case TokenType::LBracket:
-		case TokenType::ExclaimBracket:
+		case TokenType::DollarBracket:
 		{
 			closeType = TokenType::RBracket;
 			break;
 		}
 		case TokenType::LBrace:
-		case TokenType::ExclaimBrace:
 		case TokenType::DollarBrace:
 		{
 			closeType = TokenType::RBrace;
@@ -2628,12 +2645,9 @@ namespace Noctis
 			switch (tok.Type())
 			{
 			case TokenType::LParen:
-			case TokenType::ExclaimParen:
 			case TokenType::DollarParen:
 			case TokenType::LBracket:
-			case TokenType::ExclaimBracket:
 			case TokenType::LBrace:
-			case TokenType::ExclaimBrace:
 			case TokenType::DollarBrace:
 			{
 				EatToken();
@@ -2667,20 +2681,20 @@ namespace Noctis
 
 	AstPatternSPtr Parser::ParseMacroInstPattern(AstQualNameSPtr qualName)
 	{
-		if (TryEatToken(TokenType::ExclaimBrace))
+		if (TryEatToken(TokenType::DollarBrace))
 		{
 			TokenTree tokTree = ParseTokenTree();
 			u64 endIdx = EatToken(TokenType::RBrace).Idx();
 			return AstPatternSPtr{ new AstMacroInstPattern{ std::move(qualName), std::move(tokTree), endIdx } };
 		}
-		if (TryEatToken(TokenType::ExclaimBracket))
+		if (TryEatToken(TokenType::DollarBracket))
 		{
 			TokenTree tokTree = ParseTokenTree();
 			u64 endIdx = EatToken(TokenType::RBracket).Idx();
 			return AstPatternSPtr{ new AstMacroInstPattern{ std::move(qualName), std::move(tokTree), endIdx } };
 		}
 
-		EatToken(TokenType::ExclaimParen);
+		EatToken(TokenType::DollarParen);
 		TokenTree tokTree = ParseTokenTree();
 		u64 endIdx = EatToken(TokenType::RParen).Idx();
 		return AstPatternSPtr{ new AstMacroInstPattern{ std::move(qualName), std::move(tokTree), endIdx } };
@@ -2807,29 +2821,10 @@ namespace Noctis
 		u64 startIdx, endIdx;
 		StdVector<AstParamVarSPtr> vars;
 
-		AstAttribsSPtr attribs;
-		if (PeekToken().Type() != TokenType::Iden)
+		startIdx = m_TokIdx;
+		do
 		{
-			attribs = ParseAttributes();
-			startIdx = attribs->ctx->startIdx;
-			u64 tmpIdx = m_TokIdx;
-			StdString iden = ParseIden();
-			endIdx = m_TokIdx - 1;
-			vars.emplace_back(new AstParamVar{ attribs, tmpIdx, std::move(iden), endIdx });
-		}
-		else
-		{
-			Token& tok = PeekToken();
-			startIdx = tok.Idx();
-			u64 tmpIdx = m_TokIdx;
-			StdString iden = ParseIden();
-			endIdx = m_TokIdx - 1;
-			vars.emplace_back(new AstParamVar{ attribs, tmpIdx, std::move(iden), endIdx });
-		}
-
-		while (TryEatToken(TokenType::Comma))
-		{
-			attribs = nullptr;
+			AstAttribsSPtr attribs;
 			if (PeekToken().Type() != TokenType::Iden)
 				attribs = ParseAttributes();
 			u64 tmpIdx = m_TokIdx;
@@ -2837,11 +2832,11 @@ namespace Noctis
 			endIdx = m_TokIdx - 1;
 			vars.emplace_back(new AstParamVar{ attribs, tmpIdx, std::move(iden), endIdx });
 		}
+		while (TryEatToken(TokenType::Comma));
 
 		if (PeekToken().Type() != TokenType::Colon && allowNoType)
 			return AstParamSPtr{ new AstParam{ startIdx, std::move(vars), nullptr, false, endIdx } };
 		
-		EatToken(TokenType::Colon);
 		AstTypeSPtr type;
 		bool isVariadic = false;
 		if (PeekToken().Type() == TokenType::DotDotDot)
@@ -2849,9 +2844,9 @@ namespace Noctis
 			endIdx = EatToken().Idx();
 			isVariadic = true;
 		}
-		else if (PeekToken().Type() != TokenType::Or ||
-				 allowNoType && PeekToken().Type() != TokenType::Comma)
+		else if (PeekToken().Type() == TokenType::Colon)
 		{
+			EatToken(TokenType::Colon);
 			type = ParseType();
 			endIdx = type->ctx->endIdx;
 			

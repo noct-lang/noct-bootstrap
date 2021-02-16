@@ -495,9 +495,14 @@ namespace Noctis
 		{
 			switch (var.litType)
 			{
-			case ILLitType::Bool:
+			case ILLitType::False:
 			{
-				g_Logger.Log(var.boolBit ? "true:bool" : "false:bool");
+				g_Logger.Log("false:bool");
+				break;
+			}
+			case ILLitType::True:
+			{
+				g_Logger.Log("true:bool");
 				break;
 			}
 			case ILLitType::I8:

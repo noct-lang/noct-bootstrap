@@ -612,7 +612,6 @@ namespace Noctis
 		case OperatorKind::BinNeg: break;
 		case OperatorKind::Deref: break;
 		case OperatorKind::RefOrAddrOf: break;
-		case OperatorKind::BoolConv: break;
 		case OperatorKind::PostInc: break;
 		case OperatorKind::PostDec: break;
 		case OperatorKind::NullPanic: break;
@@ -892,12 +891,7 @@ namespace Noctis
 	u8* ILInterp::GetSrcAddr(ILInterpStackFrame& stackFrame, ILVar& var)
 	{
 		if (var.kind == ILVarKind::Lit)
-		{
-			if (var.litType == ILLitType::Bool)
-				return reinterpret_cast<u8*>(&var.boolBit);
-			
 			return var.litData.data();
-		}
 
 		ILInterpVar& src = stackFrame.GetVar(m_pCtx, var);
 
@@ -914,20 +908,21 @@ namespace Noctis
 			size = u64(var.litData.size());
 			switch (var.litType)
 			{
-			case ILLitType::Bool: type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::Bool); break;
-			case ILLitType::I8:   type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::I8); break;
-			case ILLitType::I16:  type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::I16); break;
-			case ILLitType::I32:  type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::I32); break;
-			case ILLitType::I64:  type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::I64); break;
-			case ILLitType::I128: type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::I128); break;
-			case ILLitType::U8:   type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U8); break;
-			case ILLitType::U16:  type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U16); break;
-			case ILLitType::U32:  type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U32); break;
-			case ILLitType::U64:  type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U64); break;
-			case ILLitType::U128: type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U128); break;
-			case ILLitType::F32:  type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::F32); break;
-			case ILLitType::F64:  type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::F64); break;
-			case ILLitType::Char: type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::Char); break;
+			case ILLitType::True:  type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::Bool); break;
+			case ILLitType::False: type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::Bool); break;
+			case ILLitType::I8:    type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::I8); break;
+			case ILLitType::I16:   type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::I16); break;
+			case ILLitType::I32:   type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::I32); break;
+			case ILLitType::I64:   type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::I64); break;
+			case ILLitType::I128:  type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::I128); break;
+			case ILLitType::U8:    type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U8); break;
+			case ILLitType::U16:   type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U16); break;
+			case ILLitType::U32:   type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U32); break;
+			case ILLitType::U64:   type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U64); break;
+			case ILLitType::U128:  type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U128); break;
+			case ILLitType::F32:   type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::F32); break;
+			case ILLitType::F64:   type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::F64); break;
+			case ILLitType::Char:  type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::Char); break;
 			default: type = TypeHandle{};
 			}
 		}

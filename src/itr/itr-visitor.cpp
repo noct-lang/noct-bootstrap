@@ -54,6 +54,7 @@ namespace Noctis
 	FOREACH_IMPL(Var)
 	FOREACH_IMPL(Func)
 	FOREACH_IMPL(Impl)
+	FOREACH_IMPL(ErrHandler)
 
 	void ITrVisitor::Visit(ITrStruct& node)
 	{
@@ -125,6 +126,11 @@ namespace Noctis
 		Walk(node);
 	}
 
+	void ITrVisitor::Visit(ITrErrHandler& node)
+	{
+		Walk(node);
+	}
+
 	void ITrVisitor::Visit(ITrBlock& node)
 	{
 		Walk(node);
@@ -191,11 +197,6 @@ namespace Noctis
 	}
 
 	void ITrVisitor::Visit(ITrUnsafe& node)
-	{
-		Walk(node);
-	}
-
-	void ITrVisitor::Visit(ITrErrHandler& node)
 	{
 		Walk(node);
 	}
@@ -481,6 +482,7 @@ namespace Noctis
 		case ITrDefKind::Var: Visit(*reinterpret_cast<ITrVar*>(def.get())); break;
 		case ITrDefKind::Func: Visit(*reinterpret_cast<ITrFunc*>(def.get())); break;
 		case ITrDefKind::Impl: Visit(*reinterpret_cast<ITrImpl*>(def.get())); break;
+		case ITrDefKind::ErrHandler: Visit(*reinterpret_cast<ITrErrHandler*>(def.get())); break;
 		default: ;
 		}
 	}
@@ -503,7 +505,6 @@ namespace Noctis
 		case ITrStmtKind::Expr: Visit(*reinterpret_cast<ITrExprSPtr*>(&stmt)); break;
 		case ITrStmtKind::Defer: Visit(*reinterpret_cast<ITrDefer*>(stmt.get())); break;
 		case ITrStmtKind::Unsafe: Visit(*reinterpret_cast<ITrUnsafe*>(stmt.get())); break;
-		case ITrStmtKind::ErrorHandler: Visit(*reinterpret_cast<ITrErrHandler*>(stmt.get())); break;
 		case ITrStmtKind::CompCond: Visit(*reinterpret_cast<ITrCompCond*>(stmt.get())); break;
 		case ITrStmtKind::LocalDecl: Visit(*reinterpret_cast<ITrLocalVar*>(stmt.get())); break;
 		default: ;
@@ -721,6 +722,16 @@ namespace Noctis
 		Visit(body);
 	}
 
+
+	void ITrVisitor::Walk(ITrErrHandler& node)
+	{
+		Visit(*node.errType);
+
+		ITrBodySPtr body = m_pMod->GetBody(node);
+		Visit(body);
+	}
+
+
 	void ITrVisitor::Walk(ITrBlock& node)
 	{
 		for (ITrStmtSPtr stmt : node.stmts)
@@ -797,12 +808,6 @@ namespace Noctis
 	void ITrVisitor::Walk(ITrUnsafe& node)
 	{
 		Visit(*node.block);
-	}
-
-	void ITrVisitor::Walk(ITrErrHandler& node)
-	{
-		for (ITrStmtSPtr stmt : node.stmts)
-			Visit(stmt);
 	}
 
 	void ITrVisitor::Walk(ITrCompCond& node)

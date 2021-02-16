@@ -28,21 +28,26 @@ namespace Noctis
 			StdVector<StdString> scopeNames{};
 			for (ITrParamSPtr param : node.params)
 			{
-				TypeInfo typeInfo = { param->type->handle };
-				if (!m_FuncCtx->genAssocs.empty())
-				{
-					TypeSPtr type = typeInfo.handle.Type();
-					
-					if (type->typeKind == TypeKind::Generic)
-					{
-						StdString name = type->AsGeneric().iden->Name();
-						auto it = m_FuncCtx->genAssocs.find(name);
-						if (it != m_FuncCtx->genAssocs.end())
-							typeInfo.genInfo = it->second;
-					}
-				}
-				
-				LocalVarDataSPtr var{ new LocalVarData{ param->iden, typeInfo, true } };
+				LocalVarDataSPtr var{ new LocalVarData{ param->iden, param->type->handle, true } };
+				m_FuncCtx->localVars.AddLocalVarDeclSPtr(m_ScopeNames, var);
+			}
+
+			for (ITrStmtSPtr stmt : body->stmts)
+			{
+				ITrVisitor::Visit(stmt);
+			}
+		});
+
+		Foreach(ITrVisitorDefKind::Any, [&, this](ITrErrHandler& node)
+		{
+			m_FuncCtx = node.ctx;
+			ITrBodySPtr body = mod.GetBody(node);
+			if (!body)
+				return;
+
+			StdVector<StdString> scopeNames{};
+			{
+				LocalVarDataSPtr var{ new LocalVarData{ Iden::Create(node.errIden), {}, true } };
 				m_FuncCtx->localVars.AddLocalVarDeclSPtr(m_ScopeNames, var);
 			}
 
@@ -93,5 +98,24 @@ namespace Noctis
 			LocalVarDataSPtr var{ new LocalVarData{ iden } };
 			m_FuncCtx->localVars.AddLocalVarDeclSPtr(m_ScopeNames, var);
 		}
+	}
+
+	ErrorHandlerCollectionPass::ErrorHandlerCollectionPass(Context* pCtx)
+		: ITrSemanticPass("Error Handler Collection Pass", pCtx)
+	{
+	}
+
+	void ErrorHandlerCollectionPass::Process(ITrModule& mod)
+	{
+		SetModule(mod);
+
+		Foreach(ITrVisitorDefKind::Any, [&](ITrStruct& node)
+		{
+			Walk(node);
+		});
+	}
+
+	void ErrorHandlerCollectionPass::Visit(ITrErrHandler& node)
+	{
 	}
 }

@@ -11,24 +11,30 @@ namespace Noctis
 {
 
 #pragma pack(push, 1)
-	struct ModuleHeader
+	struct ModuleHeaderFields
 	{
 		char magic[4];
 		u8 version;
 		u8 reserved[3];
 		u64 size;
 		u32 idenSize;
-
-		u8 numSections;
+		u32 importsSize;
 	};
 #pragma pack(pop)
+
+	struct ModuleHeader
+	{
+		ModuleHeaderFields fields;
+		StdVector<QualNameSPtr> imports;
+		u8 numSections;
+	};
 
 	struct ModuleEncodeInfo
 	{
 		StdVector<StdString> names;
 		StdUnorderedMap<StdString, u32> nameIdMapping;
 		
-		StdUnorderedMap<StdString, QualNameSPtr> toQualNameMapping;
+		StdUnorderedMap<StdString, StdPair<QualNameSPtr, BoundsInfo>> toQualNameMapping;
 		StdUnorderedMap<QualNameSPtr, StdString> fromQualNameMapping;
 		
 		StdUnorderedMap<StdString, TypeHandle> toTypeMapping;
@@ -40,8 +46,8 @@ namespace Noctis
 		u32 GetOrAddName(const StdString& name);
 		u32 GetNameId(const StdString& name);
 
-		QualNameSPtr GetQualNameFromId(Context* pCtx, u32 id);
-		u32 GetOrAddQualName(Context* pCtx, QualNameSPtr qualName);
+		QualNameSPtr GetQualNameFromId(Context* pCtx, u32 id, BoundsInfo* pBoundsInfo);
+		u32 GetOrAddQualName(Context* pCtx, QualNameSPtr qualName, BoundsInfo* pBoundsInfo);
 		u32 GetQualNameId(QualNameSPtr qualName);
 
 		TypeHandle GetTypeFromId(Context* pCtx, u32 id);

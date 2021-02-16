@@ -35,22 +35,27 @@ namespace Noctis
 		return 0;
 	}
 
-	QualNameSPtr ModuleEncodeInfo::GetQualNameFromId(Context* pCtx, u32 id)
+	QualNameSPtr ModuleEncodeInfo::GetQualNameFromId(Context* pCtx, u32 id, BoundsInfo* pBoundsInfo)
 	{
 		assert(id < names.size());
 		const StdString& name = names[id];
 
 		auto it = toQualNameMapping.find(name);
 		if (it != toQualNameMapping.end())
-			return it->second;
+		{
+			StdPair<QualNameSPtr, BoundsInfo> pair = it->second;
+			if (pBoundsInfo)
+				pBoundsInfo->Merge(pair.second);
+			return pair.first;
+		}
 
-		QualNameSPtr qualName = NameMangling::DemangleQualName(pCtx, name);
+		QualNameSPtr qualName = NameMangling::DemangleQualName(pCtx, name, pBoundsInfo);
 		fromQualNameMapping.try_emplace(qualName, name);
-		toQualNameMapping.try_emplace(name, qualName);
+		toQualNameMapping.try_emplace(name, std::pair{ qualName, pBoundsInfo  ? *pBoundsInfo : BoundsInfo{} });
 		return qualName;
 	}
 
-	u32 ModuleEncodeInfo::GetOrAddQualName(Context* pCtx, QualNameSPtr qualName)
+	u32 ModuleEncodeInfo::GetOrAddQualName(Context* pCtx, QualNameSPtr qualName, BoundsInfo* pBoundsInfo)
 	{
 		StdString name;
 		auto it = fromQualNameMapping.find(qualName);
@@ -60,9 +65,9 @@ namespace Noctis
 		}
 		else
 		{
-			name = NameMangling::Mangle(pCtx, qualName);
+			name = NameMangling::Mangle(pCtx, qualName, pBoundsInfo);
 			fromQualNameMapping.try_emplace(qualName, name);
-			toQualNameMapping.try_emplace(name, qualName);
+			toQualNameMapping.try_emplace(name, std::pair{ qualName, *pBoundsInfo });
 		}
 		return GetOrAddName(name);
 	}
@@ -115,6 +120,6 @@ namespace Noctis
 		, isImported(false)
 		, dependencyGraph(pCtx)
 	{
-		memset(&header, 0, sizeof(ModuleHeader));
+		memset(&header.fields, 0, sizeof(ModuleHeaderFields));
 	}
 }

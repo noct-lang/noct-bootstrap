@@ -51,7 +51,7 @@ namespace Noctis
 		void Visit(AstDeferStmt& node) override;
 		void Visit(AstErrDeferStmt& node) override;
 		void Visit(AstUnsafeStmt& node) override;
-		void Visit(AstErrorHandlerStmt& node) override;
+		void Visit(AstErrHandler& node) override;
 		void Visit(AstCompIfStmt& node) override;
 		void Visit(AstCompCondStmt& node) override;
 		void Visit(AstCompDebugStmt& node) override;
