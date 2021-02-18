@@ -19,7 +19,7 @@ workspace "Noctis"
     language "C++"
     targetdir "build/bin/"
     includedirs { "src" }
-    flags { "FatalWarnings" }
+    flags { "FatalWarnings", "MultiProcessorCompile" }
 
 filter "Configurations:Debug"
     defines { "_DEBUG" }
