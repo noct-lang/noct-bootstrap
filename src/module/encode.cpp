@@ -965,7 +965,7 @@ namespace Noctis
 			if (it == m_Syms.end())
 				continue;
 
-			it->second->children->AddChild(pair.second);
+			it->second->children->Add(pair.second);
 		}
 
 		for (StdPair<const QualNameSPtr, StdUnorderedMap<QualNameSPtr, SymbolSPtr>>& ifacePair : m_ImplSyms)
@@ -974,7 +974,7 @@ namespace Noctis
 			{
 				QualNameSPtr parentName = pair.first->Base();
 				SymbolSPtr parent = GetSymbol(parentName);
-				parent->children->AddChild(pair.second, ifacePair.first);
+				parent->children->Add(pair.second, ifacePair.first);
 			}
 		}
 	}

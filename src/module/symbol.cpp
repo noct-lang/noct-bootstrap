@@ -329,11 +329,12 @@ namespace Noctis
 		if (!instantiations.empty())
 		{
 			printIndent(indent + 1);
-			g_Logger.Log("(variants)\n");
+			g_Logger.Log("(instantiations)\n");
 			for (SymbolInstSPtr inst : instantiations)
 			{
+				printIndent(indent + 2);
 				StdString instName = inst->qualName->ToString();
-				g_Logger.Log("(instantiation '%s')\n", instName.c_str());
+				g_Logger.Log("(inst '%s')\n", instName.c_str());
 			}
 		}
 
@@ -369,7 +370,7 @@ namespace Noctis
 		SymbolSPtr res{ new Symbol{ pCtx, kind, qualName } };
 		children->Foreach([&res](SymbolSPtr child, QualNameSPtr interfaceName)
 		{
-			res->children->AddChild(child, interfaceName);
+			res->children->Add(child, interfaceName);
 		});
 
 		res->qualName = qualName;
@@ -443,8 +444,7 @@ namespace Noctis
 	}
 
 	SymbolSubTable::SymbolSubTable(Context* pCtx)
-		: m_SubTable(new ScopedSymbolTable{ pCtx })
-		, m_pCtx(pCtx)
+		: m_pCtx(pCtx)
 	{
 	}
 
@@ -453,31 +453,25 @@ namespace Noctis
 		m_Parent = parent;
 	}
 
-	bool SymbolSubTable::Add(QualNameSPtr interfaceQualName, SymbolSPtr sym, usize idenIdx)
+	bool SymbolSubTable::Add(SymbolSPtr sym, QualNameSPtr interfaceQualName)
 	{
 		sym->parent = m_Parent;
 		if (interfaceQualName)
 		{
 			// Further overlapping is processed later on, after generic value parameters and types are processed
-			for (StdPair<QualNameSPtr, ScopedSymbolTableSPtr> pair : m_ImplSubtables)
+			for (StdPair<const QualNameSPtr, StdUnorderedMap<StdString, SymbolSPtr>>& pair : m_ImplSubtables)
 			{
 				if (pair.first == interfaceQualName)
-					return pair.second->Add(sym, idenIdx);
+					return pair.second.try_emplace(sym->qualName->LastIden(), sym).second;
 			}
 
-			auto it = m_ImplSubtables.try_emplace(interfaceQualName, ScopedSymbolTableSPtr{ new ScopedSymbolTable{ m_pCtx } }).first;
-			return it->second->Add(sym, idenIdx);
+			auto it = m_ImplSubtables.try_emplace(interfaceQualName, StdUnorderedMap<StdString, SymbolSPtr>{}).first;
+			return it->second.try_emplace(sym->qualName->LastIden(), sym).second;
 		}
 		else
 		{
-			return m_SubTable->Add(sym, idenIdx);
+			return m_Symbols.try_emplace(sym->qualName->LastIden(), sym).second;
 		}
-	}
-
-	bool SymbolSubTable::AddChild(SymbolSPtr sym, QualNameSPtr interfaceQualName)
-	{
-		sym->parent = m_Parent;
-		return Add(interfaceQualName, sym, sym->qualName->Idens().size() - 1);
 	}
 
 	SymbolSPtr SymbolSubTable::Find(QualNameSPtr qualName, usize idenIdx, QualNameSPtr interfaceName)
@@ -486,20 +480,25 @@ namespace Noctis
 		{
 			auto it = m_ImplSubtables.find(interfaceName);
 			if (it == m_ImplSubtables.end())
-				return nullptr; 
-			return it->second->Find(qualName, idenIdx);
+				return nullptr;
+
+			auto subIt = it->second.find(qualName->LastIden());
+			if (subIt == it->second.end())
+				return nullptr;
+			return subIt->second;
 		}
 
-		SymbolSPtr sym = m_SubTable->Find(qualName, idenIdx);
-		if (sym)
-			return sym;
+		auto symIt = m_Symbols.find(qualName->LastIden());
+		if (symIt != m_Symbols.end())
+			return symIt->second;
 
-		for (StdPair<QualNameSPtr, ScopedSymbolTableSPtr> implSymbol : m_ImplSubtables)
+		SymbolSPtr sym;
+		for (StdPair<const QualNameSPtr, StdUnorderedMap<StdString, SymbolSPtr>>& implSymbol : m_ImplSubtables)
 		{
-			SymbolSPtr tmp = implSymbol.second->Find(qualName, idenIdx);
-
-			if (tmp)
+			auto it = implSymbol.second.find(qualName->LastIden());
+			if (it != implSymbol.second.end())
 			{
+				SymbolSPtr tmp = it->second;
 				if (sym && sym != tmp)
 				{
 					// TODO: what symbol is ambiguous?
@@ -509,100 +508,102 @@ namespace Noctis
 				sym = tmp;
 			}
 		}
-
 		return sym;
 	}
 
 	SymbolSPtr SymbolSubTable::FindChild(QualNameSPtr implQualName, const StdString& iden)
 	{
-		ScopedSymbolTableSPtr subTable;
 		if (implQualName)
 		{
 			auto it = m_ImplSubtables.find(implQualName);
 			if (it == m_ImplSubtables.end())
 				return nullptr;
-			subTable = it->second;
-		}
-		else
-		{
-			subTable = m_SubTable;
-		}
-		return subTable->Find(QualName::Create(iden), 0);
-	}
 
-	void SymbolSubTable::RemoveChild(SymbolSPtr sym)
-	{
-		m_SubTable->RemoveFromCur(sym);
+			auto subIt = it->second.find(iden);
+			if (subIt == it->second.end())
+				return nullptr;
+			return subIt->second;
+		}
+
+		auto it = m_Symbols.find(iden);
+		if (it != m_Symbols.end())
+			return it->second;
+		return nullptr;
 	}
 
 	void SymbolSubTable::Foreach(const std::function<void(SymbolSPtr, QualNameSPtr)>& lambda)
 	{
-		m_SubTable->Foreach(lambda, nullptr);
-		for (StdPair<const QualNameSPtr, ScopedSymbolTableSPtr>& pair : m_ImplSubtables)
+		for (StdPair<const StdString, SymbolSPtr>& pair : m_Symbols)
 		{
-			pair.second->Foreach(lambda, pair.first);
+			lambda(pair.second, nullptr);
 		}
-	}
-
-	void SymbolSubTable::Foreach(const std::function<void(SymbolInstSPtr, QualNameSPtr)>& lambda)
-	{
-		m_SubTable->Foreach(lambda, nullptr);
-		for (StdPair<const QualNameSPtr, ScopedSymbolTableSPtr>& pair : m_ImplSubtables)
+		
+		for (StdPair<const QualNameSPtr, StdUnorderedMap<StdString, SymbolSPtr>>& pair : m_ImplSubtables)
 		{
-			pair.second->Foreach(lambda, pair.first);
+			for (StdPair<const StdString, SymbolSPtr>& subPair : pair.second)
+			{
+				lambda(subPair.second, pair.first);
+			}
 		}
 	}
 
 	void SymbolSubTable::Merge(SymbolSubTableSPtr from)
 	{
-		m_SubTable->Merge(from->m_SubTable);
-
-		for (StdPair<const QualNameSPtr, ScopedSymbolTableSPtr> fromPair : from->m_ImplSubtables)
+		for (StdPair<const StdString, SymbolSPtr>& pair : from->m_Symbols)
 		{
-			bool merged = false;
-			for (StdPair<const QualNameSPtr, ScopedSymbolTableSPtr> pair : m_ImplSubtables)
-			{
-				if (fromPair.first != pair.first)
-					continue;
-				
-				pair.second->Merge(fromPair.second);
-				merged = true;
-				break;
-			}
-			if (merged)
-				continue;
+			m_Symbols.try_emplace(pair.first, pair.second);
+		}
 
-			auto it = m_ImplSubtables.try_emplace(fromPair.first, new ScopedSymbolTable{ m_pCtx }).first;
-			it->second->Merge(fromPair.second);
+		for (StdPair<const QualNameSPtr, StdUnorderedMap<StdString, SymbolSPtr>>& fromPair : from->m_ImplSubtables)
+		{
+			auto it = m_ImplSubtables.find(fromPair.first);
+			if (it == m_ImplSubtables.end())
+				it = m_ImplSubtables.try_emplace(fromPair.first, StdUnorderedMap<StdString, SymbolSPtr>{}).first;
+
+			for (StdPair<const StdString, SymbolSPtr>& fromImpl : fromPair.second)
+			{
+				it->second.try_emplace(fromImpl.first, fromImpl.second);
+			}
 		}
 	}
 
 	bool SymbolSubTable::Empty() const
 	{
-		return m_SubTable->Empty() && m_ImplSubtables.empty();
+		return m_Symbols.empty() && m_ImplSubtables.empty();
 	}
 
 	void SymbolSubTable::UpdateImplSubTableKey(QualNameSPtr oldKey, QualNameSPtr newKey)
 	{
+		if (oldKey == newKey)
+			return;
+		
 		auto it = m_ImplSubtables.find(oldKey);
 		if (it == m_ImplSubtables.end())
 			return;
 
-		ScopedSymbolTableSPtr tmp = it->second;
+		StdUnorderedMap<StdString, SymbolSPtr> tmp = std::move(it->second);
 		m_ImplSubtables.erase(it);
-		m_ImplSubtables.try_emplace(newKey, tmp);
+		m_ImplSubtables.try_emplace(newKey, std::move(tmp));
 	}
 
 	void SymbolSubTable::Log(u8 indent, bool includeImports)
 	{
-		m_SubTable->Log(indent, includeImports);
-		for (StdPair<QualNameSPtr, ScopedSymbolTableSPtr> pair : m_ImplSubtables)
+		for (StdPair<const StdString, SymbolSPtr>& pair : m_Symbols)
+		{
+			pair.second->Log(indent, includeImports);
+		}
+		
+		for (StdPair<const QualNameSPtr, StdUnorderedMap<StdString, SymbolSPtr>>& pair : m_ImplSubtables)
 		{
 			for (u8 i = 1; i < indent; ++i)
 				g_Logger.Log(" |");
 			StdString implName = pair.first->ToString();
 			g_Logger.Log(" +(impl for '%s')\n", implName.c_str());
-			pair.second->Log(indent + 1, includeImports);
+
+			for (StdPair<const StdString, SymbolSPtr>& subPair : pair.second)
+			{
+				subPair.second->Log(indent + 1, includeImports);
+			}
 		}
 	}
 
@@ -802,17 +803,8 @@ namespace Noctis
 				
 				SymbolSPtr sym = typeSymbol.second;
 				SymbolSubTableSPtr symChildren = sym->children;
-				
-				itChildren->m_SubTable->Merge(sym->children->m_SubTable);
 
-				for (StdPair<const QualNameSPtr, ScopedSymbolTableSPtr>& implSubtable : symChildren->m_ImplSubtables)
-				{
-					auto subIt = itChildren->m_ImplSubtables.find(implSubtable.first);
-					if (subIt == itChildren->m_ImplSubtables.end())
-						subIt = itChildren->m_ImplSubtables.try_emplace(implSubtable.first, new ScopedSymbolTable{ m_pCtx }).first;
-
-					subIt->second->Merge(implSubtable.second);
-				}
+				itChildren->Merge(sym->children);
 
 				if (!sym->impls.empty())
 				{
@@ -839,16 +831,6 @@ namespace Noctis
 		for (StdPair<const TypeSPtr, SymbolSPtr>& pair : m_TypeSymbols)
 		{
 			lambda(pair.second, nullptr);
-			pair.second->children->Foreach(lambda);
-		}
-	}
-
-	void ModuleSymbolTable::Foreach(const std::function<void(SymbolInstSPtr, QualNameSPtr)>& lambda)
-	{
-		m_ScopedTable->Foreach(lambda, nullptr);
-		for (StdPair<const TypeSPtr, SymbolSPtr>& pair : m_TypeSymbols)
-		{
-			lambda(pair.second->baseInst, nullptr);
 			pair.second->children->Foreach(lambda);
 		}
 	}
@@ -886,7 +868,7 @@ namespace Noctis
 			if (symIt != m_Symbols.end())
 			{
 				sym->parent = symIt->second;
-				return symIt->second->children->Add(nullptr, sym, idenIdx + 1);
+				return symIt->second->children->Add(sym, nullptr);
 			}
 
 			auto scopeIt = m_SubTables.find(iden);
@@ -964,24 +946,6 @@ namespace Noctis
 		for (StdPair<const StdString, SymbolSPtr>& pair : m_Symbols)
 		{
 			lambda(pair.second, iface);
-			pair.second->children->Foreach(lambda);
-		}
-
-		for (StdPair<const StdString, ScopedSymbolTableSPtr>& pair : m_SubTables)
-		{
-			pair.second->Foreach(lambda, nullptr);
-		}
-	}
-
-	void ScopedSymbolTable::Foreach(const std::function<void(SymbolInstSPtr, QualNameSPtr)>& lambda, QualNameSPtr iface)
-	{
-		for (StdPair<const StdString, SymbolSPtr>& pair : m_Symbols)
-		{
-			lambda(pair.second->baseInst, iface);
-			for (SymbolInstSPtr inst : pair.second->instantiations)
-			{
-				lambda(inst, iface);
-			}
 			pair.second->children->Foreach(lambda);
 		}
 

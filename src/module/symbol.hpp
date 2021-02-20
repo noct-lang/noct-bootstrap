@@ -140,16 +140,12 @@
 		SymbolSubTable(Context* pCtx);
 		void SetParent(SymbolWPtr parent);
 
-		bool Add(QualNameSPtr interfaceQualName, SymbolSPtr sym, usize idenIdx);
-		bool AddChild(SymbolSPtr sym, QualNameSPtr interfaceQualName = nullptr);
+		bool Add(SymbolSPtr sym, QualNameSPtr interfaceQualName = nullptr);
 
 		SymbolSPtr Find(QualNameSPtr qualName, usize idenIdx, QualNameSPtr interfaceName);
 		SymbolSPtr FindChild(QualNameSPtr implQualName, const StdString& iden);
 
-		void RemoveChild(SymbolSPtr sym);
-
 		void Foreach(const std::function<void(SymbolSPtr, QualNameSPtr)>& lambda);
-		void Foreach(const std::function<void(SymbolInstSPtr, QualNameSPtr)>& lambda);
 
 		void Merge(SymbolSubTableSPtr from);
 		
@@ -162,9 +158,8 @@
 	private:
 		friend class ModuleSymbolTable;
 
-		// TODO: replace ScopedSymbolTableSPtr with StdUnorderedMap<StdString, SymbolSPtr> when GenVal kind is removed
-		ScopedSymbolTableSPtr m_SubTable;
-		StdUnorderedMap<QualNameSPtr, ScopedSymbolTableSPtr> m_ImplSubtables;
+		StdUnorderedMap<StdString, SymbolSPtr> m_Symbols;
+		StdUnorderedMap<QualNameSPtr, StdUnorderedMap<StdString, SymbolSPtr>> m_ImplSubtables;
 
 		Context* m_pCtx;
 		SymbolWPtr m_Parent;
@@ -194,7 +189,6 @@
 		void AddImport(QualNameSPtr qualName);
 
 		void Foreach(const std::function<void(SymbolSPtr, QualNameSPtr)>& lambda);
-		void Foreach(const std::function<void(SymbolInstSPtr, QualNameSPtr)>& lambda);
 
 		void Log(bool includeImports);
 		
@@ -223,7 +217,6 @@
 		SymbolSPtr Find(QualNameSPtr qualName, usize idenIdx);
 
 		void Foreach(const std::function<void(SymbolSPtr, QualNameSPtr)>& lambda, QualNameSPtr iface);
-		void Foreach(const std::function<void(SymbolInstSPtr, QualNameSPtr)>& lambda, QualNameSPtr iface);
 
 		void Merge(ScopedSymbolTableSPtr src);
 

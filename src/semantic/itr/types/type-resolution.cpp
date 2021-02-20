@@ -78,7 +78,7 @@ namespace Noctis
 					{
 						QualNameSPtr childQualName = sym->qualName->Append(parentIfaceChild->qualName->LastIden());
 						child = CreateSymbol(m_pCtx, parentIfaceChild->kind, childQualName);
-						sym->children->AddChild(child, pair.first);
+						sym->children->Add(child, pair.first);
 
 						ITrFunc& func = static_cast<ITrFunc&>(*parentIfaceChild->associatedITr.lock());
 						StdVector<ITrParamSPtr> params = func.params;

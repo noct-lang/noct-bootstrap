@@ -19,7 +19,7 @@ namespace Noctis
 	void TypeCollectionCommon::Visit(ITrStruct& node)
 	{
 		SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::Struct, node.qualName, node.ptr);
-		m_Syms.top()->children->AddChild(sym);
+		m_Syms.top()->children->Add(sym);
 		m_Syms.push(sym);
 		
 		ITrBodySPtr body = m_pMod->GetBody(node);
@@ -34,7 +34,7 @@ namespace Noctis
 	void TypeCollectionCommon::Visit(ITrUnion& node)
 	{
 		SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::Union, node.qualName, node.ptr);
-		m_Syms.top()->children->AddChild(sym);
+		m_Syms.top()->children->Add(sym);
 		m_Syms.push(sym);
 
 		ITrBodySPtr body = m_pMod->GetBody(node);
@@ -49,7 +49,7 @@ namespace Noctis
 	void TypeCollectionCommon::Visit(ITrValEnum& node)
 	{
 		SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::ValEnum, node.qualName, node.ptr);
-		m_Syms.top()->children->AddChild(sym);
+		m_Syms.top()->children->Add(sym);
 		m_Syms.push(sym);
 
 		ITrBodySPtr body = m_pMod->GetBody(node);
@@ -64,13 +64,13 @@ namespace Noctis
 	void TypeCollectionCommon::Visit(ITrValEnumMember& node)
 	{
 		SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::ValEnumMember, node.qualName, node.ptr);
-		m_Syms.top()->children->AddChild(sym);
+		m_Syms.top()->children->Add(sym);
 	}
 
 	void TypeCollectionCommon::Visit(ITrAdtEnum& node)
 	{
 		SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::AdtEnum, node.qualName, node.ptr);
-		m_Syms.top()->children->AddChild(sym);
+		m_Syms.top()->children->Add(sym);
 		m_Syms.push(sym);
 
 		ITrBodySPtr body = m_pMod->GetBody(node);
@@ -85,7 +85,7 @@ namespace Noctis
 	void TypeCollectionCommon::Visit(ITrAdtEnumMember& node)
 	{
 		SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::AdtEnumMember, node.qualName, node.ptr);
-		m_Syms.top()->children->AddChild(sym);
+		m_Syms.top()->children->Add(sym);
 
 		if (node.type)
 			sym->type = node.type->handle;
@@ -103,20 +103,20 @@ namespace Noctis
 		if (m_InInterface)
 		{
 			SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::AssocType, node.qualName, node.ptr);
-			m_Syms.top()->children->AddChild(sym);
+			m_Syms.top()->children->Add(sym);
 		}
 		else
 		{
 			SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::Typealias, node.qualName, node.ptr);
 			if (!HandleImpls(sym))
-				m_Syms.top()->children->AddChild(sym);
+				m_Syms.top()->children->Add(sym);
 		}
 	}
 
 	void TypeCollectionCommon::Visit(ITrTypedef& node)
 	{
 		SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::Typedef, node.qualName, node.ptr);
-		m_Syms.top()->children->AddChild(sym);
+		m_Syms.top()->children->Add(sym);
 	}
 
 	void TypeCollectionCommon::Visit(ITrFunc& node)
@@ -144,7 +144,7 @@ namespace Noctis
 
 		SymbolSPtr sym = CreateSymbol(m_pCtx, kind, qualName, node.ptr);
 		if (!HandleImpls(sym))
-			m_Syms.top()->children->AddChild(sym);
+			m_Syms.top()->children->Add(sym);
 
 		node.selfType = m_ImplType;
 	}
@@ -158,7 +158,7 @@ namespace Noctis
 		SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::Var, node.qualName, node.ptr);
 		sym->type = node.type->handle;
 
-		parent->children->AddChild(sym);
+		parent->children->Add(sym);
 		parent->orderedVarChildren.push_back(sym);
 	}
 
@@ -493,7 +493,7 @@ namespace Noctis
 			{
 				AddUniquePair(sym->impls, { child }, { inst });
 				AddUnique(sym->ifaces, { inst });
-				m_ImplSymbol->children->AddChild(sym, qualName);
+				m_ImplSymbol->children->Add(sym, qualName);
 				res = true;
 
 				// Remove from needed children
