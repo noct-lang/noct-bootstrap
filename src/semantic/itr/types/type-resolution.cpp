@@ -10,8 +10,8 @@
 
 namespace Noctis
 {
-	TypealiasReplacing::TypealiasReplacing(Context* pCtx)
-		: ITrSemanticPass("typealias replacement", pCtx)
+	TypealiasReplacing::TypealiasReplacing()
+		: ITrSemanticPass("typealias replacement")
 	{
 	}
 
@@ -25,12 +25,12 @@ namespace Noctis
 				return;
 			TypeHandle alias = node.sym.lock()->type;
 			TypeHandle handle = node.type->handle;
-			m_pCtx->typeReg.SetAliasType(alias, handle);
+			g_Ctx.typeReg.SetAliasType(alias, handle);
 		});
 	}
 
-	InterfaceResolve::InterfaceResolve(Context* pCtx)
-		: ITrSemanticPass("interface resolve pass", pCtx)
+	InterfaceResolve::InterfaceResolve()
+		: ITrSemanticPass("interface resolve pass")
 	{
 		m_VisitDefs = true;
 	}
@@ -39,7 +39,7 @@ namespace Noctis
 	{
 		SetModule(mod);
 
-		ModuleSymbolTable& symTable = m_pCtx->activeModule->symTable;
+		ModuleSymbolTable& symTable = g_Ctx.activeModule->symTable;
 		
 		Foreach(ITrVisitorDefKind::Any, [&, this](ITrStrongInterface& node)
 		{
@@ -77,7 +77,7 @@ namespace Noctis
 					if (!child)
 					{
 						QualNameSPtr childQualName = sym->qualName->Append(parentIfaceChild->qualName->LastIden());
-						child = CreateSymbol(m_pCtx, parentIfaceChild->kind, childQualName);
+						child = CreateSymbol(parentIfaceChild->kind, childQualName);
 						sym->children->Add(child, pair.first);
 
 						ITrFunc& func = static_cast<ITrFunc&>(*parentIfaceChild->associatedITr.lock());

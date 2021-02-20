@@ -7,8 +7,8 @@
 
 namespace Noctis
 {
-	DeclMacroContextGen::DeclMacroContextGen(Context* pCtx)
-		: AstSemanticPass("decl macro context gen", pCtx)
+	DeclMacroContextGen::DeclMacroContextGen()
+		: AstSemanticPass("decl macro context gen")
 	{
 	}
 
@@ -19,11 +19,11 @@ namespace Noctis
 		case AstDeclKind::DeclMacro:
 		{
 			AstDeclMacroSPtr macroNode = *reinterpret_cast<AstDeclMacroSPtr*>(&node);
-			bool res = m_pCtx->activeModule->macroCtx.AddMacro(macroNode->ctx->scope, macroNode->ctx->qualName->LastIden(), macroNode);
+			bool res = g_Ctx.activeModule->macroCtx.AddMacro(macroNode->ctx->scope, macroNode->ctx->qualName->LastIden(), macroNode);
 
 			if (!res)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(node->ctx->startIdx);
+				Span span = g_Ctx.spanManager.GetSpan(node->ctx->startIdx);
 				QualNameSPtr qualName = node->ctx->scope->Append(node->ctx->qualName->LastIden());
 				StdString qualNameStr = qualName->ToString();
 				const char* pQualNameStr = qualNameStr.c_str();

@@ -7,7 +7,7 @@ namespace Noctis
 	class IdenScopePass : public AstSemanticPass
 	{
 	public:
-		IdenScopePass(Context* pCtx);
+		IdenScopePass();
 
 		void Process(AstTree& tree) override;
 

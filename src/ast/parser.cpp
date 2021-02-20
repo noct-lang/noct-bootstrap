@@ -7,10 +7,9 @@
 
 namespace Noctis
 {
-	Parser::Parser(const StdVector<Token>& tokens, Context* pCtx)
+	Parser::Parser(const StdVector<Token>& tokens)
 		: m_Tokens(tokens)
 		, m_TokIdx(0)
-		, m_pCtx(pCtx)
 		, m_pMacroSolver(nullptr)
 		, m_AllowAggrInit(true)
 	{
@@ -243,7 +242,7 @@ namespace Noctis
 					isValue = true;
 					if (isAdt)
 					{
-						Span span = m_pCtx->spanManager.GetSpan(expr->ctx->startIdx - 1);
+						Span span = g_Ctx.spanManager.GetSpan(expr->ctx->startIdx - 1);
 						g_ErrorSystem.Error(span, "Cannot assign a value to a member of an ADT enum");
 						expr = nullptr;
 						isValue = false;
@@ -257,7 +256,7 @@ namespace Noctis
 					isAdt = true;
 					if (isValue)
 					{
-						Span span = m_pCtx->spanManager.GetSpan(type->ctx->startIdx - 1);
+						Span span = g_Ctx.spanManager.GetSpan(type->ctx->startIdx - 1);
 						g_ErrorSystem.Error(span, "Cannot add a type to a member of a value enum");
 						isAdt = false;
 					}
@@ -504,7 +503,7 @@ namespace Noctis
 		{
 			if (whereClause)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(whereClause->ctx->startIdx);
+				Span span = g_Ctx.spanManager.GetSpan(whereClause->ctx->startIdx);
 				g_ErrorSystem.Error(span, "An empty method declaration cannot have a where clause");
 			}
 
@@ -924,7 +923,7 @@ namespace Noctis
 		
 		StdVector<Token> subToks;
 		tokTree.ToToks(subToks);
-		Parser subParser = Parser{ subToks, m_pCtx };
+		Parser subParser = Parser{ subToks };
 		subParser.SetMacroVarSolver(m_pMacroSolver);
 
 		bool hasLoopedToks = m_pMacroSolver->HasLoopedToks();
@@ -975,7 +974,7 @@ namespace Noctis
 				case MacroVarKind::Expr:
 				{
 					EatToken();
-					elem.Parse(m_pCtx);
+					elem.Parse();
 					return elem.GetExpr();
 				}
 				case MacroVarKind::Toks:
@@ -986,7 +985,7 @@ namespace Noctis
 				}
 				case MacroVarKind::Stmt:
 				{
-					Span span = m_pCtx->spanManager.GetSpan(tok.Idx());
+					Span span = g_Ctx.spanManager.GetSpan(tok.Idx());
 					const char* pName = tok.Text().c_str();
 					g_ErrorSystem.Error(span, "macro variable '$%s' cannot be 'stmt' when an expression is expected", pName);
 					return nullptr;
@@ -1051,7 +1050,7 @@ namespace Noctis
 			{
 				if (!expr)
 				{
-					Span span = m_pCtx->spanManager.GetSpan(tok.Idx());
+					Span span = g_Ctx.spanManager.GetSpan(tok.Idx());
 					const char* pTokName = GetTokenTypeName(tok.Type()).data();
 					g_ErrorSystem.Error(span, "Expected Expression before '%s'", pTokName);
 					EatToken();
@@ -1096,7 +1095,7 @@ namespace Noctis
 			{
 				if (!expr)
 				{
-					Span span = m_pCtx->spanManager.GetSpan(tok.Idx());
+					Span span = g_Ctx.spanManager.GetSpan(tok.Idx());
 					const char* pTokName = GetTokenTypeName(tok.Type()).data();
 					g_ErrorSystem.Error(span, "Expected Expression before '%s'", pTokName);
 					EatToken();
@@ -1109,7 +1108,7 @@ namespace Noctis
 			{
 				if (!expr)
 				{
-					Span span = m_pCtx->spanManager.GetSpan(tok.Idx());
+					Span span = g_Ctx.spanManager.GetSpan(tok.Idx());
 					const char* pTokName = GetTokenTypeName(tok.Type()).data();
 					g_ErrorSystem.Error(span, "Expected Expression before '%s'", pTokName);
 					EatToken();
@@ -1234,7 +1233,7 @@ namespace Noctis
 					}
 					else
 					{
-						Span span = m_pCtx->spanManager.GetSpan(tok.Idx());
+						Span span = g_Ctx.spanManager.GetSpan(tok.Idx());
 						const char* pTokName = GetTokenTypeName(tok.Type()).data();
 						g_ErrorSystem.Error(span, "Expected Expression before '%s'", pTokName);
 						EatToken();
@@ -1254,7 +1253,7 @@ namespace Noctis
 			{
 				if (!prev)
 				{
-					Span span = m_pCtx->spanManager.GetSpan(tok.Idx());
+					Span span = g_Ctx.spanManager.GetSpan(tok.Idx());
 					const char* pTokName = GetTokenTypeName(tok.Type()).data();
 					g_ErrorSystem.Error(span, "Expected Expression before '%s'", pTokName);
 					EatToken();
@@ -1289,7 +1288,7 @@ namespace Noctis
 			{
 				if (prev)
 				{
-					Span span = m_pCtx->spanManager.GetSpan(tok.Idx());
+					Span span = g_Ctx.spanManager.GetSpan(tok.Idx());
 					const char* pTokName = GetTokenTypeName(tok.Type()).data();
 					g_ErrorSystem.Error(span, "Unexpected Expression before '%s'", pTokName);
 					EatToken();
@@ -1311,7 +1310,7 @@ namespace Noctis
 					}
 					else
 					{
-						Span span = m_pCtx->spanManager.GetSpan(tok.Idx());
+						Span span = g_Ctx.spanManager.GetSpan(tok.Idx());
 						const char* pTokName = GetTokenTypeName(tok.Type()).data();
 						g_ErrorSystem.Error(span, "Unexpected Expression before '%s'", pTokName);
 						EatToken();
@@ -1326,7 +1325,7 @@ namespace Noctis
 			{
 				if (!prev)
 				{
-					Span span = m_pCtx->spanManager.GetSpan(tok.Idx());
+					Span span = g_Ctx.spanManager.GetSpan(tok.Idx());
 					const char* pTokName = GetTokenTypeName(tok.Type()).data();
 					g_ErrorSystem.Error(span, "Unexpected Expression before '%s'", pTokName);
 					EatToken();
@@ -1338,7 +1337,7 @@ namespace Noctis
 			{
 				if (!prev)
 				{
-					Span span = m_pCtx->spanManager.GetSpan(tok.Idx());
+					Span span = g_Ctx.spanManager.GetSpan(tok.Idx());
 					const char* pTokName = GetTokenTypeName(tok.Type()).data();
 					g_ErrorSystem.Error(span, "Unexpected Expression before '%s'", pTokName);
 					EatToken();
@@ -1350,7 +1349,7 @@ namespace Noctis
 			{
 				if (prev)
 				{
-					Span span = m_pCtx->spanManager.GetSpan(tok.Idx());
+					Span span = g_Ctx.spanManager.GetSpan(tok.Idx());
 					const char* pTokName = GetTokenTypeName(tok.Type()).data();
 					g_ErrorSystem.Error(span, "Unexpected Expression before '%s'", pTokName);
 					EatToken();
@@ -1362,7 +1361,7 @@ namespace Noctis
 			{
 				if (prev)
 				{
-					Span span = m_pCtx->spanManager.GetSpan(tok.Idx());
+					Span span = g_Ctx.spanManager.GetSpan(tok.Idx());
 					const char* pTokName = GetTokenTypeName(tok.Type()).data();
 					g_ErrorSystem.Error(span, "Unexpected Expression before '%s'", pTokName);
 					EatToken();
@@ -1377,7 +1376,7 @@ namespace Noctis
 			{
 				if (prev)
 				{
-					Span span = m_pCtx->spanManager.GetSpan(tok.Idx());
+					Span span = g_Ctx.spanManager.GetSpan(tok.Idx());
 					const char* pTokName = GetTokenTypeName(tok.Type()).data();
 					g_ErrorSystem.Error(span, "Unexpected Expression before '%s'", pTokName);
 					EatToken();
@@ -1777,7 +1776,7 @@ namespace Noctis
 		{
 			if (!structKwOptional)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(tok.Idx());
+				Span span = g_Ctx.spanManager.GetSpan(tok.Idx());
 				g_ErrorSystem.Error(span, "Found '{' while parsing type\n");
 				return nullptr;
 			}
@@ -1791,7 +1790,7 @@ namespace Noctis
 			case MacroVarKind::Type:
 			{
 				EatToken();
-				elem.Parse(m_pCtx);
+				elem.Parse();
 				AstTypeSPtr type = elem.GetType();
 				if (attribs)
 				{
@@ -1821,7 +1820,7 @@ namespace Noctis
 			}
 			default:
 			{
-				Span span = m_pCtx->spanManager.GetSpan(tok.Idx());
+				Span span = g_Ctx.spanManager.GetSpan(tok.Idx());
 				const char* pName = tok.Text().c_str();
 				g_ErrorSystem.Error(span, "macro variable '$%s' is not 'type', 'iden', 'qual' or 'toks'", pName);
 				return nullptr;
@@ -1978,7 +1977,7 @@ namespace Noctis
 			{
 			case MacroVarKind::Patr:
 			{
-				elem.Parse(m_pCtx);
+				elem.Parse();
 				pattern = elem.GetPattern();
 				break;
 			}
@@ -1990,7 +1989,7 @@ namespace Noctis
 			}
 			default:
 			{
-				Span span = m_pCtx->spanManager.GetSpan(tok.Idx());
+				Span span = g_Ctx.spanManager.GetSpan(tok.Idx());
 				const char* pName = tok.Text().c_str();
 				g_ErrorSystem.Error(span, "macro variable '$%s' is not 'patr' or 'toks'", pName);
 				return nullptr;
@@ -2094,7 +2093,7 @@ namespace Noctis
 		}
 		default:
 		{
-			Span span = m_pCtx->spanManager.GetSpan(tok.Idx());
+			Span span = g_Ctx.spanManager.GetSpan(tok.Idx());
 			const char* pTokName = GetTokenTypeName(tok.Type()).data();
 			g_ErrorSystem.Error(span, "Unexpected token '%s' during pattern parsing", pTokName);
 			EatToken();
@@ -2309,7 +2308,7 @@ namespace Noctis
 				tok.Text() != "package" &&
 				tok.Text() != "dynlib")
 			{
-				Span span = m_pCtx->spanManager.GetSpan(tok.Idx());
+				Span span = g_Ctx.spanManager.GetSpan(tok.Idx());
 				const char* pFound = tok.Text().c_str();
 				g_ErrorSystem.Error(span, "Found '%', expected 'module', 'package' or 'dynlib'", pFound);
 			}
@@ -2456,7 +2455,7 @@ namespace Noctis
 
 		if (kind == AstMacroVarKind::Unknown)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(typeTok.Idx());
+			Span span = g_Ctx.spanManager.GetSpan(typeTok.Idx());
 			const char* pKind = typeTok.Text().c_str();
 			g_ErrorSystem.Error(span, "Unknown macro variable kind: '%s'", pKind);
 		}
@@ -2526,7 +2525,7 @@ namespace Noctis
 			{
 				if (inFragment)
 				{
-					Span span = m_pCtx->spanManager.GetSpan(PeekToken().Idx());
+					Span span = g_Ctx.spanManager.GetSpan(PeekToken().Idx());
 					g_ErrorSystem.Error(span, "Cannot have nested macro pattern fragments");
 				}
 				else
@@ -2725,7 +2724,7 @@ namespace Noctis
 			case MacroVarKind::Qual:
 			{
 				EatToken();
-				elem.Parse(m_pCtx);
+				elem.Parse();
 				return elem.GetQualName();
 			}
 			case MacroVarKind::Iden:
@@ -2738,7 +2737,7 @@ namespace Noctis
 			}
 			default:
 			{
-				Span span = m_pCtx->spanManager.GetSpan(tok.Idx());
+				Span span = g_Ctx.spanManager.GetSpan(tok.Idx());
 				const char* pName = tok.Text().c_str();
 				g_ErrorSystem.Error(span, "macro variable '$%s' is not 'qual', 'iden' or 'toks'", pName);
 				return nullptr;
@@ -2926,7 +2925,7 @@ namespace Noctis
 			{
 				if (elem.tokTree.subToks.size() != 1)
 				{
-					Span span = m_pCtx->spanManager.GetSpan(tok.Idx());
+					Span span = g_Ctx.spanManager.GetSpan(tok.Idx());
 					const char* pName = tok.Text().c_str();
 					g_ErrorSystem.Error("macro variable '$%s' contains more than 1 token when parsed as identifier");
 					return "";
@@ -2935,7 +2934,7 @@ namespace Noctis
 			}
 			default:
 			{
-				Span span = m_pCtx->spanManager.GetSpan(tok.Idx());
+				Span span = g_Ctx.spanManager.GetSpan(tok.Idx());
 				const char* pName = tok.Text().c_str();
 				g_ErrorSystem.Error(span, "macro variable '$%s' is not 'iden' or 'toks'", pName);
 				return "";
@@ -3047,7 +3046,7 @@ namespace Noctis
 		Token& tok = m_Tokens[m_TokIdx];
 		if (tok.Type() != type)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(m_TokIdx);
+			Span span = g_Ctx.spanManager.GetSpan(m_TokIdx);
 			const char* pFoundName = GetTokenTypeName(tok.Type()).data();
 			const char* pExpectedName = GetTokenTypeName(type).data();
 			g_ErrorSystem.Error(span, "Found '%s', expected '%s'", pFoundName, pExpectedName);
@@ -3071,7 +3070,7 @@ namespace Noctis
 		Token& tok = m_Tokens[m_TokIdx];
 		if (tok.Type() != TokenType::Iden || tok.Text() != text)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(m_TokIdx);
+			Span span = g_Ctx.spanManager.GetSpan(m_TokIdx);
 			const char* pFoundName = GetTokenTypeName(tok.Type()).data();
 			const char* pExpectedName = text.data();
 			g_ErrorSystem.Error(span, "Found '%s', expected '%s'", pFoundName, pExpectedName);

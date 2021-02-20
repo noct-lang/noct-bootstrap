@@ -10,7 +10,7 @@ namespace Noctis
 	class ILPrinter : public ILVisitor
 	{
 	public:
-		ILPrinter(Context* pCtx);
+		ILPrinter();
 
 		void Print(ILModule& mod);
 

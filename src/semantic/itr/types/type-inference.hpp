@@ -20,7 +20,7 @@ namespace Noctis
 	class TypeInference : public ITrSemanticPass
 	{
 	public:
-		TypeInference(Context* pCtx, bool prepass);
+		TypeInference(bool prepass);
 
 		void Process(ITrModule& mod) override;
 

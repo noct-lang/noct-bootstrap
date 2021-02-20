@@ -11,7 +11,7 @@ namespace Noctis
 	class Lexer
 	{
 	public:
-		Lexer(Context* pContext);
+		Lexer();
 		
 		void Reset();
 		void Lex(const StdString& filePath, const StdStringView& content);
@@ -42,7 +42,6 @@ namespace Noctis
 		u64 m_Index;
 		u64 m_Line;
 		u64 m_Column;
-		Context* m_pCtx;
 
 		StdString m_FilePath;
 		StdStringView m_Content;

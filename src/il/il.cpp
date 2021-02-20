@@ -442,11 +442,11 @@ namespace Noctis
 	{
 	}
 
-	ILFuncDef::ILFuncDef(Context* pCtx, QualNameSPtr qualName, StdVector<ILGeneric>&& generics)
+	ILFuncDef::ILFuncDef(QualNameSPtr qualName, StdVector<ILGeneric>&& generics)
 		: ILElem(ILKind::FuncDef)
 		, qualName(qualName)
 		, generics(std::move(generics))
-		, graph(pCtx)
+		, graph()
 	{
 	}
 }

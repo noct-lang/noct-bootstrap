@@ -12,7 +12,7 @@ namespace Noctis
 	class NameManglePass : public ITrSemanticPass
 	{
 	public:
-		NameManglePass(Context* pCtx);
+		NameManglePass();
 		
 		void Process(ITrModule& mod) override;
 	};
@@ -20,7 +20,7 @@ namespace Noctis
 	class MarkingPass : public ITrSemanticPass
 	{
 	public:
-		MarkingPass(Context* pCtx);
+		MarkingPass();
 
 		void Process(ITrModule& mod) override;
 
@@ -42,7 +42,7 @@ namespace Noctis
 	class SwitchProcessPass : public ITrSemanticPass
 	{
 	public:
-		SwitchProcessPass(Context* pCtx);
+		SwitchProcessPass();
 
 		void Process(ITrModule& mod) override;
 
@@ -80,7 +80,7 @@ namespace Noctis
 	class CopyCheckPass : public ITrSemanticPass
 	{
 	public:
-		CopyCheckPass(Context* pCtx);
+		CopyCheckPass();
 
 		void Process(ITrModule& mod) override;
 
@@ -95,7 +95,7 @@ namespace Noctis
 	class ErrHandlerCollectionPass : public ITrSemanticPass
 	{
 	public:
-		ErrHandlerCollectionPass(Context* pCtx);
+		ErrHandlerCollectionPass();
 
 		void Process(ITrModule& mod) override;;
 
@@ -108,7 +108,7 @@ namespace Noctis
 	class TryCheckPass : public ITrSemanticPass
 	{
 	public:
-		TryCheckPass(Context* pCtx);
+		TryCheckPass();
 
 		void Process(ITrModule& mod) override;
 

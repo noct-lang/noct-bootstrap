@@ -8,7 +8,7 @@ namespace Noctis
 	class DeclMacroExpansion : public AstSemanticPass
 	{
 	public:
-		DeclMacroExpansion(Context* pCtx);
+		DeclMacroExpansion();
 
 		void Visit(AstMacroInstStmt& node) override;
 		void Visit(AstMacroInstExpr& node) override;

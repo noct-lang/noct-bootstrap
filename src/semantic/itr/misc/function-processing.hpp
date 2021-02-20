@@ -9,7 +9,7 @@ namespace Noctis
 	class LocalVarCollection : public ITrSemanticPass
 	{
 	public:
-		LocalVarCollection(Context* pCtx);
+		LocalVarCollection();
 
 		void Process(ITrModule& mod) override;
 
@@ -28,7 +28,7 @@ namespace Noctis
 	class ErrorHandlerCollectionPass : public ITrSemanticPass
 	{
 	public:
-		ErrorHandlerCollectionPass(Context* pCtx);
+		ErrorHandlerCollectionPass();
 
 		void Process(ITrModule& mod) override;
 

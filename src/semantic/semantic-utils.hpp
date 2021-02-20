@@ -7,6 +7,6 @@ namespace Noctis
 	struct AstTree;
 	struct Context;
 
-	StdUnorderedSet<QualNameSPtr> ExtractImportModules(AstTree& tree, Context* pCtx);
+	StdUnorderedSet<QualNameSPtr> ExtractImportModules(AstTree& tree);
 	
 }

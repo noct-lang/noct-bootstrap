@@ -12,7 +12,7 @@ namespace Noctis
 	class AstSemanticAnalysis
 	{
 	public:
-		AstSemanticAnalysis(Context* pCtx);
+		AstSemanticAnalysis();
 
 		void Run(AstTree& tree);
 
@@ -22,14 +22,13 @@ namespace Noctis
 
 		void Import(QualNameSPtr modQualName);
 		
-		Context* m_pCtx;
 		AstTree* m_pTree;
 	};
 
 	class ITrSemanticAnalysis
 	{
 	public:
-		ITrSemanticAnalysis(Context* pCtx);
+		ITrSemanticAnalysis();
 
 		void Run(ITrModule& mod);
 
@@ -38,7 +37,6 @@ namespace Noctis
 		template<typename T, typename... Args>
 		void RunPass(const Args&... args);
 
-		Context* m_pCtx;
 		ITrModule* m_pMod;
 	};
 }

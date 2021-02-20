@@ -16,7 +16,7 @@ namespace Noctis
 	class TypeCollectionCommon : public ITrSemanticPass
 	{
 	public:
-		TypeCollectionCommon(const char* name, Context* pCtx);
+		TypeCollectionCommon(const char* name);
 
 		void Visit(ITrStruct& node) override;
 		void Visit(ITrUnion& node) override;
@@ -49,7 +49,7 @@ namespace Noctis
 	class TypeCollection : public TypeCollectionCommon
 	{
 	public:
-		TypeCollection(Context* pCtx);
+		TypeCollection();
 
 		void Process(ITrModule& mod) override;
 	};
@@ -57,7 +57,7 @@ namespace Noctis
 	class ImplCollection : public TypeCollectionCommon
 	{
 	public:
-		ImplCollection(Context* pCtx);
+		ImplCollection();
 
 		void Process(ITrModule& mod) override;
 
@@ -77,7 +77,7 @@ namespace Noctis
 	class GenericTypeCollection : public ITrSemanticPass
 	{
 	public:
-		GenericTypeCollection(Context* pCtx);
+		GenericTypeCollection();
 
 		void Process(ITrModule& mod) override;
 

@@ -9,11 +9,10 @@
 
 namespace Noctis
 {
-	Lexer::Lexer(Context* pContext)
+	Lexer::Lexer()
 		: m_Index(0)
 		, m_Line(1)
 		, m_Column(1)
-		, m_pCtx(pContext)
 	{
 	}
 
@@ -32,7 +31,7 @@ namespace Noctis
 		
 		usize size = m_Content.size();
 
-		SpanManager& spanManager = m_pCtx->spanManager;
+		SpanManager& spanManager = g_Ctx.spanManager;
 		
 		while (m_Index < size)
 		{
@@ -662,7 +661,7 @@ namespace Noctis
 			}
 			case '\t':
 			{
-				m_Index += m_pCtx->options.TabWidth();
+				m_Index += g_Ctx.options.TabWidth();
 			}
 			case '\r':
 			{
@@ -770,7 +769,7 @@ namespace Noctis
 			const Token& tok = m_Tokens[i];
 			std::stringstream ss;
 
-			Span span = m_pCtx->spanManager.GetSpan(i);
+			Span span = g_Ctx.spanManager.GetSpan(i);
 
 			ss << '[' << span.line << ':' << span.column << ']';
 			ss << ", ";

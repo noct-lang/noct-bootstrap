@@ -9,8 +9,8 @@
 
 namespace Noctis
 {
-	LocalVarCollection::LocalVarCollection(Context* pCtx)
-		: ITrSemanticPass("local var collection", pCtx)
+	LocalVarCollection::LocalVarCollection()
+		: ITrSemanticPass("local var collection")
 	{
 	}
 
@@ -100,8 +100,8 @@ namespace Noctis
 		}
 	}
 
-	ErrorHandlerCollectionPass::ErrorHandlerCollectionPass(Context* pCtx)
-		: ITrSemanticPass("Error Handler Collection Pass", pCtx)
+	ErrorHandlerCollectionPass::ErrorHandlerCollectionPass()
+		: ITrSemanticPass("Error Handler Collection Pass")
 	{
 	}
 

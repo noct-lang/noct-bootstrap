@@ -25,30 +25,29 @@ namespace Noctis
 	void AstSemanticAnalysis::RunPass()
 	{
 		static_assert(std::is_base_of_v<AstSemanticPass, T>, "");
-		T pass{ m_pCtx };
+		T pass;
 		pass.Process(*m_pTree);
 	}
 	
-	AstSemanticAnalysis::AstSemanticAnalysis(Context* pCtx)
-		: m_pCtx(pCtx)
-		, m_pTree(nullptr)
+	AstSemanticAnalysis::AstSemanticAnalysis()
+		: m_pTree(nullptr)
 	{
 	}
 
 	void AstSemanticAnalysis::Run(AstTree& tree)
 	{
 		g_Logger.Log("-- AST SEMANTIC ANALYSIS (file: %s)\n", tree.filepath.c_str());
-		Timer timer(true);
+		Timer timer{ true };
 		
 		m_pTree = &tree;
 		
 		RunPass<IdenScopePass>();
 
 		{
-			Timer importTimer(true);
+			Timer importTimer{ true };
 			
-			ModuleDecode decode(m_pCtx);
-			StdUnorderedSet<QualNameSPtr> extractedImportMods = ExtractImportModules(tree, m_pCtx);
+			ModuleDecode decode;
+			StdUnorderedSet<QualNameSPtr> extractedImportMods = ExtractImportModules(tree);
 
 			StdStack<QualNameSPtr> toImport;
 			for (QualNameSPtr toImportName : extractedImportMods)
@@ -74,7 +73,7 @@ namespace Noctis
 		// Rerun for names inside expanded macros
 		RunPass<IdenScopePass>();
 
-		if (m_pCtx->options.GetBuildOptions().logAst)
+		if (g_Ctx.options.GetBuildOptions().logAst)
 		{
 			Noctis::AstPrinter printer;
 			printer.Visit(tree);
@@ -88,8 +87,8 @@ namespace Noctis
 
 	void AstSemanticAnalysis::Import(QualNameSPtr modQualName)
 	{
-		auto it = m_pCtx->modules.find(modQualName);
-		if (it == m_pCtx->modules.end())
+		auto it = g_Ctx.modules.find(modQualName);
+		if (it == g_Ctx.modules.end())
 		{
 			StdString modName = modQualName->ToString();
 			StringReplace(modName, "::", ".");
@@ -107,15 +106,15 @@ namespace Noctis
 				Import(subImport);
 			}
 			
-			ModuleDecode decode{ m_pCtx };
+			ModuleDecode decode;
 			decode.Decode(*mod);
 
-			m_pCtx->modules.try_emplace(modQualName, mod);
-			m_pCtx->activeModule->imports.try_emplace(modQualName, mod);
-			m_pCtx->activeModule->symTable.Merge(mod->symTable);
+			g_Ctx.modules.try_emplace(modQualName, mod);
+			g_Ctx.activeModule->imports.try_emplace(modQualName, mod);
+			g_Ctx.activeModule->symTable.Merge(mod->symTable);
 
 			// TODO: only when not a static import
-			m_pCtx->activeModule->symTable.AddImport(modQualName);
+			g_Ctx.activeModule->symTable.AddImport(modQualName);
 		}
 	}
 
@@ -123,14 +122,13 @@ namespace Noctis
 	void ITrSemanticAnalysis::RunPass(const Args&... args)
 	{
 		static_assert(std::is_base_of_v<ITrSemanticPass, T>, "");
-		T pass{ m_pCtx, args... };
+		T pass{ args... };
 		pass.SetModule(*m_pMod);
 		pass.Process(*m_pMod);
 	}
 	
-	ITrSemanticAnalysis::ITrSemanticAnalysis(Context* pCtx)
-		: m_pCtx(pCtx)
-		, m_pMod(nullptr)
+	ITrSemanticAnalysis::ITrSemanticAnalysis()
+		: m_pMod(nullptr)
 	{
 	}
 
@@ -158,8 +156,8 @@ namespace Noctis
 
 		RunPass<MarkingPass>();
 		
-		m_pCtx->activeModule->opTable.Collect(m_pCtx->activeModule->symTable);
-		m_pCtx->typeReg.CalculateSizeAlign();
+		g_Ctx.activeModule->opTable.Collect(g_Ctx.activeModule->symTable);
+		g_Ctx.typeReg.CalculateSizeAlign();
 		
 		RunPass<LocalVarCollection>();
 		

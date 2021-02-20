@@ -4,10 +4,9 @@
 
 namespace Noctis
 {
-	AstSemanticPass::AstSemanticPass(StdStringView pName, Context* pCtx)
+	AstSemanticPass::AstSemanticPass(StdStringView pName)
 		: AstVisitor()
 		, m_Name(pName)
-		, m_pCtx(pCtx)
 		, m_Timer(true)
 	{
 	}
@@ -23,9 +22,8 @@ namespace Noctis
 		Visit(tree);
 	}
 
-	ITrSemanticPass::ITrSemanticPass(StdStringView name, Context* pCtx)
+	ITrSemanticPass::ITrSemanticPass(StdStringView name)
 		: m_Name(name)
-		, m_pCtx(pCtx)
 		, m_Timer(true)
 	{
 	}

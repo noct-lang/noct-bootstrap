@@ -13,8 +13,8 @@
 
 namespace Noctis
 {
-	NameManglePass::NameManglePass(Context* pCtx)
-		: ITrSemanticPass("name mangle pass", pCtx)
+	NameManglePass::NameManglePass()
+		: ITrSemanticPass("name mangle pass")
 	{
 	}
 
@@ -25,12 +25,12 @@ namespace Noctis
 		Foreach(ITrVisitorDefKind::Any, [this](ITrFunc& node)
 		{
 			SymbolSPtr sym = node.sym.lock();
-			sym->mangledName = NameMangling::Mangle(m_pCtx, sym);
+			sym->mangledName = NameMangling::Mangle(sym);
 		});
 	}
 
-	MarkingPass::MarkingPass(Context* pCtx)
-		: ITrSemanticPass("marking pass", pCtx)
+	MarkingPass::MarkingPass()
+		: ITrSemanticPass("marking pass")
 		, m_CompileTimeOnly(false)
 		, m_DependsOnValueGenerics(false)
 	{
@@ -141,8 +141,8 @@ namespace Noctis
 		}
 	}
 
-	SwitchProcessPass::SwitchProcessPass(Context* pCtx)
-		: ITrSemanticPass("switch process pass", pCtx)
+	SwitchProcessPass::SwitchProcessPass()
+		: ITrSemanticPass("switch process pass")
 	{
 	}
 
@@ -437,7 +437,7 @@ namespace Noctis
 
 		if (pattern->patternKind != ITrPatternKind::ValueEnum)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(pattern->startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(pattern->startIdx);
 			g_ErrorSystem.Error(span, "No members are matched");
 			return CreateLeaf(pattern, type, caseId, depth);
 		}
@@ -500,7 +500,7 @@ namespace Noctis
 			{
 				if (foundWildcard)
 				{
-					Span span = m_pCtx->spanManager.GetSpan(subPattern->startIdx);
+					Span span = g_Ctx.spanManager.GetSpan(subPattern->startIdx);
 					g_ErrorSystem.Error(span, "Cannot have more than 1 wildcard in a tuple pattern");
 				}
 				foundWildcard = true;
@@ -615,7 +615,7 @@ namespace Noctis
 			{
 				if (subPattern->patternKind == ITrPatternKind::Wildcard)
 				{
-					Span span = m_pCtx->spanManager.GetSpan(subPattern->startIdx);
+					Span span = g_Ctx.spanManager.GetSpan(subPattern->startIdx);
 					g_ErrorSystem.Error(span, "Cannot have more than 1 wildcard");
 					continue;
 				}
@@ -789,21 +789,21 @@ namespace Noctis
 		case TokenType::F64Lit:
 		case TokenType::F128Lit:
 		{
-			Span span = m_pCtx->spanManager.GetSpan(tok.Idx());
+			Span span = g_Ctx.spanManager.GetSpan(tok.Idx());
 			g_ErrorSystem.Error(span, "float literal patterns are not allowed");
 			return 0;
 		}
 		default:
 		{
-			Span span = m_pCtx->spanManager.GetSpan(tok.Idx());
+			Span span = g_Ctx.spanManager.GetSpan(tok.Idx());
 			g_ErrorSystem.Error(span, "Unknown literal pattern");
 			return 0;
 		}
 		}
 	}
 
-	CopyCheckPass::CopyCheckPass(Context* pCtx)
-		: ITrSemanticPass("Copy Check Pass", pCtx)
+	CopyCheckPass::CopyCheckPass()
+		: ITrSemanticPass("Copy Check Pass")
 		, m_pBoundsInfo(nullptr)
 	{
 	}
@@ -834,7 +834,7 @@ namespace Noctis
 
 		if (needsCheck && !CheckCopyable(node.rExpr->handle, *m_pBoundsInfo))
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.rExpr->startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(node.rExpr->startIdx);
 			StdString typeName = node.rExpr->handle.ToString();
 			g_ErrorSystem.Error(span, "type %s is not copyable", typeName.c_str());
 		}
@@ -891,8 +891,8 @@ namespace Noctis
 		}
 	}
 
-	ErrHandlerCollectionPass::ErrHandlerCollectionPass(Context* pCtx)
-		: ITrSemanticPass("error handler collection pass", pCtx)
+	ErrHandlerCollectionPass::ErrHandlerCollectionPass()
+		: ITrSemanticPass("error handler collection pass")
 	{
 	}
 
@@ -913,8 +913,8 @@ namespace Noctis
 		m_FuncCtx->errHandlers.emplace_back(errType.Type(), node.qualName);
 	}
 
-	TryCheckPass::TryCheckPass(Context* pCtx)
-		: ITrSemanticPass("try check pass", pCtx)
+	TryCheckPass::TryCheckPass()
+		: ITrSemanticPass("try check pass")
 	{
 	}
 
@@ -972,7 +972,7 @@ namespace Noctis
 
 			if (!found)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+				Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 				StdString foundTypeName = foundType.ToString();
 				StdString expectedTypeName = m_ErrorHandle.ToString();
 				g_ErrorSystem.Error(span, "Cannot find an error handler for type '%s', this error can also not be rethrown, since it's not compatible with '%s'", foundTypeName.c_str(), expectedTypeName.c_str());

@@ -41,7 +41,7 @@ namespace Noctis
 		}
 	}
 
-	void MacroExtractedElem::Parse(Context* pCtx)
+	void MacroExtractedElem::Parse()
 	{
 		switch (elemKind)
 		{
@@ -50,7 +50,7 @@ namespace Noctis
 		{
 			StdVector<Token> toks;
 			tokTree.ToToks(toks);
-			Parser parser{ toks, pCtx };
+			Parser parser{ toks };
 			switch (varKind)
 			{
 			case MacroVarKind::Stmt:
@@ -81,7 +81,7 @@ namespace Noctis
 			{
 				if (toks.size() != 1)
 				{
-					Span span = pCtx->spanManager.GetSpan(toks[0].Idx());
+					Span span = g_Ctx.spanManager.GetSpan(toks[0].Idx());
 					g_ErrorSystem.Error(span, "expected a single identifier");
 					break;
 				}
@@ -120,7 +120,7 @@ namespace Noctis
 		{
 			for (MacroExtractedElem& subElem : subElems)
 			{
-				subElem.Parse(pCtx);
+				subElem.Parse();
 			}
 			break;
 		}
@@ -128,7 +128,7 @@ namespace Noctis
 		{
 			for (MacroExtractedElem& subElem : subElems)
 			{
-				subElem.Parse(pCtx);
+				subElem.Parse();
 			}
 			break;
 		}
@@ -477,9 +477,8 @@ namespace Noctis
 		return declMacros;
 	}
 
-	MacroVarSolver::MacroVarSolver(StdVector<MacroExtractedElem>&& extracted, Context* pCtx)
+	MacroVarSolver::MacroVarSolver(StdVector<MacroExtractedElem>&& extracted)
 		: m_ExtractedElems(std::move(extracted))
-		, m_pCtx(pCtx)
 		, m_EnteredLoop(false)
 		, m_LoopIdx(0)
 		, m_MaxLoopIdx(0)
@@ -490,7 +489,7 @@ namespace Noctis
 	{
 		for (MacroExtractedElem& elem : m_ExtractedElems)
 		{
-			elem.Parse(m_pCtx);
+			elem.Parse();
 		}
 	}
 

@@ -10,7 +10,7 @@ namespace Noctis
 	class AstSemanticPass : public AstVisitor
 	{
 	public:
-		AstSemanticPass(StdStringView pName, Context* pCtx);
+		AstSemanticPass(StdStringView pName);
 		virtual ~AstSemanticPass();
 
 		virtual void Process(AstTree& tree);
@@ -18,13 +18,12 @@ namespace Noctis
 	protected:
 		Timer m_Timer;
 		StdStringView m_Name;
-		Context* m_pCtx;
 	};
 	
 	class ITrSemanticPass : public ITrVisitor
 	{
 	public:
-		ITrSemanticPass(StdStringView name, Context* pCtx);
+		ITrSemanticPass(StdStringView name);
 		virtual ~ITrSemanticPass();
 
 		virtual void Process(ITrModule& mod) = 0;
@@ -32,7 +31,6 @@ namespace Noctis
 	protected:
 		Timer m_Timer;
 		StdStringView m_Name;
-		Context* m_pCtx;
 	};
 	
 }

@@ -392,7 +392,7 @@ namespace Noctis
 		
 		~Type();
 
-		void CalculateSizeAlign(TypeRegistry& typeReg);
+		void CalculateSizeAlign();
 
 		BuiltinType& AsBuiltin() { assert(typeKind == TypeKind::Builtin); return builtin; }
 		IdenType& AsIden() { assert(typeKind == TypeKind::Iden); return iden; }
@@ -439,7 +439,7 @@ namespace Noctis
 	class TypeRegistry
 	{
 	public:
-		TypeRegistry(Context* pCtx);
+		TypeRegistry();
 
 		bool IsType(TypeHandle handle, TypeKind kind);
 		StdString ToString(TypeHandle handle);
@@ -519,7 +519,5 @@ namespace Noctis
 		StdVector<StdArray<TypeHandle, m_ModCount>> m_GenericMapping;
 
 		StdVector<TypeSPtr> m_Types;
-
-		Context* m_pCtx;
 	};
 }

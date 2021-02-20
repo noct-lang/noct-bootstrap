@@ -5,15 +5,12 @@
 
 namespace Noctis
 {
-	struct CompContext;
-
 	FWDECL_STRUCT_SPTR(Module);
-
 	struct Context
 	{
 		Options options;
 
-		TypeRegistry typeReg = TypeRegistry{ this };
+		TypeRegistry typeReg;
 		
 		SpanManager spanManager;
 		StdUnorderedMap<QualNameSPtr, ModuleSPtr> modules;
@@ -21,5 +18,9 @@ namespace Noctis
 		// When multi-threaded, an active module for each thread to work on should exist
 		ModuleSPtr activeModule;
 	};
+
+	Context& GetContext();
 	
 }
+
+#define g_Ctx Noctis::GetContext()

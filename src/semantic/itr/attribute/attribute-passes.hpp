@@ -9,7 +9,7 @@ namespace Noctis
 	class SimpleAttributePass : public ITrSemanticPass
 	{
 	public:
-		SimpleAttributePass(Context* pCtx);
+		SimpleAttributePass();
 		
 		void Process(ITrModule& mod) override;
 		

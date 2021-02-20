@@ -11,7 +11,7 @@ namespace Noctis
 	class ILGen : public ITrSemanticPass
 	{
 	public:
-		ILGen(Context* pCtx);
+		ILGen();
 
 		void Process(ITrModule& mod) override;
 

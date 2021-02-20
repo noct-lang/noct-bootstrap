@@ -47,16 +47,16 @@
 // interpret main -I "./"
 //
 
-void ProcessBuild(Noctis::Context& context)
+void ProcessBuild()
 {
 	Noctis::Timer buildTimer(true);
 
 	g_Logger.SetOutFile("log.txt");
 	g_Logger.Log("Processing build command\n");
 
-	StdUnorderedMap<Noctis::QualNameSPtr, Noctis::ModuleSPtr>& modules = context.modules;
+	StdUnorderedMap<Noctis::QualNameSPtr, Noctis::ModuleSPtr>& modules = g_Ctx.modules;
 
-	const Noctis::BuildOptions& buildOptions = context.options.GetBuildOptions();
+	const Noctis::BuildOptions& buildOptions = g_Ctx.options.GetBuildOptions();
 	
 	Noctis::Timer timer{ true };
 	
@@ -77,7 +77,7 @@ void ProcessBuild(Noctis::Context& context)
 		g_Logger.Log("-- FILE: %s\n", filepath.c_str());
 		Noctis::Timer fileTimer(true);
 		
-		Noctis::Lexer lexer{ &context };
+		Noctis::Lexer lexer{};
 		lexer.Lex(filepath, content);
 		
 		timer.Stop();
@@ -87,7 +87,7 @@ void ProcessBuild(Noctis::Context& context)
 		g_Logger.Log("%16s : lexer\n", timer.GetSMSFormat().c_str());
 
 		timer.Start();
-		Noctis::Parser parser{ lexer.Tokens(), &context };
+		Noctis::Parser parser{ lexer.Tokens() };
 
 		Noctis::AstTree astTree;
 		astTree.filepath = filepath;
@@ -148,7 +148,7 @@ void ProcessBuild(Noctis::Context& context)
 		auto it = modules.find(moduleQualName);
 		if (it == modules.end())
 		{
-			it = modules.insert(std::pair{ moduleQualName, Noctis::ModuleSPtr{ new Noctis::Module{ moduleQualName, &context } } }).first;
+			it = modules.insert(std::pair{ moduleQualName, Noctis::ModuleSPtr{ new Noctis::Module{ moduleQualName } } }).first;
 		}
 		else if (it->second->isImported)
 		{
@@ -167,9 +167,9 @@ void ProcessBuild(Noctis::Context& context)
 		if (pair.second->isImported)
 			continue;
 		
-		context.activeModule = pair.second;
+		g_Ctx.activeModule = pair.second;
 		
-		Noctis::AstSemanticAnalysis astSemAnalysis{ &context };
+		Noctis::AstSemanticAnalysis astSemAnalysis;
 
 		for (Noctis::AstTree& tree : pair.second->trees)
 		{
@@ -178,11 +178,11 @@ void ProcessBuild(Noctis::Context& context)
 
 		if (buildOptions.logLoweredITr)
 		{
-			Noctis::ITrPrinter printer{ &context };
+			Noctis::ITrPrinter printer;
 			printer.Print(pair.second->itrModule);
 		}
 
-		Noctis::ITrSemanticAnalysis itrSemAnalysis{ &context };
+		Noctis::ITrSemanticAnalysis itrSemAnalysis;
 		itrSemAnalysis.Run(pair.second->itrModule);
 
 		pair.second->symTable.RemoveImpl();
@@ -191,18 +191,18 @@ void ProcessBuild(Noctis::Context& context)
 		pair.second->symTable.Log(false);
 		g_Logger.SetCanWriteToStdOut(true);
 
-		Noctis::ILProcessing ilProcessing{ &context };
+		Noctis::ILProcessing ilProcessing;
 		ilProcessing.Process(pair.second->ilMod);
 		
 		{
 			g_Logger.SetCanWriteToStdOut(false);
-			Noctis::ILPrinter printer(&context);
+			Noctis::ILPrinter printer;
 			printer.Print(pair.second->ilMod);
 			g_Logger.SetCanWriteToStdOut(true);
 		}
 
 		{
-			Noctis::ModuleEncode encoder(&context);
+			Noctis::ModuleEncode encoder;
 			StdVector<u8> encoded = encoder.Encode(*pair.second);
 
 			StdString path = pair.second->qualName->ToString();
@@ -222,15 +222,15 @@ void ProcessBuild(Noctis::Context& context)
 	g_Logger.Log("build took %s\n", buildTimer.GetSMSFormat().c_str());
 }
 
-void ProcessInterpret(Noctis::Context& context)
+void ProcessInterpret()
 {
-	const Noctis::InterpretOptions& interpOptions = context.options.GetInterpretOptions();
+	const Noctis::InterpretOptions& interpOptions = g_Ctx.options.GetInterpretOptions();
 
 
 	Noctis::QualNameSPtr toInterp = interpOptions.moduleToInterpret;
 
-	auto it = context.modules.find(toInterp);
-	if (it == context.modules.end())
+	auto it = g_Ctx.modules.find(toInterp);
+	if (it == g_Ctx.modules.end())
 	{
 		g_ErrorSystem.Error("Could not interpret module '', since it cannot be located\n");
 		return;
@@ -240,21 +240,21 @@ void ProcessInterpret(Noctis::Context& context)
 	Noctis::Timer timer{ true };
 	
 	// Decode module to interpret (also decodes required imports)
-	Noctis::ModuleDecode decode(&context);
+	Noctis::ModuleDecode decode;
 	decode.Decode(mod);
 
 	timer.Stop();
 	g_Logger.Log(Noctis::Format("decoding modules took %fms\n", timer.GetTimeMS()));
 	timer.Start();
 	
-	context.typeReg.CalculateSizeAlign();
+	g_Ctx.typeReg.CalculateSizeAlign();
 
 	timer.Stop();
 	g_Logger.Log(Noctis::Format("calculating sizes took %fms\n", timer.GetTimeMS()));
 
 	timer.Start();
 	
-	Noctis::ILInterp interp{ &context };
+	Noctis::ILInterp interp;
 
 	Noctis::QualNameSPtr mainQUalName = toInterp->Append("__main");
 	interp.Interp(mainQUalName);
@@ -265,8 +265,7 @@ void ProcessInterpret(Noctis::Context& context)
 
 int main(int argc, char* argv[])
 {
-	Noctis::Context context;
-	if (!context.options.ParseOptions(argc, argv))
+	if (!g_Ctx.options.ParseOptions(argc, argv))
 	{
 		return -1;
 	}
@@ -275,9 +274,9 @@ int main(int argc, char* argv[])
 
 	// Load all headers for all available modules
 	{
-		Noctis::ModuleDecode decode{ &context };
+		Noctis::ModuleDecode decode;
 
-		const StdVector<StdString>& modulePaths = context.options.ModulePaths();
+		const StdVector<StdString>& modulePaths = g_Ctx.options.ModulePaths();
 		for (const StdString& modulePath : modulePaths)
 		{
 			std::filesystem::path path{ modulePath };
@@ -292,14 +291,14 @@ int main(int argc, char* argv[])
 						StdString tmp;
 						tmp.insert(tmp.begin(), s.begin(), s.end());
 						Noctis::ModuleSPtr mod = decode.CreateModuleWithHeader(tmp);
-						context.modules.try_emplace(mod->qualName, mod);
+						g_Ctx.modules.try_emplace(mod->qualName, mod);
 					}
 				}
 			}
 			else if (path.extension() == "nxm")
 			{
 				Noctis::ModuleSPtr mod = decode.CreateModuleWithHeader(modulePath);
-				context.modules.try_emplace(mod->qualName, mod);
+				g_Ctx.modules.try_emplace(mod->qualName, mod);
 			}
 			else
 			{
@@ -314,13 +313,13 @@ int main(int argc, char* argv[])
 	timer.Stop();
 	g_Logger.Log(Noctis::Format("Module discovery took %fms\n", timer.GetTimeMS()));
 
-	switch (context.options.Mode())
+	switch (g_Ctx.options.Mode())
 	{
 	case Noctis::ToolMode::Build:
-		ProcessBuild(context);
+		ProcessBuild();
 		break;
 	case Noctis::ToolMode::Interpret:
-		ProcessInterpret(context);
+		ProcessInterpret();
 		break;
 	case Noctis::ToolMode::Run:
 		break;

@@ -4,8 +4,8 @@
 
 namespace Noctis
 {
-	ILMarkerPass::ILMarkerPass(Context* pCtx)
-		: ILPass("IL marker pass", pCtx)
+	ILMarkerPass::ILMarkerPass()
+		: ILPass("IL marker pass")
 	{
 	}
 

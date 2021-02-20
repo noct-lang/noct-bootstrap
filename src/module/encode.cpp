@@ -17,9 +17,8 @@ namespace Noctis
 		buffer.insert(buffer.end(), data.begin(), data.end());
 	}
 
-	ModuleEncode::ModuleEncode(Context* pCtx)
-		: m_pCtx(pCtx)
-		, m_pMod(nullptr)
+	ModuleEncode::ModuleEncode()
+		: m_pMod(nullptr)
 		, m_pBoundsInfo(nullptr)
 	{
 	}
@@ -178,7 +177,7 @@ namespace Noctis
 					// If we get here, we have a parent
 					//WriteData(section.data, u16(sym->impls.size()));
 
-					SymbolSPtr iface = m_pCtx->activeModule->symTable.Find(ifaceName);
+					SymbolSPtr iface = g_Ctx.activeModule->symTable.Find(ifaceName);
 					if (iface)
 					{
 						WriteData(section.data, u16(1 + iface->ifaces.size()));
@@ -234,7 +233,7 @@ namespace Noctis
 			{
 				TypeHandle type = sym->type;
 				if (!type.IsValid())
-					type = m_pCtx->typeReg.Iden(TypeMod::None, sym->qualName->Base(usize(-1)));
+					type = g_Ctx.typeReg.Iden(TypeMod::None, sym->qualName->Base(usize(-1)));
 
 				WriteType(section.data, type);
 				break;
@@ -389,7 +388,7 @@ namespace Noctis
 
 	void ModuleEncode::EncodeILSection()
 	{
-		if (!m_pCtx->options.GetBuildOptions().encodeIL ||
+		if (!g_Ctx.options.GetBuildOptions().encodeIL ||
 			m_pMod->ilMod.funcs.empty())
 			return;
 
@@ -399,7 +398,7 @@ namespace Noctis
 		section.header.iden[2] = 'B';
 		section.header.iden[3] = 'C';
 
-		ILEncode ilEncode(m_pCtx);
+		ILEncode ilEncode;
 		section.data = ilEncode.Encode(m_pMod->ilMod);
 		section.header.size = section.data.size() + sizeof(ModuleSectionHeader);
 
@@ -468,18 +467,17 @@ namespace Noctis
 
 	const StdString& ModuleEncode::GetMangledQualName(QualNameSPtr qualName)
 	{
-		u32 id = m_pMod->encodeInfo.GetOrAddQualName(m_pCtx, qualName, m_pBoundsInfo);
+		u32 id = m_pMod->encodeInfo.GetOrAddQualName(qualName, m_pBoundsInfo);
 		return m_pMod->encodeInfo.GetNameFromId(id);
 	}
 	const StdString& ModuleEncode::GetMangledType(TypeHandle type)
 	{
-		u32 id = m_pMod->encodeInfo.GetOrAddType(m_pCtx, type);
+		u32 id = m_pMod->encodeInfo.GetOrAddType(type);
 		return m_pMod->encodeInfo.GetNameFromId(id);
 	}
 
-	ModuleDecode::ModuleDecode(Context* pCtx)
-		: m_pCtx(pCtx)
-		, m_pMod(nullptr)
+	ModuleDecode::ModuleDecode()
+		: m_pMod(nullptr)
 		, m_pData(nullptr)
 		, m_DataPos(0)
 		, m_pBoundsInfo(nullptr)
@@ -570,7 +568,7 @@ namespace Noctis
 			header.imports.push_back(QualName::Create(importNames));
 		}
 
-		ModuleSPtr mod{ new Module { moduleQualName, m_pCtx } };
+		ModuleSPtr mod{ new Module { moduleQualName } };
 		mod->header = header;
 		mod->filePath = filePath;
 		mod->isImported = true;
@@ -674,7 +672,7 @@ namespace Noctis
 		// Decode imported modules
 		for (StdPair<const QualNameSPtr, ModuleSPtr>& import : mod.imports)
 		{
-			ModuleDecode subDecoder{ m_pCtx };
+			ModuleDecode subDecoder;
 			subDecoder.Decode(*import.second);
 		}
 	}
@@ -689,7 +687,7 @@ namespace Noctis
 	{
 		for (QualNameSPtr import : m_pMod->header.imports)
 		{
-			ModuleSPtr mod = m_pCtx->modules.at(import);
+			ModuleSPtr mod = g_Ctx.modules.at(import);
 			m_pMod->imports.try_emplace(import, mod);
 		}
 	}
@@ -753,7 +751,7 @@ namespace Noctis
 					}
 					else
 					{
-						StdString mangled = NameMangling::Mangle(m_pCtx, parentType);
+						StdString mangled = NameMangling::Mangle(parentType);
 						qualName = QualName::Create(mangled)->AppendLastIden(idenQualName);
 					}
 				}
@@ -767,9 +765,9 @@ namespace Noctis
 				qualName = ReadQualName();
 			}
 
-			sym = CreateSymbol(m_pCtx, kind, qualName);
+			sym = CreateSymbol(kind, qualName);
 			sym->isImported = true;
-			sym->mangledName = NameMangling::Mangle(m_pCtx, sym);
+			sym->mangledName = NameMangling::Mangle(sym);
 			sym->vis = vis;
 			sym->boundsInfo = boundsInfo;
 			m_pBoundsInfo = nullptr;
@@ -784,8 +782,8 @@ namespace Noctis
 			case SymbolKind::WeakInterface:
 			case SymbolKind::StrongInterface:
 			{
-				sym->type = m_pCtx->typeReg.Iden(TypeMod::None, qualName);
-				m_pCtx->typeReg.SetIdenSym(sym->type.AsIden().qualName, sym);
+				sym->type = g_Ctx.typeReg.Iden(TypeMod::None, qualName);
+				g_Ctx.typeReg.SetIdenSym(sym->type.AsIden().qualName, sym);
 				break;
 			}
 			case SymbolKind::ValEnum:
@@ -805,8 +803,8 @@ namespace Noctis
 				}
 				else
 				{
-					sym->type = m_pCtx->typeReg.Iden(TypeMod::None, sym->qualName);
-					m_pCtx->typeReg.SetIdenSym(sym->type.AsIden().qualName, sym);
+					sym->type = g_Ctx.typeReg.Iden(TypeMod::None, sym->qualName);
+					g_Ctx.typeReg.SetIdenSym(sym->type.AsIden().qualName, sym);
 				}
 				break;
 			}
@@ -893,14 +891,14 @@ namespace Noctis
 				u16 numIfaces = ReadData<u16>();
 				TypeHandle handle = ReadType();
 
-				SymbolSPtr sym = m_pCtx->activeModule->symTable.Find(handle);
+				SymbolSPtr sym = g_Ctx.activeModule->symTable.Find(handle);
 				if (!sym)
 				{
-					StdString symName = NameMangling::Mangle(m_pCtx, handle);
+					StdString symName = NameMangling::Mangle(handle);
 					QualNameSPtr qualName = QualName::Create(symName);
-					sym = CreateSymbol(m_pCtx, SymbolKind::Type, qualName);
+					sym = CreateSymbol(SymbolKind::Type, qualName);
 					sym->type = handle;
-					m_pCtx->activeModule->symTable.Add(sym);
+					g_Ctx.activeModule->symTable.Add(sym);
 				}
 
 				for (u16 j = 0; j < numIfaces; ++j)
@@ -948,7 +946,7 @@ namespace Noctis
 		bytecode.insert(bytecode.end(), data.begin() + m_DataPos, data.begin() + sectionEnd);
 		m_DataPos = sectionEnd;
 
-		ILDecode decode(m_pCtx, m_pMod);
+		ILDecode decode{ m_pMod };
 		m_pMod->ilMod = decode.Decode(bytecode);
 	}
 
@@ -987,19 +985,19 @@ namespace Noctis
 		if (it != m_Syms.end())
 			sym = it->second;
 		else
-			sym = m_pCtx->activeModule->symTable.Find(qualName);
+			sym = g_Ctx.activeModule->symTable.Find(qualName);
 
 		if (!sym && qualName->Depth() == 1)
 		{
-			TypeHandle type = NameMangling::DemangleType(m_pCtx, qualName->LastIden());
-			sym = m_pCtx->activeModule->symTable.Find(type);
+			TypeHandle type = NameMangling::DemangleType(qualName->LastIden());
+			sym = g_Ctx.activeModule->symTable.Find(type);
 
 			if (!sym)
 			{
-				sym = CreateSymbol(m_pCtx, SymbolKind::Type, qualName);
+				sym = CreateSymbol(SymbolKind::Type, qualName);
 				sym->type = type;
 				sym->mangledName = qualName->LastIden();
-				m_pCtx->activeModule->symTable.Add(sym);
+				g_Ctx.activeModule->symTable.Add(sym);
 			}
 		}
 
@@ -1046,7 +1044,7 @@ namespace Noctis
 
 	QualNameSPtr ModuleDecode::GetQualNameFromId(u32 id)
 	{
-		return m_pMod->encodeInfo.GetQualNameFromId(m_pCtx, id, m_pBoundsInfo);
+		return m_pMod->encodeInfo.GetQualNameFromId(id, m_pBoundsInfo);
 	}
 
 	TypeHandle ModuleDecode::GetTypeFromId(u32 id)
@@ -1054,6 +1052,6 @@ namespace Noctis
 		if (id == 0)
 			return TypeHandle{};
 		
-		return m_pMod->encodeInfo.GetTypeFromId(m_pCtx, id);
+		return m_pMod->encodeInfo.GetTypeFromId(id);
 	}
 }

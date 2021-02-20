@@ -36,8 +36,6 @@ namespace Noctis
 	class ILVisitor
 	{
 	public:
-
-		ILVisitor(Context* pCtx);
 		virtual ~ILVisitor();
 
 		virtual void Visit(ILElem& elem);
@@ -71,8 +69,6 @@ namespace Noctis
 		virtual void Visit(ILAdtEnumInit& node);
 		virtual void Visit(ILTupInit& node);
 		virtual void Visit(ILArrInit& node);
-		
-		Context* m_pCtx;
 	};
 	
 }

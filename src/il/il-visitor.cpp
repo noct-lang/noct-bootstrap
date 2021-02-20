@@ -3,11 +3,6 @@
 
 namespace Noctis
 {
-	ILVisitor::ILVisitor(Context* pCtx)
-		: m_pCtx(pCtx)
-	{
-	}
-
 	ILVisitor::~ILVisitor()
 	{
 	}

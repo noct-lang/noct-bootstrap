@@ -7,7 +7,7 @@ namespace Noctis
 	class DeclMacroContextGen : public AstSemanticPass
 	{
 	public:
-		DeclMacroContextGen(Context* pCtx);
+		DeclMacroContextGen();
 
 		void Visit(AstDeclSPtr& node) override;
 	};

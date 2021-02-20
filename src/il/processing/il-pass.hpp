@@ -10,7 +10,7 @@ namespace Noctis
 	class ILPass : public ILVisitor
 	{
 	public:
-		ILPass(const char* pName, Context* pCtx);
+		ILPass(const char* pName);
 		~ILPass();
 
 		virtual void Process(ILModule& mod) = 0;

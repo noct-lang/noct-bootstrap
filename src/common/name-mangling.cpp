@@ -7,7 +7,7 @@
 
 namespace Noctis::NameMangling
 {
-	StdString Mangle(Context* pCtx, SymbolSPtr sym)
+	StdString Mangle(SymbolSPtr sym)
 	{
 		BoundsInfo* pBoundsInfo = &sym->boundsInfo;
 		
@@ -17,12 +17,12 @@ namespace Noctis::NameMangling
 		{
 			StdString mangledName;
 			if (sym->qualName->Base())
-				mangledName += Mangle(pCtx, sym->qualName->Base(), pBoundsInfo);
+				mangledName += Mangle(sym->qualName->Base(), pBoundsInfo);
 			
 			mangledName += Mangle(sym->qualName->LastIden());
-			mangledName += Mangle(pCtx, sym->qualName->Generics(), pBoundsInfo);
+			mangledName += Mangle(sym->qualName->Generics(), pBoundsInfo);
 			
-			StdString mangledType = Mangle(pCtx, sym->type);
+			StdString mangledType = Mangle(sym->type);
 			return "_NF" + mangledName + mangledType;
 		}
 		case SymbolKind::Method:
@@ -33,23 +33,23 @@ namespace Noctis::NameMangling
 				parent->kind == SymbolKind::StrongInterface || 
 				parent->kind == SymbolKind::WeakInterface)
 			{
-				StdString mangledName = Mangle(pCtx, sym->type);
+				StdString mangledName = Mangle(sym->type);
 				mangledName += Mangle(sym->qualName->LastIden());
-				mangledName += Mangle(pCtx, sym->qualName->Generics(), pBoundsInfo);
+				mangledName += Mangle(sym->qualName->Generics(), pBoundsInfo);
 
-				StdString mangledType = Mangle(pCtx, sym->type);
+				StdString mangledType = Mangle(sym->type);
 				return "_NM" + mangledName + mangledType;
 			}
 			else
 			{
 				QualNameSPtr parentQualName = sym->impls.front().first.lock()->parent.lock()->qualName;
-				StdString parentMangled = Mangle(pCtx, parentQualName, pBoundsInfo);
+				StdString parentMangled = Mangle(parentQualName, pBoundsInfo);
 				
-				StdString mangledName = Mangle(pCtx, parent->type);
+				StdString mangledName = Mangle(parent->type);
 				mangledName += Mangle(sym->qualName->LastIden());
-				mangledName += Mangle(pCtx, sym->qualName->Generics(), pBoundsInfo);
+				mangledName += Mangle(sym->qualName->Generics(), pBoundsInfo);
 				
-				StdString mangledType = Mangle(pCtx, sym->type);
+				StdString mangledType = Mangle(sym->type);
 				return "_NN"  + parentMangled + "Z" + mangledName + mangledType;
 			}
 		}
@@ -57,18 +57,18 @@ namespace Noctis::NameMangling
 		}
 	}
 
-	StdString Mangle(Context* pCtx, QualNameSPtr qualName, BoundsInfo* pBoundsInfo)
+	StdString Mangle(QualNameSPtr qualName, BoundsInfo* pBoundsInfo)
 	{
 		StdString mangled;
 		for (const StdString& iden : qualName->Idens())
 		{
 			mangled += Mangle(iden);
 		}
-		mangled += Mangle(pCtx, qualName->Generics(), pBoundsInfo);
+		mangled += Mangle(qualName->Generics(), pBoundsInfo);
 		return mangled;
 	}
 
-	StdString Mangle(Context* pCtx, StdVector<IdenGeneric>& idenGens, BoundsInfo* pBoundsInfo)
+	StdString Mangle(StdVector<IdenGeneric>& idenGens, BoundsInfo* pBoundsInfo)
 	{
 		if (idenGens.empty())
 			return "";
@@ -82,7 +82,7 @@ namespace Noctis::NameMangling
 				if (generic.isSpecialized)
 				{
 					mangled += "U";
-					mangled += Mangle(pCtx, generic.type);
+					mangled += Mangle(generic.type);
 					mangled += "Z";
 				}
 				else
@@ -96,7 +96,7 @@ namespace Noctis::NameMangling
 							mangled += "C";
 							for (TypeHandle constraint : bounds.bounds)
 							{
-								mangled += Mangle(pCtx, constraint);
+								mangled += Mangle(constraint);
 							}
 							mangled += "Z";
 						}
@@ -117,7 +117,7 @@ namespace Noctis::NameMangling
 				{
 					mangled += "V";
 					mangled += Mangle(generic.iden);
-					mangled += Mangle(pCtx, generic.type);
+					mangled += Mangle(generic.type);
 					mangled += "Z";
 				}
 			}
@@ -130,15 +130,15 @@ namespace Noctis::NameMangling
 		return Format("%u%s", iden.size(), iden.c_str());
 	}
 
-	StdString Mangle(Context* pCtx, TypeHandle type)
+	StdString Mangle(TypeHandle type)
 	{
 		if (!type.IsValid())
 			return "";
 		
-		return Mangle(pCtx, type.Type());
+		return Mangle(type.Type());
 	}
 
-	StdString Mangle(Context* pCtx, TypeSPtr type)
+	StdString Mangle(TypeSPtr type)
 	{
 		StdString mod;
 		if (type->Mod() == TypeMod::Mut)
@@ -173,27 +173,27 @@ namespace Noctis::NameMangling
 		}
 		case TypeKind::Iden:
 		{
-			return mod + Mangle(pCtx, type->AsIden().qualName, nullptr);
+			return mod + Mangle(type->AsIden().qualName, nullptr);
 		}
 		case TypeKind::Ptr:
 		{
-			return mod + "P" + Mangle(pCtx, type->AsPtr().subType);
+			return mod + "P" + Mangle(type->AsPtr().subType);
 		}
 		case TypeKind::Ref:
 		{
-			return mod + "R" + Mangle(pCtx, type->AsRef().subType);
+			return mod + "R" + Mangle(type->AsRef().subType);
 		}
 		case TypeKind::Slice:
 		{
-			return mod + "S" + Mangle(pCtx, type->AsSlice().subType);
+			return mod + "S" + Mangle(type->AsSlice().subType);
 		}
 		case TypeKind::Array:
 		{
 			ArrayType& arrType = type->AsArray();
 
 			if (arrType.arrSize != u64(-1))
-				return mod + Format("A%llu", arrType.size) + Mangle(pCtx, arrType.subType);
-			return mod + "A_" + Mangle(pCtx, arrType.subType);
+				return mod + Format("A%llu", arrType.size) + Mangle(arrType.subType);
+			return mod + "A_" + Mangle(arrType.subType);
 		}
 		case TypeKind::Tuple:
 		{
@@ -201,13 +201,13 @@ namespace Noctis::NameMangling
 			StdString mangled = "T";
 			for (TypeHandle subType : tupType.subTypes)
 			{
-				mangled += Mangle(pCtx, subType);
+				mangled += Mangle(subType);
 			}
 			return mod + mangled + "Z";
 		}
 		case TypeKind::Opt:
 		{
-			return mod + "O" + Mangle(pCtx, type->AsOpt().subType);
+			return mod + "O" + Mangle(type->AsOpt().subType);
 		}
 		case TypeKind::Func:
 		{
@@ -215,12 +215,12 @@ namespace Noctis::NameMangling
 			StdString mangled = "F";
 			for (TypeHandle subType : funcType.paramTypes)
 			{
-				mangled += Mangle(pCtx, subType);
+				mangled += Mangle(subType);
 			}
 			mangled += mod + "Z";
 
 			if (funcType.retType.IsValid())
-				mangled += Mangle(pCtx, funcType.retType);
+				mangled += Mangle(funcType.retType);
 
 			return mod + mangled + "Z";
 		}
@@ -230,7 +230,7 @@ namespace Noctis::NameMangling
 			StdString mangled;
 			for (TypeHandle subType : tupType.subTypes)
 			{
-				mangled += Mangle(pCtx, subType);
+				mangled += Mangle(subType);
 			}
 			return mangled;
 		}
@@ -243,13 +243,13 @@ namespace Noctis::NameMangling
 		}
 	}
 
-	QualNameSPtr DemangleQualName(Context* pCtx, StdStringView data, BoundsInfo* pBoundsInfo)
+	QualNameSPtr DemangleQualName(StdStringView data, BoundsInfo* pBoundsInfo)
 	{
 		usize idx = 0;
-		return DemangleQualName(pCtx, data, idx, pBoundsInfo);
+		return DemangleQualName(data, idx, pBoundsInfo);
 	}
 
-	QualNameSPtr DemangleQualName(Context* pCtx, StdStringView data, usize& idx, BoundsInfo* pBoundsInfo)
+	QualNameSPtr DemangleQualName(StdStringView data, usize& idx, BoundsInfo* pBoundsInfo)
 	{
 		QualNameSPtr qualName;
 		while (idx < data.size() && isdigit(data[idx]))
@@ -260,14 +260,14 @@ namespace Noctis::NameMangling
 				qualName = qualName->Append(DemangleLName(data, idx));
 		}
 
-		StdVector<IdenGeneric> generics = DemangledGenerics(pCtx, data, idx, pBoundsInfo);
+		StdVector<IdenGeneric> generics = DemangledGenerics(data, idx, pBoundsInfo);
 		if (!generics.empty())
 			qualName = qualName->Base()->Append(qualName->LastIden(), generics);
 		
 		return qualName;
 	}
 
-	StdVector<IdenGeneric> DemangledGenerics(Context* pCtx, StdStringView data, usize& idx, BoundsInfo* pBoundsInfo)
+	StdVector<IdenGeneric> DemangledGenerics(StdStringView data, usize& idx, BoundsInfo* pBoundsInfo)
 	{
 		StdVector<IdenGeneric> generics;
 		if (idx < data.size() && data[idx] == 'G')
@@ -285,7 +285,7 @@ namespace Noctis::NameMangling
 					IdenGeneric idenGen;
 					idenGen.isType = true;
 					idenGen.iden = Format("T%u", id);
-					idenGen.type = pCtx->typeReg.Generic(TypeMod::None, id);
+					idenGen.type = g_Ctx.typeReg.Generic(TypeMod::None, id);
 					generics.push_back(idenGen);
 
 					// Constraints
@@ -295,7 +295,7 @@ namespace Noctis::NameMangling
 						++idx;
 						while (data[idx] != 'Z')
 						{
-							TypeHandle constraint = DemangleType(pCtx, data, idx);
+							TypeHandle constraint = DemangleType(data, idx);
 
 							if (pBoundsInfo)
 							{
@@ -311,7 +311,7 @@ namespace Noctis::NameMangling
 				{
 					++idx;
 					StdString genName = DemangleLName(data, idx);
-					TypeHandle type = DemangleType(pCtx, data, idx);
+					TypeHandle type = DemangleType(data, idx);
 
 					IdenGeneric idenGen;
 					idenGen.isType = false;
@@ -324,7 +324,7 @@ namespace Noctis::NameMangling
 				case 'U':
 				{
 					++idx;
-					TypeHandle type = DemangleType(pCtx, data, idx);
+					TypeHandle type = DemangleType(data, idx);
 
 					IdenGeneric idenGen;
 					idenGen.isType = true;
@@ -347,13 +347,13 @@ namespace Noctis::NameMangling
 		return generics;
 	}
 
-	TypeHandle DemangleType(Context* pCtx, StdStringView data)
+	TypeHandle DemangleType(StdStringView data)
 	{
 		usize tmp = 0;
-		return DemangleType(pCtx, data, tmp);
+		return DemangleType(data, tmp);
 	}
 
-	TypeHandle DemangleType(Context* pCtx, StdStringView data, usize& idx)
+	TypeHandle DemangleType(StdStringView data, usize& idx)
 	{
 		TypeMod mod = TypeMod::None;
 		if (data[idx] == 'M')
@@ -364,41 +364,41 @@ namespace Noctis::NameMangling
 		
 		switch (data[idx])
 		{
-		case 'b': { ++idx; return pCtx->typeReg.Builtin(mod, BuiltinTypeKind::Bool); }
-		case 'c': { ++idx; return pCtx->typeReg.Builtin(mod, BuiltinTypeKind::Char); }
-		case 'i': { ++idx; return pCtx->typeReg.Builtin(mod, BuiltinTypeKind::I8); }
-		case 'j': { ++idx; return pCtx->typeReg.Builtin(mod, BuiltinTypeKind::I16); }
-		case 'k': { ++idx; return pCtx->typeReg.Builtin(mod, BuiltinTypeKind::I32); }
-		case 'l': { ++idx; return pCtx->typeReg.Builtin(mod, BuiltinTypeKind::I64); }
-		case 'm': { ++idx; return pCtx->typeReg.Builtin(mod, BuiltinTypeKind::I128); }
-		case 'n': { ++idx; return pCtx->typeReg.Builtin(mod, BuiltinTypeKind::ISize); }
-		case 'u': { ++idx; return pCtx->typeReg.Builtin(mod, BuiltinTypeKind::U8); }
-		case 'v': { ++idx; return pCtx->typeReg.Builtin(mod, BuiltinTypeKind::U16); }
-		case 'w': { ++idx; return pCtx->typeReg.Builtin(mod, BuiltinTypeKind::U32); }
-		case 'x': { ++idx; return pCtx->typeReg.Builtin(mod, BuiltinTypeKind::U64); }
-		case 'y': { ++idx; return pCtx->typeReg.Builtin(mod, BuiltinTypeKind::U128); }
-		case 'z': { ++idx; return pCtx->typeReg.Builtin(mod, BuiltinTypeKind::USize); }
-		case 'e': { ++idx; return pCtx->typeReg.Builtin(mod, BuiltinTypeKind::F16); }
-		case 'f': { ++idx; return pCtx->typeReg.Builtin(mod, BuiltinTypeKind::F32); }
-		case 'g': { ++idx; return pCtx->typeReg.Builtin(mod, BuiltinTypeKind::F64); }
-		case 'h': { ++idx; return pCtx->typeReg.Builtin(mod, BuiltinTypeKind::F128); }
+		case 'b': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::Bool); }
+		case 'c': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::Char); }
+		case 'i': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::I8); }
+		case 'j': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::I16); }
+		case 'k': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::I32); }
+		case 'l': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::I64); }
+		case 'm': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::I128); }
+		case 'n': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::ISize); }
+		case 'u': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::U8); }
+		case 'v': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::U16); }
+		case 'w': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::U32); }
+		case 'x': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::U64); }
+		case 'y': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::U128); }
+		case 'z': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::USize); }
+		case 'e': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::F16); }
+		case 'f': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::F32); }
+		case 'g': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::F64); }
+		case 'h': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::F128); }
 		case 'P':
 		{
 			++idx;
-			TypeHandle subType = DemangleType(pCtx, data, idx);
-			return pCtx->typeReg.Ptr(mod, subType);
+			TypeHandle subType = DemangleType(data, idx);
+			return g_Ctx.typeReg.Ptr(mod, subType);
 		}
 		case 'R':
 		{
 			++idx;
-			TypeHandle subType = DemangleType(pCtx, data, idx);
-			return pCtx->typeReg.Ref(mod, subType);
+			TypeHandle subType = DemangleType(data, idx);
+			return g_Ctx.typeReg.Ref(mod, subType);
 		}
 		case 'S':
 		{
 			++idx;
-			TypeHandle subType = DemangleType(pCtx, data, idx);
-			return pCtx->typeReg.Slice(mod, subType);
+			TypeHandle subType = DemangleType(data, idx);
+			return g_Ctx.typeReg.Slice(mod, subType);
 		}
 		case 'A':
 		{
@@ -415,14 +415,14 @@ namespace Noctis::NameMangling
 				std::from_chars(data.data() + idx, data.data() + end, size);
 			}
 			
-			TypeHandle subType = DemangleType(pCtx, data, idx);
-			return pCtx->typeReg.Array(mod, subType, size);
+			TypeHandle subType = DemangleType(data, idx);
+			return g_Ctx.typeReg.Array(mod, subType, size);
 		}
 		case 'O':
 		{
 			++idx;
-			TypeHandle subType = DemangleType(pCtx, data, idx);
-			return pCtx->typeReg.Opt(mod, subType);
+			TypeHandle subType = DemangleType(data, idx);
+			return g_Ctx.typeReg.Opt(mod, subType);
 		}
 		case 'T':
 		{
@@ -430,11 +430,11 @@ namespace Noctis::NameMangling
 			StdVector<TypeHandle> subTypes;
 			while (data[idx] != 'Z')
 			{
-				TypeHandle subType = DemangleType(pCtx, data, idx);
+				TypeHandle subType = DemangleType(data, idx);
 				subTypes.push_back(subType);
 			}
 			++idx;
-			return pCtx->typeReg.Tuple(mod, subTypes);
+			return g_Ctx.typeReg.Tuple(mod, subTypes);
 		}
 		case 'F':
 		{
@@ -442,7 +442,7 @@ namespace Noctis::NameMangling
 			StdVector<TypeHandle> subTypes;
 			while (data[idx] != 'Z')
 			{
-				TypeHandle subType = DemangleType(pCtx, data, idx);
+				TypeHandle subType = DemangleType(data, idx);
 				subTypes.push_back(subType);
 			}
 			++idx;
@@ -450,25 +450,25 @@ namespace Noctis::NameMangling
 			TypeHandle retType;
 			if (data[idx] != 'Z')
 			{
-				retType = DemangleType(pCtx, data, idx);
+				retType = DemangleType(data, idx);
 			}
 			++idx;
 			
-			return pCtx->typeReg.Func(mod, subTypes, retType);
+			return g_Ctx.typeReg.Func(mod, subTypes, retType);
 		}
 		case 'H':
 		{
 			idx += 2;
 			usize id = DemangleUSize(data, idx);
 			// TODO: bounds
-			return pCtx->typeReg.Generic(mod, u16(id));
+			return g_Ctx.typeReg.Generic(mod, u16(id));
 		}
 		default:
 		{
 			if (isdigit(data[idx]))
 			{
-				QualNameSPtr qualName = DemangleQualName(pCtx, data, idx, nullptr);
-				return pCtx->typeReg.Iden(mod, qualName);
+				QualNameSPtr qualName = DemangleQualName(data, idx, nullptr);
+				return g_Ctx.typeReg.Iden(mod, qualName);
 			}
 
 			return TypeHandle{};

@@ -8,7 +8,7 @@ namespace Noctis
 	class ITrPrinter : public ITrVisitor
 	{
 	public:
-		ITrPrinter(Context* pCtx);
+		ITrPrinter();
 
 		void Print(ITrModule& pMod);
 		
@@ -102,7 +102,6 @@ namespace Noctis
 	private:
 		void PrintIndent();
 
-		Context* m_pCtx;
 		usize m_Indent;
 	};
 	

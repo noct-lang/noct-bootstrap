@@ -4,8 +4,8 @@
 
 namespace Noctis
 {
-	ILRemoveUntouchableBlockPass::ILRemoveUntouchableBlockPass(Context* pCtx)
-		: ILPass("remove unreachable blocks", pCtx)
+	ILRemoveUntouchableBlockPass::ILRemoveUntouchableBlockPass()
+		: ILPass("remove unreachable blocks")
 	{
 	}
 
@@ -72,8 +72,8 @@ namespace Noctis
 		}
 	}
 
-	ILBlockMergePass::ILBlockMergePass(Context* pCtx)
-		: ILPass("block merge pass", pCtx)
+	ILBlockMergePass::ILBlockMergePass()
+		: ILPass("block merge pass")
 	{
 	}
 
@@ -103,8 +103,8 @@ namespace Noctis
 		}
 	}
 
-	ILRemoveGotoOnlyPass::ILRemoveGotoOnlyPass(Context* pCtx)
-		: ILPass("remove goto only", pCtx)
+	ILRemoveGotoOnlyPass::ILRemoveGotoOnlyPass()
+		: ILPass("remove goto only")
 	{
 	}
 

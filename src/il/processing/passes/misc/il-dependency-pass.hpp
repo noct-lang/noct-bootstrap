@@ -12,7 +12,7 @@ namespace Noctis
 	class ILDependencyPass : public ILPass
 	{
 	public:
-		ILDependencyPass(Context* pCtx);
+		ILDependencyPass();
 
 		void Process(ILModule& mod) override;
 

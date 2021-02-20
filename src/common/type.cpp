@@ -475,7 +475,7 @@ namespace Noctis
 		}
 	}
 
-	void Type::CalculateSizeAlign(TypeRegistry& typeReg)
+	void Type::CalculateSizeAlign()
 	{
 		switch (typeKind)
 		{
@@ -504,7 +504,7 @@ namespace Noctis
 		{
 			TypeSPtr subType = AsArray().subType.Type();
 			if (subType->base.size == 0)
-				subType->CalculateSizeAlign(typeReg);
+				subType->CalculateSizeAlign();
 
 			base.align = subType->base.align;
 			base.size = subType->base.size * AsArray().size;
@@ -519,7 +519,7 @@ namespace Noctis
 			{
 				TypeSPtr subType = subHandle.Type();
 				if (subType->base.size == 0)
-					subType->CalculateSizeAlign(typeReg);
+					subType->CalculateSizeAlign();
 
 				if (base.align < subType->base.align)
 					base.align = subType->base.align;
@@ -535,7 +535,7 @@ namespace Noctis
 		{
 			TypeSPtr subType = AsOpt().subType.Type();
 			if (subType->base.size == 0)
-				subType->CalculateSizeAlign(typeReg);
+				subType->CalculateSizeAlign();
 
 			base.align = subType->base.align;
 			base.size = subType->base.size + 1; // TODO: is this correct?
@@ -557,9 +557,7 @@ namespace Noctis
 		return IsBuiltinFloat(builtin);
 	}
 
-	TypeRegistry::TypeRegistry(Context* pCtx)
-		: m_BuiltinMapping()
-		, m_pCtx(pCtx)
+	TypeRegistry::TypeRegistry()
 	{
 		for (auto& subArr : m_BuiltinMapping)
 			subArr.fill(TypeHandle{});
@@ -966,7 +964,7 @@ namespace Noctis
 		for (TypeSPtr type : m_Types)
 		{
 			if (!type->base.size)
-				type->CalculateSizeAlign(*this);
+				type->CalculateSizeAlign();
 		}
 	}
 
@@ -1100,7 +1098,7 @@ namespace Noctis
 			}
 			else
 			{
-				sym = m_pCtx->activeModule->symTable.Find(type);
+				sym = g_Ctx.activeModule->symTable.Find(type);
 			}
 			
 			if (sym)

@@ -4,13 +4,13 @@
 
 namespace Noctis
 {
-	StdUnorderedSet<QualNameSPtr> ExtractImportModules(AstTree& tree, Context* pCtx)
+	StdUnorderedSet<QualNameSPtr> ExtractImportModules(AstTree& tree)
 	{
 		class ImportExtractor : public AstSemanticPass
 		{
 		public:
-			ImportExtractor(Context* pCtx)
-				: AstSemanticPass("import extractor", pCtx)
+			ImportExtractor()
+				: AstSemanticPass("import extractor")
 			{
 			}
 			
@@ -22,7 +22,7 @@ namespace Noctis
 
 			StdUnorderedSet<QualNameSPtr> qualNames;
 			
-		} extractor{ pCtx };
+		} extractor;
 
 		extractor.Process(tree);
 		return extractor.qualNames;

@@ -8,14 +8,14 @@
 
 namespace Noctis
 {
-	DeclMacroExpansion::DeclMacroExpansion(Context* pCtx)
-		: AstSemanticPass("decl macro expansion", pCtx)
+	DeclMacroExpansion::DeclMacroExpansion()
+		: AstSemanticPass("decl macro expansion")
 	{
 	}
 
 	void DeclMacroExpansion::Visit(AstMacroInstStmt& node)
 	{
-		MacroContext& macroCtx = m_pCtx->activeModule->macroCtx;
+		MacroContext& macroCtx = g_Ctx.activeModule->macroCtx;
 		StdVector<DeclMacro> macros = macroCtx.GetDeclMacros(node.ctx->scope, node.ctx->qualName);
 
 		for (DeclMacro& macro : macros)
@@ -30,8 +30,8 @@ namespace Noctis
 			macro.body.ToToks(toks);
 			toks.push_back(Token{ TokenType::RBrace, u64(-1) });
 
-			Parser parser{ toks, m_pCtx };
-			MacroVarSolver solver{ std::move(extractedElems), m_pCtx };
+			Parser parser{ toks };
+			MacroVarSolver solver{ std::move(extractedElems) };
 			solver.PreparseMacroVars();
 			solver.CollectMacroVarsForParsing();
 			parser.SetMacroVarSolver(&solver);
@@ -40,7 +40,7 @@ namespace Noctis
 
 			if (!parser.HasParsedAllTokens())
 			{
-				Span span = m_pCtx->spanManager.GetSpan(node.ctx->startIdx);
+				Span span = g_Ctx.spanManager.GetSpan(node.ctx->startIdx);
 				g_ErrorSystem.Error(span, "Failed to parse complete statement macro");
 			}
 		}
@@ -48,7 +48,7 @@ namespace Noctis
 
 	void DeclMacroExpansion::Visit(AstMacroInstExpr& node)
 	{
-		MacroContext& macroCtx = m_pCtx->activeModule->macroCtx;
+		MacroContext& macroCtx = g_Ctx.activeModule->macroCtx;
 		StdVector<DeclMacro> macros = macroCtx.GetDeclMacros(node.ctx->scope, node.ctx->qualName);
 
 		for (DeclMacro& macro : macros)
@@ -63,8 +63,8 @@ namespace Noctis
 			macro.body.ToToks(toks);
 			toks.push_back(Token{ TokenType::RBrace, u64(-1) });
 			
-			Parser parser{ toks, m_pCtx };
-			MacroVarSolver solver{ std::move(extractedElems), m_pCtx };
+			Parser parser{ toks };
+			MacroVarSolver solver{ std::move(extractedElems) };
 			solver.PreparseMacroVars();
 			parser.SetMacroVarSolver(&solver);
 			  

@@ -4,8 +4,8 @@
 
 namespace Noctis
 {
-	ILPass::ILPass(const char* pName, Context* pCtx)
-		: ILVisitor(pCtx)
+	ILPass::ILPass(const char* pName)
+		: ILVisitor()
 		, m_Name(pName)
 		, m_Timer(true)
 	{

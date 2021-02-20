@@ -25,8 +25,6 @@ namespace Noctis
 	class DependencyGraph
 	{
 	public:
-		DependencyGraph(Context* pCtx);
-
 		FuncDependencyNodeSPtr GetOrAddFuncDependency(QualNameSPtr qualName);
 
 	private:
@@ -34,8 +32,6 @@ namespace Noctis
 		StdUnorderedMap<QualNameSPtr, FuncDependencyNodeSPtr> m_FuncDependencies;
 
 		StdVector<QualNameSPtr> m_FuncsInExprGenerics;
-
-		Context* m_pCtx;
 	};
 
 	class ILDependencyGraph;
@@ -66,13 +62,11 @@ namespace Noctis
 	class ILDependencyGraph
 	{
 	public:
-		ILDependencyGraph(Context* pCtx);
+		ILDependencyGraph();
 
 		ILBlockDependencyNodeSPtr GetOrAddBlockDependency(u32 id);
 
 	private:
-		Context* m_pCtx;
-		
 		StdVector<ILBlockDependencyNodeSPtr> m_Blocks;
 	};
 	

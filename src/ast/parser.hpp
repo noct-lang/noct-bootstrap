@@ -29,7 +29,7 @@ namespace Noctis
 		};
 		
 	public:
-		Parser(const StdVector<Token>& tokens, Context* pCtx);
+		Parser(const StdVector<Token>& tokens);
 
 		StdVector<AstStmtSPtr> Parse();
 
@@ -186,7 +186,6 @@ namespace Noctis
 
 		StdVector<Token> m_Tokens;
 		u64 m_TokIdx;
-		Context* m_pCtx;
 		MacroVarSolver* m_pMacroSolver;
 		bool m_AllowAggrInit;
 	};

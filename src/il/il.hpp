@@ -395,7 +395,7 @@ namespace Noctis
 
 	struct ILFuncDef : public ILElem
 	{
-		ILFuncDef(Context* pCtx, QualNameSPtr qualName, StdVector<ILGeneric>&& generics);
+		ILFuncDef(QualNameSPtr qualName, StdVector<ILGeneric>&& generics);
 		
 		QualNameSPtr qualName;
 		

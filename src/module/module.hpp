@@ -46,18 +46,18 @@ namespace Noctis
 		u32 GetOrAddName(const StdString& name);
 		u32 GetNameId(const StdString& name);
 
-		QualNameSPtr GetQualNameFromId(Context* pCtx, u32 id, BoundsInfo* pBoundsInfo);
-		u32 GetOrAddQualName(Context* pCtx, QualNameSPtr qualName, BoundsInfo* pBoundsInfo);
+		QualNameSPtr GetQualNameFromId(u32 id, BoundsInfo* pBoundsInfo);
+		u32 GetOrAddQualName(QualNameSPtr qualName, BoundsInfo* pBoundsInfo);
 		u32 GetQualNameId(QualNameSPtr qualName);
 
-		TypeHandle GetTypeFromId(Context* pCtx, u32 id);
-		u32 GetOrAddType(Context* pCtx, TypeHandle handle);
+		TypeHandle GetTypeFromId(u32 id);
+		u32 GetOrAddType(TypeHandle handle);
 	};
 	
 	FWDECL_STRUCT_SPTR(Module);
 	struct Module
 	{
-		Module(QualNameSPtr qualName, Context* pCtx);
+		Module(QualNameSPtr qualName);
 
 		StdVector<AstTree> trees;
 		MacroContext macroCtx;

@@ -7,7 +7,7 @@ namespace Noctis
 	class ILRemoveUntouchableBlockPass : public ILPass
 	{
 	public:
-		ILRemoveUntouchableBlockPass(Context* pCtx);
+		ILRemoveUntouchableBlockPass();
 
 		void Process(ILModule& mod) override;
 	};
@@ -15,7 +15,7 @@ namespace Noctis
 	class ILBlockMergePass : public ILPass
 	{
 	public:
-		ILBlockMergePass(Context* pCtx);
+		ILBlockMergePass();
 
 		void Process(ILModule& mod) override;
 	};
@@ -23,7 +23,7 @@ namespace Noctis
 	class ILRemoveGotoOnlyPass : public ILPass
 	{
 	public:
-		ILRemoveGotoOnlyPass(Context* pCtx);
+		ILRemoveGotoOnlyPass();
 
 		void Process(ILModule& mod) override;
 

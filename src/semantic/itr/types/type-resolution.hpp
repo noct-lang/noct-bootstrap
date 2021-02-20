@@ -11,7 +11,7 @@ namespace Noctis
 	class TypealiasReplacing : public ITrSemanticPass
 	{
 	public:
-		TypealiasReplacing(Context* pCtx);
+		TypealiasReplacing();
 
 		void Process(ITrModule& mod) override;
 	};
@@ -19,7 +19,7 @@ namespace Noctis
 	class InterfaceResolve : public ITrSemanticPass
 	{
 	public:
-		InterfaceResolve(Context* pCtx);
+		InterfaceResolve();
 
 		void Process(ITrModule& mod) override;
 

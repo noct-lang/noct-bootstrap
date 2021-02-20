@@ -61,7 +61,7 @@
 	
 	struct Symbol
 	{
-		Symbol(Context* pCtx, SymbolKind kind, QualNameSPtr qualName);
+		Symbol(SymbolKind kind, QualNameSPtr qualName);
 
 		void SetSelf(SymbolWPtr self);
 
@@ -101,7 +101,6 @@
 			
 		SymbolWPtr self;
 
-
 		u16 funcDefaultStart;
 
 		TypeHandle type;
@@ -112,8 +111,6 @@
 		u64 offset;
 
 		StdString mangledName;
-
-		Context* pCtx;
 
 		ITrDefWPtr associatedITr;
 		
@@ -131,13 +128,12 @@
 		u8 defImplVer;
 	};
 
-	SymbolSPtr CreateSymbol(Context* pCtx, SymbolKind kind, QualNameSPtr qualName);
-	SymbolSPtr CreateSymbol(Context* pCtx, SymbolKind kind, QualNameSPtr qualName, ITrDefWPtr node);
+	SymbolSPtr CreateSymbol(SymbolKind kind, QualNameSPtr qualName);
+	SymbolSPtr CreateSymbol(SymbolKind kind, QualNameSPtr qualName, ITrDefWPtr node);
 
 	class SymbolSubTable
 	{
 	public:
-		SymbolSubTable(Context* pCtx);
 		void SetParent(SymbolWPtr parent);
 
 		bool Add(SymbolSPtr sym, QualNameSPtr interfaceQualName = nullptr);
@@ -161,7 +157,6 @@
 		StdUnorderedMap<StdString, SymbolSPtr> m_Symbols;
 		StdUnorderedMap<QualNameSPtr, StdUnorderedMap<StdString, SymbolSPtr>> m_ImplSubtables;
 
-		Context* m_pCtx;
 		SymbolWPtr m_Parent;
 	};
 
@@ -169,7 +164,7 @@
 	class ModuleSymbolTable
 	{
 	public:
-		ModuleSymbolTable(Context* pCtx, QualNameSPtr scope);
+		ModuleSymbolTable(QualNameSPtr scope);
 
 		bool Add(SymbolSPtr sym);
 
@@ -199,14 +194,12 @@
 
 		QualNameSPtr m_ModScope;
 		StdVector<QualNameSPtr> m_ImportedModuleNames;
-
-		Context* m_pCtx;
 	};
 
 	class ScopedSymbolTable
 	{
 	public:
-		ScopedSymbolTable(Context* pCtx);
+		ScopedSymbolTable();
 
 		bool Add(SymbolSPtr sym, usize idenIdx);
 		
@@ -229,8 +222,6 @@
 		
 		StdUnorderedMap<StdString, ScopedSymbolTableSPtr> m_SubTables;
 		StdUnorderedMap<StdString, SymbolSPtr> m_Symbols;
-
-		Context* m_pCtx;
 	};
 
 	inline bool ScopedSymbolTable::Empty() const

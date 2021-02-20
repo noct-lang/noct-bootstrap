@@ -10,7 +10,7 @@ namespace Noctis
 	class CompilerImplPass : public ITrSemanticPass
 	{
 	public:
-		CompilerImplPass(Context* pCtx);
+		CompilerImplPass();
 
 		void Process(ITrModule& mod) override;
 	};
@@ -18,7 +18,7 @@ namespace Noctis
 	class ImplEliminationPass : public ITrSemanticPass
 	{
 	public:
-		ImplEliminationPass(Context* pCtx);
+		ImplEliminationPass();
 
 		void Process(ITrModule& mod) override;
 	};

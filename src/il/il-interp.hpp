@@ -25,19 +25,14 @@ namespace Noctis
 		u64 stackIdx;
 		u64 retIdx;
 
-		ILInterpVar& GetVar(Context* pCtx, ILVar& var);
+		ILInterpVar& GetVar(ILVar& var);
 	};
 
 	class ILInterp
 	{
 	public:
-
-		ILInterp(Context* pCtx);
-
-
 		void Interp(QualNameSPtr);
 		void Interp(QualNameSPtr, const StdVector<ILInterpVar>& args);
-
 		
 	private:
 
@@ -88,9 +83,5 @@ namespace Noctis
 
 		StdStack<ILInterpStackFrame> m_Frames;
 		StdVector<u8> m_Stack;
-
-		
-
-		Context* m_pCtx;
 	};
 }

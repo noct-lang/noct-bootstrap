@@ -4,8 +4,8 @@
 
 namespace Noctis
 {
-	IdenScopePass::IdenScopePass(Context* pCtx)
-		: AstSemanticPass("iden-scope pass", pCtx)
+	IdenScopePass::IdenScopePass()
+		: AstSemanticPass("iden-scope pass")
 		, m_pTree(nullptr)
 	{
 	}

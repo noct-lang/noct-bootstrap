@@ -9,8 +9,8 @@
 
 namespace Noctis
 {
-	AstToITrLowering::AstToITrLowering(Context* pCtx)
-		: AstSemanticPass("ast to itr lowering", pCtx)
+	AstToITrLowering::AstToITrLowering()
+		: AstSemanticPass("ast to itr lowering")
 		, m_InFunc(false)
 	{
 	}
@@ -128,7 +128,7 @@ namespace Noctis
 		}
 		ITrBodySPtr body{ new ITrBody{ PopDefFrame(), {} } };
 
-		ITrModule& mod = m_pCtx->activeModule->itrModule;
+		ITrModule& mod = g_Ctx.activeModule->itrModule;
 		def->fileName = m_TreeFilename;
 		mod.AddDefinition(def, body);
 		PushDef(def);
@@ -151,7 +151,7 @@ namespace Noctis
 		}
 		ITrBodySPtr body{ new ITrBody{ PopDefFrame(), {} } };
 		
-		ITrModule& mod = m_pCtx->activeModule->itrModule;
+		ITrModule& mod = g_Ctx.activeModule->itrModule;
 		def->fileName = m_TreeFilename;
 		mod.AddDefinition(def, body);
 		PushDef(def);
@@ -160,7 +160,7 @@ namespace Noctis
 	void AstToITrLowering::Visit(AstValueEnumDecl& node)
 	{
 		QualNameSPtr enumQualName = node.ctx->qualName;
-		ITrModule& mod = m_pCtx->activeModule->itrModule;
+		ITrModule& mod = g_Ctx.activeModule->itrModule;
 		
 		StdVector<ITrDefSPtr> members;
 		for (StdPair<StdString, AstExprSPtr> astMember : node.members)
@@ -190,7 +190,7 @@ namespace Noctis
 	void AstToITrLowering::Visit(AstAdtEnumDecl& node)
 	{
 		QualNameSPtr enumQualName = node.ctx->qualName;
-		ITrModule& mod = m_pCtx->activeModule->itrModule;
+		ITrModule& mod = g_Ctx.activeModule->itrModule;
 
 		ITrAttribsSPtr attribs = VisitAndGetAttribs(node.attribs);
 		ITrGenDeclSPtr genDecl = VisitAndGetGenDecl(node.generics);
@@ -224,14 +224,14 @@ namespace Noctis
 
 	void AstToITrLowering::Visit(AstMarkerInterfaceDecl& node)
 	{
-		m_ImplType = m_pCtx->typeReg.Iden(TypeMod::None, node.ctx->qualName);
+		m_ImplType = g_Ctx.typeReg.Iden(TypeMod::None, node.ctx->qualName);
 		m_ImplType = TypeHandle{};
 		
 		ITrAttribsSPtr attribs = VisitAndGetAttribs(node.attribs);
 		ITrDefSPtr def{ new ITrMarkerInterface{ attribs, node.ctx->qualName, node.ctx->startIdx, node.ctx->endIdx } };
 		def->ptr = def;
 
-		ITrModule& mod = m_pCtx->activeModule->itrModule;
+		ITrModule& mod = g_Ctx.activeModule->itrModule;
 		def->fileName = m_TreeFilename;
 		mod.AddDefinition(def);
 		PushDef(def);
@@ -248,7 +248,7 @@ namespace Noctis
 		def->ptr = def;
 
 		PushDefFrame(def);
-		m_ImplType = m_pCtx->typeReg.Iden(TypeMod::None, node.ctx->qualName);
+		m_ImplType = g_Ctx.typeReg.Iden(TypeMod::None, node.ctx->qualName);
 		for (AstStmtSPtr member : node.members)
 		{
 			AstVisitor::Visit(member);
@@ -256,7 +256,7 @@ namespace Noctis
 		m_ImplType = TypeHandle{};
 		ITrBodySPtr body{ new ITrBody{ PopDefFrame(), {} } };
 		
-		ITrModule& mod = m_pCtx->activeModule->itrModule;
+		ITrModule& mod = g_Ctx.activeModule->itrModule;
 		def->fileName = m_TreeFilename;
 		mod.AddDefinition(def, body);
 		PushDef(def);
@@ -284,7 +284,7 @@ namespace Noctis
 		def->ptr = def;
 
 		PushDefFrame(def);
-		m_ImplType = m_pCtx->typeReg.Iden(TypeMod::None, node.ctx->qualName);
+		m_ImplType = g_Ctx.typeReg.Iden(TypeMod::None, node.ctx->qualName);
 		for (AstStmtSPtr member : node.members)
 		{
 			AstVisitor::Visit(member);
@@ -292,7 +292,7 @@ namespace Noctis
 		m_ImplType = TypeHandle{};
 		ITrBodySPtr body{ new ITrBody{ PopDefFrame(), {} } };
 		
-		ITrModule& mod = m_pCtx->activeModule->itrModule;
+		ITrModule& mod = g_Ctx.activeModule->itrModule;
 		def->fileName = m_TreeFilename;
 		mod.AddDefinition(def, body);
 		PushDef(def);
@@ -309,7 +309,7 @@ namespace Noctis
 		ITrDefSPtr def{ new ITrTypealias{ attribs, genDecl, node.ctx->qualName, type, IsModDef(), node.ctx->startIdx, node.ctx->endIdx } };
 		def->ptr = def;
 
-		ITrModule& mod = m_pCtx->activeModule->itrModule;
+		ITrModule& mod = g_Ctx.activeModule->itrModule;
 		def->fileName = m_TreeFilename;
 		mod.AddDefinition(def);
 		PushDef(def);
@@ -326,7 +326,7 @@ namespace Noctis
 		ITrDefSPtr def{ new ITrTypedef{ attribs, genDecl, node.ctx->qualName, type, IsModDef(), node.ctx->startIdx, node.ctx->endIdx } };
 		def->ptr = def;
 
-		ITrModule& mod = m_pCtx->activeModule->itrModule;
+		ITrModule& mod = g_Ctx.activeModule->itrModule;
 		def->fileName = m_TreeFilename;
 		mod.AddDefinition(def);
 		PushDef(def);
@@ -348,14 +348,14 @@ namespace Noctis
 			ITrTypeSPtr type = VisitAndGetType(node.type);
 			ITrExprSPtr expr = VisitAndGetExpr(node.expr);
 
-			ITrModule& mod = m_pCtx->activeModule->itrModule;
+			ITrModule& mod = g_Ctx.activeModule->itrModule;
 			bool initVars = true;
 			if (expr && expr->exprKind == ITrExprKind::TupleInit)
 			{
 				ITrTupleInit& tupInit = static_cast<ITrTupleInit&>(*expr);
 				if (tupInit.exprs.size() > 1 && tupInit.exprs.size() != node.idens.size())
 				{
-					Span span = m_pCtx->spanManager.GetSpan(node.ctx->startIdx);
+					Span span = g_Ctx.spanManager.GetSpan(node.ctx->startIdx);
 					g_ErrorSystem.Error(span, "Number of initializers does not match match number of values, has %u values, but found %u initializers", u32(node.idens.size()), u32(tupInit.exprs.size()));
 					initVars = false;
 				}
@@ -429,7 +429,7 @@ namespace Noctis
 		}
 		ITrBodySPtr body{ new ITrBody{ PopDefFrame(), std::move(stmts) } };
 
-		ITrModule& mod = m_pCtx->activeModule->itrModule;
+		ITrModule& mod = g_Ctx.activeModule->itrModule;
 		def->fileName = m_TreeFilename;
 		mod.AddDefinition(def, body);
 		PushDef(def);
@@ -475,7 +475,7 @@ namespace Noctis
 		}
 		ITrBodySPtr body{ new ITrBody{ PopDefFrame(), std::move(stmts) } };
 
-		ITrModule& mod = m_pCtx->activeModule->itrModule;
+		ITrModule& mod = g_Ctx.activeModule->itrModule;
 		def->fileName = m_TreeFilename;
 		mod.AddDefinition(def, body);
 		PushDef(def);
@@ -518,7 +518,7 @@ namespace Noctis
 		
 		ITrBodySPtr body{ new ITrBody{ std::move(defs), {} } };
 
-		ITrModule& mod = m_pCtx->activeModule->itrModule;
+		ITrModule& mod = g_Ctx.activeModule->itrModule;
 		def->fileName = m_TreeFilename;
 		mod.AddDefinition(def, body);
 		PushDef(def);
@@ -543,7 +543,7 @@ namespace Noctis
 
 		ITrBodySPtr body{ new ITrBody{ std::move(defs), std::move(block->stmts) } };
 
-		ITrModule& mod = m_pCtx->activeModule->itrModule;
+		ITrModule& mod = g_Ctx.activeModule->itrModule;
 		def->fileName = m_TreeFilename;
 		mod.AddDefinition(def, body);
 		PushDef(def);
@@ -620,7 +620,7 @@ namespace Noctis
 		// Condition
 		ITrExprSPtr cond = VisitAndGetExpr(node.cond);
 		cond = ITrExprSPtr{ new ITrUnary{ OperatorKind::Not, cond, cond->startIdx, cond->endIdx } };
-		ITrStmtSPtr breakStmt{ new ITrBreak{ nullptr, cond->startIdx, cond->endIdx } };
+		ITrStmtSPtr breakStmt{ new ITrBreak{ "", cond->startIdx, cond->endIdx } };
 		ITrBlockSPtr breakBlock{ new ITrBlock{ body->scopeName + "__loop_break", { breakStmt }, cond->startIdx, cond->endIdx } };
 		body->stmts.insert(body->stmts.begin(), ITrStmtSPtr{ new ITrIf{ false, nullptr, cond, breakBlock, nullptr, node.ctx->startIdx } });
 
@@ -643,7 +643,7 @@ namespace Noctis
 		// Condition
 		ITrExprSPtr cond = VisitAndGetExpr(node.cond);
 		cond = ITrExprSPtr{ new ITrUnary{ OperatorKind::Not, cond, cond->startIdx, cond->endIdx } };
-		ITrStmtSPtr breakStmt{ new ITrBreak{ nullptr, cond->startIdx, cond->endIdx } };
+		ITrStmtSPtr breakStmt{ new ITrBreak{ "", cond->startIdx, cond->endIdx } };
 		ITrBlockSPtr breakBlock{ new ITrBlock{ body->scopeName + "__loop_break", { breakStmt }, cond->startIdx, cond->endIdx } };
 		stmts.push_back(ITrStmtSPtr{ new ITrIf{ false, nullptr, cond, breakBlock, nullptr, cond->startIdx } });
 
@@ -1054,7 +1054,7 @@ namespace Noctis
 		
 		ITrBodySPtr body{ new ITrBody{ std::move(defs), std::move(stmts) } };
 
-		ITrModule& mod = m_pCtx->activeModule->itrModule;
+		ITrModule& mod = g_Ctx.activeModule->itrModule;
 		def->fileName = m_TreeFilename;
 		mod.AddDefinition(def, body);
 
@@ -1123,7 +1123,7 @@ namespace Noctis
 		if (attribs && ENUM_IS_SET(attribs->attribs, Attribute::Mut))
 			mod = TypeMod::Mut;
 		
-		TypeHandle handle = m_pCtx->typeReg.Builtin(mod, builtin);
+		TypeHandle handle = g_Ctx.typeReg.Builtin(mod, builtin);
 		ITrTypeSPtr type{ new ITrType{ attribs, handle, {}, nullptr, node.ctx->startIdx, node.ctx->endIdx } };
 		m_Type = type;
 	}
@@ -1138,7 +1138,7 @@ namespace Noctis
 		Visit(*node.qualName);
 		QualNameSPtr qualName = node.qualName->ctx->qualName;
 
-		TypeHandle handle = m_pCtx->typeReg.Iden(mod, qualName);
+		TypeHandle handle = g_Ctx.typeReg.Iden(mod, qualName);
 		ITrTypeSPtr type{ new ITrType{ attribs, handle, {}, nullptr, node.ctx->startIdx, node.ctx->endIdx } };
 		m_Type = type;
 	}
@@ -1151,7 +1151,7 @@ namespace Noctis
 			mod = TypeMod::Mut;
 		
 		ITrTypeSPtr subType = VisitAndGetType(node.subType);
-		TypeHandle handle = m_pCtx->typeReg.Ptr(mod, subType->handle);
+		TypeHandle handle = g_Ctx.typeReg.Ptr(mod, subType->handle);
 
 		ITrTypeSPtr type{ new ITrType{ attribs, handle, { subType }, nullptr, node.ctx->startIdx, node.ctx->endIdx } };
 		m_Type = type;
@@ -1165,7 +1165,7 @@ namespace Noctis
 			mod = TypeMod::Mut;
 		
 		ITrTypeSPtr subType = VisitAndGetType(node.subType);
-		TypeHandle handle = m_pCtx->typeReg.Ref(mod, subType->handle);
+		TypeHandle handle = g_Ctx.typeReg.Ref(mod, subType->handle);
 
 		ITrTypeSPtr type{ new ITrType{ attribs, handle, { subType }, nullptr, node.ctx->startIdx, node.ctx->endIdx } };
 		m_Type = type;
@@ -1181,7 +1181,7 @@ namespace Noctis
 		
 		ITrTypeSPtr subType = VisitAndGetType(node.subType);
 		ITrExprSPtr expr = VisitAndGetExpr(node.arraySize);
-		TypeHandle handle = m_pCtx->typeReg.Array(mod, subType->handle, expr);
+		TypeHandle handle = g_Ctx.typeReg.Array(mod, subType->handle, expr);
 		ITrTypeSPtr type{ new ITrType{ attribs, handle, { subType }, expr, node.ctx->startIdx, node.ctx->endIdx }};
 		m_Type = type;
 	}
@@ -1194,7 +1194,7 @@ namespace Noctis
 			mod = TypeMod::Mut;
 		
 		ITrTypeSPtr subType = VisitAndGetType(node.subType);
-		TypeHandle handle = m_pCtx->typeReg.Slice(mod, subType->handle);
+		TypeHandle handle = g_Ctx.typeReg.Slice(mod, subType->handle);
 		ITrTypeSPtr type{ new ITrType{ attribs, handle, { subType }, nullptr, node.ctx->startIdx, node.ctx->endIdx } };
 		m_Type = type;
 	}
@@ -1218,7 +1218,7 @@ namespace Noctis
 			subTypesHandles.push_back(subType->handle);
 		}
 
-		TypeHandle handle = m_pCtx->typeReg.Tuple(mod, subTypesHandles);
+		TypeHandle handle = g_Ctx.typeReg.Tuple(mod, subTypesHandles);
 		ITrTypeSPtr type{ new ITrType{ attribs, handle, std::move(subTypes), nullptr, node.ctx->startIdx, node.ctx->endIdx } };
 		m_Type = type;
 	}
@@ -1231,14 +1231,14 @@ namespace Noctis
 			mod = TypeMod::Mut;
 		
 		ITrTypeSPtr subType = VisitAndGetType(node.subType);
-		TypeHandle handle = m_pCtx->typeReg.Opt(mod, subType->handle);
+		TypeHandle handle = g_Ctx.typeReg.Opt(mod, subType->handle);
 		ITrTypeSPtr type{ new ITrType{ attribs, handle, { subType }, nullptr, node.ctx->startIdx, node.ctx->endIdx } };
 		m_Type = type;
 	}
 
 	void AstToITrLowering::Visit(AstInlineStructType& node)
 	{
-		ITrModule& mod = m_pCtx->activeModule->itrModule;
+		ITrModule& mod = g_Ctx.activeModule->itrModule;
 		StdVector<ITrDefSPtr> members;
 		for (StdPair<StdVector<StdString>, AstTypeSPtr>& astMember : node.members)
 		{
@@ -1266,7 +1266,7 @@ namespace Noctis
 		if (attribs && ENUM_IS_SET(attribs->attribs, Attribute::Mut))
 			tmod = TypeMod::Mut;
 
-		TypeHandle handle = m_pCtx->typeReg.Iden(tmod, node.ctx->qualName);
+		TypeHandle handle = g_Ctx.typeReg.Iden(tmod, node.ctx->qualName);
 		ITrTypeSPtr type{ new ITrType{ attribs, handle, {}, nullptr, node.ctx->startIdx, node.ctx->endIdx } };
 		m_Type = type;
 	}
@@ -1274,7 +1274,7 @@ namespace Noctis
 	void AstToITrLowering::Visit(AstInlineEnumType& node)
 	{
 		QualNameSPtr qualName = node.ctx->qualName;
-		ITrModule& mod = m_pCtx->activeModule->itrModule;
+		ITrModule& mod = g_Ctx.activeModule->itrModule;
 		
 		StdVector<ITrDefSPtr> members;
 		for (StdPair<StdString, AstExprSPtr>& astMember : node.members)
@@ -1298,7 +1298,7 @@ namespace Noctis
 		if (attribs && ENUM_IS_SET(attribs->attribs, Attribute::Mut))
 			tmod = TypeMod::Mut;
 
-		TypeHandle handle = m_pCtx->typeReg.Iden(tmod, qualName);
+		TypeHandle handle = g_Ctx.typeReg.Iden(tmod, qualName);
 		ITrTypeSPtr type{ new ITrType{ attribs, handle, {}, nullptr, node.ctx->startIdx, node.ctx->endIdx } };
 		m_Type = type;
 	}
@@ -1323,7 +1323,7 @@ namespace Noctis
 		if (subTypesHandles.size() == 1)
 			handle = subTypesHandles[0];
 		else
-			handle = m_pCtx->typeReg.Compound(TypeMod::None, subTypesHandles);
+			handle = g_Ctx.typeReg.Compound(TypeMod::None, subTypesHandles);
 		ITrTypeSPtr type{ new ITrType{ attribs, handle, std::move(subTypes), nullptr, node.ctx->startIdx, node.ctx->endIdx } };
 		m_Type = type;
 	}
@@ -1488,7 +1488,7 @@ namespace Noctis
 
 			if (ENUM_IS_SET(attribs, tmp))
 			{
-				Span span = m_pCtx->spanManager.GetSpan(node.ctx->startIdx);
+				Span span = g_Ctx.spanManager.GetSpan(node.ctx->startIdx);
 				StdString attribName = ToString(tmp);
 				const char* pAttribName = attribName.c_str();
 				g_ErrorSystem.Error(span, "Duplicate occurence of '%s'", pAttribName);
@@ -1545,7 +1545,7 @@ namespace Noctis
 
 		if (!node.implTypes.empty())
 		{
-			TypeHandle idenType = m_pCtx->typeReg.Iden(TypeMod::None, QualName::Create(node.iden));
+			TypeHandle idenType = g_Ctx.typeReg.Iden(TypeMod::None, QualName::Create(node.iden));
 			ITrTypeSPtr toBindType{ new ITrType{ nullptr, idenType, {}, nullptr, u64(-1), u64(-1) } };
 
 			for (AstIdentifierTypeSPtr implType : node.implTypes)
@@ -1673,7 +1673,7 @@ namespace Noctis
 		}
 		case AstMethodReceiverKind::MutRef:
 		{
-			TypeHandle tmp = m_pCtx->typeReg.Mod(TypeMod::Mut, recType->handle);
+			TypeHandle tmp = g_Ctx.typeReg.Mod(TypeMod::Mut, recType->handle);
 			if (m_ITrImplType)
 			{
 				recType = ITrTypeSPtr{ new ITrType { *m_ITrImplType } };
@@ -1687,7 +1687,7 @@ namespace Noctis
 		}
 		case AstMethodReceiverKind::Ref:
 		{
-			TypeHandle tmp = m_pCtx->typeReg.Ref(TypeMod::None, recType->handle);
+			TypeHandle tmp = g_Ctx.typeReg.Ref(TypeMod::None, recType->handle);
 			recType = ITrTypeSPtr{ new ITrType { nullptr, tmp, { recType }, nullptr, u64(-1), u64(-1) } };
 			// fallthrough
 		}
@@ -1723,7 +1723,7 @@ namespace Noctis
 
 		m_NamedRet = ITrExprSPtr{ new ITrTupleInit{ std::move(retSubExprs), u64(-1), u64(-1) } };
 
-		TypeHandle handle = m_pCtx->typeReg.Tuple(TypeMod::None, subTypesHandles);
+		TypeHandle handle = g_Ctx.typeReg.Tuple(TypeMod::None, subTypesHandles);
 		retType = ITrTypeSPtr{ new ITrType{ nullptr, handle, std::move(subTypes), nullptr, u64(-1), u64(-1) } };
 	}
 

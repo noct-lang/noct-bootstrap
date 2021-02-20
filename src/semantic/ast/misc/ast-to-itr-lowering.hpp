@@ -32,7 +32,7 @@ namespace Noctis
 	class AstToITrLowering : public AstSemanticPass
 	{
 	public:
-		AstToITrLowering(Context* pCtx);
+		AstToITrLowering();
 
 		void Visit(AstTypeDisambiguation& node) override;
 		void Visit(AstIden& node) override;

@@ -25,7 +25,7 @@ namespace Noctis
 	class ILEncode : public ILVisitor
 	{
 	public:
-		ILEncode(Context* pCtx);
+		ILEncode();
 		
 		StdVector<u8> Encode(ILModule& mod);
 		
@@ -93,7 +93,7 @@ namespace Noctis
 	class ILDecode
 	{
 	public:
-		ILDecode(Context* pCtx, Module* pNxMod);
+		ILDecode(Module* pNxMod);
 
 		ILModule Decode(const StdVector<u8>& bytecode);
 
@@ -148,7 +148,6 @@ namespace Noctis
 		StdString GetNameFromId(u32 id);
 		QualNameSPtr GetQualNameFromId(u32 id);
 
-		Context* m_pCtx;
 		ILModule* m_pMod;
 		Module* m_pNxMod;
 

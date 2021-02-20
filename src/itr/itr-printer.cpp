@@ -8,9 +8,8 @@
 
 namespace Noctis
 {
-	ITrPrinter::ITrPrinter(Context* pCtx)
+	ITrPrinter::ITrPrinter()
 		: ITrVisitor(true)
-		, m_pCtx(pCtx)
 		, m_Indent(1)
 	{
 	}
@@ -707,7 +706,7 @@ namespace Noctis
 	void ITrPrinter::Visit(ITrType& node)
 	{
 		PrintIndent();
-		StdString type = m_pCtx->typeReg.ToString(node.handle);
+		StdString type = g_Ctx.typeReg.ToString(node.handle);
 		g_Logger.Log("(type %s)\n", type.c_str());
 	}
 

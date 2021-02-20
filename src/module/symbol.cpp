@@ -28,23 +28,22 @@ namespace Noctis
 		case SymbolKind::AdtEnum:
 		case SymbolKind::Typedef:
 		case SymbolKind::Typealias:
-			return sym->pCtx->typeReg.Iden(TypeMod::None, qualName);
+			return g_Ctx.typeReg.Iden(TypeMod::None, qualName);
 		case SymbolKind::ValEnumMember:
 		case SymbolKind::AdtEnumMember:
-			return sym->pCtx->typeReg.Iden(TypeMod::None, qualName->Base(usize(-1)));
+			return g_Ctx.typeReg.Iden(TypeMod::None, qualName->Base(usize(-1)));
 		default:
 			return type;
 		}
 	}
 
-	Symbol::Symbol(Context* pCtx, SymbolKind kind, QualNameSPtr qualName)
+	Symbol::Symbol(SymbolKind kind, QualNameSPtr qualName)
 		: qualName(qualName)
-		, children(new SymbolSubTable{pCtx})
+		, children(new SymbolSubTable{})
 		, funcDefaultStart(u16(-1))
 		, size(0)
 		, aligment(0)
 		, offset(0)
-		, pCtx(pCtx)
 		, kind(kind)
 		, isImported(false)
 		, isDefaultImpl(false)
@@ -71,10 +70,10 @@ namespace Noctis
 		case SymbolKind::AdtEnum:
 		case SymbolKind::Typedef:
 		case SymbolKind::Typealias:
-			return pCtx->typeReg.Iden(TypeMod::None, qualName);
+			return g_Ctx.typeReg.Iden(TypeMod::None, qualName);
 		case SymbolKind::ValEnumMember:
 		case SymbolKind::AdtEnumMember:
-			return pCtx->typeReg.Iden(TypeMod::None, qualName->Base(usize(-1)));
+			return g_Ctx.typeReg.Iden(TypeMod::None, qualName->Base(usize(-1)));
 		default: return type;
 		}
 	}
@@ -137,7 +136,7 @@ namespace Noctis
 		{
 			TypeSPtr actType = type.Type();
 			if (!actType->Size())
-				actType->CalculateSizeAlign(pCtx->typeReg);
+				actType->CalculateSizeAlign();
 			
 			size = actType->Size();
 			aligment = actType->Align();
@@ -200,7 +199,7 @@ namespace Noctis
 		if (type.Kind() == TypeKind::Iden &&
 			type.AsIden().qualName->Idens() == qualName->Idens())
 		{
-			inst->type = pCtx->typeReg.Iden(TypeMod::None, qualName);
+			inst->type = g_Ctx.typeReg.Iden(TypeMod::None, qualName);
 		}
 		else
 		{
@@ -273,7 +272,7 @@ namespace Noctis
 		if (isImported && !includeImports)
 			return;
 		
-		StdString name = qualName ? qualName->ToString() : pCtx->typeReg.ToString(type);
+		StdString name = qualName ? qualName->ToString() : g_Ctx.typeReg.ToString(type);
 		StdStringView kindName;
 		bool isInterface = false;
 		switch (kind)
@@ -316,7 +315,7 @@ namespace Noctis
 			flags += ", val_gen_depend";
 
 		printIndent(indent);
-		StdString typeName = pCtx->typeReg.ToString(type);
+		StdString typeName = g_Ctx.typeReg.ToString(type);
 		g_Logger.Log("(symbol '%s', kind='%s', type='%s'%s)\n", name.c_str(), kindName.data(), typeName.c_str(), flags.c_str());
 
 		if (!children->Empty())
@@ -341,14 +340,14 @@ namespace Noctis
 		for (StdPair<SymbolWPtr, SymbolInstWPtr> pair : impls)
 		{
 			SymbolSPtr implSym = pair.first.lock();
-			if (implSym->kind != SymbolKind::Type && !implSym->qualName->IsSubnameOf(pCtx->activeModule->qualName))
+			if (implSym->kind != SymbolKind::Type && !implSym->qualName->IsSubnameOf(g_Ctx.activeModule->qualName))
 				continue;
 
 			//if (pair.second)
 			//	continue;
 
 			printIndent(indent + 1);
-			StdString tmp = implSym->kind == SymbolKind::Type ? pCtx->typeReg.ToString(implSym->type) : implSym->qualName->ToString();
+			StdString tmp = implSym->kind == SymbolKind::Type ? g_Ctx.typeReg.ToString(implSym->type) : implSym->qualName->ToString();
 			g_Logger.Log(isInterface ? "(implemented by '%s')\n" : "(implements '%s')\n", tmp.c_str());
 		}
 	}
@@ -367,7 +366,7 @@ namespace Noctis
 	{
 		assert(kind == SymbolKind::Impl);
 		
-		SymbolSPtr res{ new Symbol{ pCtx, kind, qualName } };
+		SymbolSPtr res{ new Symbol{ kind, qualName } };
 		children->Foreach([&res](SymbolSPtr child, QualNameSPtr interfaceName)
 		{
 			res->children->Add(child, interfaceName);
@@ -387,9 +386,9 @@ namespace Noctis
 		return res;
 	}
 
-	SymbolSPtr CreateSymbol(Context* pCtx, SymbolKind kind, QualNameSPtr qualName)
+	SymbolSPtr CreateSymbol(SymbolKind kind, QualNameSPtr qualName)
 	{
-		SymbolSPtr sym{ new Symbol{ pCtx, kind, qualName } };
+		SymbolSPtr sym{ new Symbol{ kind, qualName } };
 		sym->SetSelf(sym);
 
 		switch (kind)
@@ -407,9 +406,9 @@ namespace Noctis
 		case SymbolKind::ValEnumMember:
 		case SymbolKind::AdtEnumMember:
 		{
-			TypeHandle type = pCtx->typeReg.Iden(TypeMod::None, qualName);
+			TypeHandle type = g_Ctx.typeReg.Iden(TypeMod::None, qualName);
 			sym->type = type;
-			pCtx->typeReg.SetIdenSym(type.AsIden().qualName, sym);
+			g_Ctx.typeReg.SetIdenSym(type.AsIden().qualName, sym);
 			break;
 		}
 		case SymbolKind::Func:
@@ -428,9 +427,9 @@ namespace Noctis
 		return sym;
 	}
 
-	SymbolSPtr CreateSymbol(Context* pCtx, SymbolKind kind, QualNameSPtr qualName, ITrDefWPtr node)
+	SymbolSPtr CreateSymbol(SymbolKind kind, QualNameSPtr qualName, ITrDefWPtr node)
 	{
-		SymbolSPtr sym = CreateSymbol(pCtx, kind, qualName);
+		SymbolSPtr sym = CreateSymbol(kind, qualName);
 		sym->associatedITr = node;
 
 		ITrDefSPtr nodeSPtr = node.lock();
@@ -441,11 +440,6 @@ namespace Noctis
 			sym->attribs = nodeSPtr->attribs->attribs;
 		}
 		return sym;
-	}
-
-	SymbolSubTable::SymbolSubTable(Context* pCtx)
-		: m_pCtx(pCtx)
-	{
 	}
 
 	void SymbolSubTable::SetParent(SymbolWPtr parent)
@@ -607,10 +601,9 @@ namespace Noctis
 		}
 	}
 
-	ModuleSymbolTable::ModuleSymbolTable(Context* pCtx, QualNameSPtr scope)
-		: m_ScopedTable(new ScopedSymbolTable{ pCtx })
+	ModuleSymbolTable::ModuleSymbolTable(QualNameSPtr scope)
+		: m_ScopedTable(new ScopedSymbolTable{})
 		, m_ModScope(scope)
-		, m_pCtx(pCtx)
 	{
 	}
 
@@ -626,7 +619,7 @@ namespace Noctis
 				return false;
 
 			m_TypeSymbols.try_emplace(type, sym);
-			StdString typeName = NameMangling::Mangle(m_pCtx, type);
+			StdString typeName = NameMangling::Mangle(type);
 			m_TypeNameSymbols.try_emplace(typeName, sym);
 			return true;
 		}
@@ -776,7 +769,7 @@ namespace Noctis
 		{
 			m_TypeSymbols.erase(sym->type.Type());
 
-			StdString typeName = m_pCtx->typeReg.ToString(sym->type);
+			StdString typeName = g_Ctx.typeReg.ToString(sym->type);
 			m_TypeNameSymbols.erase(typeName);
 			return true;
 		}
@@ -848,8 +841,7 @@ namespace Noctis
 		g_Logger.Flush();
 	}
 
-	ScopedSymbolTable::ScopedSymbolTable(Context* pCtx)
-		: m_pCtx(pCtx)
+	ScopedSymbolTable::ScopedSymbolTable()
 	{
 	}
 
@@ -873,7 +865,7 @@ namespace Noctis
 
 			auto scopeIt = m_SubTables.find(iden);
 			if (scopeIt == m_SubTables.end())
-				scopeIt = m_SubTables.try_emplace(iden, ScopedSymbolTableSPtr{ new ScopedSymbolTable{ m_pCtx } }).first;
+				scopeIt = m_SubTables.try_emplace(iden, ScopedSymbolTableSPtr{ new ScopedSymbolTable{} }).first;
 
 			return scopeIt->second->Add(sym, idenIdx + 1);
 		}
@@ -966,7 +958,7 @@ namespace Noctis
 		{
 			auto it = m_SubTables.find(subTable.first);
 			if (it == m_SubTables.end())
-				it = m_SubTables.try_emplace(subTable.first, new ScopedSymbolTable{ m_pCtx }).first;
+				it = m_SubTables.try_emplace(subTable.first, new ScopedSymbolTable{}).first;
 
 			it->second->Merge(subTable.second);
 		}

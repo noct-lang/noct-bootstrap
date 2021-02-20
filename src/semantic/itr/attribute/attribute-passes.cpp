@@ -7,8 +7,8 @@
 
 namespace Noctis
 {
-	SimpleAttributePass::SimpleAttributePass(Context* pCtx)
-		: ITrSemanticPass("simple attribute pass", pCtx)
+	SimpleAttributePass::SimpleAttributePass()
+		: ITrSemanticPass("simple attribute pass")
 	{
 	}
 
@@ -101,7 +101,7 @@ namespace Noctis
 				Attribute validSingle = attribs & singleMask;
 				if (CountBits(validSingle) > 1)
 				{
-					Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+					Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 					StdString name = ToString(validSingle);
 					const char* pName = name.c_str();
 					g_ErrorSystem.Error(span, "'%s' can't be used together for a variable declaration, only one of these is allowed per variable declaration", pName);
@@ -205,7 +205,7 @@ namespace Noctis
 
 			if (invalid != Attribute::None)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+				Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 				StdString name = ToString(invalid);
 				g_ErrorSystem.Error(span, "'%s' are invalid for %s definitions", name.c_str(), defName.data());
 			}
@@ -219,7 +219,7 @@ namespace Noctis
 
 		if (invalid != Attribute::None)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(spanId);
+			Span span = g_Ctx.spanManager.GetSpan(spanId);
 			StdString name = ToString(invalid);
 			g_ErrorSystem.Error(span, "'%s' are invalid for %s definitions", name.c_str(), defName.data());
 		}
@@ -231,7 +231,7 @@ namespace Noctis
 		Attribute validSingle = attribs & singleMask;
 		if (CountBits(validSingle) > 1)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(spanId);
+			Span span = g_Ctx.spanManager.GetSpan(spanId);
 			StdString name = ToString(validSingle);
 			const char* pName = name.c_str();
 			g_ErrorSystem.Error(span, "'%s' can't be used together for a %s, only one of these is allowed per parameter", name.c_str(), defName.data());

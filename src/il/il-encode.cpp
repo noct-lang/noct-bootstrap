@@ -7,8 +7,8 @@
 
 namespace Noctis
 {
-	ILEncode::ILEncode(Context* pCtx)
-		: ILVisitor(pCtx)
+	ILEncode::ILEncode()
+		: ILVisitor()
 		, m_pCurEncodingFunc(nullptr)
 		, m_TypeWidth(1)
 		, m_pBoundsInfo(nullptr)
@@ -30,7 +30,7 @@ namespace Noctis
 			for (TypeSPtr type : mod.types)
 			{
 				m_Types.try_emplace(type, typeId++);
-				StdString typeStr = NameMangling::Mangle(m_pCtx, type);
+				StdString typeStr = NameMangling::Mangle(type);
 				encoded.insert(encoded.end(), typeStr.begin(), typeStr.end());
 				encoded.push_back(0);
 			}
@@ -97,7 +97,7 @@ namespace Noctis
 
 		// def id
 		u32 idAndMangle = 0xF0; // LE, so id at begin
-		u32 nameId = m_pCtx->activeModule->encodeInfo.GetOrAddQualName(m_pCtx, node.qualName, m_pBoundsInfo);
+		u32 nameId = g_Ctx.activeModule->encodeInfo.GetOrAddQualName(node.qualName, m_pBoundsInfo);
 		idAndMangle |= (nameId & 0x00FF'FFFF) << 8;
 		
 		WriteData(idAndMangle);
@@ -380,11 +380,11 @@ namespace Noctis
 
 	void ILEncode::EncodeQualName(QualNameSPtr qualName)
 	{
-		u32 id = m_pCtx->activeModule->encodeInfo.GetQualNameId(qualName);
+		u32 id = g_Ctx.activeModule->encodeInfo.GetQualNameId(qualName);
 		if (id == 0)
 		{
 			id = u32(m_Names.size());
-			StdString mangled = NameMangling::Mangle(m_pCtx, qualName, m_pBoundsInfo);
+			StdString mangled = NameMangling::Mangle(qualName, m_pBoundsInfo);
 			m_Names.try_emplace(mangled, id);
 		}
 		WriteData(id);
@@ -392,7 +392,7 @@ namespace Noctis
 
 	void ILEncode::EncodeName(const StdString& name)
 	{
-		u32 id = m_pCtx->activeModule->encodeInfo.GetNameId(name);
+		u32 id = g_Ctx.activeModule->encodeInfo.GetNameId(name);
 		if (id == 0)
 		{
 			id = u32(m_Names.size());
@@ -495,9 +495,8 @@ namespace Noctis
 		return it->second;
 	}
 
-	ILDecode::ILDecode(Context* pCtx, Module* pNxMod)
-		: m_pCtx(pCtx)
-		, m_pMod(nullptr)
+	ILDecode::ILDecode(Module* pNxMod)
+		: m_pMod(nullptr)
 		, m_pNxMod(pNxMod)
 		, m_pByteCode(nullptr)
 		, m_BCPos(0)
@@ -595,7 +594,7 @@ namespace Noctis
 		for (u32 i = 0; i < count; ++i)
 		{
 			StdString typeMangle = ExtractNullTermString(bytecode, m_BCPos);
-			TypeHandle handle = NameMangling::DemangleType(m_pCtx, typeMangle);
+			TypeHandle handle = NameMangling::DemangleType(typeMangle);
 			m_Types.push_back(handle);
 			m_pMod->types.insert(handle.Type());
 		}
@@ -631,8 +630,8 @@ namespace Noctis
 
 		u32 nameId = idAndMangle >> 8;
 		
-		QualNameSPtr qualName = m_pNxMod->encodeInfo.GetQualNameFromId(m_pCtx, nameId, nullptr);
-		ILFuncDefSPtr def{ new ILFuncDef{ m_pCtx, qualName, {} } };
+		QualNameSPtr qualName = m_pNxMod->encodeInfo.GetQualNameFromId(nameId, nullptr);
+		ILFuncDefSPtr def{ new ILFuncDef{ qualName, {} } };
 		// TODO: Symbol
 
 		u32 blockCount = ReadData<u32>();
@@ -1158,8 +1157,8 @@ namespace Noctis
 		if (id & 0x8000'0000)
 		{
 			const StdString& name = m_Names[id & 0x7FFF'FFFF];
-			return NameMangling::DemangleQualName(m_pCtx, name, nullptr);
+			return NameMangling::DemangleQualName(name, nullptr);
 		}
-		return m_pNxMod->encodeInfo.GetQualNameFromId(m_pCtx, id, nullptr);
+		return m_pNxMod->encodeInfo.GetQualNameFromId(id, nullptr);
 	}
 }

@@ -20,11 +20,6 @@ namespace Noctis
 		return node;
 	}
 
-	DependencyGraph::DependencyGraph(Noctis::Context* pCtx)
-		: m_pCtx(pCtx)
-	{
-	}
-
 	FuncDependencyNodeSPtr DependencyGraph::GetOrAddFuncDependency(QualNameSPtr qualName)
 	{
 		auto it = m_FuncDependencies.find(qualName);
@@ -94,8 +89,7 @@ namespace Noctis
 		}
 	}
 
-	ILDependencyGraph::ILDependencyGraph(Context* pCtx)
-		: m_pCtx(pCtx)
+	ILDependencyGraph::ILDependencyGraph()
 	{
 	}
 

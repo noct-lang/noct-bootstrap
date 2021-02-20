@@ -168,7 +168,7 @@ namespace Noctis
 	{
 	}
 
-	ILInterpVar& ILInterpStackFrame::GetVar(Context* pCtx, ILVar& var)
+	ILInterpVar& ILInterpStackFrame::GetVar(ILVar& var)
 	{
 		u32 id = var.id;
 		if (vars.size() <= id)
@@ -180,11 +180,6 @@ namespace Noctis
 			vars[id].tmpData.resize(type->Size());
 		}
 		return vars[id];
-	}
-
-	ILInterp::ILInterp(Context* pCtx)
-		: m_pCtx(pCtx)
-	{
 	}
 
 	void ILInterp::Interp(QualNameSPtr funcName)
@@ -201,7 +196,7 @@ namespace Noctis
 
 	ILFuncDefSPtr ILInterp::GetFuncDef(QualNameSPtr funcName)
 	{
-		for (StdPair<const QualNameSPtr, ModuleSPtr>& pair : m_pCtx->modules)
+		for (StdPair<const QualNameSPtr, ModuleSPtr>& pair : g_Ctx.modules)
 		{
 			for (ILFuncDefSPtr funcDef : pair.second->ilMod.funcs)
 			{
@@ -355,7 +350,7 @@ namespace Noctis
 	{
 		ILInterpStackFrame& stackFrame = m_Frames.top();
 
-		ILInterpVar var = stackFrame.GetVar(m_pCtx, ret.var);
+		ILInterpVar var = stackFrame.GetVar(ret.var);
 		u8* srcAddress = GetSrcAddr(stackFrame, ret.var);
 		u8* retAdrress = m_Stack.data() + stackFrame.retIdx;
 
@@ -366,14 +361,14 @@ namespace Noctis
 	{
 		ILInterpStackFrame& stackFrame = m_Frames.top();
 
-		ILInterpVar& dst = stackFrame.GetVar(m_pCtx, assign.dst);
+		ILInterpVar& dst = stackFrame.GetVar(assign.dst);
 		if (assign.src.kind == ILVarKind::Lit)
 		{
 			StackCopy(assign.src.litData, dst.stackIdx);
 		}
 		else
 		{
-			ILInterpVar& src = stackFrame.GetVar(m_pCtx, assign.src);
+			ILInterpVar& src = stackFrame.GetVar(assign.src);
 			if (src.tmpData.empty())
 			{
 				StackCopy(src.stackIdx, dst.stackIdx, src.size);
@@ -390,7 +385,7 @@ namespace Noctis
 	{
 		ILInterpStackFrame& stackFrame = m_Frames.top();
 		
-		ILInterpVar& dst = stackFrame.GetVar(m_pCtx, assign.dst);
+		ILInterpVar& dst = stackFrame.GetVar(assign.dst);
 		u8* dstAddr = GetDstAddr(stackFrame, dst);
 		u8* srcAddr = GetSrcAddr(stackFrame, assign.src);
 
@@ -490,7 +485,7 @@ namespace Noctis
 	{
 		ILInterpStackFrame& stackFrame = m_Frames.top();
 
-		ILInterpVar& dst = stackFrame.GetVar(m_pCtx, binary.dst);
+		ILInterpVar& dst = stackFrame.GetVar(binary.dst);
 		u8* dstAddr = GetDstAddr(stackFrame, dst);
 		u8* src0Addr = GetSrcAddr(stackFrame, binary.src0);
 		u8* src1Addr = GetSrcAddr(stackFrame, binary.src1);
@@ -591,7 +586,7 @@ namespace Noctis
 	{
 		ILInterpStackFrame& stackFrame = m_Frames.top();
 
-		ILInterpVar& dst = stackFrame.GetVar(m_pCtx, unary.dst);
+		ILInterpVar& dst = stackFrame.GetVar(unary.dst);
 		u8* dstAddr = GetDstAddr(stackFrame, dst);
 
 		u8* srcAdd = GetSrcAddr(stackFrame, unary.src);
@@ -623,7 +618,7 @@ namespace Noctis
 	{
 		ILInterpStackFrame& stackFrame = m_Frames.top();
 		
-		ILInterpVar& dst = stackFrame.GetVar(m_pCtx, cast.dst);
+		ILInterpVar& dst = stackFrame.GetVar(cast.dst);
 		u8* dstAddr = GetDstAddr(stackFrame, dst);
 
 		u8* srcAddr = GetSrcAddr(stackFrame, cast.src);
@@ -753,7 +748,7 @@ namespace Noctis
 	{
 		ILInterpStackFrame& stackFrame = m_Frames.top();
 
-		ILInterpVar& dst = stackFrame.GetVar(m_pCtx, ternary.dst);
+		ILInterpVar& dst = stackFrame.GetVar(ternary.dst);
 		u8* dstAddr = GetDstAddr(stackFrame, dst);
 		u8* condAddr = GetSrcAddr(stackFrame, ternary.cond);
 		u8* src0Addr = GetSrcAddr(stackFrame, ternary.src0);
@@ -766,7 +761,7 @@ namespace Noctis
 	{
 		ILInterpStackFrame& stackFrame = m_Frames.top();
 
-		ILInterpVar& dst = stackFrame.GetVar(m_pCtx, access.dst);
+		ILInterpVar& dst = stackFrame.GetVar(access.dst);
 		u8* dstAddr = GetDstAddr(stackFrame, dst);
 		u8* srcAddr = GetSrcAddr(stackFrame, access.src);
 
@@ -780,7 +775,7 @@ namespace Noctis
 	{
 		ILInterpStackFrame& stackFrame = m_Frames.top();
 
-		ILInterpVar& dst = stackFrame.GetVar(m_pCtx, access.dst);
+		ILInterpVar& dst = stackFrame.GetVar(access.dst);
 		u8* dstAddr = GetDstAddr(stackFrame, dst);
 
 		TupleType& tupType = access.src.type.AsTuple();
@@ -795,7 +790,7 @@ namespace Noctis
 	{
 		ILInterpStackFrame& stackFrame = m_Frames.top();
 
-		ILInterpVar& dst = stackFrame.GetVar(m_pCtx, init.dst);
+		ILInterpVar& dst = stackFrame.GetVar(init.dst);
 		u8* dstAddr = GetDstAddr(stackFrame, dst);
 
 		TypeSPtr type = init.dst.type.Type();
@@ -815,7 +810,7 @@ namespace Noctis
 	{
 		ILInterpStackFrame& stackFrame = m_Frames.top();
 
-		ILInterpVar& dst = stackFrame.GetVar(m_pCtx, init.dst);
+		ILInterpVar& dst = stackFrame.GetVar(init.dst);
 		u8* dstAddr = GetDstAddr(stackFrame, dst);
 
 		TupleType& tupType = init.dst.type.AsTuple();
@@ -837,7 +832,7 @@ namespace Noctis
 	{
 		ILInterpStackFrame& stackFrame = m_Frames.top();
 
-		ILInterpVar& dst = stackFrame.GetVar(m_pCtx, init.dst);
+		ILInterpVar& dst = stackFrame.GetVar(init.dst);
 		u8* dstAddr = GetDstAddr(stackFrame, dst);
 
 		ArrayType& arrType = init.dst.type.AsArray();
@@ -859,13 +854,13 @@ namespace Noctis
 		StdVector<ILInterpVar> args;
 		for (ILVar& var : call.args)
 		{
-			args.push_back(stackFrame.GetVar(m_pCtx, var));
+			args.push_back(stackFrame.GetVar(var));
 		}
 
 		u64 stackRet = u64(-1);
 		if (call.kind == ILKind::StaticCallRet)
 		{
-			ILInterpVar& var = stackFrame.GetVar(m_pCtx, call.dst);
+			ILInterpVar& var = stackFrame.GetVar(call.dst);
 			var.var = call.dst;
 			TypeSPtr type = var.var.type.Type();
 			var.stackIdx = stackFrame.stackIdx;
@@ -893,7 +888,7 @@ namespace Noctis
 		if (var.kind == ILVarKind::Lit)
 			return var.litData.data();
 
-		ILInterpVar& src = stackFrame.GetVar(m_pCtx, var);
+		ILInterpVar& src = stackFrame.GetVar(var);
 
 		if (!src.tmpData.empty())
 			return src.tmpData.data();
@@ -908,21 +903,21 @@ namespace Noctis
 			size = u64(var.litData.size());
 			switch (var.litType)
 			{
-			case ILLitType::True:  type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::Bool); break;
-			case ILLitType::False: type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::Bool); break;
-			case ILLitType::I8:    type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::I8); break;
-			case ILLitType::I16:   type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::I16); break;
-			case ILLitType::I32:   type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::I32); break;
-			case ILLitType::I64:   type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::I64); break;
-			case ILLitType::I128:  type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::I128); break;
-			case ILLitType::U8:    type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U8); break;
-			case ILLitType::U16:   type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U16); break;
-			case ILLitType::U32:   type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U32); break;
-			case ILLitType::U64:   type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U64); break;
-			case ILLitType::U128:  type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U128); break;
-			case ILLitType::F32:   type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::F32); break;
-			case ILLitType::F64:   type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::F64); break;
-			case ILLitType::Char:  type = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::Char); break;
+			case ILLitType::True:  type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::Bool); break;
+			case ILLitType::False: type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::Bool); break;
+			case ILLitType::I8:    type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::I8); break;
+			case ILLitType::I16:   type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::I16); break;
+			case ILLitType::I32:   type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::I32); break;
+			case ILLitType::I64:   type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::I64); break;
+			case ILLitType::I128:  type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::I128); break;
+			case ILLitType::U8:    type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U8); break;
+			case ILLitType::U16:   type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U16); break;
+			case ILLitType::U32:   type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U32); break;
+			case ILLitType::U64:   type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U64); break;
+			case ILLitType::U128:  type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U128); break;
+			case ILLitType::F32:   type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::F32); break;
+			case ILLitType::F64:   type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::F64); break;
+			case ILLitType::Char:  type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::Char); break;
 			default: type = TypeHandle{};
 			}
 		}

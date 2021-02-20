@@ -10,8 +10,8 @@
 
 namespace Noctis
 {
-	CompilerImplPass::CompilerImplPass(Context* pCtx)
-		: ITrSemanticPass("compiler implementation pass", pCtx)
+	CompilerImplPass::CompilerImplPass()
+		: ITrSemanticPass("compiler implementation pass")
 	{
 	}
 
@@ -19,7 +19,7 @@ namespace Noctis
 	{
 		SetModule(mod);
 
-		ModuleSymbolTable& symTable = m_pCtx->activeModule->symTable;
+		ModuleSymbolTable& symTable = g_Ctx.activeModule->symTable;
 
 		QualNameSPtr structMarkerQualName = QualName::Create({ "core", "marker", "Struct" });
 		SymbolSPtr structMarkerSym = symTable.Find(nullptr, structMarkerQualName);
@@ -121,8 +121,8 @@ namespace Noctis
 		});
 	}
 
-	ImplEliminationPass::ImplEliminationPass(Context* pCtx)
-		: ITrSemanticPass("impl elimination pass", pCtx)
+	ImplEliminationPass::ImplEliminationPass()
+		: ITrSemanticPass("impl elimination pass")
 	{
 	}
 
@@ -141,7 +141,7 @@ namespace Noctis
 			processedSyms.emplace(sym);
 			
 			TypeHandle type = node.type->handle;
-			ModuleSymbolTable& symTable = m_pCtx->activeModule->symTable;
+			ModuleSymbolTable& symTable = g_Ctx.activeModule->symTable;
 
 			QualNameSPtr parentQualName;
 			if (type.Kind() == TypeKind::Iden)
@@ -150,7 +150,7 @@ namespace Noctis
 			}
 			else
 			{
-				StdString typeName = NameMangling::Mangle(m_pCtx, type);
+				StdString typeName = NameMangling::Mangle(type);
 				parentQualName = QualName::Create(typeName);
 			}
 
@@ -178,8 +178,8 @@ namespace Noctis
 				newParent = symTable.Find(type);
 				if (!newParent)
 				{
-					StdString typeName = NameMangling::Mangle(m_pCtx, type);
-					newParent = CreateSymbol(m_pCtx, SymbolKind::Type, parentQualName);
+					StdString typeName = NameMangling::Mangle(type);
+					newParent = CreateSymbol(SymbolKind::Type, parentQualName);
 					newParent->type = type;
 					
 					symTable.Add(newParent);

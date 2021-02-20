@@ -101,7 +101,7 @@ namespace Noctis
 		{
 		}
 
-		void Parse(Context* pCtx);
+		void Parse();
 
 		// NOTE: When writing this in noct, make sure to copy nodes, instead of reparsing them to save time
 		//       Currently not done to not over-complicate the ast node code
@@ -159,7 +159,7 @@ namespace Noctis
 	class MacroVarSolver
 	{
 	public:
-		MacroVarSolver(StdVector<MacroExtractedElem>&& extracted, Context* pCtx);
+		MacroVarSolver(StdVector<MacroExtractedElem>&& extracted);
 		
 		void PreparseMacroVars();
 		void CollectMacroVarsForParsing();
@@ -175,8 +175,6 @@ namespace Noctis
 	private:
 		void CollectFragmentVars(MacroExtractedElem& fragment);
 
-		
-		Context* m_pCtx;
 		StdVector<MacroExtractedElem> m_ExtractedElems;
 		StdUnorderedMap<StdString, StdVector<MacroExtractedElem>> m_CollectedVars;
 

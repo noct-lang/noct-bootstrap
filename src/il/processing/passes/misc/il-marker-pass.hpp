@@ -7,7 +7,7 @@ namespace Noctis
 	class ILMarkerPass : public ILPass
 	{
 	public:
-		ILMarkerPass(Context* pCtx);
+		ILMarkerPass();
 
 		void Process(ILModule& mod) override;
 	};

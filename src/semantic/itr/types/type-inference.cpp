@@ -12,8 +12,8 @@
 namespace Noctis
 {
 
-	TypeInference::TypeInference(Context* pCtx, bool prepass)
-		: ITrSemanticPass(prepass ? "type inference prepass" : "type inference", pCtx)
+	TypeInference::TypeInference(bool prepass)
+		: ITrSemanticPass(prepass ? "type inference prepass" : "type inference")
 		, m_Prepass(prepass)
 		, m_pBoundsInfo(nullptr)
 	{
@@ -147,7 +147,7 @@ namespace Noctis
 				// Handle interfaces
 				if (node.interface.first)
 				{
-					SymbolSPtr implIface = m_pCtx->activeModule->symTable.Find(GetCurScope(), node.interface.first);
+					SymbolSPtr implIface = g_Ctx.activeModule->symTable.Find(GetCurScope(), node.interface.first);
 					QualNameSPtr instQualName = implIface->qualName->Base()->AppendLastIden(node.interface.first);
 					SymbolInstSPtr ifaceInst = implIface->GetInst(instQualName);
 
@@ -250,10 +250,10 @@ namespace Noctis
 					idenGens[1].type = errType;
 
 					QualNameSPtr qualName = baseQualName->Append("Result", idenGens);
-					errType = m_pCtx->typeReg.Iden(TypeMod::None, qualName);
+					errType = g_Ctx.typeReg.Iden(TypeMod::None, qualName);
 				}
 
-				TypeHandle type = m_pCtx->typeReg.Func(TypeMod::None, paramTypes, retType);
+				TypeHandle type = g_Ctx.typeReg.Func(TypeMod::None, paramTypes, retType);
 				sym->type = type;
 
 				UpdateInstantiations(node.sym.lock());
@@ -309,12 +309,12 @@ namespace Noctis
 		m_ScopeNames.push_back(node.scopeName);
 		ITrVisitor::Visit(node.range);
 
-		SymbolSPtr typeSym = m_pCtx->activeModule->symTable.Find(node.range->handle);
+		SymbolSPtr typeSym = g_Ctx.activeModule->symTable.Find(node.range->handle);
 		
 		QualNameSPtr toItQualName = QualName::Create({ "core", "iter", "ToIterator" });
 		SymbolSPtr itSym = typeSym->children->FindChild(toItQualName, "Iter");
 
-		SymbolSPtr itTypeSym = m_pCtx->activeModule->symTable.Find(itSym->type);
+		SymbolSPtr itTypeSym = g_Ctx.activeModule->symTable.Find(itSym->type);
 
 		QualNameSPtr itQualName = QualName::Create({ "core", "iter", "Iterator" });
 		SymbolSPtr itemSym = itTypeSym->children->FindChild(itQualName, "Item");
@@ -325,7 +325,7 @@ namespace Noctis
 		{
 			if (itemType.Kind() != TypeKind::Tuple)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+				Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 				g_ErrorSystem.Error(span, "Cannot expand non-tuple Item type to multiple identifiers");
 				m_ScopeNames.pop_back();
 				return;
@@ -335,7 +335,7 @@ namespace Noctis
 
 			if (tupType.subTypes.size() != node.idens.size())
 			{
-				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+				Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 				g_ErrorSystem.Error(span, "Cannot expand a tuple with %u elements to %u identifier");
 				m_ScopeNames.pop_back();
 				return;
@@ -400,7 +400,7 @@ namespace Noctis
 				TypeHandle type = node.init->handle;
 				if (type.Kind() != TypeKind::Tuple)
 				{
-					Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+					Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 					g_ErrorSystem.Error(span, "Cannot expand non-tuple type to multiple identifiers");
 					return;
 				}
@@ -425,7 +425,7 @@ namespace Noctis
 				{
 					if (handle != node.type->handle)
 					{
-						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+						Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 						g_ErrorSystem.Error(span, "inferred type does not match declared type");
 						return;
 					}
@@ -441,7 +441,7 @@ namespace Noctis
 			if (node.attribs && ENUM_IS_SET(node.attribs->attribs, Attribute::Mut))
 				mod = TypeMod::Mut;
 			
-			TypeHandle type = m_pCtx->typeReg.Mod(mod, types[i]);
+			TypeHandle type = g_Ctx.typeReg.Mod(mod, types[i]);
 			localVar->type = type;
 		}
 	}
@@ -452,7 +452,7 @@ namespace Noctis
 
 		if (!m_ExpectedHandle.IsValid())
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 			g_ErrorSystem.Error(span, "Cannot throw in a function that is not marked as 'throws'");
 		}
 		else if (node.expr->handle != m_ErrorHandle)
@@ -471,7 +471,7 @@ namespace Noctis
 			
 			if (!found)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+				Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 				StdString foundTypeName = foundType.ToString();
 				StdString expectedTypeName = m_ErrorHandle.ToString();
 				g_ErrorSystem.Error(span, "Trying to throw an error of type '%s', expected '%s'", foundTypeName.c_str(), expectedTypeName.c_str());
@@ -498,28 +498,28 @@ namespace Noctis
 
 		if (node.op == OperatorKind::Eq)
 		{
-			TypeHandle baseRTypeHandle = m_pCtx->typeReg.Mod(TypeMod::None, rTypeHandle);
+			TypeHandle baseRTypeHandle = g_Ctx.typeReg.Mod(TypeMod::None, rTypeHandle);
 			if (lTypeHandle != baseRTypeHandle)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+				Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 				g_ErrorSystem.Error(span, "Condition should be of type 'bool'\n");
 			}
 		}
 		else
 		{
-			Operator op = m_pCtx->activeModule->opTable.GetOperator(node.op, lTypeHandle, rTypeHandle, *m_pBoundsInfo);
+			Operator op = g_Ctx.activeModule->opTable.GetOperator(node.op, lTypeHandle, rTypeHandle, *m_pBoundsInfo);
 			if (!op.result.IsValid())
 			{
 				// Check if constraints allow the op
 				if (m_GenDecl)
-					op = m_pCtx->activeModule->opTable.GetConstriantOperator(node.op, lTypeHandle, rTypeHandle, m_GenDecl, *m_pBoundsInfo);
+					op = g_Ctx.activeModule->opTable.GetConstriantOperator(node.op, lTypeHandle, rTypeHandle, m_GenDecl, *m_pBoundsInfo);
 				if (!op.result.IsValid() && m_Impl && m_Impl->genDecl)
-					op = m_pCtx->activeModule->opTable.GetConstriantOperator(node.op, lTypeHandle, rTypeHandle, m_Impl->genDecl, *m_pBoundsInfo);
+					op = g_Ctx.activeModule->opTable.GetConstriantOperator(node.op, lTypeHandle, rTypeHandle, m_Impl->genDecl, *m_pBoundsInfo);
 			}
 			
 			if (!op.sym)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+				Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 				StdStringView opName = GetOpName(node.op);
 				StdString lTypeName = lTypeHandle.ToString();
 				StdString rTypeName = rTypeHandle.ToString();
@@ -540,12 +540,12 @@ namespace Noctis
 		Walk(node);
 
 		TypeHandle condTypeHandle = node.cond->handle;
-		condTypeHandle = m_pCtx->typeReg.Mod(TypeMod::None, condTypeHandle);
+		condTypeHandle = g_Ctx.typeReg.Mod(TypeMod::None, condTypeHandle);
 		TypeSPtr condType = condTypeHandle.Type();
 		if (condType->typeKind != TypeKind::Builtin ||
 			condType->AsBuiltin().builtin != BuiltinTypeKind::Bool)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 			g_ErrorSystem.Error(span, "Condition should be of type 'bool'\n");
 		}
 
@@ -553,7 +553,7 @@ namespace Noctis
 		TypeHandle fTypeHandle = node.fExpr->handle;
 		if (tTypeHandle != fTypeHandle)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 			g_ErrorSystem.Error(span, "Both sides need to be of the same type\n");
 		}
 
@@ -570,14 +570,14 @@ namespace Noctis
 		TypeHandle lTypeHandle = node.lExpr->handle;
 		TypeHandle rTypeHandle = node.rExpr->handle;
 
-		Operator op = m_pCtx->activeModule->opTable.GetOperator(node.op, lTypeHandle, rTypeHandle, *m_pBoundsInfo);
+		Operator op = g_Ctx.activeModule->opTable.GetOperator(node.op, lTypeHandle, rTypeHandle, *m_pBoundsInfo);
 		if (!op.result.IsValid())
 		{
 			// Check if constraints allow the op
 			if (m_GenDecl)
-				op = m_pCtx->activeModule->opTable.GetConstriantOperator(node.op, lTypeHandle, rTypeHandle, m_GenDecl, *m_pBoundsInfo);
+				op = g_Ctx.activeModule->opTable.GetConstriantOperator(node.op, lTypeHandle, rTypeHandle, m_GenDecl, *m_pBoundsInfo);
 			if (!op.result.IsValid() && m_Impl && m_Impl->genDecl)
-				op = m_pCtx->activeModule->opTable.GetConstriantOperator(node.op, lTypeHandle, rTypeHandle, m_Impl->genDecl, *m_pBoundsInfo);
+				op = g_Ctx.activeModule->opTable.GetConstriantOperator(node.op, lTypeHandle, rTypeHandle, m_Impl->genDecl, *m_pBoundsInfo);
 		}
 		
 		node.handle = op.result;
@@ -585,7 +585,7 @@ namespace Noctis
 
 		if (!op.sym)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 			StdStringView opName = GetOpName(node.op);
 			StdString lTypeName = lTypeHandle.ToString();
 			StdString rTypeName = rTypeHandle.ToString();
@@ -624,14 +624,14 @@ namespace Noctis
 			}
 		}
 
-		Operator op = m_pCtx->activeModule->opTable.GetOperator(opKind, exprTypeHandle, *m_pBoundsInfo);
+		Operator op = g_Ctx.activeModule->opTable.GetOperator(opKind, exprTypeHandle, *m_pBoundsInfo);
 		if (!op.result.IsValid())
 		{
 			// Check if constraints allow the op
 			if (m_GenDecl)
-				op = m_pCtx->activeModule->opTable.GetConstriantOperator(node.op, exprTypeHandle, m_Impl->genDecl, *m_pBoundsInfo);
+				op = g_Ctx.activeModule->opTable.GetConstriantOperator(node.op, exprTypeHandle, m_Impl->genDecl, *m_pBoundsInfo);
 			if (!op.result.IsValid() && m_Impl && m_Impl->genDecl)
-				op = m_pCtx->activeModule->opTable.GetConstriantOperator(node.op, exprTypeHandle, m_Impl->genDecl, *m_pBoundsInfo);
+				op = g_Ctx.activeModule->opTable.GetConstriantOperator(node.op, exprTypeHandle, m_Impl->genDecl, *m_pBoundsInfo);
 		}
 
 		const Bounds& bounds = m_pBoundsInfo->GetBounds(op.result);
@@ -642,7 +642,7 @@ namespace Noctis
 
 		if (!node.operator_.left.IsValid())
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 			StdStringView opName = GetOpName(node.op);
 			StdString typeName = exprTypeHandle.ToString();
 			g_ErrorSystem.Error(span, "Unary operator '%s' not found for '%s'\n", opName.data(), typeName.c_str());
@@ -680,10 +680,10 @@ namespace Noctis
 		}
 
 		if (!sym)
-			sym = m_pCtx->activeModule->symTable.Find(GetCurScope(), qualName);
+			sym = g_Ctx.activeModule->symTable.Find(GetCurScope(), qualName);
 		if (!sym)
 		{
-			MultiSpan span = m_pCtx->spanManager.GetSpan(node.startIdx, node.endIdx);
+			MultiSpan span = g_Ctx.spanManager.GetSpan(node.startIdx, node.endIdx);
 			StdString varName = qualName->ToString();
 			g_ErrorSystem.Error(span, "Cannot find '%s'", varName.c_str());
 			return;
@@ -754,11 +754,11 @@ namespace Noctis
 				elemType = elemType.AsSlice().subType;
 			
 			OperatorKind opKind = elemType.Mod() == TypeMod::Mut ? OperatorKind::MutIndex : OperatorKind::Index;
-			Operator op = m_pCtx->activeModule->opTable.GetOperator(opKind, exprTypeHandle, node.index->handle, *m_pBoundsInfo);
+			Operator op = g_Ctx.activeModule->opTable.GetOperator(opKind, exprTypeHandle, node.index->handle, *m_pBoundsInfo);
 
 			if (opKind == OperatorKind::MutIndex && !op.sym)
 			{
-				op = m_pCtx->activeModule->opTable.GetOperator(OperatorKind::Index, exprTypeHandle, node.index->handle, *m_pBoundsInfo);
+				op = g_Ctx.activeModule->opTable.GetOperator(OperatorKind::Index, exprTypeHandle, node.index->handle, *m_pBoundsInfo);
 			}
 			
 			node.handle = op.result;
@@ -766,7 +766,7 @@ namespace Noctis
 
 			if (!op.sym)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+				Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 				StdString typeName = exprTypeHandle.ToString();
 				const char* begin = opKind == OperatorKind::MutIndex ? "Mutable i" : "I";
 				g_ErrorSystem.Error(span, "%sndex operator not found for '%s'\n", begin, typeName.c_str());
@@ -815,15 +815,15 @@ namespace Noctis
 			SymbolSPtr callerSym, methodSym;
 			if (type->typeKind == TypeKind::Ref)
 			{
-				callerSym = m_pCtx->activeModule->symTable.Find(type);
+				callerSym = g_Ctx.activeModule->symTable.Find(type);
 				if (callerSym)
 					methodSym = callerSym->children->FindChild(nullptr, node.iden);
 
 				if (!methodSym && type->Mod() == TypeMod::Mut)
 				{
-					TypeHandle nonMutHandle = m_pCtx->typeReg.Mod(TypeMod::None, node.callerOrFunc->handle);
+					TypeHandle nonMutHandle = g_Ctx.typeReg.Mod(TypeMod::None, node.callerOrFunc->handle);
 					TypeSPtr nonMutType = nonMutHandle.Type();
-					callerSym = m_pCtx->activeModule->symTable.Find(type);
+					callerSym = g_Ctx.activeModule->symTable.Find(type);
 					if (callerSym)
 						methodSym = callerSym->children->FindChild(nullptr, node.iden);
 				}
@@ -833,11 +833,11 @@ namespace Noctis
 					type = type->AsRef().subType.Type();
 					if (type->typeKind == TypeKind::Iden)
 					{
-						callerSym = m_pCtx->activeModule->symTable.Find(GetCurScope(), type->AsIden().qualName);
+						callerSym = g_Ctx.activeModule->symTable.Find(GetCurScope(), type->AsIden().qualName);
 					}
 					else
 					{
-						callerSym = m_pCtx->activeModule->symTable.Find(type);
+						callerSym = g_Ctx.activeModule->symTable.Find(type);
 					}
 
 					methodSym = callerSym->children->FindChild(nullptr, node.iden);
@@ -855,9 +855,9 @@ namespace Noctis
 			else
 			{
 				if (type->typeKind == TypeKind::Iden)
-					callerSym = m_pCtx->activeModule->symTable.Find(GetCurScope(), type->AsIden().qualName);
+					callerSym = g_Ctx.activeModule->symTable.Find(GetCurScope(), type->AsIden().qualName);
 				else
-					callerSym = m_pCtx->activeModule->symTable.Find(type);
+					callerSym = g_Ctx.activeModule->symTable.Find(type);
 				
 				if (callerSym)
 					methodSym = callerSym->children->FindChild(nullptr, node.iden);
@@ -868,16 +868,16 @@ namespace Noctis
 					{
 						TypeHandle constHandle = node.callerOrFunc->handle;
 						TypeSPtr constType = constHandle.Type();
-						callerSym = m_pCtx->activeModule->symTable.Find(type);
+						callerSym = g_Ctx.activeModule->symTable.Find(type);
 						if (callerSym)
 							methodSym = callerSym->children->FindChild(nullptr, node.iden);
 					}
 
 					if (!methodSym)
 					{
-						TypeHandle refHandle = m_pCtx->typeReg.Ref(TypeMod::None, node.callerOrFunc->handle);
+						TypeHandle refHandle = g_Ctx.typeReg.Ref(TypeMod::None, node.callerOrFunc->handle);
 						TypeSPtr refType = refHandle.Type();
-						callerSym = m_pCtx->activeModule->symTable.Find(refType);
+						callerSym = g_Ctx.activeModule->symTable.Find(refType);
 						if (callerSym)
 							methodSym = callerSym->children->FindChild(nullptr, node.iden);
 					}
@@ -893,8 +893,8 @@ namespace Noctis
 
 			if (!methodSym)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
-				StdString callerTypeName = m_pCtx->typeReg.ToString(type);
+				Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
+				StdString callerTypeName = g_Ctx.typeReg.ToString(type);
 				g_ErrorSystem.Error(span, "Cannot find method '%s' with caller '%s'\n", node.iden.c_str(), callerTypeName.c_str());
 			}
 
@@ -927,17 +927,17 @@ namespace Noctis
 
 		if (type->typeKind != TypeKind::Iden)
 		{
-			MultiSpan span = m_pCtx->spanManager.GetSpan(node.startIdx, node.endIdx);
-			StdString typeName = m_pCtx->typeReg.ToString(type);
+			MultiSpan span = g_Ctx.spanManager.GetSpan(node.startIdx, node.endIdx);
+			StdString typeName = g_Ctx.typeReg.ToString(type);
 			g_ErrorSystem.Error(span, "Cannot use a member access on a value of type '%s'", typeName.c_str());
 			return;
 		}
 
-		SymbolSPtr sym = m_pCtx->activeModule->symTable.Find(GetCurScope(), type->AsIden().qualName);
+		SymbolSPtr sym = g_Ctx.activeModule->symTable.Find(GetCurScope(), type->AsIden().qualName);
 		if (!sym)
 		{
-			MultiSpan span = m_pCtx->spanManager.GetSpan(node.startIdx, node.endIdx);
-			StdString typeName = m_pCtx->typeReg.ToString(type);
+			MultiSpan span = g_Ctx.spanManager.GetSpan(node.startIdx, node.endIdx);
+			StdString typeName = g_Ctx.typeReg.ToString(type);
 			g_ErrorSystem.Error(span, "Cannot find symbol for type '%s'", typeName.c_str());
 			return;
 		}
@@ -945,8 +945,8 @@ namespace Noctis
 		SymbolSPtr child = sym->children->FindChild(nullptr, node.iden);
 		if (!child || child->kind != SymbolKind::Var)
 		{
-			MultiSpan span = m_pCtx->spanManager.GetSpan(node.startIdx, node.endIdx);
-			StdString typeName = m_pCtx->typeReg.ToString(type);
+			MultiSpan span = g_Ctx.spanManager.GetSpan(node.startIdx, node.endIdx);
+			StdString typeName = g_Ctx.typeReg.ToString(type);
 			g_ErrorSystem.Error(span, "'%s' does not have a member named '%s'", typeName.c_str(), node.iden.c_str());
 			return;
 		}
@@ -970,7 +970,7 @@ namespace Noctis
 
 		if (type->typeKind != TypeKind::Tuple)
 		{
-			MultiSpan span = m_pCtx->spanManager.GetSpan(node.startIdx, node.endIdx);
+			MultiSpan span = g_Ctx.spanManager.GetSpan(node.startIdx, node.endIdx);
 			StdString typeName = node.expr->handle.ToString();
 			g_ErrorSystem.Error(span, "Cannot use a tuple access on a value of type '%s'", typeName.c_str());
 			return;
@@ -979,7 +979,7 @@ namespace Noctis
 		TupleType& tupType = type->AsTuple();
 		if (node.index >= tupType.subTypes.size())
 		{
-			MultiSpan span = m_pCtx->spanManager.GetSpan(node.startIdx, node.endIdx);
+			MultiSpan span = g_Ctx.spanManager.GetSpan(node.startIdx, node.endIdx);
 			g_ErrorSystem.Error(span, "Tuple index out of range, trying to use index %u on a tuple with size %u", node.index, tupType.subTypes.size());
 			return;
 		}
@@ -989,7 +989,7 @@ namespace Noctis
 
 	void TypeInference::Visit(ITrLiteral& node)
 	{
-		TypeRegistry& typeReg = m_pCtx->typeReg;
+		TypeRegistry& typeReg = g_Ctx.typeReg;
 		
 		switch (node.lit.Type())
 		{
@@ -1090,7 +1090,7 @@ namespace Noctis
 			if (m_ExpectedHandle.AsBuiltin().builtin == BuiltinTypeKind::Bool &&
 				foundType.AsBuiltin().builtin != BuiltinTypeKind::Bool)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+				Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 				StdString foundName = foundType.ToString();
 				g_ErrorSystem.Error(span, "Expected a 'bool' type, but found literal of type '%s'", foundName.c_str());
 				return;
@@ -1098,7 +1098,7 @@ namespace Noctis
 			if (m_ExpectedHandle.AsBuiltin().builtin != BuiltinTypeKind::Bool &&
 				foundType.AsBuiltin().builtin == BuiltinTypeKind::Bool)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+				Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 				StdString foundName = foundType.ToString();
 				g_ErrorSystem.Error(span, "Expected a '%s' type, but found literal of type 'bool'", foundName.c_str());
 				return;
@@ -1113,7 +1113,7 @@ namespace Noctis
 			{
 				if (!IsBuiltinFloat(m_ExpectedHandle.AsBuiltin().builtin))
 				{
-					Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+					Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 					g_ErrorSystem.Warning(span, "Possible truncation from fp to integral");
 				}
 				break;
@@ -1132,14 +1132,14 @@ namespace Noctis
 		TypeSPtr objType = node.type->handle.Type();
 		if (objType->typeKind != TypeKind::Iden)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
-			StdString typeName = m_pCtx->typeReg.ToString(objType);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
+			StdString typeName = g_Ctx.typeReg.ToString(objType);
 			g_ErrorSystem.Error(span, "'%s' is not a valid type in an aggregate initializer\n", node.args.size());
 			return;
 		}
 
 		IdenType& idenType = objType->AsIden();
-		SymbolSPtr sym = m_pCtx->activeModule->symTable.Find(GetCurScope(), idenType.qualName);
+		SymbolSPtr sym = g_Ctx.activeModule->symTable.Find(GetCurScope(), idenType.qualName);
 
 		bool checkAggrArgs = false;
 		if (sym->kind == SymbolKind::AdtEnumMember)
@@ -1149,8 +1149,8 @@ namespace Noctis
 			TypeSPtr type = sym->type.Type();
 			if (type->typeKind == TypeKind::Tuple)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
-				StdString typeName = m_pCtx->typeReg.ToString(objType);
+				Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
+				StdString typeName = g_Ctx.typeReg.ToString(objType);
 				g_ErrorSystem.Error(span, "'%s' needs to be initialized with parenthesis\n", node.args.size());
 				return;
 			}
@@ -1158,7 +1158,7 @@ namespace Noctis
 			ptr.reset(new ITrAdtAggrEnumInit{ node.type, std::move(node.args), node.endIdx });
 			ptr->handle = sym->parent.lock()->SelfType();
 			ptr->sym = sym;
-			checkAggrArgs = m_pCtx->typeReg.IsType(sym->type, TypeKind::Iden);
+			checkAggrArgs = g_Ctx.typeReg.IsType(sym->type, TypeKind::Iden);
 
 			ITrAdtAggrEnumInit& adtNode = *reinterpret_cast<ITrAdtAggrEnumInit*>(ptr.get());
 
@@ -1184,7 +1184,7 @@ namespace Noctis
 
 			if (adtNode.args.size() > children.size())
 			{
-				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+				Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 				g_ErrorSystem.Error(span, "Found more arguments then expected, found %u, expected %u\n", adtNode.args.size(), children.size());
 				return;
 			}
@@ -1200,7 +1200,7 @@ namespace Noctis
 					}
 					else if (!hasIden)
 					{
-						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+						Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 						g_ErrorSystem.Error(span, "Cannot mix named and unnamed arguments when initializing an adt enum\n");
 						return;
 					}
@@ -1208,7 +1208,7 @@ namespace Noctis
 					auto it = childrenNameMapping.find(arg->iden);
 					if (it == childrenNameMapping.end())
 					{
-						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+						Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 						g_ErrorSystem.Error(span, "The adt enum does not contain any variable named '%s'\n", arg->iden.c_str());
 						return;
 					}
@@ -1216,16 +1216,16 @@ namespace Noctis
 					u32 idx = it->second;
 					if (argTypes[idx].IsValid())
 					{
-						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+						Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 						g_ErrorSystem.Error(span, "Variable '%s' has already been assigned\n", arg->iden.c_str());
 						return;
 					}
 
 					TypeHandle expected = children[i]->type;
 					TypeHandle argType = arg->expr->handle;
-					if (!m_pCtx->typeReg.CanPassTo(expected, argType))
+					if (!g_Ctx.typeReg.CanPassTo(expected, argType))
 					{
-						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+						Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 						StdString expectedName = expected.ToString();
 						StdString argName = argType.ToString();
 						g_ErrorSystem.Error(span, "Cannot pass '%s' to '%s'\n", argName.c_str(), expectedName.c_str());
@@ -1237,16 +1237,16 @@ namespace Noctis
 				{
 					if (hasIden && i != 0)
 					{
-						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+						Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 						g_ErrorSystem.Error(span, "Cannot mix named and unnamed arguments when initializing an adt enum\n");
 						return;
 					}
 
 					TypeHandle expected = children[i]->type;
 					TypeHandle argType = arg->expr->handle;
-					if (!m_pCtx->typeReg.CanPassTo(expected, argType))
+					if (!g_Ctx.typeReg.CanPassTo(expected, argType))
 					{
-						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+						Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 						StdString expectedName = expected.ToString();
 						StdString argName = argType.ToString();
 						g_ErrorSystem.Error(span, "Cannot pass '%s' to '%s'\n", argName.c_str(), expectedName.c_str());
@@ -1287,7 +1287,7 @@ namespace Noctis
 
 					if (!implsDefault)
 					{
-						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+						Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 						StdString symName = sym->qualName->ToString();
 						g_ErrorSystem.Error(span, "'%s' does not implement 'core::defaul::Default' or 'std::default::Default'\n", symName.c_str());
 					}
@@ -1295,7 +1295,7 @@ namespace Noctis
 				else if (node.defExpr)
 				{
 					TypeHandle defType = node.defExpr->handle;
-					defType = m_pCtx->typeReg.Mod(TypeMod::None, defType);
+					defType = g_Ctx.typeReg.Mod(TypeMod::None, defType);
 
 					bool validDef = false;
 					if (defType != sym->type)
@@ -1304,7 +1304,7 @@ namespace Noctis
 						if (type->typeKind == TypeKind::Ref)
 						{
 							defType = type->AsRef().subType;
-							defType = m_pCtx->typeReg.Mod(TypeMod::None, defType);
+							defType = g_Ctx.typeReg.Mod(TypeMod::None, defType);
 
 							validDef = defType == sym->type;
 						}
@@ -1316,7 +1316,7 @@ namespace Noctis
 
 					if (!validDef)
 					{
-						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+						Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 						StdString typeName = defType.ToString();
 						g_ErrorSystem.Error(span, "cannot initialize unspecified members from an expression with type '%s'\n", typeName.c_str());
 					}
@@ -1324,7 +1324,7 @@ namespace Noctis
 				}
 				else
 				{
-					Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+					Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 					g_ErrorSystem.Error(span, "Not all arguments have been initialized\n");
 					return;
 				}
@@ -1358,7 +1358,7 @@ namespace Noctis
 
 			if (structNode.args.size() > children.size())
 			{
-				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+				Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 				g_ErrorSystem.Error(span, "Found more arguments then expected, found %u, expected %u\n", structNode.args.size(), children.size());
 				return;
 			}
@@ -1374,7 +1374,7 @@ namespace Noctis
 					}
 					else if (!hasIden)
 					{
-						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+						Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 						g_ErrorSystem.Error(span, "Cannot mix named and unnamed arguments when initializing a structure\n");
 						return;
 					}
@@ -1382,7 +1382,7 @@ namespace Noctis
 					auto it = childrenNameMapping.find(arg->iden);
 					if (it == childrenNameMapping.end())
 					{
-						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+						Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 						g_ErrorSystem.Error(span, "The structure does not contain any variable named '%s'\n", arg->iden.c_str());
 						return;
 					}
@@ -1390,16 +1390,16 @@ namespace Noctis
 					u32 idx = it->second;
 					if (argTypes[idx].IsValid())
 					{
-						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+						Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 						g_ErrorSystem.Error(span, "Variable '%s' has already been assigned\n", arg->iden.c_str());
 						return;
 					}
 
 					TypeHandle expected = children[i]->type;
 					TypeHandle argType = arg->expr->handle;
-					if (!m_pCtx->typeReg.CanPassTo(expected, argType))
+					if (!g_Ctx.typeReg.CanPassTo(expected, argType))
 					{
-						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+						Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 						StdString expectedName = expected.ToString();
 						StdString argName = argType.ToString();
 						g_ErrorSystem.Error(span, "Cannot pass '%s' to '%s'\n", argName.c_str(), expectedName.c_str());
@@ -1413,16 +1413,16 @@ namespace Noctis
 				{
 					if (hasIden && i != 0)
 					{
-						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+						Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 						g_ErrorSystem.Error(span, "Cannot mix named and unnamed arguments when initializing a structure\n");
 						return;
 					}
 
 					TypeHandle expected = children[i]->type;
 					TypeHandle argType = arg->expr->handle;
-					if (!m_pCtx->typeReg.CanPassTo(expected, argType))
+					if (!g_Ctx.typeReg.CanPassTo(expected, argType))
 					{
-						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+						Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 						StdString expectedName = expected.ToString();
 						StdString argName = argType.ToString();
 						g_ErrorSystem.Error(span, "Cannot pass '%s' to '%s'\n", argName.c_str(), expectedName.c_str());
@@ -1463,7 +1463,7 @@ namespace Noctis
 
 					if (!implsDefault)
 					{
-						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+						Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 						StdString symName = sym->qualName->ToString();
 						g_ErrorSystem.Error(span, "'%s' does not implement 'core.default.Default' or 'std.default.Default'\n", symName.c_str());
 					}
@@ -1471,7 +1471,7 @@ namespace Noctis
 				else if (node.defExpr)
 				{
 					TypeHandle defType = node.defExpr->handle;
-					defType = m_pCtx->typeReg.Mod(TypeMod::None, defType);
+					defType = g_Ctx.typeReg.Mod(TypeMod::None, defType);
 
 					bool validDef = false;
 					if (defType != sym->type)
@@ -1480,7 +1480,7 @@ namespace Noctis
 						if (type->typeKind == TypeKind::Ref)
 						{
 							defType = type->AsRef().subType;
-							defType = m_pCtx->typeReg.Mod(TypeMod::None, defType);
+							defType = g_Ctx.typeReg.Mod(TypeMod::None, defType);
 
 							validDef = defType == sym->type;
 						}
@@ -1492,7 +1492,7 @@ namespace Noctis
 
 					if (!validDef)
 					{
-						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+						Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 						StdString typeName = defType.ToString();
 						g_ErrorSystem.Error(span, "cannot initialize unspecified members from an expression with type '%s'\n", typeName.c_str());
 					}
@@ -1500,7 +1500,7 @@ namespace Noctis
 				}
 				else
 				{
-					Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+					Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 					g_ErrorSystem.Error(span, "Not all arguments have been initialized\n");
 					return;
 				}
@@ -1510,7 +1510,7 @@ namespace Noctis
 		{
 			if (node.args.size() > 1)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+				Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 				g_ErrorSystem.Error(span, "A union must be initialized with exactly 1 member\n");
 				return;
 			}
@@ -1539,7 +1539,7 @@ namespace Noctis
 
 				if (arg->iden.empty())
 				{
-					Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+					Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 					g_ErrorSystem.Error(span, "Argument used to initialize a union require an identifier\n");
 					return;
 				}
@@ -1559,9 +1559,9 @@ namespace Noctis
 				{
 					TypeHandle expected = foundChild->type;
 					TypeHandle argType = arg->expr->handle;
-					if (!m_pCtx->typeReg.CanPassTo(expected, argType))
+					if (!g_Ctx.typeReg.CanPassTo(expected, argType))
 					{
-						Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+						Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 						StdString expectedName = expected.ToString();
 						StdString argName = argType.ToString();
 						g_ErrorSystem.Error(span, "Cannot pass '%s' to '%s'\n", argName.c_str(), expectedName.c_str());
@@ -1570,22 +1570,22 @@ namespace Noctis
 				}
 				else
 				{
-					Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+					Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 					g_ErrorSystem.Error(span, "No member with the name '%s' exists\n", arg->iden.c_str());
 					return;
 				}
 			}
 			else
 			{
-				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+				Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 				g_ErrorSystem.Error(span, "Cannot initialize a union without a member\n");
 				return;
 			}
 		}
 		else
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
-			StdString typeName = m_pCtx->typeReg.ToString(objType);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
+			StdString typeName = g_Ctx.typeReg.ToString(objType);
 			g_ErrorSystem.Error(span, "'%s' is not an aggregate or a adt-enum\n", typeName.c_str());
 			return;
 		}
@@ -1601,7 +1601,7 @@ namespace Noctis
 			subTypes.push_back(expr->handle);
 		}
 
-		node.handle = m_pCtx->typeReg.Tuple(TypeMod::None, subTypes);
+		node.handle = g_Ctx.typeReg.Tuple(TypeMod::None, subTypes);
 	}
 
 	void TypeInference::Visit(ITrArrayInit& node)
@@ -1617,7 +1617,7 @@ namespace Noctis
 			}
 			else if (expr->handle != type)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+				Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 				StdString type0Name = type.ToString();
 				StdString type1Name = expr->handle.ToString();
 				g_ErrorSystem.Error(span, "An array connot contain values of different types, found '%s' and '%s'", type0Name.c_str(), type1Name.c_str());
@@ -1643,21 +1643,21 @@ namespace Noctis
 		case ITrCastKind::SafeCast:
 		case ITrCastKind::NullPanicCast:
 		{
-			op = m_pCtx->activeModule->opTable.GetOperator(OperatorKind::TryCast, fromType, toType, *m_pBoundsInfo);
+			op = g_Ctx.activeModule->opTable.GetOperator(OperatorKind::TryCast, fromType, toType, *m_pBoundsInfo);
 			node.castToTryCast = !op.sym;
 			// Fallthrough
 		}
 		case ITrCastKind::Cast:
 		{
 			if (!op.sym)
-				op = m_pCtx->activeModule->opTable.GetOperator(OperatorKind::Cast, fromType, toType, *m_pBoundsInfo);
+				op = g_Ctx.activeModule->opTable.GetOperator(OperatorKind::Cast, fromType, toType, *m_pBoundsInfo);
 
 			node.handle = op.result;
 			node.operator_ = op;
 
 			if (!op.sym)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+				Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 				StdString lTypeName = fromType.ToString();
 				StdString rTypeName = toType.ToString();
 				StdString castName;
@@ -1681,7 +1681,7 @@ namespace Noctis
 
 			if (fromSize != toSize)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+				Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 				StdString lTypeName = fromType.ToString();
 				StdString rTypeName = toType.ToString();
 				g_ErrorSystem.Error(span, "cannot transmute %s -> %s, since they are different sizes\n", lTypeName.c_str(), rTypeName.c_str());
@@ -1734,7 +1734,7 @@ namespace Noctis
 
 		Walk(node);
 
-		node.handle = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::Bool);
+		node.handle = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::Bool);
 	}
 
 	void TypeInference::Visit(ITrTry& node)
@@ -1746,7 +1746,7 @@ namespace Noctis
 		case ITrExprKind::FuncOrMethodCall: break;
 		default:
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 			g_ErrorSystem.Error(span, "'try' can only be used on a function/method call");
 		}
 		}
@@ -1755,7 +1755,7 @@ namespace Noctis
 		TypeHandle handle = exprType.qualName->Generics()[0].type;
 
 		if (node.kind == ITrTryKind::Nullable && handle.Kind() != TypeKind::Opt)
-			handle = m_pCtx->typeReg.Opt(TypeMod::None, handle);
+			handle = g_Ctx.typeReg.Opt(TypeMod::None, handle);
 		
 		node.handle = handle;
 	}
@@ -1769,7 +1769,7 @@ namespace Noctis
 		{
 		case TokenType::SLine:
 		{
-			node.handle = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::USize);
+			node.handle = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::USize);
 			break;
 		}
 		case TokenType::SFile:
@@ -1781,8 +1781,8 @@ namespace Noctis
 		case TokenType::SFuncName:
 		case TokenType::SPrettyFunc:
 		{
-			TypeHandle tmp = m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::Char);
-			node.handle = m_pCtx->typeReg.Slice(TypeMod::None, tmp);
+			TypeHandle tmp = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::Char);
+			node.handle = g_Ctx.typeReg.Slice(TypeMod::None, tmp);
 			break;
 		}
 		default:;
@@ -1825,7 +1825,7 @@ namespace Noctis
 				if (node.subTypes.empty())
 					break;
 
-				node.handle = m_pCtx->typeReg.Ptr(mod, node.subTypes[0]->handle);
+				node.handle = g_Ctx.typeReg.Ptr(mod, node.subTypes[0]->handle);
 				break;
 			}
 			case TypeKind::Ref:
@@ -1833,7 +1833,7 @@ namespace Noctis
 				if (node.subTypes.empty())
 					break;
 
-				node.handle = m_pCtx->typeReg.Ref(mod, node.subTypes[0]->handle);
+				node.handle = g_Ctx.typeReg.Ref(mod, node.subTypes[0]->handle);
 				break;
 			}
 			case TypeKind::Slice:
@@ -1841,7 +1841,7 @@ namespace Noctis
 				if (node.subTypes.empty())
 					break;
 
-				node.handle = m_pCtx->typeReg.Slice(mod, node.subTypes[0]->handle);
+				node.handle = g_Ctx.typeReg.Slice(mod, node.subTypes[0]->handle);
 				break;
 			}
 			case TypeKind::Array:
@@ -1850,9 +1850,9 @@ namespace Noctis
 					break;
 
 				if (node.handle.AsArray().arrSize != u64(-1))
-					node.handle = m_pCtx->typeReg.Array(mod, node.subTypes[0]->handle, node.handle.AsArray().size);
+					node.handle = g_Ctx.typeReg.Array(mod, node.subTypes[0]->handle, node.handle.AsArray().size);
 				else
-					node.handle = m_pCtx->typeReg.Array(mod, node.subTypes[0]->handle, node.handle.AsArray().expr);
+					node.handle = g_Ctx.typeReg.Array(mod, node.subTypes[0]->handle, node.handle.AsArray().expr);
 				break;
 			}
 			case TypeKind::Tuple:
@@ -1866,7 +1866,7 @@ namespace Noctis
 					subTypes.push_back(subType->handle);
 				}
 
-				node.handle = m_pCtx->typeReg.Tuple(mod, subTypes);
+				node.handle = g_Ctx.typeReg.Tuple(mod, subTypes);
 				break;
 			}
 			case TypeKind::Opt:
@@ -1874,7 +1874,7 @@ namespace Noctis
 				if (node.subTypes.empty())
 					break;
 
-				node.handle = m_pCtx->typeReg.Opt(mod, node.subTypes[0]->handle);
+				node.handle = g_Ctx.typeReg.Opt(mod, node.subTypes[0]->handle);
 				break;
 			}
 			case TypeKind::Func:
@@ -1891,7 +1891,7 @@ namespace Noctis
 					//	subTypes.push_back(subType->handle);
 					//}
 					//
-					//node.handle = m_pCtx->typeReg.Func(mod, subTypes);
+					//node.handle = g_Ctx.typeReg.Func(mod, subTypes);
 				}
 				break;
 			}
@@ -1912,7 +1912,7 @@ namespace Noctis
 					subTypes.push_back(subType->handle);
 				}
 
-				node.handle = m_pCtx->typeReg.Compound(TypeMod::None, subTypes);
+				node.handle = g_Ctx.typeReg.Compound(TypeMod::None, subTypes);
 				break;
 			}
 			default:;
@@ -1930,7 +1930,7 @@ namespace Noctis
 		if (m_ExpectedHandle.Kind() != TypeKind::Iden ||
 			m_ExpectedHandle.AsIden().sym.lock()->kind != SymbolKind::AdtEnumMember)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "cannot match an adt enum pattern with '%s'\n", typeName.c_str());
 			return;
@@ -1952,7 +1952,7 @@ namespace Noctis
 
 		if (node.args.size() > children.size())
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "'%s' does not have %u children, cannot match\n", typeName.c_str(), node.args.size());
 			return;
@@ -1971,7 +1971,7 @@ namespace Noctis
 			{
 				if (hasWildcard)
 				{
-					Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+					Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 					g_ErrorSystem.Error(span, "Cannot have more than 1 wildcard in a pattern\n");
 					return;
 				}
@@ -1982,7 +1982,7 @@ namespace Noctis
 			SymbolSPtr child = !arg.first.empty() ? memberSym->children->FindChild(nullptr, arg.first) : children[i];
 			if (!child)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(arg.second->startIdx);
+				Span span = g_Ctx.spanManager.GetSpan(arg.second->startIdx);
 				StdString name = memberSym->qualName->ToString();
 				g_ErrorSystem.Error(span, "adt enum '%s' does not have child '%s'\n", name.c_str(), arg.first);
 			}
@@ -1995,7 +1995,7 @@ namespace Noctis
 
 		if (!hasWildcard && node.args.size() < children.size())
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "'%s' does not have %u children, cannot match\n", typeName.c_str(), node.args.size());
 		}
@@ -2009,7 +2009,7 @@ namespace Noctis
 		
 		if (m_ExpectedHandle.Kind() != TypeKind::Iden)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "cannot match an tuple enum pattern with '%s'\n", typeName.c_str());
 			return;
@@ -2021,7 +2021,7 @@ namespace Noctis
 
 		if (memberSym->type.Kind() != TypeKind::Tuple)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 			StdString typeName = memberSym->qualName->ToString();
 			g_ErrorSystem.Error(span, "cannot match an tuple enum pattern with '%s'\n", typeName.c_str());
 			return;
@@ -2030,7 +2030,7 @@ namespace Noctis
 		TupleType& tupType = memberSym->type.AsTuple();
 		if (node.subPatterns.size() > tupType.subTypes.size())
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "'%s' does not have %u children, cannot match\n", typeName.c_str(), node.subPatterns.size());
 			return;
@@ -2044,7 +2044,7 @@ namespace Noctis
 			{
 				if (i != node.subPatterns.size() - 1)
 				{
-					Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+					Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 					g_ErrorSystem.Error(span, "wildcard pattern is only allowed as last sub-pattern\n");
 				}
 				hasWildcard = true;
@@ -2057,7 +2057,7 @@ namespace Noctis
 
 		if (!hasWildcard && node.subPatterns.size() < tupType.subTypes.size())
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "'%s' does not have %u children, cannot match\n", typeName.c_str(), node.subPatterns.size());
 		}
@@ -2071,7 +2071,7 @@ namespace Noctis
 		
 		if (m_ExpectedHandle.Kind() != TypeKind::Iden)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "cannot match an aggregate with '%s'\n", typeName.c_str());
 			return;
@@ -2080,12 +2080,12 @@ namespace Noctis
 		SymbolSPtr handleSym = m_ExpectedHandle.AsIden().sym.lock();
 		if (handleSym->kind != SymbolKind::Struct)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "cannot match an aggregate with '%s'\n", typeName.c_str());
 		}
 
-		SymbolSPtr aggrSym = node.qualName ? m_pCtx->activeModule->symTable.Find(GetCurScope(), node.qualName) : handleSym;
+		SymbolSPtr aggrSym = node.qualName ? g_Ctx.activeModule->symTable.Find(GetCurScope(), node.qualName) : handleSym;
 
 		StdVector<SymbolSPtr> children;
 		aggrSym->children->Foreach([&children](SymbolSPtr sym, QualNameSPtr ifaceQualName)
@@ -2099,7 +2099,7 @@ namespace Noctis
 
 		if (node.args.size() > children.size())
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "'%s' does not have %u children, cannot match\n", typeName.c_str(), node.args.size());
 			return;
@@ -2118,7 +2118,7 @@ namespace Noctis
 			{
 				if (hasWildcard)
 				{
-					Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+					Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 					g_ErrorSystem.Error(span, "Cannot have more than 1 wildcard in a pattern\n");
 					return;
 				}
@@ -2129,7 +2129,7 @@ namespace Noctis
 			SymbolSPtr child = !arg.first.empty() ? aggrSym->children->FindChild(nullptr, arg.first) : children[i];
 			if (!child)
 			{
-				Span span = m_pCtx->spanManager.GetSpan(arg.second->startIdx);
+				Span span = g_Ctx.spanManager.GetSpan(arg.second->startIdx);
 				StdString name = aggrSym->qualName->ToString();
 				g_ErrorSystem.Error(span, "adt enum '%s' does not have child '%s'\n", name.c_str(), arg.first);
 			}
@@ -2142,7 +2142,7 @@ namespace Noctis
 
 		if (!hasWildcard && node.args.size() < children.size())
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "'%s' does not have %u children, cannot match\n", typeName.c_str(), node.args.size());
 		}
@@ -2163,7 +2163,7 @@ namespace Noctis
 		}
 		case TokenType::Null:
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 			g_ErrorSystem.Error(span, "null literal patterns are not allowed");
 			return;
 		}
@@ -2177,7 +2177,7 @@ namespace Noctis
 		case TokenType::F64Lit:
 		case TokenType::F128Lit:
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 			g_ErrorSystem.Error(span, "Float literal patterns are not allowed");
 			return;
 		}
@@ -2202,7 +2202,7 @@ namespace Noctis
 		
 		if (!doesMatch)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "cannot match '%s' to a literal.\n", typeName.c_str());
 		}
@@ -2216,7 +2216,7 @@ namespace Noctis
 		
 		Walk(node);
 		
-		SymbolSPtr sym = m_pCtx->activeModule->symTable.Find(GetCurScope(), node.qualName);
+		SymbolSPtr sym = g_Ctx.activeModule->symTable.Find(GetCurScope(), node.qualName);
 		if (!sym)
 		{
 			return;
@@ -2234,7 +2234,7 @@ namespace Noctis
 		}
 		else
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "unknown aggregate match pattern of type '%s'\n", typeName.c_str());
 		}
@@ -2246,7 +2246,7 @@ namespace Noctis
 		if (m_ExpectedHandle.Kind() != TypeKind::Array &&
 			m_ExpectedHandle.Kind() != TypeKind::Slice)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "cannot match a slice pattern with '%s'\n", typeName.c_str());
 		}
@@ -2263,7 +2263,7 @@ namespace Noctis
 	{
 		if (m_ExpectedHandle.Kind() != TypeKind::Tuple)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "cannot match a tuple pattern with '%s'\n", typeName.c_str());
 		}
@@ -2271,7 +2271,7 @@ namespace Noctis
 		TupleType& tupType = m_ExpectedHandle.AsTuple();
 		if (node.subPatterns.size() > tupType.subTypes.size())
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "'%s' does not have %u elements, cannot match\n", typeName.c_str(), node.subPatterns.size());
 			return;
@@ -2285,7 +2285,7 @@ namespace Noctis
 			{
 				if (i != node.subPatterns.size() - 1)
 				{
-					Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+					Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 					g_ErrorSystem.Error(span, "wildcard pattern is only allowed as last sub-pattern\n");
 				}
 				hasWildcard = true;
@@ -2298,7 +2298,7 @@ namespace Noctis
 
 		if (!hasWildcard && node.subPatterns.size() < tupType.subTypes.size())
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "'%s' does not have %u children, cannot match\n", typeName.c_str(), node.subPatterns.size());
 		}
@@ -2309,9 +2309,9 @@ namespace Noctis
 	void TypeInference::Visit(ITrTypePattern& node)
 	{
 		Visit(*node.type);
-		if (m_pCtx->typeReg.MatchTypes(m_ExpectedHandle, node.type->handle, *m_pCtx->activeModule))
+		if (g_Ctx.typeReg.MatchTypes(m_ExpectedHandle, node.type->handle, *g_Ctx.activeModule))
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "cannot match a type pattern with '%s'\n", typeName.c_str());
 		}
@@ -2332,19 +2332,19 @@ namespace Noctis
 		
 		if (m_ExpectedHandle.Kind() != TypeKind::Iden)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "cannot match a value enum pattern with '%s'\n", typeName.c_str());
 		}
 
 		IdenType& type = m_ExpectedHandle.AsIden();
-		SymbolSPtr enumSym = node.qualName->IsBase() ? type.sym.lock() : m_pCtx->activeModule->symTable.Find(GetCurScope(), node.qualName->Base());
+		SymbolSPtr enumSym = node.qualName->IsBase() ? type.sym.lock() : g_Ctx.activeModule->symTable.Find(GetCurScope(), node.qualName->Base());
 
 		if (!enumSym || 
 			enumSym->kind != SymbolKind::ValEnum &&
 			enumSym->kind != SymbolKind::AdtEnum)
 		{
-			Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+			Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 			StdString name = enumSym->qualName->ToString();
 			g_ErrorSystem.Error(span, "'%s' is not a value enum'\n", name.c_str(), node.qualName->LastIden());
 			return;
@@ -2354,7 +2354,7 @@ namespace Noctis
 		{
 			if (!enumSym->children->Empty())
 			{
-				Span span = m_pCtx->spanManager.GetSpan(node.startIdx);
+				Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
 				StdString name = enumSym->qualName->ToString();
 				g_ErrorSystem.Error(span, "adt enum value '%s' has unmatched children\n", name.c_str());
 			}
@@ -2365,8 +2365,8 @@ namespace Noctis
 
 	TypeHandle TypeInference::InferType(TypeHandle handle, TypeMod mod)
 	{
-		ModuleSymbolTable& symTable = m_pCtx->activeModule->symTable;
-		StdVector<TypeHandle> tmp = m_pCtx->typeReg.GetSubTypes(handle, TypeKind::Iden);
+		ModuleSymbolTable& symTable = g_Ctx.activeModule->symTable;
+		StdVector<TypeHandle> tmp = g_Ctx.typeReg.GetSubTypes(handle, TypeKind::Iden);
 
 		TypeHandle newType;
 		for (TypeHandle tmpHandle : tmp)
@@ -2413,7 +2413,7 @@ namespace Noctis
 					else
 						tmpQualName = qualName;
 					
-					newType = m_pCtx->typeReg.Iden(mod, tmpQualName);
+					newType = g_Ctx.typeReg.Iden(mod, tmpQualName);
 					if (!newType.AsIden().sym.lock())
 						newType.AsIden().sym = sym;
 				}
@@ -2466,8 +2466,8 @@ namespace Noctis
 
 			if (newType.IsValid())
 			{
-				TypeHandle replacement = m_pCtx->typeReg.Mod(mod, newType);
-				handle = m_pCtx->typeReg.ReplaceSubType(handle, tmpHandle, replacement);
+				TypeHandle replacement = g_Ctx.typeReg.Mod(mod, newType);
+				handle = g_Ctx.typeReg.ReplaceSubType(handle, tmpHandle, replacement);
 			}
 		}
 		return handle;
@@ -2531,10 +2531,10 @@ namespace Noctis
 				Visit(*bound->type);
 				Visit(*bound->bound->type);
 
-				StdVector<TypeSPtr> genTypes = m_pCtx->typeReg.ExtractGenerics(bound->type->handle.Type());
+				StdVector<TypeSPtr> genTypes = g_Ctx.typeReg.ExtractGenerics(bound->type->handle.Type());
 				if (genTypes.empty())
 				{
-					Span span = m_pCtx->spanManager.GetSpan(bound->startIdx);
+					Span span = g_Ctx.spanManager.GetSpan(bound->startIdx);
 					g_ErrorSystem.Error(span, "Type needs to depend on at least 1 generic to be bound");
 				}
 
@@ -2561,7 +2561,7 @@ namespace Noctis
 			QualNameSPtr subQualName = QualName::Create(disambig);
 			subQualName = subQualName->Append(assocBound.iden);
 
-			TypeHandle toBindType = m_pCtx->typeReg.Iden(TypeMod::None, subQualName);
+			TypeHandle toBindType = g_Ctx.typeReg.Iden(TypeMod::None, subQualName);
 			
 			HandleAssocTypes(toBindType, *assocBound.type);
 		}

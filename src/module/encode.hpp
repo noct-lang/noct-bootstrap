@@ -35,7 +35,7 @@ namespace Noctis
 	class ModuleEncode
 	{
 	public:
-		ModuleEncode(Context* pCtx);
+		ModuleEncode();
 
 		StdVector<u8> Encode(Module& mod);
 
@@ -62,7 +62,6 @@ namespace Noctis
 		const StdString& GetMangledQualName(QualNameSPtr qualName);
 		const StdString& GetMangledType(TypeHandle type);
 
-		Context* m_pCtx;
 		Module* m_pMod;
 
 		StdVector<ModuleSection> m_Sections;
@@ -84,7 +83,7 @@ namespace Noctis
 	class ModuleDecode
 	{
 	public:
-		ModuleDecode(Context* pCtx);
+		ModuleDecode();
 
 		ModuleSPtr CreateModuleWithHeader(const StdString& filePath);
 		
@@ -114,7 +113,6 @@ namespace Noctis
 		QualNameSPtr GetQualNameFromId(u32 id);
 		TypeHandle GetTypeFromId(u32 id);
 
-		Context* m_pCtx;
 		Module* m_pMod;
 
 		const StdVector<u8>* m_pData;

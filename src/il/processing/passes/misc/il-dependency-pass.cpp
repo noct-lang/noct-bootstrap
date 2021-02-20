@@ -6,8 +6,8 @@
 
 namespace Noctis
 {
-	ILDependencyPass::ILDependencyPass(Context* pCtx)
-		: ILPass("dependency pass", pCtx)
+	ILDependencyPass::ILDependencyPass()
+		: ILPass("dependency pass")
 	{
 	}
 
@@ -17,7 +17,7 @@ namespace Noctis
 		{
 			m_Func = func;
 			
-			m_FuncNode = m_pCtx->activeModule->dependencyGraph.GetOrAddFuncDependency(func->qualName);
+			m_FuncNode = g_Ctx.activeModule->dependencyGraph.GetOrAddFuncDependency(func->qualName);
 			m_FuncNode->sym = func->sym;
 			
 			ILVisitor::Visit(*func);

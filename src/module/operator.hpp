@@ -119,8 +119,6 @@ namespace Noctis
 	class OperatorTable
 	{
 	public:
-		OperatorTable(Context* pCtx);
-
 		void Collect(ModuleSymbolTable& table);
 
 		Operator GetOperator(OperatorKind kind, TypeHandle expr, BoundsInfo& boundsInfo);
@@ -141,7 +139,6 @@ namespace Noctis
 		bool IsBuiltinOp(TypeHandle left, TypeHandle right, BoundsInfo& boundsInfo);
 
 		StdArray<StdUnorderedMap<TypeSPtr, StdVector<Operator>>, u8(OperatorKind::Count)> m_OpSymbols;
-		Context* m_pCtx;
 	};
 	
 }
