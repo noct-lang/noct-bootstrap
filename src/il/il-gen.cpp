@@ -292,7 +292,7 @@ namespace Noctis
 		AddElem(new ILStaticCall{ nextVar, nextFuncName, {} });
 
 		ILVar nullLit{ ILLitType::Null };
-		ILVar cmpRes = CreateDstVar(g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::Bool));
+		ILVar cmpRes = CreateDstVar(g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::Bool));
 		AddElem(new ILPrimBinary{ OperatorKind::Eq, cmpRes, nextVar, nullLit });
 		
 		SetTerminal(new ILIf{ cmpRes, loopId, endId });
@@ -1096,38 +1096,38 @@ namespace Noctis
 		{
 			implMapping.try_emplace("sizeof", [this]()
 			{
-				ILVar dst = CreateDstVar(g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::USize));
+				ILVar dst = CreateDstVar(g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::USize));
 				AddElem(new ILCompIntrin{ dst, ILCompIntrinKind::SizeOf, {}, { m_FuncScope->Generics()[0].type } });
 				SetTerminal(new ILReturn{ dst });
 			});
 			implMapping.try_emplace("sizeofval", [this]()
 			{
-				ILVar dst = CreateDstVar(g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::USize));
+				ILVar dst = CreateDstVar(g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::USize));
 				AddElem(new ILCompIntrin{ dst, ILCompIntrinKind::SizeOf, {}, { m_FuncScope->Generics()[0].type } });
 				SetTerminal(new ILReturn{ dst });
 			});
 			implMapping.try_emplace("alignof", [this]()
 			{
-				ILVar dst = CreateDstVar(g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U16));
+				ILVar dst = CreateDstVar(g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::U16));
 				AddElem(new ILCompIntrin{ dst, ILCompIntrinKind::AlignOf, {}, { m_FuncScope->Generics()[0].type } });
 				SetTerminal(new ILReturn{ dst });
 			});
 			implMapping.try_emplace("alignofval", [this]()
 			{
-				ILVar dst = CreateDstVar(g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U16));
+				ILVar dst = CreateDstVar(g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::U16));
 				ILVar src = m_Def->params[0];
 				AddElem(new ILCompIntrin{ dst, ILCompIntrinKind::AlignOfVal, { src }, {} });
 				SetTerminal(new ILReturn{ dst });
 			});
 			implMapping.try_emplace("log2alignof", [this]()
 			{
-				ILVar dst = CreateDstVar(g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U16));
+				ILVar dst = CreateDstVar(g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::U16));
 				AddElem(new ILCompIntrin{ dst, ILCompIntrinKind::Log2AlignOf, {}, { m_FuncScope->Generics()[0].type } });
 				SetTerminal(new ILReturn{ dst });
 			});
 			implMapping.try_emplace("log2alignofval", [this]()
 			{
-				ILVar dst = CreateDstVar(g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U16));
+				ILVar dst = CreateDstVar(g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::U16));
 				ILVar src = m_Def->params[0];
 				AddElem(new ILCompIntrin{ dst, ILCompIntrinKind::Log2AlignOfVal, { src }, {} });
 				SetTerminal(new ILReturn{ dst });
@@ -1342,7 +1342,7 @@ namespace Noctis
 		u32 trueId = AddNewBlock();
 		u32 falseId = AddNewBlock();
 
-		TypeHandle boolType = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::Bool);
+		TypeHandle boolType = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::Bool);
 
 		SetCurBlock(curId);
 		ILVar lowerBound = CreateLitVar(m_SwitchVars.top().type, group.valOrFrom);
@@ -1511,7 +1511,7 @@ namespace Noctis
 		else
 		{
 			ILVar elem = CreateDstVar(subType);
-			ILVar idx = CreateLitVar(g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::USize), group.idx);
+			ILVar idx = CreateLitVar(g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::USize), group.idx);
 			AddElem(new ILIndex{ elem, m_SwitchVars.top(), idx });
 			m_SwitchVars.push(elem);
 		}

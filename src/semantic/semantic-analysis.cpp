@@ -157,7 +157,7 @@ namespace Noctis
 		RunPass<MarkingPass>();
 		
 		g_Ctx.activeModule->opTable.Collect(g_Ctx.activeModule->symTable);
-		g_Ctx.typeReg.CalculateSizeAlign();
+		g_TypeReg.CalculateSizeAlign();
 		
 		RunPass<LocalVarCollection>();
 		

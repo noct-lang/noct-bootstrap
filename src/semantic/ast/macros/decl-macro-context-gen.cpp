@@ -23,7 +23,7 @@ namespace Noctis
 
 			if (!res)
 			{
-				Span span = g_Ctx.spanManager.GetSpan(node->ctx->startIdx);
+				Span span = g_SpanManager.GetSpan(node->ctx->startIdx);
 				QualNameSPtr qualName = node->ctx->scope->Append(node->ctx->qualName->LastIden());
 				StdString qualNameStr = qualName->ToString();
 				const char* pQualNameStr = qualNameStr.c_str();

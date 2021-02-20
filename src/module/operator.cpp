@@ -355,7 +355,6 @@ namespace Noctis
 
 	Operator OperatorTable::GetOperator(OperatorKind kind, TypeHandle expr, BoundsInfo& boundsInfo)
 	{
-		TypeRegistry& typeReg = g_Ctx.typeReg;
 		TypeHandle searchHandle = expr;
 		TypeSPtr exprType = searchHandle.Type();
 
@@ -373,10 +372,10 @@ namespace Noctis
 		}
 		else
 		{
-			searchHandle = typeReg.Mod(TypeMod::None, searchHandle);
+			searchHandle = g_TypeReg.Mod(TypeMod::None, searchHandle);
 		}
 
-		//StdVector<TypeHandle> = g_Ctx.typeReg.Get;
+		//StdVector<TypeHandle> = g_TypeReg.Get;
 
 		StdUnorderedMap<TypeSPtr, StdVector<Operator>>& ops = m_OpSymbols[u8(kind)];
 		auto it = ops.find(searchHandle.Type());
@@ -389,7 +388,7 @@ namespace Noctis
 		{
 			allCandidiates.push_back(op.first);
 		}
-		StdVector<TypeSPtr> possibleGenerics = g_Ctx.typeReg.GetBestVariants(searchHandle, allCandidiates, boundsInfo);
+		StdVector<TypeSPtr> possibleGenerics = g_TypeReg.GetBestVariants(searchHandle, allCandidiates, boundsInfo);
 
 		if (possibleGenerics.size() == 1)
 		{
@@ -403,7 +402,7 @@ namespace Noctis
 		{
 			QualNameSPtr interfaceQualName = GetOpInterfaceQualName(kind);
 
-			TypeHandle interfaceType = g_Ctx.typeReg.Iden(TypeMod::None, interfaceQualName);
+			TypeHandle interfaceType = g_TypeReg.Iden(TypeMod::None, interfaceQualName);
 			bool found = false;
 
 			const Bounds& bounds = boundsInfo.GetBounds(searchHandle);
@@ -433,7 +432,7 @@ namespace Noctis
 					TypeDisambiguationSPtr disambig = TypeDisambiguation::Create(searchHandle, resSym->parent.lock()->qualName);
 					QualNameSPtr qualName = QualName::Create(disambig);
 					qualName = qualName->Append(resSym->qualName->LastIden());
-					op.result = g_Ctx.typeReg.Iden(op.result.Mod(), qualName);
+					op.result = g_TypeReg.Iden(op.result.Mod(), qualName);
 					
 					return op;
 				}
@@ -447,7 +446,6 @@ namespace Noctis
 
 	Operator OperatorTable::GetOperator(OperatorKind kind, TypeHandle left, TypeHandle right, BoundsInfo& boundsInfo)
 	{
-		TypeRegistry& typeReg = g_Ctx.typeReg;
 		TypeHandle searchHandle = left;
 		TypeSPtr leftType = searchHandle.Type();
 
@@ -461,13 +459,13 @@ namespace Noctis
 		}
 		else
 		{
-			searchHandle = typeReg.Mod(TypeMod::None, searchHandle);
+			searchHandle = g_TypeReg.Mod(TypeMod::None, searchHandle);
 		}
 
 		TypeSPtr rightType = right.Type();
 		if (rightType->typeKind == TypeKind::Ref)
 			right = rightType->AsRef().subType;
-		right = typeReg.Mod(TypeMod::None, right);
+		right = g_TypeReg.Mod(TypeMod::None, right);
 
 		StdUnorderedMap<TypeSPtr, StdVector<Operator>>& ops = m_OpSymbols[u8(kind)];
 		auto it = ops.find(searchHandle.Type());
@@ -486,7 +484,7 @@ namespace Noctis
 		{
 			allCandidiates.push_back(op.first);
 		}
-		StdVector<TypeSPtr> possibleGenerics = g_Ctx.typeReg.GetBestVariants(searchHandle, allCandidiates, boundsInfo);
+		StdVector<TypeSPtr> possibleGenerics = g_TypeReg.GetBestVariants(searchHandle, allCandidiates, boundsInfo);
 		allCandidiates.clear();
 
 		if (possibleGenerics.size() == 1)
@@ -499,7 +497,7 @@ namespace Noctis
 				
 				for (Operator& op : it->second)
 				{
-					i64 tmp = g_Ctx.typeReg.ScorePossibleVariant(searchHandle, op.right.Type(), boundsInfo);
+					i64 tmp = g_TypeReg.ScorePossibleVariant(searchHandle, op.right.Type(), boundsInfo);
 					if (tmp == -1)
 						continue;
 
@@ -529,7 +527,7 @@ namespace Noctis
 		{
 			QualNameSPtr interfaceQualName = GetOpInterfaceQualName(kind);
 
-			TypeHandle interfaceType = g_Ctx.typeReg.Iden(TypeMod::None, interfaceQualName);
+			TypeHandle interfaceType = g_TypeReg.Iden(TypeMod::None, interfaceQualName);
 			bool found = false;
 
 			const Bounds& bounds = boundsInfo.GetBounds(searchHandle);
@@ -570,7 +568,7 @@ namespace Noctis
 					TypeDisambiguationSPtr disambig = TypeDisambiguation::Create(searchHandle, resSym->parent.lock()->qualName);
 					QualNameSPtr qualName = QualName::Create(disambig);
 					qualName = qualName->Append(resSym->qualName->LastIden());
-					op.result = g_Ctx.typeReg.Iden(op.result.Mod(), qualName);
+					op.result = g_TypeReg.Iden(op.result.Mod(), qualName);
 
 					return op;
 				}
@@ -585,7 +583,6 @@ namespace Noctis
 	Operator OperatorTable::GetConstriantOperator(OperatorKind kind, TypeHandle expr, ITrGenDeclSPtr genDecl,
 		BoundsInfo& boundsInfo)
 	{
-		TypeRegistry& typeReg = g_Ctx.typeReg;
 		TypeHandle searchHandle = expr;
 		TypeSPtr leftType = searchHandle.Type();
 
@@ -635,7 +632,7 @@ namespace Noctis
 			{
 			case OperatorKind::RefOrAddrOf:
 			{
-				retType = typeReg.Ptr(TypeMod::None, expr);
+				retType = g_TypeReg.Ptr(TypeMod::None, expr);
 				break;
 			}
 
@@ -656,7 +653,7 @@ namespace Noctis
 				QualNameSPtr qualName = QualName::Create(disambig);
 				qualName = qualName->Append("ResultT");
 				
-				retType = typeReg.Iden(TypeMod::None, qualName);
+				retType = g_TypeReg.Iden(TypeMod::None, qualName);
 				break;
 			}
 			}
@@ -678,7 +675,6 @@ namespace Noctis
 	Operator OperatorTable::GetConstriantOperator(OperatorKind kind, TypeHandle left, TypeHandle right,
 	                                              ITrGenDeclSPtr genDecl, BoundsInfo& boundsInfo)
 	{
-		TypeRegistry& typeReg = g_Ctx.typeReg;
 		TypeHandle searchHandle = left;
 		TypeSPtr leftType = searchHandle.Type();
 
@@ -742,7 +738,7 @@ namespace Noctis
 			case OperatorKind::Gt:
 			case OperatorKind::Ge:
 			{
-				retType = typeReg.Builtin(TypeMod::None, BuiltinTypeKind::Bool);
+				retType = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::Bool);
 				break;
 			}
 			case OperatorKind::NullCoalesce:
@@ -774,7 +770,7 @@ namespace Noctis
 			}
 			default:
 			{
-				retType = typeReg.Iden(TypeMod::None, boundQualName->Append("ResultT"));
+				retType = g_TypeReg.Iden(TypeMod::None, boundQualName->Append("ResultT"));
 				break;
 			}
 			}
@@ -814,7 +810,7 @@ namespace Noctis
 		Operator op;
 		op.left = impl ? impl->type : ifaceInst->type;
 		if (IsAssign(kind))
-			op.left = g_Ctx.typeReg.Mod(TypeMod::Mut, op.left);
+			op.left = g_TypeReg.Mod(TypeMod::Mut, op.left);
 		
 		op.right = rType;
 		op.result = funcSym->type.AsFunc().retType;
@@ -868,7 +864,7 @@ namespace Noctis
 			kind == OperatorKind::PreDec ||
 			kind == OperatorKind::PostDec)
 		{
-			op.left = g_Ctx.typeReg.Mod(TypeMod::Mut, op.left);
+			op.left = g_TypeReg.Mod(TypeMod::Mut, op.left);
 		}
 		
 		op.result = funcType->AsFunc().retType;
@@ -885,7 +881,7 @@ namespace Noctis
 		op.isBuiltin = IsBuiltinOp(op.left, impl ? impl->boundsInfo : ifaceInst->sym.lock()->boundsInfo);
 		op.isInterfaceOp = !impl;
 
-		if ((kind == OperatorKind::Deref || kind == OperatorKind::MutDeref) && g_Ctx.typeReg.IsType(op.left, TypeKind::Ptr))
+		if ((kind == OperatorKind::Deref || kind == OperatorKind::MutDeref) && g_TypeReg.IsType(op.left, TypeKind::Ptr))
 			op.isBuiltin = true;
 
 		StdUnorderedMap<TypeSPtr, StdVector<Operator>>& entry = m_OpSymbols[u8(kind)];

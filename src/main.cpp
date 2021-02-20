@@ -247,7 +247,7 @@ void ProcessInterpret()
 	g_Logger.Log(Noctis::Format("decoding modules took %fms\n", timer.GetTimeMS()));
 	timer.Start();
 	
-	g_Ctx.typeReg.CalculateSizeAlign();
+	g_TypeReg.CalculateSizeAlign();
 
 	timer.Stop();
 	g_Logger.Log(Noctis::Format("calculating sizes took %fms\n", timer.GetTimeMS()));

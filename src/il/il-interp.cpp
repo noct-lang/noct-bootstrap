@@ -903,21 +903,21 @@ namespace Noctis
 			size = u64(var.litData.size());
 			switch (var.litType)
 			{
-			case ILLitType::True:  type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::Bool); break;
-			case ILLitType::False: type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::Bool); break;
-			case ILLitType::I8:    type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::I8); break;
-			case ILLitType::I16:   type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::I16); break;
-			case ILLitType::I32:   type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::I32); break;
-			case ILLitType::I64:   type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::I64); break;
-			case ILLitType::I128:  type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::I128); break;
-			case ILLitType::U8:    type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U8); break;
-			case ILLitType::U16:   type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U16); break;
-			case ILLitType::U32:   type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U32); break;
-			case ILLitType::U64:   type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U64); break;
-			case ILLitType::U128:  type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U128); break;
-			case ILLitType::F32:   type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::F32); break;
-			case ILLitType::F64:   type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::F64); break;
-			case ILLitType::Char:  type = g_Ctx.typeReg.Builtin(TypeMod::None, BuiltinTypeKind::Char); break;
+			case ILLitType::True:  type = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::Bool); break;
+			case ILLitType::False: type = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::Bool); break;
+			case ILLitType::I8:    type = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::I8); break;
+			case ILLitType::I16:   type = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::I16); break;
+			case ILLitType::I32:   type = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::I32); break;
+			case ILLitType::I64:   type = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::I64); break;
+			case ILLitType::I128:  type = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::I128); break;
+			case ILLitType::U8:    type = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::U8); break;
+			case ILLitType::U16:   type = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::U16); break;
+			case ILLitType::U32:   type = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::U32); break;
+			case ILLitType::U64:   type = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::U64); break;
+			case ILLitType::U128:  type = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::U128); break;
+			case ILLitType::F32:   type = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::F32); break;
+			case ILLitType::F64:   type = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::F64); break;
+			case ILLitType::Char:  type = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::Char); break;
 			default: type = TypeHandle{};
 			}
 		}

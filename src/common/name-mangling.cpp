@@ -285,7 +285,7 @@ namespace Noctis::NameMangling
 					IdenGeneric idenGen;
 					idenGen.isType = true;
 					idenGen.iden = Format("T%u", id);
-					idenGen.type = g_Ctx.typeReg.Generic(TypeMod::None, id);
+					idenGen.type = g_TypeReg.Generic(TypeMod::None, id);
 					generics.push_back(idenGen);
 
 					// Constraints
@@ -364,41 +364,41 @@ namespace Noctis::NameMangling
 		
 		switch (data[idx])
 		{
-		case 'b': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::Bool); }
-		case 'c': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::Char); }
-		case 'i': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::I8); }
-		case 'j': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::I16); }
-		case 'k': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::I32); }
-		case 'l': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::I64); }
-		case 'm': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::I128); }
-		case 'n': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::ISize); }
-		case 'u': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::U8); }
-		case 'v': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::U16); }
-		case 'w': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::U32); }
-		case 'x': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::U64); }
-		case 'y': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::U128); }
-		case 'z': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::USize); }
-		case 'e': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::F16); }
-		case 'f': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::F32); }
-		case 'g': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::F64); }
-		case 'h': { ++idx; return g_Ctx.typeReg.Builtin(mod, BuiltinTypeKind::F128); }
+		case 'b': { ++idx; return g_TypeReg.Builtin(mod, BuiltinTypeKind::Bool); }
+		case 'c': { ++idx; return g_TypeReg.Builtin(mod, BuiltinTypeKind::Char); }
+		case 'i': { ++idx; return g_TypeReg.Builtin(mod, BuiltinTypeKind::I8); }
+		case 'j': { ++idx; return g_TypeReg.Builtin(mod, BuiltinTypeKind::I16); }
+		case 'k': { ++idx; return g_TypeReg.Builtin(mod, BuiltinTypeKind::I32); }
+		case 'l': { ++idx; return g_TypeReg.Builtin(mod, BuiltinTypeKind::I64); }
+		case 'm': { ++idx; return g_TypeReg.Builtin(mod, BuiltinTypeKind::I128); }
+		case 'n': { ++idx; return g_TypeReg.Builtin(mod, BuiltinTypeKind::ISize); }
+		case 'u': { ++idx; return g_TypeReg.Builtin(mod, BuiltinTypeKind::U8); }
+		case 'v': { ++idx; return g_TypeReg.Builtin(mod, BuiltinTypeKind::U16); }
+		case 'w': { ++idx; return g_TypeReg.Builtin(mod, BuiltinTypeKind::U32); }
+		case 'x': { ++idx; return g_TypeReg.Builtin(mod, BuiltinTypeKind::U64); }
+		case 'y': { ++idx; return g_TypeReg.Builtin(mod, BuiltinTypeKind::U128); }
+		case 'z': { ++idx; return g_TypeReg.Builtin(mod, BuiltinTypeKind::USize); }
+		case 'e': { ++idx; return g_TypeReg.Builtin(mod, BuiltinTypeKind::F16); }
+		case 'f': { ++idx; return g_TypeReg.Builtin(mod, BuiltinTypeKind::F32); }
+		case 'g': { ++idx; return g_TypeReg.Builtin(mod, BuiltinTypeKind::F64); }
+		case 'h': { ++idx; return g_TypeReg.Builtin(mod, BuiltinTypeKind::F128); }
 		case 'P':
 		{
 			++idx;
 			TypeHandle subType = DemangleType(data, idx);
-			return g_Ctx.typeReg.Ptr(mod, subType);
+			return g_TypeReg.Ptr(mod, subType);
 		}
 		case 'R':
 		{
 			++idx;
 			TypeHandle subType = DemangleType(data, idx);
-			return g_Ctx.typeReg.Ref(mod, subType);
+			return g_TypeReg.Ref(mod, subType);
 		}
 		case 'S':
 		{
 			++idx;
 			TypeHandle subType = DemangleType(data, idx);
-			return g_Ctx.typeReg.Slice(mod, subType);
+			return g_TypeReg.Slice(mod, subType);
 		}
 		case 'A':
 		{
@@ -416,13 +416,13 @@ namespace Noctis::NameMangling
 			}
 			
 			TypeHandle subType = DemangleType(data, idx);
-			return g_Ctx.typeReg.Array(mod, subType, size);
+			return g_TypeReg.Array(mod, subType, size);
 		}
 		case 'O':
 		{
 			++idx;
 			TypeHandle subType = DemangleType(data, idx);
-			return g_Ctx.typeReg.Opt(mod, subType);
+			return g_TypeReg.Opt(mod, subType);
 		}
 		case 'T':
 		{
@@ -434,7 +434,7 @@ namespace Noctis::NameMangling
 				subTypes.push_back(subType);
 			}
 			++idx;
-			return g_Ctx.typeReg.Tuple(mod, subTypes);
+			return g_TypeReg.Tuple(mod, subTypes);
 		}
 		case 'F':
 		{
@@ -454,21 +454,21 @@ namespace Noctis::NameMangling
 			}
 			++idx;
 			
-			return g_Ctx.typeReg.Func(mod, subTypes, retType);
+			return g_TypeReg.Func(mod, subTypes, retType);
 		}
 		case 'H':
 		{
 			idx += 2;
 			usize id = DemangleUSize(data, idx);
 			// TODO: bounds
-			return g_Ctx.typeReg.Generic(mod, u16(id));
+			return g_TypeReg.Generic(mod, u16(id));
 		}
 		default:
 		{
 			if (isdigit(data[idx]))
 			{
 				QualNameSPtr qualName = DemangleQualName(data, idx, nullptr);
-				return g_Ctx.typeReg.Iden(mod, qualName);
+				return g_TypeReg.Iden(mod, qualName);
 			}
 
 			return TypeHandle{};

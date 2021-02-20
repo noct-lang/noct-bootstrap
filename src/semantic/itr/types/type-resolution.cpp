@@ -25,7 +25,7 @@ namespace Noctis
 				return;
 			TypeHandle alias = node.sym.lock()->type;
 			TypeHandle handle = node.type->handle;
-			g_Ctx.typeReg.SetAliasType(alias, handle);
+			g_TypeReg.SetAliasType(alias, handle);
 		});
 	}
 

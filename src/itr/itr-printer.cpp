@@ -706,7 +706,7 @@ namespace Noctis
 	void ITrPrinter::Visit(ITrType& node)
 	{
 		PrintIndent();
-		StdString type = g_Ctx.typeReg.ToString(node.handle);
+		StdString type = g_TypeReg.ToString(node.handle);
 		g_Logger.Log("(type %s)\n", type.c_str());
 	}
 

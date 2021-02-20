@@ -233,7 +233,7 @@ namespace Noctis
 			{
 				TypeHandle type = sym->type;
 				if (!type.IsValid())
-					type = g_Ctx.typeReg.Iden(TypeMod::None, sym->qualName->Base(usize(-1)));
+					type = g_TypeReg.Iden(TypeMod::None, sym->qualName->Base(usize(-1)));
 
 				WriteType(section.data, type);
 				break;
@@ -782,8 +782,8 @@ namespace Noctis
 			case SymbolKind::WeakInterface:
 			case SymbolKind::StrongInterface:
 			{
-				sym->type = g_Ctx.typeReg.Iden(TypeMod::None, qualName);
-				g_Ctx.typeReg.SetIdenSym(sym->type.AsIden().qualName, sym);
+				sym->type = g_TypeReg.Iden(TypeMod::None, qualName);
+				g_TypeReg.SetIdenSym(sym->type.AsIden().qualName, sym);
 				break;
 			}
 			case SymbolKind::ValEnum:
@@ -803,8 +803,8 @@ namespace Noctis
 				}
 				else
 				{
-					sym->type = g_Ctx.typeReg.Iden(TypeMod::None, sym->qualName);
-					g_Ctx.typeReg.SetIdenSym(sym->type.AsIden().qualName, sym);
+					sym->type = g_TypeReg.Iden(TypeMod::None, sym->qualName);
+					g_TypeReg.SetIdenSym(sym->type.AsIden().qualName, sym);
 				}
 				break;
 			}

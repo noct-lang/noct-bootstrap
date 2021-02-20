@@ -37,7 +37,7 @@ namespace Noctis
 				ILGeneric& gen = node.generics[i];
 				g_Logger.Log(gen.iden);
 				if (gen.type.IsValid())
-					g_Logger.Log(":%s", g_Ctx.typeReg.ToString(gen.type).c_str());
+					g_Logger.Log(":%s", g_TypeReg.ToString(gen.type).c_str());
 			}
 			
 			g_Logger.Log(">");
@@ -53,7 +53,7 @@ namespace Noctis
 			LogVar(node.params[i]);
 		}
 
-		StdString retTypeName = node.retType.IsValid() ? g_Ctx.typeReg.ToString(node.retType) : "()";
+		StdString retTypeName = node.retType.IsValid() ? g_TypeReg.ToString(node.retType) : "()";
 		g_Logger.Log(") -> %s {\n", retTypeName.c_str());
 
 		for (ILVar& var : node.localVars)
@@ -217,7 +217,7 @@ namespace Noctis
 		LogVar(node.dst);
 		g_Logger.Log(" = ");
 		LogVar(node.src);
-		StdString typeName = g_Ctx.typeReg.ToString(node.dst.type);
+		StdString typeName = g_TypeReg.ToString(node.dst.type);
 		g_Logger.Log(" as %s", typeName.c_str());
 		g_Logger.Log("\n");
 	}
@@ -241,7 +241,7 @@ namespace Noctis
 		LogVar(node.dst);
 		g_Logger.Log(" = ");
 		LogVar(node.src);
-		g_Logger.Log(" transmute %%s\n", g_Ctx.typeReg.ToString(node.dst.type));
+		g_Logger.Log(" transmute %%s\n", g_TypeReg.ToString(node.dst.type));
 	}
 
 	void ILPrinter::Visit(ILIndex& node)
@@ -286,7 +286,7 @@ namespace Noctis
 		{
 			if (i != 0)
 				g_Logger.Log(", ");
-			g_Logger.Log(g_Ctx.typeReg.ToString(node.types[i]));
+			g_Logger.Log(g_TypeReg.ToString(node.types[i]));
 		}
 		g_Logger.Log(")\n");
 	}
@@ -383,7 +383,7 @@ namespace Noctis
 	{
 		PrintIndent();
 		LogVar(node.dst);
-		StdString typeName = g_Ctx.typeReg.ToString(node.dst.type);
+		StdString typeName = g_TypeReg.ToString(node.dst.type);
 		g_Logger.Log(" = struct %s {", typeName.c_str());
 		usize argCnt = node.args.size();
 		for (usize i = 0; i < argCnt; ++i)
@@ -399,7 +399,7 @@ namespace Noctis
 	{
 		PrintIndent();
 		LogVar(node.dst);
-		StdString typeName = g_Ctx.typeReg.ToString(node.dst.type);
+		StdString typeName = g_TypeReg.ToString(node.dst.type);
 		g_Logger.Log(" = union %s { %s: ", typeName.c_str(), node.member.c_str());
 		LogVar(node.arg);
 		g_Logger.Log("}\n");
@@ -409,7 +409,7 @@ namespace Noctis
 	{
 		PrintIndent();
 		LogVar(node.dst);
-		StdString typeName = g_Ctx.typeReg.ToString(node.dst.type);
+		StdString typeName = g_TypeReg.ToString(node.dst.type);
 		g_Logger.Log(" = val_enum %s\n", node.member.c_str());
 	}
 
@@ -417,7 +417,7 @@ namespace Noctis
 	{
 		PrintIndent();
 		LogVar(node.dst);
-		StdString typeName = g_Ctx.typeReg.ToString(node.dst.type);
+		StdString typeName = g_TypeReg.ToString(node.dst.type);
 		g_Logger.Log(" = adt_enum %s {", node.member.c_str());
 		usize argCnt = node.args.size();
 		for (usize i = 0; i < argCnt; ++i)
@@ -433,7 +433,7 @@ namespace Noctis
 	{
 		PrintIndent();
 		LogVar(node.dst);
-		StdString typeName = g_Ctx.typeReg.ToString(node.dst.type);
+		StdString typeName = g_TypeReg.ToString(node.dst.type);
 		g_Logger.Log(" = (");
 		usize argCnt = node.args.size();
 		for (usize i = 0; i < argCnt; ++i)
@@ -449,7 +449,7 @@ namespace Noctis
 	{
 		PrintIndent();
 		LogVar(node.dst);
-		StdString typeName = g_Ctx.typeReg.ToString(node.dst.type);
+		StdString typeName = g_TypeReg.ToString(node.dst.type);
 		g_Logger.Log(" = [");
 		usize argCnt = node.args.size();
 		for (usize i = 0; i < argCnt; ++i)
@@ -472,7 +472,7 @@ namespace Noctis
 
 	void ILPrinter::LogVar(ILVar& var)
 	{
-		StdString typeName = g_Ctx.typeReg.ToString(var.type);
+		StdString typeName = g_TypeReg.ToString(var.type);
 		switch (var.kind)
 		{
 		case ILVarKind::Copy:

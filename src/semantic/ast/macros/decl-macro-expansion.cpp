@@ -40,7 +40,7 @@ namespace Noctis
 
 			if (!parser.HasParsedAllTokens())
 			{
-				Span span = g_Ctx.spanManager.GetSpan(node.ctx->startIdx);
+				Span span = g_SpanManager.GetSpan(node.ctx->startIdx);
 				g_ErrorSystem.Error(span, "Failed to parse complete statement macro");
 			}
 		}

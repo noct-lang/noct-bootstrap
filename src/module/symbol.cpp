@@ -28,10 +28,10 @@ namespace Noctis
 		case SymbolKind::AdtEnum:
 		case SymbolKind::Typedef:
 		case SymbolKind::Typealias:
-			return g_Ctx.typeReg.Iden(TypeMod::None, qualName);
+			return g_TypeReg.Iden(TypeMod::None, qualName);
 		case SymbolKind::ValEnumMember:
 		case SymbolKind::AdtEnumMember:
-			return g_Ctx.typeReg.Iden(TypeMod::None, qualName->Base(usize(-1)));
+			return g_TypeReg.Iden(TypeMod::None, qualName->Base(usize(-1)));
 		default:
 			return type;
 		}
@@ -70,10 +70,10 @@ namespace Noctis
 		case SymbolKind::AdtEnum:
 		case SymbolKind::Typedef:
 		case SymbolKind::Typealias:
-			return g_Ctx.typeReg.Iden(TypeMod::None, qualName);
+			return g_TypeReg.Iden(TypeMod::None, qualName);
 		case SymbolKind::ValEnumMember:
 		case SymbolKind::AdtEnumMember:
-			return g_Ctx.typeReg.Iden(TypeMod::None, qualName->Base(usize(-1)));
+			return g_TypeReg.Iden(TypeMod::None, qualName->Base(usize(-1)));
 		default: return type;
 		}
 	}
@@ -199,7 +199,7 @@ namespace Noctis
 		if (type.Kind() == TypeKind::Iden &&
 			type.AsIden().qualName->Idens() == qualName->Idens())
 		{
-			inst->type = g_Ctx.typeReg.Iden(TypeMod::None, qualName);
+			inst->type = g_TypeReg.Iden(TypeMod::None, qualName);
 		}
 		else
 		{
@@ -272,7 +272,7 @@ namespace Noctis
 		if (isImported && !includeImports)
 			return;
 		
-		StdString name = qualName ? qualName->ToString() : g_Ctx.typeReg.ToString(type);
+		StdString name = qualName ? qualName->ToString() : g_TypeReg.ToString(type);
 		StdStringView kindName;
 		bool isInterface = false;
 		switch (kind)
@@ -315,7 +315,7 @@ namespace Noctis
 			flags += ", val_gen_depend";
 
 		printIndent(indent);
-		StdString typeName = g_Ctx.typeReg.ToString(type);
+		StdString typeName = g_TypeReg.ToString(type);
 		g_Logger.Log("(symbol '%s', kind='%s', type='%s'%s)\n", name.c_str(), kindName.data(), typeName.c_str(), flags.c_str());
 
 		if (!children->Empty())
@@ -347,7 +347,7 @@ namespace Noctis
 			//	continue;
 
 			printIndent(indent + 1);
-			StdString tmp = implSym->kind == SymbolKind::Type ? g_Ctx.typeReg.ToString(implSym->type) : implSym->qualName->ToString();
+			StdString tmp = implSym->kind == SymbolKind::Type ? g_TypeReg.ToString(implSym->type) : implSym->qualName->ToString();
 			g_Logger.Log(isInterface ? "(implemented by '%s')\n" : "(implements '%s')\n", tmp.c_str());
 		}
 	}
@@ -406,9 +406,9 @@ namespace Noctis
 		case SymbolKind::ValEnumMember:
 		case SymbolKind::AdtEnumMember:
 		{
-			TypeHandle type = g_Ctx.typeReg.Iden(TypeMod::None, qualName);
+			TypeHandle type = g_TypeReg.Iden(TypeMod::None, qualName);
 			sym->type = type;
-			g_Ctx.typeReg.SetIdenSym(type.AsIden().qualName, sym);
+			g_TypeReg.SetIdenSym(type.AsIden().qualName, sym);
 			break;
 		}
 		case SymbolKind::Func:
@@ -769,7 +769,7 @@ namespace Noctis
 		{
 			m_TypeSymbols.erase(sym->type.Type());
 
-			StdString typeName = g_Ctx.typeReg.ToString(sym->type);
+			StdString typeName = g_TypeReg.ToString(sym->type);
 			m_TypeNameSymbols.erase(typeName);
 			return true;
 		}

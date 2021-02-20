@@ -81,7 +81,7 @@ namespace Noctis
 			{
 				if (toks.size() != 1)
 				{
-					Span span = g_Ctx.spanManager.GetSpan(toks[0].Idx());
+					Span span = g_SpanManager.GetSpan(toks[0].Idx());
 					g_ErrorSystem.Error(span, "expected a single identifier");
 					break;
 				}

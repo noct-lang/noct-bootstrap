@@ -24,3 +24,5 @@ namespace Noctis
 }
 
 #define g_Ctx Noctis::GetContext()
+#define g_TypeReg (g_Ctx.typeReg)
+#define g_SpanManager (g_Ctx.spanManager)

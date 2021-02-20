@@ -437,7 +437,7 @@ namespace Noctis
 
 		if (pattern->patternKind != ITrPatternKind::ValueEnum)
 		{
-			Span span = g_Ctx.spanManager.GetSpan(pattern->startIdx);
+			Span span = g_SpanManager.GetSpan(pattern->startIdx);
 			g_ErrorSystem.Error(span, "No members are matched");
 			return CreateLeaf(pattern, type, caseId, depth);
 		}
@@ -500,7 +500,7 @@ namespace Noctis
 			{
 				if (foundWildcard)
 				{
-					Span span = g_Ctx.spanManager.GetSpan(subPattern->startIdx);
+					Span span = g_SpanManager.GetSpan(subPattern->startIdx);
 					g_ErrorSystem.Error(span, "Cannot have more than 1 wildcard in a tuple pattern");
 				}
 				foundWildcard = true;
@@ -615,7 +615,7 @@ namespace Noctis
 			{
 				if (subPattern->patternKind == ITrPatternKind::Wildcard)
 				{
-					Span span = g_Ctx.spanManager.GetSpan(subPattern->startIdx);
+					Span span = g_SpanManager.GetSpan(subPattern->startIdx);
 					g_ErrorSystem.Error(span, "Cannot have more than 1 wildcard");
 					continue;
 				}
@@ -789,13 +789,13 @@ namespace Noctis
 		case TokenType::F64Lit:
 		case TokenType::F128Lit:
 		{
-			Span span = g_Ctx.spanManager.GetSpan(tok.Idx());
+			Span span = g_SpanManager.GetSpan(tok.Idx());
 			g_ErrorSystem.Error(span, "float literal patterns are not allowed");
 			return 0;
 		}
 		default:
 		{
-			Span span = g_Ctx.spanManager.GetSpan(tok.Idx());
+			Span span = g_SpanManager.GetSpan(tok.Idx());
 			g_ErrorSystem.Error(span, "Unknown literal pattern");
 			return 0;
 		}
@@ -834,7 +834,7 @@ namespace Noctis
 
 		if (needsCheck && !CheckCopyable(node.rExpr->handle, *m_pBoundsInfo))
 		{
-			Span span = g_Ctx.spanManager.GetSpan(node.rExpr->startIdx);
+			Span span = g_SpanManager.GetSpan(node.rExpr->startIdx);
 			StdString typeName = node.rExpr->handle.ToString();
 			g_ErrorSystem.Error(span, "type %s is not copyable", typeName.c_str());
 		}
@@ -972,7 +972,7 @@ namespace Noctis
 
 			if (!found)
 			{
-				Span span = g_Ctx.spanManager.GetSpan(node.startIdx);
+				Span span = g_SpanManager.GetSpan(node.startIdx);
 				StdString foundTypeName = foundType.ToString();
 				StdString expectedTypeName = m_ErrorHandle.ToString();
 				g_ErrorSystem.Error(span, "Cannot find an error handler for type '%s', this error can also not be rethrown, since it's not compatible with '%s'", foundTypeName.c_str(), expectedTypeName.c_str());

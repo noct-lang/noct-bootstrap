@@ -31,7 +31,7 @@ namespace Noctis
 		
 		usize size = m_Content.size();
 
-		SpanManager& spanManager = g_Ctx.spanManager;
+		SpanManager& spanManager = g_SpanManager;
 		
 		while (m_Index < size)
 		{
@@ -769,7 +769,7 @@ namespace Noctis
 			const Token& tok = m_Tokens[i];
 			std::stringstream ss;
 
-			Span span = g_Ctx.spanManager.GetSpan(i);
+			Span span = g_SpanManager.GetSpan(i);
 
 			ss << '[' << span.line << ':' << span.column << ']';
 			ss << ", ";
