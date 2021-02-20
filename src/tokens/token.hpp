@@ -225,7 +225,7 @@ namespace Noctis
 		u64 Idx() const { return m_TokenIdx; }
 		
 		i64 Signed() const { return m_Signed; }
-		i64 Unsigned() const { return m_Unsigned; }
+		u64 Unsigned() const { return m_Unsigned; }
 		f64 Fp() const { return m_Fp; }
 		bool Bool() const { return m_Bool; }
 

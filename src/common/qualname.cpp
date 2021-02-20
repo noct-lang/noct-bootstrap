@@ -6,146 +6,10 @@
 
 namespace Noctis
 {
-	StdUnorderedMap<StdString, StdUnorderedMap<u64, StdVector<IdenSPtr>>> Iden::s_Idens = {};
-	StdUnorderedMap<StdString, StdUnorderedMap<u64, StdVector<IdenSPtr>>> Iden::s_FuzzyIdens = {};
-	StdString Iden::s_SearchString = {};
-
 	IdenGeneric::IdenGeneric()
 		: isType(true)
 		, isSpecialized(false)
 	{
-	}
-
-	IdenSPtr Iden::Create(StdStringView name)
-	{
-		return Create(name, StdVector<IdenGeneric>{});
-	}
-
-	IdenSPtr Iden::Create(StdStringView name, const StdVector<IdenGeneric>& generics)
-	{
-		// Use static string to as key, to try to decrease allocations
-		s_SearchString.assign(name);
-		auto it = s_Idens.find(s_SearchString);
-		if (it == s_Idens.end())
-			it = s_Idens.try_emplace(s_SearchString, StdUnorderedMap<u64, StdVector<IdenSPtr>>{}).first;
-
-		u64 numGenerics = u64(generics.size());
-
-		auto subIt = it->second.find(numGenerics);
-		if (subIt == it->second.end())
-			subIt = it->second.try_emplace(0, StdVector<IdenSPtr>{}).first;
-
-		for (IdenSPtr iden : subIt->second)
-		{
-			if (iden->Generics().size() != generics.size())
-				continue;
-
-			bool found = true;
-			StdVector<IdenGeneric>& idenGens = iden->Generics();
-			for (u64 i = 0; i < numGenerics; ++i)
-			{
-				if (idenGens[i].isSpecialized || generics[i].isSpecialized)
-				{
-					if (idenGens[i].isType != generics[i].isType ||
-						idenGens[i].type != generics[i].type)
-					{
-						found = false;
-						break;
-					}
-				}
-
-				if (!idenGens[i].isType)
-					found = idenGens[i].itrExpr == generics[i].itrExpr;
-			}
-
-			if (found)
-				return iden;
-		}
-
-		IdenSPtr iden{ new Iden{ s_SearchString, generics } };
-		iden->fuzzy = CreateFuzzy(s_SearchString, generics);
-		subIt->second.push_back(iden);
-
-		return iden;
-	}
-
-	StdString Iden::ToString() const
-	{
-		StdString str = m_Name;
-
-		if (!m_Generics.empty())
-		{
-			str += '<';
-			for (usize i = 0; i < m_Generics.size(); ++i)
-			{
-				if (i != 0)
-					str += ',';
-				
-				const IdenGeneric& generic = m_Generics[i];
-				if (generic.isType)
-				{
-					// TODO
-				}
-				else
-				{
-					// TODO
-					str += ':';
-				}
-			}
-			str += '>';
-		}
-
-		return str;
-	}
-
-	Iden::Iden(StdString name, StdVector<IdenGeneric> generics)
-		: m_Name(std::move(name))
-		, m_Generics(std::move(generics))
-	{
-	}
-
-	IdenSPtr Iden::CreateFuzzy(StdStringView name, const StdVector<IdenGeneric>& generics)
-	{
-		// Use static string to as key, to try to decrease allocations
-		s_SearchString.assign(name);
-		auto it = s_FuzzyIdens.find(s_SearchString);
-		if (it == s_FuzzyIdens.end())
-			it = s_FuzzyIdens.try_emplace(s_SearchString, StdUnorderedMap<u64, StdVector<IdenSPtr>>{}).first;
-
-		u64 numGenerics = u64(generics.size());
-
-		auto subIt = it->second.find(numGenerics);
-		if (subIt == it->second.end())
-			subIt = it->second.try_emplace(0, StdVector<IdenSPtr>{}).first;
-
-		for (IdenSPtr iden : subIt->second)
-		{
-			if (iden->Generics().size() != generics.size())
-				continue;
-
-			bool found = true;
-			StdVector<IdenGeneric>& idenGens = iden->Generics();
-			for (u64 i = 0; i < numGenerics; ++i)
-			{
-				if (idenGens[i].isSpecialized || generics[i].isSpecialized)
-				{
-					if (idenGens[i].isType != generics[i].isType ||
-						idenGens[i].type != generics[i].type)
-					{
-						found = false;
-						break;
-					}
-				}
-			}
-
-			if (found)
-				return iden;
-		}
-
-		IdenSPtr iden{ new Iden{ s_SearchString, generics } };
-		iden->fuzzy = iden;
-		subIt->second.push_back(iden);
-		return iden;
 	}
 
 	StdUnorderedMap<TypeHandle, StdUnorderedMap<QualNameSPtr, TypeDisambiguationSPtr>> TypeDisambiguation::s_TypeDisambiguations;
@@ -171,40 +35,68 @@ namespace Noctis
 	{
 	}
 
-	StdUnorderedMap<IdenSPtr, QualNameSPtr> QualName::s_BaseNames = {};
+	StdUnorderedMap<StdString, StdVector<QualNameSPtr>> QualName::s_BaseNames = {};
 	StdUnorderedMap<TypeDisambiguationSPtr, QualNameSPtr> QualName::s_TypeDisambiguationBaseNames = {};
 
-	QualNameSPtr QualName::Create(IdenSPtr iden)
+	QualNameSPtr QualName::Create(const StdString& iden)
 	{
-		auto it = s_BaseNames.find(iden);
-		if (it != s_BaseNames.end())
-			return it->second;
+		return Create(StdVector<StdString>{ iden }, {});
+	}
 
-		QualNameSPtr qualName{ new QualName{ nullptr, iden } };
-		s_BaseNames.try_emplace(iden, qualName);
+	QualNameSPtr QualName::Create(const StdString& iden, const StdVector<IdenGeneric>& generics)
+	{
+		return Create(StdVector<StdString>{ iden }, generics);
+	}
 
-		QualNameSPtr fuzzyQualName;
-		IdenSPtr fuzzy = iden->Fuzzy();
-		if (iden == fuzzy)
-		{
-			fuzzyQualName = qualName;
-		}
-		else
-		{
-			auto it = s_BaseNames.find(iden);
-			if (it != s_BaseNames.end())
-			{
-				fuzzyQualName = it->second;
-			}
-			else
-			{
-				fuzzyQualName.reset(new QualName{ nullptr, iden });
-				s_BaseNames.try_emplace(iden, qualName);
-			}
-		}
+	QualNameSPtr QualName::Create(const StdVector<StdString>& idens)
+	{
+		return Create(idens, {});
+	}
+
+	QualNameSPtr QualName::Create(const StdVector<StdString>& idens, const StdVector<IdenGeneric>& generics)
+	{
+		if (idens.empty())
+			return nullptr;
 		
-		qualName->m_Fuzzy = fuzzyQualName;
-		return qualName;
+		auto it = s_BaseNames.find(idens[0]);
+		if (it == s_BaseNames.end())
+			it = s_BaseNames.try_emplace(idens[0], StdVector<QualNameSPtr>{}).first;
+
+		if (it->second.empty())
+		{
+			QualNameSPtr noGenBase{ new QualName{ nullptr, idens[0] } };
+			noGenBase->m_Fuzzy = noGenBase->m_NoGenSelf = noGenBase->m_Self = noGenBase;
+			it->second.push_back(noGenBase);
+		}
+
+		if (idens.size() == 1)
+		{
+			if (generics.empty())
+				return it->second[0];
+
+			for (QualNameSPtr tmp : it->second)
+			{
+				if (CompareGenerics(tmp->m_Generics, generics))
+					return tmp;
+			}
+
+			QualNameSPtr qualName{ new QualName{ nullptr, idens[0] } };
+			qualName->m_Self = qualName;
+			qualName->m_Generics = generics;
+			
+			// first add, then create fuzzy to prevent infinite recursion
+			it->second.push_back(qualName);
+			qualName->m_NoGenSelf = it->second[0];
+			qualName->m_Fuzzy = CreateFuzzy(nullptr, idens, generics);
+			return qualName;
+		}
+
+		QualNameSPtr qualName = it->second[0];
+		for (usize i = 1; i < idens.size() - 1; ++i)
+		{
+			qualName = qualName->Append(idens[i]);
+		}
+		return qualName->Append(idens.back(), generics);
 	}
 
 	QualNameSPtr QualName::Create(TypeDisambiguationSPtr disambiguation)
@@ -217,138 +109,182 @@ namespace Noctis
 			return it->second;
 
 		QualNameSPtr qualName{ new QualName{ disambiguation } };
+		qualName->m_Self = qualName->m_NoGenSelf = qualName;
+		qualName->m_Fuzzy = CreateFuzzy(disambiguation, {}, {});
+		
 		s_TypeDisambiguationBaseNames.try_emplace(disambiguation, qualName);
 		return qualName;
 	}
 
-	QualNameSPtr QualName::Create(QualNameSPtr base, IdenSPtr iden)
+	QualNameSPtr QualName::Append(QualNameSPtr qualName)
 	{
-		if (!base)
-			return Create(iden);
+		return Append(qualName->Idens(), qualName->Generics());
+	}
+
+	QualNameSPtr QualName::Append(const StdString& iden)
+	{
+		return Append(iden, {});
+	}
+
+	QualNameSPtr QualName::Append(const StdString& iden, const StdVector<IdenGeneric>& generics)
+	{
+		if (!m_Generics.empty())
+		{
+			QualNameSPtr qualName = m_NoGenSelf.lock();
+			StdVector<IdenGeneric> tmpGens = m_Generics;
+			if (!generics.empty())
+				tmpGens.insert(tmpGens.end(), generics.begin(), generics.end());
+			return qualName->Append(iden, tmpGens);
+		}
 		
-		auto it = base->m_Children.find(iden);
-		if (it != base->m_Children.end())
-			return it->second;
-
-		QualNameSPtr qualName{ new QualName{ base, iden } };
-		base->m_Children.try_emplace(iden, qualName);
-
-		QualNameSPtr fuzzyQualname;
-		IdenSPtr fuzzy = iden->Fuzzy();
-		if (iden == fuzzy)
+		auto it = m_Children.find(iden);
+		if (it == m_Children.end())
 		{
-			fuzzyQualname = qualName;
-		}
-		else
-		{
-			auto it = base->m_Children.find(iden);
-			if (it != base->m_Children.end())
-			{
-				fuzzyQualname = it->second;
-			}
-			else
-			{
-				fuzzyQualname.reset(new QualName{ base, iden });
-				base->m_Children.try_emplace(iden, qualName);
-			}
+			it = m_Children.try_emplace(iden, StdVector<QualNameSPtr>{}).first;
+			QualNameSPtr qualName{ new QualName{ m_Self.lock(), iden } };
+			qualName->m_Fuzzy = qualName->m_NoGenSelf = qualName->m_Self = qualName;
+			it->second.push_back(qualName);
 		}
 
-		qualName->m_Fuzzy = fuzzyQualname;
+		for (QualNameSPtr qualName : it->second)
+		{
+			if (CompareGenerics(qualName->Generics(), generics))
+				return qualName;
+		}
+
+		QualNameSPtr qualName{ new QualName{ m_Self.lock(), iden } };
+		qualName->m_Self = qualName;
+		qualName->m_Generics = generics;
+		qualName->m_NoGenSelf = it->second[0];
+
+		// first add, then create fuzzy to prevent infinite recursion
+		it->second.push_back(qualName);
+		StdVector<StdString> fuzzyIdens = m_Idens;
+		fuzzyIdens.push_back(iden);
+		qualName->m_Fuzzy = CreateFuzzy(nullptr, fuzzyIdens, generics);
 		return qualName;
 	}
 
-	QualNameSPtr QualName::Create(QualNameSPtr base, StdStringView name)
+	QualNameSPtr QualName::Append(const StdVector<StdString>& idens)
 	{
-		return Create(base, Iden::Create(name));
-	}
-
-	QualNameSPtr QualName::Create(const StdVector<StdString>& names)
-	{
-		QualNameSPtr qualName;
-		for (const StdString& name : names)
+		QualNameSPtr qualName = m_Self.lock();
+		for (const StdString& iden : idens)
 		{
-			IdenSPtr iden = Iden::Create(name);
-			qualName = Create(qualName, iden);
+			qualName = qualName->Append(iden);
 		}
 		return qualName;
 	}
 
-	QualNameSPtr QualName::Create(const StdVector<IdenSPtr>& idens)
+	QualNameSPtr QualName::Append(const StdVector<StdString>& idens, const StdVector<IdenGeneric>& generics)
 	{
-		QualNameSPtr qualName;
-		for (const IdenSPtr iden : idens)
+		QualNameSPtr qualName = m_Self.lock();
+		for (usize i = 0; i < idens.size() - 1; ++i)
 		{
-			qualName = Create(qualName, iden);
+			qualName = qualName->Append(idens[i]);
 		}
-		return qualName;
+		return qualName->Append(idens.back(), generics);
 	}
 
-	QualNameSPtr QualName::Create(QualNameSPtr first, const StdVector<IdenSPtr>& idens)
+	QualNameSPtr QualName::AppendLastIden(QualNameSPtr qualName)
 	{
-		QualNameSPtr tmp = first;
-		for (IdenSPtr iden : idens)
-		{
-			tmp = Create(tmp, iden);
-		}
-		return tmp;
+		return Append(qualName->LastIden(), qualName->Generics());
+	}
+
+	QualNameSPtr QualName::WithGenerics(const StdVector<IdenGeneric>& generics)
+	{
+		if (m_Base)
+			return m_Base->Append(m_Idens.back(), generics);
+		return Create(m_Idens.back(), generics);
 	}
 
 	StdString QualName::ToString() const
 	{
 		StdString name;
 
+		// TODO
 		//if (m_Disambiguation)
-		//	name += m_Disambiguation->
+		//	name += m_Disambiguation->To
 
-		for (usize i = 0; i < m_Idens.size(); ++i)
+		if (m_Base)
 		{
-			if (i != 0)
-				name += "::";
-			
-			IdenSPtr iden = m_Idens[i];
-			name += iden->Name();
+			name += m_Base->ToString();
+			name += "::" + m_Idens.back();
+		}
+		else
+		{
+			name += m_Idens.back();
+		}
+
+		if (!m_Generics.empty())
+		{
+			name += '<';
+			for (const IdenGeneric& idenGen : m_Generics)
+			{
+				if (idenGen.isType)
+				{
+					if (idenGen.isSpecialized)
+						name += idenGen.type.ToString();
+					else
+						name += idenGen.iden;
+				}
+				else
+				{
+					if (idenGen.isSpecialized)
+					{
+						// TODO
+						name += "{}";
+					}
+					else
+					{
+						name += idenGen.iden + ':' + idenGen.type.ToString();
+					}
+				}
+			}
+			name += '>';
 		}
 		return name;
 	}
 
 	QualNameSPtr QualName::GetSubName(QualNameSPtr base)
 	{
-		const StdVector<IdenSPtr>& ownIdens = Idens();
-		const StdVector<IdenSPtr>& baseIdens = base->Idens();
+		const StdVector<StdString>& baseIdens = base->Idens();
 
-		if (ownIdens.size() <= baseIdens.size())
-			return Create(ownIdens);
+		if (m_Idens.size() <= baseIdens.size())
+			return m_Self.lock();
 
 		usize size = baseIdens.size();
 		for (usize i = 0; i < size; ++i)
 		{
-			IdenSPtr ownIden = ownIdens[i];
-			IdenSPtr baseIden = baseIdens[i];
-
-			if (ownIden != baseIden)
+			if (m_Idens[i] != baseIdens[i])
 				return nullptr;
 		}
 
-		StdVector<IdenSPtr> idens;
-		idens.assign(ownIdens.begin() + size, ownIdens.end());
-		return Create(idens);
+		usize numIdens = m_Idens.size() - baseIdens.size();
+		usize numGenerics = m_Generics.size() - base->Generics().size();
+		return GetSubName(numIdens, numGenerics);
 	}
 
-	QualNameSPtr QualName::GetSubName(usize depth)
+	QualNameSPtr QualName::GetSubName(usize depth, usize numGenerics)
 	{
-		if (depth > m_Idens.size())
-			depth = m_Idens.size();
+		if (depth >= m_Idens.size())
+			return m_Self.lock();
 		
-		StdVector<IdenSPtr> idens;
+		StdVector<StdString> idens;
 		idens.assign(m_Idens.end() - depth, m_Idens.end());
-		return Create(idens);
+		StdVector<IdenGeneric> gens;
+
+		numGenerics = Min(numGenerics, m_Generics.size());
+		if (numGenerics)
+			gens.assign(m_Generics.end() - numGenerics, m_Generics.end());
+		
+		return Create(idens, gens);
 	}
 
 	QualNameSPtr QualName::GetBaseName(usize depth)
 	{
 		usize curDepth = Depth();
 		if (curDepth == depth)
-			return Create(m_Base, LastIden());
+			return m_Self.lock();
 
 		QualNameSPtr qualName = m_Base;
 		--curDepth;
@@ -367,32 +303,112 @@ namespace Noctis
 
 	bool QualName::IsSubnameOf(QualNameSPtr base)
 	{
-		QualName* qualName = this;
+		QualNameSPtr qualName = m_Self.lock();
 		usize depth = Depth();
 		usize baseDepth = base->Depth();
 		for (usize i = depth; i >= baseDepth; --i)
 		{
-			if (qualName == base.get())
+			if (qualName == base)
 				return true;
 
-			qualName = qualName->Base().get();
+			qualName = qualName->Base();
 		}
 		return false;
 	}
 
-	QualName::QualName(QualNameSPtr base, IdenSPtr iden)
-		: m_Base(std::move(base))
+	// TODO: Tell how many generic values need to be kept in the base 
+	QualNameSPtr QualName::Base(usize numGenerics)
 	{
-		if (m_Base)
-		{
-			m_Disambiguation = m_Base->m_Disambiguation;
-			m_Idens = m_Base->Idens();
-		}
-		m_Idens.push_back(iden);
+		if (!m_Base)
+			return nullptr;
+
+		if (numGenerics == 0)
+			return m_Base;
+
+		numGenerics = Min(numGenerics, m_Generics.size());
+		StdVector<IdenGeneric> generics = m_Generics;
+		generics.resize(numGenerics);
+		if (m_Base->m_Base)
+			return m_Base->m_Base->Append(m_Base->LastIden(), generics);
+		return Create(m_Base->LastIden(), generics);
+	}
+
+	QualName::QualName(QualNameSPtr base, StdString iden)
+		: m_Base(base)
+		, m_Idens({ iden })
+	{
+		if (base)
+			m_Idens.insert(m_Idens.begin(), base->m_Idens.begin(), base->m_Idens.end());
 	}
 
 	QualName::QualName(TypeDisambiguationSPtr disambiguation)
 		: m_Disambiguation(std::move(disambiguation))
 	{
+	}
+
+	bool QualName::CompareGenerics(const StdVector<IdenGeneric>& gens0, const StdVector<IdenGeneric>& gens1)
+	{
+		if (gens0.size() != gens1.size())
+			return false;
+
+		for (usize i = 0; i < gens0.size(); ++i)
+		{
+			const IdenGeneric& gen0 = gens0[i];
+			const IdenGeneric& gen1 = gens1[i];
+
+			if (gen0.isType != gen1.isType ||
+				gen0.isSpecialized != gen1.isSpecialized)
+				return false;
+
+			if (gen0.isType)
+			{
+				if (gen0.isSpecialized)
+				{
+					if (gen0.type != gen1.type)
+						return false;
+				}
+				else
+				{
+					if (gen0.iden != gen1.iden)
+						return false;
+				}
+			}
+			else
+			{
+				if (gen0.itrExpr != gen1.itrExpr)
+					return false;
+			}
+		}
+
+		return true;
+	}
+
+	QualNameSPtr QualName::CreateFuzzy(TypeDisambiguationSPtr disambig, const StdVector<StdString>& idens, const StdVector<IdenGeneric>& generics)
+	{
+		StdVector<IdenGeneric> fuzzyGenerics;
+		for (const IdenGeneric& idenGen : generics)
+		{
+			if (idenGen.isType)
+			{
+				if (idenGen.isSpecialized)
+				{
+					// TODO: need access to context
+				}
+				else
+				{
+					fuzzyGenerics.push_back(idenGen);
+				}
+			}
+			else
+			{
+				IdenGeneric tmp = idenGen;
+				tmp.itrExpr = nullptr;
+				fuzzyGenerics.push_back(tmp);
+			}
+		}
+
+		if (disambig)
+			return Create(disambig)->Append(idens, generics);
+		return Create(idens, generics);
 	}
 }

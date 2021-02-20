@@ -16,21 +16,13 @@ namespace Noctis
 		, qualName(qualName)
 		, hasFuzzyCompare(false)
 	{
-		for (IdenSPtr iden : qualName->Idens())
+		for (const IdenGeneric& idenGen : qualName->Generics())
 		{
-			if (!iden->Generics().empty())
-				continue;
-
-			for (IdenGeneric& idenGen : iden->Generics())
+			if (!idenGen.isType)
 			{
-				if (!idenGen.isType)
-				{
-					hasFuzzyCompare = true;
-					break;
-				}
-			}
-			if (hasFuzzyCompare)
+				hasFuzzyCompare = true;
 				break;
+			}
 		}
 
 		if (!hasFuzzyCompare && qualName->Disambiguation())
@@ -288,7 +280,7 @@ namespace Noctis
 		return Type()->AsGeneric();
 	}
 
-	StdString TypeHandle::ToString()
+	StdString TypeHandle::ToString() const
 	{
 		if (IsValid())
 			return pReg->ToString(*this);
@@ -654,7 +646,7 @@ namespace Noctis
 				tmp = '[';
 				ITrExprSPtr expr = std::get<ITrExprSPtr>(arr.expr);
 				ITrQualNameExpr& qualName = reinterpret_cast<ITrQualNameExpr&>(*expr);
-				tmp += qualName.qualName->LastIden()->ToString();
+				tmp += qualName.qualName->LastIden();
 				tmp += ']';
 			}
 			else
@@ -1721,13 +1713,10 @@ namespace Noctis
 				ExtractGenerics(qualName->Disambiguation()->Type().Type(), gens);
 			}
 			
-			for (IdenSPtr iden : qualName->Idens())
+			for (IdenGeneric& idenGen : qualName->Generics())
 			{
-				for (IdenGeneric& idenGen : iden->Generics())
-				{
-					if (!idenGen.isType)
-						ExtractGenerics(idenGen.type.Type(), gens);
-				}
+				if (!idenGen.isType)
+					ExtractGenerics(idenGen.type.Type(), gens);
 			}
 			break;
 		}
@@ -1794,23 +1783,8 @@ namespace Noctis
 		if (qualName->Disambiguation())
 			disambig = ReplaceSubType(qualName->Disambiguation(), toReplace, replacement);
 
-		StdVector<IdenSPtr> idens;
-		for (IdenSPtr iden : qualName->Idens())
-		{
-			idens.push_back(ReplaceSubType(iden, toReplace, replacement));
-		}
-
-		QualNameSPtr disambigBase = QualName::Create(disambig);
-		return QualName::Create(disambigBase, idens);
-	}
-
-	IdenSPtr TypeRegistry::ReplaceSubType(IdenSPtr iden, TypeHandle toReplace, TypeHandle replacement)
-	{
-		if (iden->Generics().empty())
-			return iden;
-
 		StdVector<IdenGeneric> generics;
-		for (IdenGeneric& origIdenGen : iden->Generics())
+		for (IdenGeneric& origIdenGen : qualName->Generics())
 		{
 			if (!origIdenGen.isType)
 			{
@@ -1824,7 +1798,8 @@ namespace Noctis
 			generics.push_back(idenGen);
 		}
 		
-		return Iden::Create(iden->Name(), generics);
+		QualNameSPtr disambigBase = QualName::Create(disambig);
+		return disambigBase->Append(qualName->Idens(), generics);
 	}
 
 	TypeDisambiguationSPtr TypeRegistry::ReplaceSubType(TypeDisambiguationSPtr disambig, TypeHandle toReplace,
@@ -1893,15 +1868,7 @@ namespace Noctis
 		if (qualName->Disambiguation())
 			GetSubTypes(qualName->Disambiguation(), kind, foundTypes);
 
-		for (IdenSPtr iden : qualName->Idens())
-		{
-			GetSubTypes(iden, kind, foundTypes);
-		}
-	}
-
-	void TypeRegistry::GetSubTypes(IdenSPtr iden, TypeKind kind, StdVector<TypeHandle>& foundTypes)
-	{
-		for (IdenGeneric& idenGen : iden->Generics())
+		for (IdenGeneric& idenGen : qualName->Generics())
 		{
 			GetSubTypes(idenGen.type, kind, foundTypes);
 		}

@@ -100,3 +100,15 @@ using StdUniquePtr = std::unique_ptr<T>;
 	enumType& operator&=(enumType& e0, enumType e1) { e0 = enumType( u64(e0) & u64(e1)); return e0; }
 
 #define ENUM_IS_SET(a, b) (u64((a) & (b)) != 0)
+
+template<typename T>
+T Max(const T& a, const T& b)
+{
+	return a > b ? a : b;
+}
+
+template<typename T>
+T Min(const T& a, const T& b)
+{
+	return a < b ? a : b;
+}

@@ -7,8 +7,6 @@
  namespace Noctis
 {
 	struct Context;
-	
-	FWDECL_CLASS_SPTR(Iden);
 
 	enum class SymbolKind : u8
 	{
@@ -59,9 +57,6 @@
 
 		SymbolInstSPtr parent;
 		StdVector<SymbolInstWPtr> ifaces;
-
- 		// Is the instantiation actually generic or just a reference to a symbol
-		bool isGeneric : 1;
  	};
 	
 	struct Symbol
@@ -149,7 +144,7 @@
 		bool AddChild(SymbolSPtr sym, QualNameSPtr interfaceQualName = nullptr);
 
 		SymbolSPtr Find(QualNameSPtr qualName, usize idenIdx, QualNameSPtr interfaceName);
-		SymbolSPtr FindChild(QualNameSPtr implQualName, IdenSPtr iden);
+		SymbolSPtr FindChild(QualNameSPtr implQualName, const StdString& iden);
 
 		void RemoveChild(SymbolSPtr sym);
 
@@ -206,7 +201,7 @@
 	private:
 		ScopedSymbolTableSPtr m_ScopedTable;
 		StdUnorderedMap<TypeSPtr, SymbolSPtr> m_TypeSymbols;
-		StdUnorderedMap<IdenSPtr, SymbolSPtr> m_TypeNameSymbols;
+		StdUnorderedMap<StdString, SymbolSPtr> m_TypeNameSymbols;
 
 		QualNameSPtr m_ModScope;
 		StdVector<QualNameSPtr> m_ImportedModuleNames;

@@ -48,26 +48,24 @@ namespace Noctis
 			
 			SymbolSPtr sym = node.sym.lock();
 
-			if (sym->qualName->LastIden()->Name() == "OpEq")
-				int br = 0;
-
 			StdVector<SymbolSPtr> interfaces;
 			for (StdPair<QualNameSPtr, SpanId>& pair : node.implInterfaces)
 			{
-				IdenSPtr iden = pair.first->LastIden();
-				if (!iden->Generics().empty())
+				if (!pair.first->Generics().empty())
 				{
 					StdVector<IdenGeneric> generics;
-					for (IdenGeneric& origGeneric : iden->Generics())
+					for (IdenGeneric& origGeneric : pair.first->Generics())
 					{
 						generics.push_back(GetGeneric(node.genDecl, origGeneric, node.genMapping));
 					}
-					iden = Iden::Create(iden->Name(), generics);
-					pair.first = QualName::Create(pair.first->Base(), iden);
+					if (pair.first->Base())
+						pair.first = pair.first->Base()->Append(pair.first->LastIden(), generics);
+					else
+						pair.first = QualName::Create(pair.first->LastIden(), generics);
 				}
 				
 				SymbolSPtr interface = symTable.Find(node.qualName, pair.first);
-				pair.first = QualName::Create(interface->qualName->Base(), iden);
+				pair.first = interface->qualName->Base()->AppendLastIden(pair.first);
 
 				SymbolInstSPtr ifaceInst = interface->GetOrCreateInst(pair.first);
 				AddUnique(sym->ifaces, SymbolInstWPtr{ ifaceInst });
@@ -78,7 +76,7 @@ namespace Noctis
 					SymbolSPtr child = sym->children->FindChild(nullptr, parentIfaceChild->qualName->LastIden());
 					if (!child)
 					{
-						QualNameSPtr childQualName = QualName::Create(sym->qualName, parentIfaceChild->qualName->LastIden());
+						QualNameSPtr childQualName = sym->qualName->Append(parentIfaceChild->qualName->LastIden());
 						child = CreateSymbol(m_pCtx, parentIfaceChild->kind, childQualName);
 						sym->children->AddChild(child, pair.first);
 
@@ -103,15 +101,14 @@ namespace Noctis
 			if (!ifaceQualName)
 				return;
 
-			IdenSPtr iden = ifaceQualName->LastIden();
-			if (iden->Generics().empty())
+			if (ifaceQualName->Generics().empty())
 				return;
 			if (!node.genDecl)
 				return;
 
 			StdVector<IdenGeneric> gens;
 			StdVector<ITrGenParamSPtr>& availableGenerics = node.genDecl->params;
-			for (IdenGeneric& origGen : iden->Generics())
+			for (IdenGeneric& origGen : ifaceQualName->Generics())
 			{
 				if (origGen.isType)
 				{
@@ -163,12 +160,14 @@ namespace Noctis
 				}
 			}
 
-			iden = Iden::Create(iden->Name(), gens);
-			node.interface.first = QualName::Create(ifaceQualName->Base(), iden);
+			if (ifaceQualName->Base())
+				node.interface.first = ifaceQualName->Base()->Append(ifaceQualName->LastIden(), gens);
+			else
+				node.interface.first = QualName::Create(ifaceQualName->LastIden(), gens);
 		});
 	}
 
-	IdenGeneric InterfaceResolve::GetGeneric(ITrGenDeclSPtr genDecl, IdenGeneric origGeneric, StdUnorderedMap<IdenSPtr, TypeHandle>& genMapping)
+	IdenGeneric InterfaceResolve::GetGeneric(ITrGenDeclSPtr genDecl, IdenGeneric origGeneric, StdUnorderedMap<StdString, TypeHandle>& genMapping)
 	{
 		IdenGeneric generic;
 		if (origGeneric.isSpecialized)
@@ -186,7 +185,7 @@ namespace Noctis
 					if (qualName->Depth() != 1)
 						continue;
 					
-					IdenSPtr genIden = origGeneric.type.AsIden().qualName->LastIden();
+					const StdString& genIden = origGeneric.type.AsIden().qualName->LastIden();
 					TypeHandle genType = genMapping.at(genIden);
 					if (genIden == genTypeParam.iden)
 					{
@@ -206,8 +205,7 @@ namespace Noctis
 			generic.isSpecialized = true;
 			generic.isType = origGeneric.isType;
 
-			IdenSPtr genIden = origGeneric.iden;
-			TypeHandle genType = genMapping.at(genIden);
+			TypeHandle genType = genMapping.at(origGeneric.iden);
 			if (generic.isType)
 			{
 				generic.type = genType;

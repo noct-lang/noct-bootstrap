@@ -47,7 +47,7 @@ namespace Noctis
 			idenArg.isSpecialized = true;
 			idenGens.push_back(idenArg);
 		}
-		node.ctx->iden = Iden::Create(node.iden, idenGens);
+		node.ctx->qualName = m_CurScope->Append(node.iden, idenGens);
 	}
 
 	void IdenScopePass::Visit(AstQualName& node)
@@ -55,12 +55,18 @@ namespace Noctis
 		node.ctx->scope = m_CurScope;
 		Walk(node);
 
-		StdVector<IdenSPtr> idens;
+		StdVector<StdString> idens;
+		StdVector<IdenGeneric> idenGens;
 		for (AstQualIdenSPtr iden : node.idens)
 		{
-			idens.push_back(iden->ctx->iden);
+			AstIden& astIden = static_cast<AstIden&>(*iden);
+			idens.push_back(astIden.iden);
+			
+			const StdVector<IdenGeneric> generics = astIden.ctx->qualName->Generics();
+			if (generics.empty())
+				idenGens.insert(idenGens.end(), generics.begin(), generics.end());
 		}
-		node.ctx->qualName = QualName::Create(idens);
+		node.ctx->qualName = QualName::Create(idens, idenGens);
 	}
 
 	void IdenScopePass::Visit(AstParam& node)
@@ -751,28 +757,28 @@ namespace Noctis
 	void IdenScopePass::Visit(AstDeclMacro& node)
 	{
 		node.ctx->scope = m_CurScope;
-		node.ctx->iden = Iden::Create(node.iden);
+		node.ctx->qualName = m_CurScope->Append(node.iden);
 		Walk(node);
 	}
 
 	void IdenScopePass::Visit(AstRulesDeclMacro& node)
 	{
 		node.ctx->scope = m_CurScope;
-		node.ctx->iden = Iden::Create(node.iden);
+		node.ctx->qualName = m_CurScope->Append(node.iden);
 		Walk(node);
 	}
 
 	void IdenScopePass::Visit(AstProcMacro& node)
 	{
 		node.ctx->scope = m_CurScope;
-		node.ctx->iden = Iden::Create(node.iden);
+		node.ctx->qualName = m_CurScope->Append(node.iden);
 		Walk(node);
 	}
 
 	void IdenScopePass::Visit(AstRulesProcMacro& node)
 	{
 		node.ctx->scope = m_CurScope;
-		node.ctx->iden = Iden::Create(node.iden);
+		node.ctx->qualName = m_CurScope->Append(node.iden);
 		Walk(node);
 	}
 
@@ -801,29 +807,20 @@ namespace Noctis
 	{
 		if (!ctx->qualName)
 		{
-			IdenSPtr iden;
+			StdVector<IdenGeneric> idenGens;
 			if (generics)
 			{
 				AstGenericDecl* pGenerics = static_cast<AstGenericDecl*>(generics.get());
-
-				StdVector<IdenGeneric> idenGens;
 				for (AstGenericParam& genParam : pGenerics->params)
 				{
 					IdenGeneric gen;
 					gen.isType = genParam.kind == AstGenericParamKind::TypeParam || genParam.kind == AstGenericParamKind::TypeSpec;
 					idenGens.push_back(gen);
 				}
-				
-				iden = Iden::Create(name, idenGens);
-			}
-			else
-			{
-				iden = Iden::Create(name);
 			}
 
-			ctx->iden = iden;
 			ctx->scope = m_CurScope;
-			ctx->qualName = QualName::Create(m_CurScope, iden);
+			ctx->qualName = m_CurScope->Append(StdString{ name }, idenGens);
 		}
 		m_CurScope = ctx->qualName;
 	}
@@ -832,10 +829,8 @@ namespace Noctis
 	{
 		if (!ctx->qualName)
 		{
-			IdenSPtr iden = Iden::Create(name);
-			ctx->iden = iden;
 			ctx->scope = m_CurScope;
-			ctx->qualName = QualName::Create(m_CurScope, iden);
+			ctx->qualName = m_CurScope->Append(StdString{ name });
 		}
 		m_CurScope = ctx->qualName;
 	}
@@ -847,26 +842,21 @@ namespace Noctis
 			u64 genId = m_pTree->genId;
 			++m_pTree->genId;
 			StdString idenStr = Format("__%s_%s_%u", name.data(), m_FileName.c_str(), genId);
-			IdenSPtr iden;
+
+			StdVector<IdenGeneric> idenGens;
 			if (generics)
 			{
 				AstGenericDecl* pGenerics = static_cast<AstGenericDecl*>(generics.get());
-				StdVector<IdenGeneric> idenGens;
 				for (AstGenericParam& param : pGenerics->params)
 				{
 					IdenGeneric idenParam;
 					idenParam.isType = param.kind == AstGenericParamKind::TypeParam || param.kind == AstGenericParamKind::TypeSpec;
 					idenGens.push_back(idenParam);
 				}
-				iden = Iden::Create(idenStr, idenGens);
 			}
-			else
-			{
-				iden = Iden::Create(idenStr);
-			}
-			ctx->iden = iden;
+			
 			ctx->scope = m_CurScope;
-			ctx->qualName = QualName::Create(m_CurScope, iden);
+			ctx->qualName = m_CurScope->Append(idenStr, idenGens);
 		}
 		m_CurScope = ctx->qualName;
 	}
@@ -875,27 +865,20 @@ namespace Noctis
 	{
 		if (!ctx->qualName)
 		{
-			IdenSPtr iden;
+			StdVector<IdenGeneric> idenGens;
 			if (generics)
 			{
 				AstGenericDecl* pGenerics = static_cast<AstGenericDecl*>(generics.get());
-				StdVector<IdenGeneric> idenGens;
 				for (AstGenericParam& param : pGenerics->params)
 				{
 					IdenGeneric idenParam;
 					idenParam.isType = param.kind == AstGenericParamKind::TypeParam || param.kind == AstGenericParamKind::TypeSpec;
 					idenGens.push_back(idenParam);
 				}
-				iden = Iden::Create(name, idenGens);
-			}
-			else
-			{
-				iden = Iden::Create(name, StdVector<IdenGeneric>{});
 			}
 
-			ctx->iden = iden;
 			ctx->scope = m_CurScope;
-			ctx->qualName = QualName::Create(m_CurScope, iden);
+			ctx->qualName = m_CurScope->Append(StdString{ name }, idenGens);
 		}
 		m_CurScope = ctx->qualName;
 	}

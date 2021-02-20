@@ -809,7 +809,7 @@ namespace Noctis
 	void AstPrinter::Visit(AstMethodCallExpr& node)
 	{
 		PrintIndent();
-		g_Logger.Log("(method-access-expr '%s'", node.iden.c_str());
+		g_Logger.Log("(method-access-expr '%s'", node.iden->iden.c_str());
 		if (node.nullCoalesce)
 			g_Logger.Log(" null-coalescing");
 		PrintContextAndClose(node.ctx);

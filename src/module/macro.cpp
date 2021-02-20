@@ -273,22 +273,19 @@ namespace Noctis
 		return res || !fragmentItContent.empty();
 	}
 
-	bool MacroContext::AddMacro(QualNameSPtr scope, IdenSPtr iden, AstDeclMacroSPtr astMacro)
+	bool MacroContext::AddMacro(QualNameSPtr scope, const StdString& iden, AstDeclMacroSPtr astMacro)
 	{
 		DeclMacro macro;
 		macro.iden = iden;
 		macro.pattern = GeneratePattern(astMacro->pattern);
 		macro.body = astMacro->body;
 
-		StdVector<IdenSPtr> scopeIdens = scope->Idens();
-		return AddMacro(scopeIdens, macro);
+		return AddMacro(scope, macro);
 	}
 
 	StdVector<DeclMacro> MacroContext::GetDeclMacros(QualNameSPtr curScope, QualNameSPtr qualName)
 	{
-		StdVector<IdenSPtr> curScopeIdens = curScope->Idens();
-		StdVector<IdenSPtr> qualNameIdens = qualName->Idens();
-		return GetDeclMacros(curScopeIdens, qualNameIdens);
+		return GetDeclMacros(curScope, qualName, 0);
 	}
 
 	StdVector<MacroPatternElemSPtr> MacroContext::GeneratePattern(AstMacroPatternSPtr astPattern)
@@ -426,9 +423,9 @@ namespace Noctis
 		return true;
 	}
 
-	bool MacroContext::AddMacro(const StdVector<IdenSPtr>& scopeIdens, DeclMacro& macro, usize startIdx)
+	bool MacroContext::AddMacro(QualNameSPtr scope, DeclMacro& macro, usize startIdx)
 	{
-		if (startIdx == scopeIdens.size())
+		if (startIdx == scope->Idens().size())
 		{
 			for (DeclMacro& declMacro : m_DeclMacros)
 			{
@@ -441,32 +438,31 @@ namespace Noctis
 			return true;
 		}
 		
-		auto it = m_SubCtxs.find(scopeIdens[startIdx]);
+		auto it = m_SubCtxs.find(scope->Idens()[startIdx]);
 		if (it == m_SubCtxs.end())
 		{
-			it = m_SubCtxs.insert(std::pair{ scopeIdens[startIdx], MacroContext{} }).first;
+			it = m_SubCtxs.insert(std::pair{ scope->Idens()[startIdx], MacroContext{} }).first;
 		}
-		return it->second.AddMacro(scopeIdens, macro, startIdx + 1);
+		return it->second.AddMacro(scope, macro, startIdx + 1);
 	}
 
-	StdVector<DeclMacro> MacroContext::GetDeclMacros(const StdVector<IdenSPtr>& curScopeIdens, 
-		const StdVector<IdenSPtr>& idens, usize startIdx)
+	StdVector<DeclMacro> MacroContext::GetDeclMacros(QualNameSPtr curScope, QualNameSPtr qualName, usize startIdx)
 	{
-		if (startIdx != curScopeIdens.size())
+		if (startIdx != curScope->Idens().size())
 		{
-			auto it = m_SubCtxs.find(curScopeIdens[startIdx]);
+			auto it = m_SubCtxs.find(curScope->Idens()[startIdx]);
 			if (it != m_SubCtxs.end())
 			{
-				StdVector<DeclMacro> macros = it->second.GetDeclMacros(curScopeIdens, idens, startIdx + 1);
+				StdVector<DeclMacro> macros = it->second.GetDeclMacros(curScope, qualName, startIdx + 1);
 				if (!macros.empty())
 					return macros;
 			}
 		}
 
 		MacroContext* pCtx = this;
-		for (usize i = 0; i < idens.size() - 1; ++i)
+		for (usize i = 0; i < qualName->Idens().size() - 1; ++i)
 		{
-			auto it = m_SubCtxs.find(idens[i]);
+			auto it = m_SubCtxs.find(qualName->Idens()[i]);
 			if (it == m_SubCtxs.end())
 				return StdVector<DeclMacro>{};
 			pCtx = &it->second;
@@ -475,7 +471,7 @@ namespace Noctis
 		StdVector<DeclMacro> declMacros;
 		for (DeclMacro& declMacro : pCtx->m_DeclMacros)
 		{
-			if (declMacro.iden == idens.back())
+			if (declMacro.iden == qualName->Idens().back())
 				declMacros.push_back(declMacro);
 		}
 		return declMacros;

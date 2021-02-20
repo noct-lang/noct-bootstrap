@@ -171,7 +171,7 @@ namespace Noctis
 		for (ITrParamSPtr param : node.params)
 		{
 			PrintIndent();
-			StdString name = param->iden->Name();
+			StdString name = param->iden;
 			g_Logger.Log("(param %s)\n", name.c_str());
 			++m_Indent;
 			if (param->attribs)
@@ -224,7 +224,7 @@ namespace Noctis
 	void ITrPrinter::Visit(ITrLoop& node)
 	{
 		PrintIndent();
-		g_Logger.Log("(loop%s)\n", node.label ? Format(" label: %s", node.label->Name()) : "");
+		g_Logger.Log("(loop%s)\n", !node.label.empty() ? Format(" label: %s", node.label) : "");
 		++m_Indent;
 		Walk(node);
 		--m_Indent;
@@ -233,7 +233,7 @@ namespace Noctis
 	void ITrPrinter::Visit(ITrForRange& node)
 	{
 		PrintIndent();
-		g_Logger.Log("(for-range%s)", node.label ? Format(" label: %s", node.label->Name()) : "");
+		g_Logger.Log("(for-range%s)", !node.label.empty() ? Format(" label: %s", node.label) : "");
 		++m_Indent;
 		Walk(node);
 		--m_Indent;
@@ -261,19 +261,15 @@ namespace Noctis
 	void ITrPrinter::Visit(ITrLabel& node)
 	{
 		PrintIndent();
-		StdString label = node.label->Name();
-		g_Logger.Log("(label %s)\n", label.c_str());
+		g_Logger.Log("(label %s)\n", node.label.c_str());
 	}
 
 	void ITrPrinter::Visit(ITrBreak& node)
 	{
 		PrintIndent();
 		g_Logger.Log("(break");
-		if (node.label)
-		{
-			StdString label = node.label->Name();
-			g_Logger.Log("%s", label.c_str());
-		}
+		if (!node.label.empty())
+			g_Logger.Log("%s", node.label.c_str());
 		g_Logger.Log(")\n");
 	}
 
@@ -281,11 +277,8 @@ namespace Noctis
 	{
 		PrintIndent();
 		g_Logger.Log("(continue");
-		if (node.label)
-		{
-			StdString label = node.label->Name();
-			g_Logger.Log("%s", label.c_str());
-		}
+		if (!node.label.empty())
+			g_Logger.Log("%s", node.label.c_str());
 		g_Logger.Log(")\n");
 	}
 
@@ -298,8 +291,7 @@ namespace Noctis
 	void ITrPrinter::Visit(ITrGoto& node)
 	{
 		PrintIndent();
-		StdString label = node.label->Name();
-		g_Logger.Log("(goto %s)\n", label.c_str());
+		g_Logger.Log("(goto %s)\n", node.label.c_str());
 	}
 
 	void ITrPrinter::Visit(ITrReturn& node)
@@ -430,11 +422,8 @@ namespace Noctis
 		{
 			PrintIndent();
 			g_Logger.Log("(arg");
-			if (arg->iden)
-			{
-				StdString iden = arg->iden->Name();
-				g_Logger.Log(" %s", iden.c_str());
-			}
+			if (!arg->iden.empty())
+				g_Logger.Log(" %s", arg->iden.c_str());
 			g_Logger.Log(")\n");
 			ITrVisitor::Visit(arg->expr);
 		}
@@ -447,8 +436,7 @@ namespace Noctis
 		g_Logger.Log("(func-call");
 		if (node.isMethod)
 		{
-			StdString iden = node.iden->Name();
-			g_Logger.Log(" %s", iden.c_str());
+			g_Logger.Log(" %s", node.iden.c_str());
 
 			if (node.nullCoalesce)
 				g_Logger.Log(" ?.");
@@ -461,11 +449,8 @@ namespace Noctis
 		{
 			PrintIndent();
 			g_Logger.Log("(arg");
-			if (arg->iden)
-			{
-				StdString iden = arg->iden->Name();
-				g_Logger.Log(" %s", iden.c_str());
-			}
+			if (!arg->iden.empty())
+				g_Logger.Log(" %s", arg->iden.c_str());
 			g_Logger.Log(")\n");
 			ITrVisitor::Visit(arg->expr);
 		}
@@ -482,11 +467,8 @@ namespace Noctis
 		{
 			PrintIndent();
 			g_Logger.Log("(arg");
-			if (arg->iden)
-			{
-				StdString iden = arg->iden->Name();
-				g_Logger.Log(" %s", iden.c_str());
-			}
+			if (!arg->iden.empty())
+				g_Logger.Log(" %s", arg->iden.c_str());
 			g_Logger.Log(")\n");
 			ITrVisitor::Visit(arg->expr);
 		}
@@ -496,8 +478,7 @@ namespace Noctis
 	void ITrPrinter::Visit(ITrMemberAccess& node)
 	{
 		PrintIndent();
-		StdString iden = node.iden->Name();
-		g_Logger.Log("(member-access %s", iden.c_str());
+		g_Logger.Log("(member-access %s", node.iden.c_str());
 		if (node.nullCoalesce)
 			g_Logger.Log(" ?.");
 		g_Logger.Log(" )\n");
@@ -573,11 +554,8 @@ namespace Noctis
 		{
 			PrintIndent();
 			g_Logger.Log("(arg");
-			if (arg->iden)
-			{
-				StdString iden = arg->iden->Name();
-				g_Logger.Log(" %s", iden.c_str());
-			}
+			if (!arg->iden.empty())
+				g_Logger.Log(" %s", arg->iden.c_str());
 			g_Logger.Log(")\n");
 			ITrVisitor::Visit(arg->expr);
 		}
@@ -594,11 +572,8 @@ namespace Noctis
 		{
 			PrintIndent();
 			g_Logger.Log("(arg");
-			if (arg->iden)
-			{
-				StdString iden = arg->iden->Name();
-				g_Logger.Log(" %s", iden.c_str());
-			}
+			if (!arg->iden.empty())
+				g_Logger.Log(" %s", arg->iden.c_str());
 			g_Logger.Log(")\n");
 			ITrVisitor::Visit(arg->expr);
 		}
@@ -615,11 +590,8 @@ namespace Noctis
 		{
 			PrintIndent();
 			g_Logger.Log("(arg");
-			if (arg->iden)
-			{
-				StdString iden = arg->iden->Name();
-				g_Logger.Log(" %s", iden.c_str());
-			}
+			if (!arg->iden.empty())
+				g_Logger.Log(" %s", arg->iden.c_str());
 			g_Logger.Log(")\n");
 			ITrVisitor::Visit(arg->expr);
 		}
@@ -748,8 +720,7 @@ namespace Noctis
 	void ITrPrinter::Visit(ITrValueBindPattern& node)
 	{
 		PrintIndent();
-		StdString name = node.iden->Name();
-		g_Logger.Log("(value-bind-pattern %s)\n", name.c_str());
+		g_Logger.Log("(value-bind-pattern %s)\n", node.iden.c_str());
 
 		++m_Indent;
 		Walk(node);
@@ -971,22 +942,16 @@ namespace Noctis
 	void ITrPrinter::Visit(ITrAtAttrib& node)
 	{
 		PrintIndent();
-		StdString name = node.iden->Name();
-		g_Logger.Log("(at-attrib %s%s)\n", name.c_str(), node.isCompAttrib ? " comp-attrib" : "");
+		g_Logger.Log("(at-attrib %s%s)\n", node.iden.c_str(), node.isCompAttrib ? " comp-attrib" : "");
 		++m_Indent;
 		for (ITrArgSPtr arg : node.args)
 		{
 			PrintIndent();
 			g_Logger.Log("(arg");
-			if (arg->iden)
-			{
-				StdString name = arg->iden->Name();
-				g_Logger.Log("(arg %s)\n", name.c_str());
-			}
+			if (!arg->iden.empty())
+				g_Logger.Log("(arg %s)\n", arg->iden.c_str());
 			else
-			{
 				g_Logger.Log("(arg)\n");
-			}
 			
 			++m_Indent;
 			ITrVisitor::Visit(arg->expr);
@@ -1007,8 +972,7 @@ namespace Noctis
 	void ITrPrinter::Visit(ITrGenTypeParam& node)
 	{
 		PrintIndent();
-		StdString name = node.iden->Name();
-		g_Logger.Log("(gen-type-param %s)\n", name.c_str());
+		g_Logger.Log("(gen-type-param %s)\n", node.iden.c_str());
 		++m_Indent;
 		Walk(node);
 		--m_Indent;
@@ -1017,8 +981,7 @@ namespace Noctis
 	void ITrPrinter::Visit(ITrGenValParam& node)
 	{
 		PrintIndent();
-		StdString name = node.iden->Name();
-		g_Logger.Log("(gen-val-param %s)\n", name.c_str());
+		g_Logger.Log("(gen-val-param %s)\n", node.iden.c_str());
 		++m_Indent;
 		Walk(node);
 		--m_Indent;

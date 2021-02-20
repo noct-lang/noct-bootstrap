@@ -8,7 +8,6 @@ namespace Noctis
 	struct Module;
 	struct Context;
 	FWDECL_CLASS_SPTR(QualName);
-	FWDECL_CLASS_SPTR(Iden);
 	FWDECL_CLASS_SPTR(TypeDisambiguation);
 	FWDECL_STRUCT_WPTR(Symbol);
 
@@ -129,7 +128,7 @@ namespace Noctis
 		FuncType& AsFunc();
 		GenericType& AsGeneric();
 
-		StdString ToString();
+		StdString ToString() const;
 
 		bool IsValid() const { return pReg && !!type; }
 
@@ -494,12 +493,10 @@ namespace Noctis
 		void ExtractGenerics(TypeSPtr type, StdVector<TypeSPtr>& gens);
 
 		QualNameSPtr ReplaceSubType(QualNameSPtr qualName, TypeHandle toReplace, TypeHandle replacement);
-		IdenSPtr ReplaceSubType(IdenSPtr iden, TypeHandle toReplace, TypeHandle replacement);
 		TypeDisambiguationSPtr ReplaceSubType(TypeDisambiguationSPtr disambig, TypeHandle toReplace, TypeHandle replacement);
 
 		void GetSubTypes(TypeHandle handle, TypeKind kind, StdVector<TypeHandle>& foundTypes);
 		void GetSubTypes(QualNameSPtr qualName, TypeKind kind, StdVector<TypeHandle>& foundTypes);
-		void GetSubTypes(IdenSPtr iden, TypeKind kind, StdVector<TypeHandle>& foundTypes);
 		void GetSubTypes(TypeDisambiguationSPtr disambig, TypeKind kind, StdVector<TypeHandle>& foundTypes);
 		
 		static constexpr u8 m_ModCount = u8(TypeMod::Count);

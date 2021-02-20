@@ -47,7 +47,7 @@ namespace Noctis
 
 			StdVector<StdString> scopeNames{};
 			{
-				LocalVarDataSPtr var{ new LocalVarData{ Iden::Create(node.errIden), {}, true } };
+				LocalVarDataSPtr var{ new LocalVarData{ node.errIden, {}, true } };
 				m_FuncCtx->localVars.AddLocalVarDeclSPtr(m_ScopeNames, var);
 			}
 
@@ -74,7 +74,7 @@ namespace Noctis
 	{
 		m_ScopeNames.push_back(node.scopeName);
 
-		for (IdenSPtr iden : node.idens)
+		for (const StdString& iden : node.idens)
 		{
 			LocalVarDataSPtr var{ new LocalVarData{ iden } };
 			m_FuncCtx->localVars.AddLocalVarDeclSPtr(m_ScopeNames, var);
@@ -93,7 +93,7 @@ namespace Noctis
 
 	void LocalVarCollection::Visit(ITrLocalVar& node)
 	{
-		for (IdenSPtr iden : node.idens)
+		for (const StdString& iden : node.idens)
 		{
 			LocalVarDataSPtr var{ new LocalVarData{ iden } };
 			m_FuncCtx->localVars.AddLocalVarDeclSPtr(m_ScopeNames, var);

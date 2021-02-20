@@ -135,7 +135,7 @@ namespace Noctis
 		void HandleConvOp(SymbolSPtr impl, SymbolInstSPtr ifaceInst);
 		
 		QualNameSPtr GetOpInterfaceQualName(OperatorKind kind);
-		IdenSPtr GetOpFuncIden(OperatorKind kind);
+		const StdString& GetOpFuncIden(OperatorKind kind);
 
 		bool IsBuiltinOp(TypeHandle handle, BoundsInfo& boundsInfo);
 		bool IsBuiltinOp(TypeHandle left, TypeHandle right, BoundsInfo& boundsInfo);

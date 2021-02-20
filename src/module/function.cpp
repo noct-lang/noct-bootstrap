@@ -2,13 +2,13 @@
 
 namespace Noctis
 {
-	LocalVarData::LocalVarData(IdenSPtr iden)
+	LocalVarData::LocalVarData(const StdString& iden)
 		: iden(iden)
 		, isParam(false)
 	{
 	}
 
-	LocalVarData::LocalVarData(IdenSPtr iden, TypeHandle handle, bool isParam)
+	LocalVarData::LocalVarData(const StdString& iden, TypeHandle handle, bool isParam)
 		: iden(iden)
 		, type(handle)
 		, isParam(isParam)
@@ -33,7 +33,7 @@ namespace Noctis
 		linearMapping.push_back(var);
 	}
 
-	LocalVarDataSPtr LocalVarScope::ActivateNextVar(const StdVector<StdString>& scopeNames, IdenSPtr iden, u64 curDepth)
+	LocalVarDataSPtr LocalVarScope::ActivateNextVar(const StdVector<StdString>& scopeNames, const StdString& iden, u64 curDepth)
 	{
 		if (!scopeNames.empty() && curDepth != scopeNames.size() - 1)
 		{
@@ -63,7 +63,7 @@ namespace Noctis
 		return newData;
 	}
 
-	LocalVarDataSPtr LocalVarScope::GetLocalVarData(const StdVector<StdString>& scopeNames, IdenSPtr varIden, u64 curDepth)
+	LocalVarDataSPtr LocalVarScope::GetLocalVarData(const StdVector<StdString>& scopeNames, const StdString& varIden, u64 curDepth)
 	{
 		if (!scopeNames.empty() && curDepth != scopeNames.size() - 1)
 		{

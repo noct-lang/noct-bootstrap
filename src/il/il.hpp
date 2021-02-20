@@ -378,18 +378,18 @@ namespace Noctis
 
 	struct ILGeneric
 	{
-		ILGeneric(IdenSPtr iden)
+		ILGeneric(const StdString& iden)
 			: iden(iden)
 		{
 		}
 		
-		ILGeneric(IdenSPtr iden, TypeHandle type)
+		ILGeneric(const StdString& iden, TypeHandle type)
 			: iden(iden)
 			, type(type)
 		{
 		}
 		
-		IdenSPtr iden;
+		StdString iden;
 		TypeHandle type;
 	};
 

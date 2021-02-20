@@ -118,8 +118,7 @@ namespace Noctis
 		{
 			if (sym->qualName)
 			{
-				IdenSPtr iden = sym->qualName->LastIden();
-				for (IdenGeneric& idenGen : iden->Generics())
+				for (IdenGeneric& idenGen : sym->qualName->Generics())
 				{
 					if (!idenGen.isType)
 					{
@@ -348,7 +347,7 @@ namespace Noctis
 		if (pattern->patternKind == ITrPatternKind::ValueBind)
 		{
 			ITrValueBindPattern& valueBind = static_cast<ITrValueBindPattern&>(*pattern);
-			bindName = valueBind.iden->Name();
+			bindName = valueBind.iden;
 			pattern = valueBind.subPattern;
 		}
 
@@ -454,7 +453,7 @@ namespace Noctis
 		group.cases.push_back(caseId);
 
 		ITrSwitchGroup subGroup = CreateLeaf(pattern, type, caseId, depth);
-		subGroup.member = static_cast<ITrValueEnumPattern&>(*pattern).qualName->LastIden()->Name();
+		subGroup.member = static_cast<ITrValueEnumPattern&>(*pattern).qualName->LastIden();
 		group.subGroups.push_back(subGroup);
 		return group;
 	}
@@ -465,7 +464,7 @@ namespace Noctis
 		group.cases.push_back(caseId);
 
 		ITrSwitchGroup subGroup = CreateTuple(pattern, type, caseId, depth + 1);
-		subGroup.member = static_cast<ITrAdtTupleEnumPattern&>(*pattern).qualName->LastIden()->Name();
+		subGroup.member = static_cast<ITrAdtTupleEnumPattern&>(*pattern).qualName->LastIden();
 		group.subGroups.push_back(subGroup);
 		return group;
 	}
@@ -476,7 +475,7 @@ namespace Noctis
 		group.cases.push_back(caseId);
 
 		ITrSwitchGroup subGroup = CreateAggr(pattern, type, caseId, depth + 1);
-		subGroup.member = static_cast<ITrAdtTupleEnumPattern&>(*pattern).qualName->LastIden()->Name();
+		subGroup.member = static_cast<ITrAdtTupleEnumPattern&>(*pattern).qualName->LastIden();
 		group.subGroups.push_back(subGroup);
 		return group;
 	}
@@ -568,7 +567,7 @@ namespace Noctis
 		usize memIdx = 0;
 		for (SymbolSPtr child : children)
 		{
-			const StdString& name = child->qualName->LastIden()->Name();
+			const StdString& name = child->qualName->LastIden();
 
 			for (StdPair<StdString, ITrPatternSPtr> member : members)
 			{

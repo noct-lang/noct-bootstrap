@@ -142,7 +142,7 @@ namespace Noctis
 					if (!atAttrib->isCompAttrib)
 						continue;
 
-					if (atAttrib->iden->Name() == "compintrin")
+					if (atAttrib->iden == "compintrin")
 					{
 						StdString intrinName = static_cast<ITrLiteral&>(*atAttrib->args[0]->expr).lit.Text();
 						intrinName.erase(intrinName.begin());
@@ -169,7 +169,7 @@ namespace Noctis
 			m_FuncScope = node.qualName;
 
 			ILVar param{ ILVarKind::Copy, 0, node.errType->handle };
-			auto paramIt = m_VarMapping.try_emplace(Iden::Create(node.errIden), StdVector<ILVar>{}).first;
+			auto paramIt = m_VarMapping.try_emplace(node.errIden, StdVector<ILVar>{}).first;
 			paramIt->second.push_back(param);
 			m_Def->params.emplace_back(param);
 			m_CurVarId = 1;
@@ -271,10 +271,10 @@ namespace Noctis
 
 		SymbolSPtr typeSym = m_pCtx->activeModule->symTable.Find(node.range->handle);
 		QualNameSPtr toItQualName = QualName::Create({ "core", "iter", "ToIterator" });
-		SymbolSPtr itSym = typeSym->children->FindChild(toItQualName, Iden::Create("Iter"));
+		SymbolSPtr itSym = typeSym->children->FindChild(toItQualName, "Iter");
 		TypeDisambiguationSPtr toItisambig = TypeDisambiguation::Create(itSym->type, toItQualName);
 		QualNameSPtr toItFuncName = QualName::Create(toItisambig);
-		toItFuncName = QualName::Create(toItFuncName, Iden::Create("ToIterator"));
+		toItFuncName = toItFuncName->Append("ToIterator");
 
 		ITrVisitor::Visit(node.range);
 		ILVar range = PopTmpVar();
@@ -286,7 +286,7 @@ namespace Noctis
 
 		QualNameSPtr itQualName = QualName::Create({ "core", "iter", "Iterator" });
 		TypeDisambiguationSPtr nextDisambig = TypeDisambiguation::Create(itVar.type, itQualName);
-		QualNameSPtr nextFuncName = QualName::Create(QualName::Create(nextDisambig), Iden::Create("Next"));
+		QualNameSPtr nextFuncName = QualName::Create(nextDisambig)->Append("Next");
 		
 		ILVar nextVar = CreateDstVar(itSym->type);
 		AddElem(new ILStaticCall{ nextVar, nextFuncName, {} });
@@ -364,7 +364,7 @@ namespace Noctis
 	void ILGen::Visit(ITrBreak& node)
 	{
 		ILTerminalSPtr term;
-		if (node.label)
+		if (!node.label.empty())
 		{
 			auto it = m_LabelMapping.find(node.label);
 			SetTerminal(new ILGoto{ it->second });
@@ -379,7 +379,7 @@ namespace Noctis
 	void ILGen::Visit(ITrContinue& node)
 	{
 		ILElemSPtr elem;
-		if (node.label)
+		if (!node.label.empty())
 		{
 			auto it = m_LabelMapping.find(node.label);
 			SetTerminal(new ILGoto{ it->second });
@@ -442,7 +442,7 @@ namespace Noctis
 		Walk(node);
 
 		StdVector<ILVar> curVars;
-		for (IdenSPtr iden : node.idens)
+		for (const StdString& iden : node.idens)
 		{
 			LocalVarDataSPtr varData = m_FuncCtx->localVars.GetLocalVarData(m_ScopeNames, iden);
 			ILVar dst = varData->ilVar;
@@ -556,19 +556,19 @@ namespace Noctis
 			if (sym->kind == SymbolKind::ValEnumMember)
 			{
 				ILVar dst = CreateDstVar(node.handle);
-				AddElem(new ILValEnumInit{ dst, node.qualName->LastIden()->Name() });
+				AddElem(new ILValEnumInit{ dst, node.qualName->LastIden() });
 				m_TmpVars.push(dst);
 			}
 			else if (sym->kind == SymbolKind::AdtEnumMember)
 			{
 				ILVar dst = CreateDstVar(node.handle);
-				AddElem(new ILAdtEnumInit{ dst, node.qualName->LastIden()->Name(), {} });
+				AddElem(new ILAdtEnumInit{ dst, node.qualName->LastIden(), {} });
 				m_TmpVars.push(dst);
 			}
 			else if (sym->kind == SymbolKind::GenVal)
 			{
 				ILVar dst = CreateDstVar(node.handle);
-				AddElem(new ILGenVal{ dst, node.qualName->LastIden()->Name() });
+				AddElem(new ILGenVal{ dst, node.qualName->LastIden() });
 				m_TmpVars.push(dst);
 			}
 			else
@@ -624,7 +624,7 @@ namespace Noctis
 			if (callerTypeSym->kind == SymbolKind::StrongInterface ||
 				callerTypeSym->kind == SymbolKind::WeakInterface)
 			{
-				const StdString& name = node.sym->qualName->LastIden()->Name();
+				const StdString& name = node.sym->qualName->LastIden();
 				if (node.handle.IsValid())
 				{
 					ILVar dst = CreateDstVar(node.handle);
@@ -692,12 +692,12 @@ namespace Noctis
 	{
 		Walk(node);
 
-		m_pILMod->names.insert(node.iden->Name());
+		m_pILMod->names.insert(node.iden);
 		
 		ILVar src = PopTmpVar();
 		ILVar dst = CreateDstVar(node.handle);
 
-		AddElem(new ILMemberAccess{ dst, src, node.iden->Name() });
+		AddElem(new ILMemberAccess{ dst, src, node.iden });
 		m_TmpVars.push(dst);
 	}
 
@@ -730,7 +730,7 @@ namespace Noctis
 		for (usize i = 0; i < node.args.size(); ++i)
 		{
 			if (i == 0)
-				namedArgs = !!node.args[i]->iden;
+				namedArgs = !node.args[i]->iden.empty();
 
 			unorderedArgs.push_back(PopTmpVar());
 		}
@@ -764,7 +764,7 @@ namespace Noctis
 					
 					SymbolSPtr child = node.sym->orderedVarChildren[i].lock();
 					ILVar tmpDst = CreateDstVar(child->type);
-					AddElem(new ILMemberAccess{ tmpDst, defVar, child->qualName->LastIden()->Name() });
+					AddElem(new ILMemberAccess{ tmpDst, defVar, child->qualName->LastIden() });
 
 					args[i] = tmpDst;
 				}
@@ -786,7 +786,7 @@ namespace Noctis
 				{
 					SymbolSPtr child = node.sym->orderedVarChildren[i].lock();
 					ILVar tmpDst = CreateDstVar(child->type);
-					AddElem(new ILMemberAccess{ tmpDst, defVar, child->qualName->LastIden()->Name() });
+					AddElem(new ILMemberAccess{ tmpDst, defVar, child->qualName->LastIden() });
 
 					args.push_back(tmpDst);
 				}
@@ -805,7 +805,7 @@ namespace Noctis
 
 		ILVar arg = PopTmpVar();
 		ILVar dst = CreateDstVar(node.handle);
-		AddElem(new ILUnionInit { dst, node.arg->iden->Name(), arg });
+		AddElem(new ILUnionInit { dst, node.arg->iden, arg });
 		m_TmpVars.push(dst);
 	}
 
@@ -819,7 +819,7 @@ namespace Noctis
 		}
 		
 		ILVar dst = CreateDstVar(node.handle);
-		AddElem(new ILAdtEnumInit{ dst, node.sym->qualName->LastIden()->Name(), args });
+		AddElem(new ILAdtEnumInit{ dst, node.sym->qualName->LastIden(), args });
 		m_TmpVars.push(dst);
 	}
 
@@ -836,7 +836,7 @@ namespace Noctis
 		for (usize i = 0; i < node.args.size(); ++i)
 		{
 			if (i == 0)
-				namedArgs = !!node.args[i]->iden;
+				namedArgs = !node.args[i]->iden.empty();
 
 			unorderedArgs.push_back(PopTmpVar());
 		}
@@ -863,9 +863,9 @@ namespace Noctis
 
 			for (usize i = 0; i < unorderedArgs.size(); ++i)
 			{
-				const StdString& name = node.args[i]->iden->Name();
+				const StdString& name = node.args[i]->iden;
 				usize idx = 0;
-				while (children[i]->qualName->LastIden()->Name() != name)
+				while (children[i]->qualName->LastIden() != name)
 					++idx;
 				args[idx] = unorderedArgs[i];
 			}
@@ -887,7 +887,7 @@ namespace Noctis
 
 					SymbolSPtr child = structSym->orderedVarChildren[i].lock();
 					ILVar tmpDst = CreateDstVar(child->type);
-					AddElem(new ILMemberAccess{ tmpDst, defVar, child->qualName->LastIden()->Name() });
+					AddElem(new ILMemberAccess{ tmpDst, defVar, child->qualName->LastIden() });
 
 					args[i] = tmpDst;
 				}
@@ -909,7 +909,7 @@ namespace Noctis
 				{
 					SymbolSPtr child = structSym->orderedVarChildren[i].lock();
 					ILVar tmpDst = CreateDstVar(child->type);
-					AddElem(new ILMemberAccess{ tmpDst, defVar, child->qualName->LastIden()->Name() });
+					AddElem(new ILMemberAccess{ tmpDst, defVar, child->qualName->LastIden() });
 
 					args.push_back(tmpDst);
 				}
@@ -921,7 +921,7 @@ namespace Noctis
 		tmpStruct = PopTmpVar();
 
 		ILVar dst = CreateDstVar(node.handle);
-		AddElem(new ILAdtEnumInit{ dst, node.sym->qualName->LastIden()->Name(), { tmpStruct } });
+		AddElem(new ILAdtEnumInit{ dst, node.sym->qualName->LastIden(), { tmpStruct } });
 		m_TmpVars.push(dst);
 	}
 
@@ -990,7 +990,7 @@ namespace Noctis
 		Walk(node);
 
 		ILVar retVar = PopTmpVar();
-		TypeHandle errType = node.expr->handle.AsIden().qualName->LastIden()->Generics()[1].type;
+		TypeHandle errType = node.expr->handle.AsIden().qualName->Generics().back().type;
 		ILVar errVar = CreateDstVar(errType);
 		AddElem(new ILValEnumInit{ errVar, "Error" });
 
@@ -1000,7 +1000,6 @@ namespace Noctis
 
 		if (node.errHandlerName)
 		{
-			TypeHandle errType = m_ErrType.AsIden().qualName->LastIden()->Generics()[0].type;
 			ILVar handlerErr = CreateDstVar(errType);
 			AddElem(new ILMemberAccess{ handlerErr, errVar, "Result" }, throwLabel);
 
@@ -1050,7 +1049,7 @@ namespace Noctis
 		m_pCurBlock = &m_Def->blocks[label];
 	}
 
-	void ILGen::MapVar(IdenSPtr iden, ILVar var)
+	void ILGen::MapVar(const StdString& iden, ILVar var)
 	{
 		usize curDepth = m_ScopeNames.size();
 
@@ -1084,7 +1083,7 @@ namespace Noctis
 		QualNameSPtr qualname = m_FuncScope;
 		for (StdString& scopeName : m_ScopeNames)
 		{
-			qualname = QualName::Create(qualname, scopeName);
+			qualname = qualname->Append(scopeName);
 		}
 		return qualname;
 	}
@@ -1098,19 +1097,19 @@ namespace Noctis
 			implMapping.try_emplace("sizeof", [this]()
 			{
 				ILVar dst = CreateDstVar(m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::USize));
-				AddElem(new ILCompIntrin{ dst, ILCompIntrinKind::SizeOf, {}, { m_FuncScope->LastIden()->Generics()[0].type } });
+				AddElem(new ILCompIntrin{ dst, ILCompIntrinKind::SizeOf, {}, { m_FuncScope->Generics()[0].type } });
 				SetTerminal(new ILReturn{ dst });
 			});
 			implMapping.try_emplace("sizeofval", [this]()
 			{
 				ILVar dst = CreateDstVar(m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::USize));
-				AddElem(new ILCompIntrin{ dst, ILCompIntrinKind::SizeOf, {}, { m_FuncScope->LastIden()->Generics()[0].type } });
+				AddElem(new ILCompIntrin{ dst, ILCompIntrinKind::SizeOf, {}, { m_FuncScope->Generics()[0].type } });
 				SetTerminal(new ILReturn{ dst });
 			});
 			implMapping.try_emplace("alignof", [this]()
 			{
 				ILVar dst = CreateDstVar(m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U16));
-				AddElem(new ILCompIntrin{ dst, ILCompIntrinKind::AlignOf, {}, { m_FuncScope->LastIden()->Generics()[0].type } });
+				AddElem(new ILCompIntrin{ dst, ILCompIntrinKind::AlignOf, {}, { m_FuncScope->Generics()[0].type } });
 				SetTerminal(new ILReturn{ dst });
 			});
 			implMapping.try_emplace("alignofval", [this]()
@@ -1123,7 +1122,7 @@ namespace Noctis
 			implMapping.try_emplace("log2alignof", [this]()
 			{
 				ILVar dst = CreateDstVar(m_pCtx->typeReg.Builtin(TypeMod::None, BuiltinTypeKind::U16));
-				AddElem(new ILCompIntrin{ dst, ILCompIntrinKind::Log2AlignOf, {}, { m_FuncScope->LastIden()->Generics()[0].type } });
+				AddElem(new ILCompIntrin{ dst, ILCompIntrinKind::Log2AlignOf, {}, { m_FuncScope->Generics()[0].type } });
 				SetTerminal(new ILReturn{ dst });
 			});
 			implMapping.try_emplace("log2alignofval", [this]()
@@ -1468,7 +1467,7 @@ namespace Noctis
 			type = type.AsRef().subType;
 		
 		SymbolSPtr aggrSym = type.AsIden().sym.lock();
-		TypeHandle subType = aggrSym->children->FindChild(nullptr, Iden::Create(group.member))->type;
+		TypeHandle subType = aggrSym->children->FindChild(nullptr, group.member)->type;
 
 		ILVar elem = CreateDstVar(subType);
 
@@ -1547,12 +1546,11 @@ namespace Noctis
 
 		for (StdPair<StdString, ILVar>& pair : it->second)
 		{
-			IdenSPtr iden = Iden::Create(pair.first);
-			LocalVarDataSPtr varData{ new LocalVarData{ iden, pair.second.type, false} };
+			LocalVarDataSPtr varData{ new LocalVarData{ pair.first, pair.second.type, false} };
 			m_FuncCtx->localVars.AddLocalVarDeclSPtr(m_ScopeNames, varData);
 			ILVar dst{ ILVarKind::Copy, m_CurVarId++, pair.second.type };
 			varData->ilVar = dst;
-			MapVar(iden, dst);
+			MapVar(pair.first, dst);
 			AddElem(new ILAssign{ dst, pair.second });
 		}
 	}

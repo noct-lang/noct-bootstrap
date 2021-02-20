@@ -1,5 +1,6 @@
 #pragma once
 #include "common/type.hpp"
+#include "common/qualname.hpp"
 #include "module/function.hpp"
 #include "module/symbol.hpp"
 #include "semantic/semantic-pass.hpp"
@@ -76,10 +77,10 @@ namespace Noctis
 
 		TypeHandle InferType(TypeHandle handle, TypeMod mod);
 		QualNameSPtr InferQualNameGenerics(QualNameSPtr origQualName);
-		IdenSPtr InferIdenGenerics(IdenSPtr origIden);
+		StdVector<IdenGeneric> InferGenerics(const StdVector<IdenGeneric>& origGens);
 		TypeDisambiguationSPtr InferDisambigGenerics(TypeDisambiguationSPtr origDisambig);
 		
-		void HandleGenerics(ITrDef& def, IdenSPtr iden);
+		void HandleGenerics(ITrDef& def);
 		void HandleAssocTypes(TypeHandle srcType, ITrGenBoundType& boundType);
 
 		void UpdateInstantiations(SymbolSPtr sym);
@@ -107,7 +108,7 @@ namespace Noctis
 		TypeHandle m_ErrorHandle;
 		TypeHandle m_ExpectedHandle;
 
-		StdUnorderedMap<IdenSPtr, TypeHandle> m_GenMapping;
+		StdUnorderedMap<StdString, TypeHandle> m_GenMapping;
 		BoundsInfo* m_pBoundsInfo;
 
 		bool m_Prepass;

@@ -772,7 +772,7 @@ namespace Noctis
 
 		TypeSPtr type = access.src.type.Type();
 		SymbolSPtr sym = type->AsIden().sym.lock();
-		SymbolSPtr child = sym->children->FindChild(nullptr, Iden::Create(access.name));
+		SymbolSPtr child = sym->children->FindChild(nullptr, access.name);
 		memcpy(dstAddr, srcAddr + child->offset, dst.size);
 	}
 

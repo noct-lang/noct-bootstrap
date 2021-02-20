@@ -10,7 +10,6 @@ namespace Noctis
 		u64 startIdx, endIdx;
 		QualNameSPtr scope;
 		QualNameSPtr qualName;
-		IdenSPtr iden;
 	};
 	using AstContextPtr = StdUniquePtr<AstContext>;
 
@@ -155,6 +154,7 @@ namespace Noctis
 
 	FWDECL_STRUCT_SPTR(AstLabelStmt);
 	FWDECL_STRUCT_SPTR(AstIdentifierType);
+	FWDECL_STRUCT_SPTR(AstIden);
 	FWDECL_STRUCT_SPTR(AstPattern);
 	FWDECL_STRUCT_SPTR(AstAttribs);
 	FWDECL_STRUCT_SPTR(AstCompAttrib);
@@ -789,12 +789,12 @@ namespace Noctis
 
 	struct AstMethodCallExpr : public AstExpr
 	{
-		AstMethodCallExpr(AstExprSPtr caller, bool nullCoalesce, StdString&& iden,
+		AstMethodCallExpr(AstExprSPtr caller, bool nullCoalesce, AstIdenSPtr iden,
 			StdVector<AstArgSPtr>&& args, u64 endIdx);
 
 		AstExprSPtr caller;
 		bool nullCoalesce;
-		StdString iden;
+		AstIdenSPtr iden;
 		StdVector<AstArgSPtr> args;
 	};
 

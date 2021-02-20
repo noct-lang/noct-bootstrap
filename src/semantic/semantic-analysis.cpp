@@ -142,8 +142,8 @@ namespace Noctis
 		m_pMod = &mod;
 		
 		RunPass<SimpleAttributePass>();
-		RunPass<TypeCollection>();
 		RunPass<GenericTypeCollection>();
+		RunPass<TypeCollection>();
 
 		RunPass<InterfaceResolve>();
 

@@ -6,7 +6,6 @@
 
 namespace Noctis
 {
-	FWDECL_CLASS_SPTR(Iden);
 	FWDECL_CLASS_SPTR(QualName);
 	FWDECL_STRUCT_SPTR(ITrGenDecl);
 	FWDECL_STRUCT_SPTR(Symbol);
@@ -71,7 +70,7 @@ namespace Noctis
 		void AddMissingChildrenWithDefImpl();
 
 		StdVector<SymbolInstSPtr> m_Interfaces;
-		StdUnorderedMap<IdenSPtr, StdPair<SymbolSPtr, SymbolInstSPtr>> m_NeededChildren;
+		StdUnorderedMap<StdString, StdPair<SymbolSPtr, SymbolInstSPtr>> m_NeededChildren;
 		SymbolSPtr m_ImplSymbol;
 	};
 

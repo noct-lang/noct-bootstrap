@@ -49,6 +49,7 @@
         <Size>m_Idens._Mypair._Myval2._Myend - m_Idens._Mypair._Myval2._Myfirst</Size>
         <ValuePointer>m_Idens._Mypair._Myval2._Myfirst</ValuePointer>
       </ArrayItems>
+      <Item Name="[generics]">m_Generics</Item>
     </Expand>
   </Type>
   <Type Name="std::shared_ptr&lt;Noctis::Iden&gt;">

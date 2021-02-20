@@ -1,6 +1,7 @@
 #pragma once
 #include "common/defs.hpp"
 #include "common/type.hpp"
+#include "common/qualname.hpp"
 #include "module/attributes.hpp"
 #include "module/operator.hpp"
 #include "tokens/span.hpp"
@@ -9,7 +10,6 @@
 namespace Noctis
 {
 	FWDECL_CLASS_SPTR(QualName);
-	FWDECL_CLASS_SPTR(Iden);
 	FWDECL_CLASS_SPTR(TypeDisambiguation);
 
 	FWDECL_STRUCT_SPTR(ITrArg);
@@ -139,10 +139,11 @@ namespace Noctis
 
 	struct ITrIden
 	{
-		ITrIden(IdenSPtr iden, StdPairVector<ITrTypeSPtr, ITrExprSPtr>&& assocArgs, u64 startIdx, u64 endIdx);
+		ITrIden(const StdString& iden, const StdVector<IdenGeneric>& generics, StdPairVector<ITrTypeSPtr, ITrExprSPtr>&& assocArgs, u64 startIdx, u64 endIdx);
 		
+		StdString iden;
+		StdVector<IdenGeneric> generics;
 		StdPairVector<ITrTypeSPtr, ITrExprSPtr> assocArgs;
-		IdenSPtr iden;
 		u64 startIdx, endIdx;
 	};
 
@@ -168,19 +169,19 @@ namespace Noctis
 
 	struct ITrParam
 	{
-		ITrParam(ITrAttribsSPtr attribs, IdenSPtr iden, ITrTypeSPtr type, u64 startIdx, u64 endIdx);
+		ITrParam(ITrAttribsSPtr attribs, const StdString& iden, ITrTypeSPtr type, u64 startIdx, u64 endIdx);
 
 		ITrAttribsSPtr attribs;
-		IdenSPtr iden;
+		StdString iden;
 		ITrTypeSPtr type;
 		u64 startIdx, endIdx;
 	};
 
 	struct ITrArg
 	{
-		ITrArg(IdenSPtr iden, ITrExprSPtr expr, u64 startIdx);
+		ITrArg(const StdString& iden, ITrExprSPtr expr, u64 startIdx);
 		
-		IdenSPtr iden;
+		StdString iden;
 		ITrExprSPtr expr;
 		u64 startIdx, endIdx;
 	};
@@ -212,7 +213,7 @@ namespace Noctis
 
 		ITrDefSPtr impl;
 
-		StdUnorderedMap<IdenSPtr, TypeHandle> genMapping;
+		StdUnorderedMap<StdString, TypeHandle> genMapping;
 
 		u64 startIdx, endIdx;
 	};
@@ -234,7 +235,7 @@ namespace Noctis
 
 	struct ITrValEnumMember : ITrDef
 	{
-		ITrValEnumMember(QualNameSPtr parent, IdenSPtr iden, ITrExprSPtr val, u64 startIdx, u64 endIdx);
+		ITrValEnumMember(QualNameSPtr parent, const StdString& iden, ITrExprSPtr val, u64 startIdx, u64 endIdx);
 
 		ITrExprSPtr val;
 	};
@@ -246,7 +247,7 @@ namespace Noctis
 
 	struct ITrAdtEnumMember : ITrDef
 	{
-		ITrAdtEnumMember(QualNameSPtr parent, IdenSPtr iden, ITrTypeSPtr type, u64 startIdx, u64 endIdx);
+		ITrAdtEnumMember(QualNameSPtr parent, const StdString& iden, ITrTypeSPtr type, u64 startIdx, u64 endIdx);
 
 		ITrTypeSPtr type;
 	};
@@ -353,18 +354,18 @@ namespace Noctis
 
 	struct ITrLoop : ITrStmt
 	{
-		ITrLoop(IdenSPtr label, ITrBlockSPtr block, u64 startIdx, u64 endIdx);
+		ITrLoop(const StdString& label, ITrBlockSPtr block, u64 startIdx, u64 endIdx);
 
-		IdenSPtr label;
+		StdString label;
 		ITrBlockSPtr block;
 	};
 
 	struct ITrForRange : ITrStmt
 	{
-		ITrForRange(const StdString& scopeName, IdenSPtr label, const StdVector<IdenSPtr>& idens, ITrExprSPtr range, ITrBlockSPtr body, u64 startIdx);
+		ITrForRange(const StdString& scopeName, const StdString& label, const StdVector<StdString>& idens, ITrExprSPtr range, ITrBlockSPtr body, u64 startIdx);
 
-		IdenSPtr label;
-		StdVector<IdenSPtr> idens;
+		StdString label;
+		StdVector<StdString> idens;
 		ITrExprSPtr range;
 		ITrBlockSPtr body;
 		StdString scopeName;
@@ -430,9 +431,9 @@ namespace Noctis
 	
 	struct ITrSwitch : ITrStmt
 	{
-		ITrSwitch(const StdString& scopeName, IdenSPtr label, ITrExprSPtr expr, StdVector<ITrSwitchCase>&& cases, u64 startIdx, u64 endIdx);
+		ITrSwitch(const StdString& scopeName, const StdString& label, ITrExprSPtr expr, StdVector<ITrSwitchCase>&& cases, u64 startIdx, u64 endIdx);
 
-		IdenSPtr label;
+		StdString label;
 		ITrExprSPtr expr;
 		StdVector<ITrSwitchCase> cases;
 		StdString scopeName;
@@ -442,23 +443,23 @@ namespace Noctis
 
 	struct ITrLabel : ITrStmt
 	{
-		ITrLabel(IdenSPtr label, u64 startIdx, u64 endIdx);
+		ITrLabel(const StdString& label, u64 startIdx, u64 endIdx);
 
-		IdenSPtr label;
+		StdString label;
 	};
 
 	struct ITrBreak : ITrStmt
 	{
-		ITrBreak(IdenSPtr label, u64 startIdx, u64 endIdx);
+		ITrBreak(const StdString& label, u64 startIdx, u64 endIdx);
 
-		IdenSPtr label;
+		StdString label;
 	};
 
 	struct ITrContinue : ITrStmt
 	{
-		ITrContinue(IdenSPtr label, u64 startIdx, u64 endIdx);
+		ITrContinue(const StdString& label, u64 startIdx, u64 endIdx);
 
-		IdenSPtr label;
+		StdString label;
 	};
 
 	struct ITrFallthrough : ITrStmt
@@ -468,9 +469,9 @@ namespace Noctis
 
 	struct ITrGoto : ITrStmt
 	{
-		ITrGoto(IdenSPtr label, u64 startIdx, u64 endIdx);
+		ITrGoto(const StdString& label, u64 startIdx, u64 endIdx);
 
-		IdenSPtr label;
+		StdString label;
 	};
 
 	struct ITrReturn : ITrStmt
@@ -504,11 +505,11 @@ namespace Noctis
 
 	struct ITrCompCond : ITrStmt
 	{
-		ITrCompCond(bool isDebug, IdenSPtr iden, OperatorKind op, u64 cmpVal, ITrBlockSPtr tBlock, ITrBlockSPtr fBlock, u64 startIdx);
+		ITrCompCond(bool isDebug, const StdString& iden, OperatorKind op, u64 cmpVal, ITrBlockSPtr tBlock, ITrBlockSPtr fBlock, u64 startIdx);
 
 		bool isDebug;
 		OperatorKind op;
-		IdenSPtr iden;
+		StdString iden;
 		u64 cmpVal;
 		ITrBlockSPtr tBlock;
 		ITrBlockSPtr fBlock;
@@ -516,10 +517,10 @@ namespace Noctis
 
 	struct ITrLocalVar : ITrStmt
 	{
-		ITrLocalVar(ITrAttribsSPtr attribs, StdVector<IdenSPtr>&& idens, ITrTypeSPtr type, ITrExprSPtr init, u64 startIdx, u64 endIdx);
+		ITrLocalVar(ITrAttribsSPtr attribs, const StdVector<StdString>& idens, ITrTypeSPtr type, ITrExprSPtr init, u64 startIdx, u64 endIdx);
 		
 		ITrAttribsSPtr attribs;
-		StdVector<IdenSPtr> idens;
+		StdVector<StdString> idens;
 		ITrTypeSPtr type;
 		ITrExprSPtr init;
 	};
@@ -616,22 +617,23 @@ namespace Noctis
 	struct ITrFuncCall : ITrExpr
 	{
 		ITrFuncCall(ITrExprSPtr func, StdVector<ITrArgSPtr>&& args, u64 endIdx);
-		ITrFuncCall(ITrExprSPtr caller, bool nullCoalesce, IdenSPtr iden, StdVector<ITrArgSPtr>&& args, u64 endIdx);
+		ITrFuncCall(ITrExprSPtr caller, bool nullCoalesce, const StdString& iden, const StdVector<IdenGeneric>& generics, StdVector<ITrArgSPtr>&& args, u64 endIdx);
 
 		bool isMethod : 1;
 		bool nullCoalesce : 1;
 		ITrExprSPtr callerOrFunc;
-		IdenSPtr iden;
+		StdString iden;
+		StdVector<IdenGeneric> generics;
 		StdVector<ITrArgSPtr> args;
 	};
 
 	struct ITrMemberAccess : ITrExpr
 	{
-		ITrMemberAccess(bool nullCoalesce, ITrExprSPtr expr, IdenSPtr iden, u64 endIdx);
+		ITrMemberAccess(bool nullCoalesce, ITrExprSPtr expr, const StdString& iden, u64 endIdx);
 		
 		bool nullCoalesce;
 		ITrExprSPtr expr;
-		IdenSPtr iden;
+		StdString iden;
 	};
 
 	struct ITrTupleAccess : ITrExpr
@@ -827,9 +829,9 @@ namespace Noctis
 
 	struct ITrValueBindPattern : ITrPattern
 	{
-		ITrValueBindPattern(IdenSPtr iden, ITrPatternSPtr subPattern, u64 startIdx, u64 endIdx);
+		ITrValueBindPattern(const StdString& iden, ITrPatternSPtr subPattern, u64 startIdx, u64 endIdx);
 		
-		IdenSPtr iden;
+		StdString iden;
 		ITrPatternSPtr subPattern;
 	};
 
@@ -928,10 +930,10 @@ namespace Noctis
 
 	struct ITrAtAttrib
 	{
-		ITrAtAttrib(bool isCompAttrib, IdenSPtr iden, StdVector<ITrArgSPtr>&& args, u64 startIdx, u64 endIdx);
+		ITrAtAttrib(bool isCompAttrib, const StdString& iden, StdVector<ITrArgSPtr>&& args, u64 startIdx, u64 endIdx);
 
 		bool isCompAttrib;
-		IdenSPtr iden;
+		StdString iden;
 		StdVector<ITrArgSPtr> args;
 		u64 startIdx, endIdx;
 	};
@@ -955,17 +957,17 @@ namespace Noctis
 
 	struct ITrGenTypeParam : ITrGenParam
 	{
-		ITrGenTypeParam(IdenSPtr name, ITrTypeSPtr defType, u64 startIdx, u64 endIdx);
+		ITrGenTypeParam(const StdString& name, ITrTypeSPtr defType, u64 startIdx, u64 endIdx);
 		
-		IdenSPtr iden;
+		StdString iden;
 		ITrTypeSPtr defType;
 	};
 	
 	struct ITrGenValParam : ITrGenParam
 	{
-		ITrGenValParam(IdenSPtr iden, ITrTypeSPtr type, ITrExprSPtr defExpr, u64 startIdx, u64 endIdx);
+		ITrGenValParam(const StdString& iden, ITrTypeSPtr type, ITrExprSPtr defExpr, u64 startIdx, u64 endIdx);
 
-		IdenSPtr iden;
+		StdString iden;
 		ITrTypeSPtr type;
 		ITrExprSPtr defExpr;
 	};

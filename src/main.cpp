@@ -23,11 +23,25 @@
 // core package build steps
 //
 // build "../noct/src/core/marker.nx"
-// build "../noct/src/core/compintrin.nx"
-// build "../noct/src/core/error.nx"
-// build "../noct/src/core/result.nx" -I "./"
-// build "../noct/src/core/ops/arith.nx" "../noct/src/core/ops/boolconv.nx" "../noct/src/core/ops/deref.nx" "../noct/src/core/ops/cmp.nx" "../noct/src/core/ops/index.nx" "../noct/src/core/ops/concat.nx" -I "./"
+// build "../noct/src/core/intrin/compintrin.nx"
+// build "../noct/src/core/result.nx"
+// build "../noct/src/core/ops/arith.nx" "../noct/src/core/ops/deref.nx" "../noct/src/core/ops/cmp.nx" "../noct/src/core/ops/index.nx" "../noct/src/core/ops/concat.nx" -I "./"
 // build "../noct/src/core/convert.nx" -I "./"
+//
+// build "../noct/src/core/clone.nx"
+// build "../noct/src/core/default.nx"
+// 
+// build "../noct/src/core/iter.nx"
+//
+// build "../noct/src/core/mem.nx" -I "./"
+// build "../noct/src/core/array.nx" -I "./"
+// build "../noct/src/core/slice.nx" -I "./"
+// 
+// build "../noct/src/core/consts.nx"
+// build "../noct/src/core/ffi.nx"
+//
+//
+// Misc:
 //
 // build test.nx -I "./"
 // interpret main -I "./"
@@ -242,7 +256,7 @@ void ProcessInterpret(Noctis::Context& context)
 	
 	Noctis::ILInterp interp{ &context };
 
-	Noctis::QualNameSPtr mainQUalName = Noctis::QualName::Create(toInterp, Noctis::Iden::Create("__main"));
+	Noctis::QualNameSPtr mainQUalName = toInterp->Append("__main");
 	interp.Interp(mainQUalName);
 
 	timer.Stop();

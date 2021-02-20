@@ -36,7 +36,7 @@ namespace Noctis
 					g_Logger.Log(",");
 				
 				ILGeneric& gen = node.generics[i];
-				g_Logger.Log(gen.iden->ToString());
+				g_Logger.Log(gen.iden);
 				if (gen.type.IsValid())
 					g_Logger.Log(":%s", m_pCtx->typeReg.ToString(gen.type).c_str());
 			}

@@ -48,7 +48,7 @@ namespace Noctis
 		}
 		
 		encoded.push_back(0);
-		const StdString& modName = mod.qualName->LastIden()->Name();
+		const StdString& modName = mod.qualName->LastIden();
 		encoded.insert(encoded.end(), modName.begin(), modName.end());
 		encoded.push_back(0);
 
@@ -234,7 +234,7 @@ namespace Noctis
 			{
 				TypeHandle type = sym->type;
 				if (!type.IsValid())
-					type = m_pCtx->typeReg.Iden(TypeMod::None, sym->qualName->Base());
+					type = m_pCtx->typeReg.Iden(TypeMod::None, sym->qualName->Base(usize(-1)));
 
 				WriteType(section.data, type);
 				break;
@@ -555,7 +555,7 @@ namespace Noctis
 		}
 		
 		StdString moduleName = ExtractNullTermString(idenData, m_DataPos);
-		QualNameSPtr moduleQualName = QualName::Create(packageQualname, moduleName);
+		QualNameSPtr moduleQualName = packageQualname->Append(moduleName);
 
 		u32 i = 0;
 		while (i < tmp.size())
@@ -738,29 +738,23 @@ namespace Noctis
 				for (u16 j = 0; j < ifaceCount; ++j)
 				{
 					ifaceQualNames.push_back(ReadQualName());
-
-					IdenSPtr ifaceIden = ifaceQualNames.back()->LastIden();
-					if (ifaceIden->Name() == "OpAdd")
-						int br = 0;
 				}
-
-				if (ifaceCount > 1)
-					int br = 0;
 
 				TypeHandle parentType = ReadType();
 				if (parentType.IsValid())
 				{
-					IdenSPtr iden = ReadQualName()->LastIden();
+					const StdString& iden = ReadQualName()->LastIden();
+					QualNameSPtr idenQualName = ReadQualName();
 
 					if (parentType.Type()->typeKind == TypeKind::Iden)
 					{
 						qualName = parentType.AsIden().qualName;
-						qualName = QualName::Create(qualName, iden);
+						qualName = qualName->AppendLastIden(idenQualName);
 					}
 					else
 					{
 						StdString mangled = NameMangling::Mangle(m_pCtx, parentType);
-						qualName = QualName::Create({Iden::Create(mangled), iden});
+						qualName = QualName::Create(mangled)->AppendLastIden(idenQualName);
 					}
 				}
 				else
@@ -903,7 +897,7 @@ namespace Noctis
 				if (!sym)
 				{
 					StdString symName = NameMangling::Mangle(m_pCtx, handle);
-					QualNameSPtr qualName = QualName::Create(Iden::Create(symName));
+					QualNameSPtr qualName = QualName::Create(symName);
 					sym = CreateSymbol(m_pCtx, SymbolKind::Type, qualName);
 					sym->type = handle;
 					m_pCtx->activeModule->symTable.Add(sym);
@@ -997,14 +991,14 @@ namespace Noctis
 
 		if (!sym && qualName->Depth() == 1)
 		{
-			TypeHandle type = NameMangling::DemangleType(m_pCtx, qualName->LastIden()->Name());
+			TypeHandle type = NameMangling::DemangleType(m_pCtx, qualName->LastIden());
 			sym = m_pCtx->activeModule->symTable.Find(type);
 
 			if (!sym)
 			{
 				sym = CreateSymbol(m_pCtx, SymbolKind::Type, qualName);
 				sym->type = type;
-				sym->mangledName = qualName->LastIden()->Name();
+				sym->mangledName = qualName->LastIden();
 				m_pCtx->activeModule->symTable.Add(sym);
 			}
 		}

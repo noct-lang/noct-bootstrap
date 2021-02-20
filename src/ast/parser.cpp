@@ -1534,14 +1534,20 @@ namespace Noctis
 		bool nullcoalesce = TryEatToken(TokenType::QuestionDot);
 		if (!nullcoalesce)
 			EatToken(TokenType::Dot);
-		
-		StdString iden = EatToken(TokenType::Iden).Text();
-		
+
+		AstQualIdenSPtr qualIden = ParseQualIden(false);
+		AstIden& qualIdenRef = static_cast<AstIden&>(*qualIden);
+		StdString name = qualIdenRef.iden;
+		AstIdenSPtr iden{ new AstIden{ qualIdenRef.ctx->startIdx, std::move(name), std::move(qualIdenRef.args), qualIdenRef.ctx->endIdx } };
+
+		// Make sure that when the AstQualIdenSPtr is destroyed, that we are not trying to delete invalid data (i.e. use after move)
+		new (&qualIdenRef.args) StdVector<AstGenericArg>{};
+
 		EatToken(TokenType::LParen);
 		StdVector<AstArgSPtr> args = ParseArgs();
 		u64 endIdx = EatToken(TokenType::RParen).Idx();
 		
-		return AstExprSPtr{ new AstMethodCallExpr{ expr, nullcoalesce, std::move(iden), std::move(args), endIdx } };
+		return AstExprSPtr{ new AstMethodCallExpr{ expr, nullcoalesce, iden, std::move(args), endIdx } };
 	}
 
 	AstExprSPtr Parser::ParseTupleAccessExpr(AstExprSPtr expr)

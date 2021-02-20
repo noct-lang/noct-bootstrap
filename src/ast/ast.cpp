@@ -551,7 +551,7 @@ namespace Noctis
 	{
 	}
 
-	AstMethodCallExpr::AstMethodCallExpr(AstExprSPtr caller, bool nullCoalesce, StdString&& iden, 
+	AstMethodCallExpr::AstMethodCallExpr(AstExprSPtr caller, bool nullCoalesce, AstIdenSPtr iden,
 		StdVector<AstArgSPtr>&& args, u64 endIdx)
 		: AstExpr(AstExprKind::MethodCall, caller->ctx->startIdx, endIdx)
 		, caller(caller)

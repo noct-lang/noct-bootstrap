@@ -6,8 +6,9 @@
 
 namespace Noctis
 {
-	ITrIden::ITrIden(IdenSPtr iden, StdPairVector<ITrTypeSPtr, ITrExprSPtr>&& assocArgs, u64 startIdx, u64 endIdx)
+	ITrIden::ITrIden(const StdString& iden, const StdVector<IdenGeneric>& generics, StdPairVector<ITrTypeSPtr, ITrExprSPtr>&& assocArgs, u64 startIdx, u64 endIdx)
 		: iden(iden)
+		, generics(std::move(generics))
 		, assocArgs(std::move(assocArgs))
 		, startIdx(startIdx)
 		, endIdx(endIdx)
@@ -32,7 +33,7 @@ namespace Noctis
 		endIdx = this->assocIdens.back()->endIdx;
 	}
 
-	ITrParam::ITrParam(ITrAttribsSPtr attribs, IdenSPtr iden, ITrTypeSPtr type, u64 startIdx, u64 endIdx)
+	ITrParam::ITrParam(ITrAttribsSPtr attribs, const StdString& iden, ITrTypeSPtr type, u64 startIdx, u64 endIdx)
 		: attribs(attribs)
 		, iden(iden)
 		, type(type)
@@ -41,7 +42,7 @@ namespace Noctis
 	{
 	}
 
-	ITrArg::ITrArg(IdenSPtr iden, ITrExprSPtr expr, u64 startIdx)
+	ITrArg::ITrArg(const StdString& iden, ITrExprSPtr expr, u64 startIdx)
 		: iden(iden)
 		, expr(expr)
 		, startIdx(startIdx)
@@ -81,8 +82,8 @@ namespace Noctis
 	{
 	}
 
-	ITrValEnumMember::ITrValEnumMember(QualNameSPtr parent, IdenSPtr iden, ITrExprSPtr val, u64 startIdx, u64 endIdx)
-		: ITrDef(ITrDefKind::ValEnumMember, nullptr, nullptr, QualName::Create(parent, iden), false, startIdx, endIdx)
+	ITrValEnumMember::ITrValEnumMember(QualNameSPtr parent, const StdString& iden, ITrExprSPtr val, u64 startIdx, u64 endIdx)
+		: ITrDef(ITrDefKind::ValEnumMember, nullptr, nullptr, parent->Append(iden), false, startIdx, endIdx)
 		, val(val)
 	{
 	}
@@ -92,8 +93,8 @@ namespace Noctis
 	{
 	}
 
-	ITrAdtEnumMember::ITrAdtEnumMember(QualNameSPtr parent, IdenSPtr iden, ITrTypeSPtr type, u64 startIdx, u64 endIdx)
-		: ITrDef(ITrDefKind::AdtEnumMember, nullptr, nullptr, QualName::Create(parent, iden), false, startIdx, endIdx)
+	ITrAdtEnumMember::ITrAdtEnumMember(QualNameSPtr parent, const StdString& iden, ITrTypeSPtr type, u64 startIdx, u64 endIdx)
+		: ITrDef(ITrDefKind::AdtEnumMember, nullptr, nullptr, parent->Append(iden), false, startIdx, endIdx)
 		, type(type)
 	{
 	}
@@ -186,14 +187,14 @@ namespace Noctis
 	{
 	}
 
-	ITrLoop::ITrLoop(IdenSPtr label, ITrBlockSPtr block, u64 startIdx, u64 endIdx)
+	ITrLoop::ITrLoop(const StdString& label, ITrBlockSPtr block, u64 startIdx, u64 endIdx)
 		: ITrStmt(ITrStmtKind::Loop, startIdx, endIdx)
 		, label(label)
 		, block(block)
 	{
 	}
 
-	ITrForRange::ITrForRange(const StdString& scopeName, IdenSPtr label, const StdVector<IdenSPtr>& idens,
+	ITrForRange::ITrForRange(const StdString& scopeName, const StdString& label, const StdVector<StdString>& idens,
 		ITrExprSPtr range, ITrBlockSPtr body, u64 startIdx)
 		: ITrStmt(ITrStmtKind::ForRange, startIdx, body->endIdx)
 		, label(label)
@@ -215,7 +216,7 @@ namespace Noctis
 	{
 	}
 
-	ITrSwitch::ITrSwitch(const StdString& scopeName, IdenSPtr label, ITrExprSPtr expr, StdVector<ITrSwitchCase>&& cases, u64 startIdx, u64 endIdx)
+	ITrSwitch::ITrSwitch(const StdString& scopeName, const StdString& label, ITrExprSPtr expr, StdVector<ITrSwitchCase>&& cases, u64 startIdx, u64 endIdx)
 		: ITrStmt(ITrStmtKind::Switch, startIdx, endIdx)
 		, label(label)
 		, expr(expr)
@@ -225,19 +226,19 @@ namespace Noctis
 	{
 	}
 
-	ITrLabel::ITrLabel(IdenSPtr label, u64 startIdx, u64 endIdx)
+	ITrLabel::ITrLabel(const StdString& label, u64 startIdx, u64 endIdx)
 		: ITrStmt(ITrStmtKind::Label, startIdx, endIdx)
 		, label(label)
 	{
 	}
 
-	ITrBreak::ITrBreak(IdenSPtr label, u64 startIdx, u64 endIdx)
+	ITrBreak::ITrBreak(const StdString& label, u64 startIdx, u64 endIdx)
 		: ITrStmt(ITrStmtKind::Break, startIdx, endIdx)
 		, label(label)
 	{
 	}
 
-	ITrContinue::ITrContinue(IdenSPtr label, u64 startIdx, u64 endIdx)
+	ITrContinue::ITrContinue(const StdString& label, u64 startIdx, u64 endIdx)
 		: ITrStmt(ITrStmtKind::Continue, startIdx, endIdx)
 		, label(label)
 	{
@@ -248,7 +249,7 @@ namespace Noctis
 	{
 	}
 
-	ITrGoto::ITrGoto(IdenSPtr label, u64 startIdx, u64 endIdx)
+	ITrGoto::ITrGoto(const StdString& label, u64 startIdx, u64 endIdx)
 		: ITrStmt(ITrStmtKind::Goto, startIdx, endIdx)
 		, label(label)
 	{
@@ -279,7 +280,7 @@ namespace Noctis
 	{
 	}
 
-	ITrCompCond::ITrCompCond(bool isDebug, IdenSPtr iden, OperatorKind op, u64 cmpVal, ITrBlockSPtr tBlock,
+	ITrCompCond::ITrCompCond(bool isDebug, const StdString& iden, OperatorKind op, u64 cmpVal, ITrBlockSPtr tBlock,
 		ITrBlockSPtr fBlock, u64 startIdx)
 		: ITrStmt(ITrStmtKind::CompCond, startIdx, fBlock ? fBlock->endIdx : tBlock->endIdx)
 		, isDebug(isDebug)
@@ -291,10 +292,10 @@ namespace Noctis
 	{
 	}
 
-	ITrLocalVar::ITrLocalVar(ITrAttribsSPtr attribs, StdVector<IdenSPtr>&& idens, ITrTypeSPtr type, ITrExprSPtr init, u64 startIdx, u64 endIdx)
+	ITrLocalVar::ITrLocalVar(ITrAttribsSPtr attribs, const StdVector<StdString>& idens, ITrTypeSPtr type, ITrExprSPtr init, u64 startIdx, u64 endIdx)
 		: ITrStmt(ITrStmtKind::LocalDecl, startIdx, endIdx)
 		, attribs(attribs)
-		, idens(std::move(idens))
+		, idens(idens)
 		, type(type)
 		, init(init)
 	{
@@ -388,17 +389,18 @@ namespace Noctis
 	{
 	}
 
-	ITrFuncCall::ITrFuncCall(ITrExprSPtr caller, bool nullCoalesce, IdenSPtr iden, StdVector<ITrArgSPtr>&& args, u64 endIdx)
+	ITrFuncCall::ITrFuncCall(ITrExprSPtr caller, bool nullCoalesce, const StdString& iden, const StdVector<IdenGeneric>& generics, StdVector<ITrArgSPtr>&& args, u64 endIdx)
 		: ITrExpr(ITrExprKind::FuncOrMethodCall, caller->startIdx, endIdx)
 		, isMethod(true)
 		, nullCoalesce(nullCoalesce)
 		, callerOrFunc(caller)
 		, iden(iden)
+		, generics(std::move(generics))
 		, args(std::move(args))
 	{
 	}
 
-	ITrMemberAccess::ITrMemberAccess(bool nullCoalesce, ITrExprSPtr expr, IdenSPtr iden, u64 endIdx)
+	ITrMemberAccess::ITrMemberAccess(bool nullCoalesce, ITrExprSPtr expr, const StdString& iden, u64 endIdx)
 		: ITrExpr(ITrExprKind::MemberAccess, expr->startIdx, endIdx)
 		, nullCoalesce(nullCoalesce)
 		, expr(expr)
@@ -553,7 +555,7 @@ namespace Noctis
 	{
 	}
 
-	ITrValueBindPattern::ITrValueBindPattern(IdenSPtr iden, ITrPatternSPtr subPattern, u64 startIdx, u64 endIdx)
+	ITrValueBindPattern::ITrValueBindPattern(const StdString& iden, ITrPatternSPtr subPattern, u64 startIdx, u64 endIdx)
 		: ITrPattern(ITrPatternKind::ValueBind, startIdx, endIdx)
 		, iden(iden)
 		, subPattern(subPattern)
@@ -643,7 +645,7 @@ namespace Noctis
 	{
 	}
 
-	ITrAtAttrib::ITrAtAttrib(bool isCompAttrib, IdenSPtr iden, StdVector<ITrArgSPtr>&& args, u64 startIdx, u64 endIdx)
+	ITrAtAttrib::ITrAtAttrib(bool isCompAttrib, const StdString& iden, StdVector<ITrArgSPtr>&& args, u64 startIdx, u64 endIdx)
 		: isCompAttrib(isCompAttrib)
 		, iden(iden)
 		, args(std::move(args))
@@ -659,14 +661,14 @@ namespace Noctis
 	{
 	}
 
-	ITrGenTypeParam::ITrGenTypeParam(IdenSPtr name, ITrTypeSPtr defType, u64 startIdx, u64 endIdx)
+	ITrGenTypeParam::ITrGenTypeParam(const StdString& name, ITrTypeSPtr defType, u64 startIdx, u64 endIdx)
 		: ITrGenParam(true, startIdx, endIdx)
 		, iden(name)
 		, defType(defType)
 	{
 	}
 
-	ITrGenValParam::ITrGenValParam(IdenSPtr iden, ITrTypeSPtr type, ITrExprSPtr defExpr, u64 startIdx, u64 endIdx)
+	ITrGenValParam::ITrGenValParam(const StdString& iden, ITrTypeSPtr type, ITrExprSPtr defExpr, u64 startIdx, u64 endIdx)
 		: ITrGenParam(false, startIdx, endIdx)
 		, iden(iden)
 		, type(type)

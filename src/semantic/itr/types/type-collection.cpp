@@ -21,7 +21,7 @@ namespace Noctis
 		SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::Struct, node.qualName, node.ptr);
 		m_Syms.top()->children->AddChild(sym);
 		m_Syms.push(sym);
-
+		
 		ITrBodySPtr body = m_pMod->GetBody(node);
 		for (ITrDefSPtr def : body->defs)
 		{
@@ -97,10 +97,9 @@ namespace Noctis
 		if (m_ImplQualName)
 		{
 			QualNameSPtr subQualName = qualName->GetSubName(m_ImplQualName);
-			qualName = QualName::Create(m_TypeQualName, subQualName->Idens());
+			qualName = m_TypeQualName->Append(subQualName);
 			node.qualName = qualName;
 		}
-
 		if (m_InInterface)
 		{
 			SymbolSPtr sym = CreateSymbol(m_pCtx, SymbolKind::AssocType, node.qualName, node.ptr);
@@ -139,14 +138,8 @@ namespace Noctis
 		if (m_ImplQualName)
 		{
 			QualNameSPtr subQualName = qualName->GetSubName(m_ImplQualName);
-			qualName = QualName::Create(m_TypeQualName, subQualName->Idens());
+			qualName = m_TypeQualName->Append(subQualName);
 			node.qualName = qualName;
-		}
-
-		if (!node.params.empty())
-		{
-			IdenSPtr newIden = Iden::Create(qualName->LastIden()->Name(), qualName->LastIden()->Generics());
-			qualName = QualName::Create(qualName->Base(), newIden);
 		}
 
 		SymbolSPtr sym = CreateSymbol(m_pCtx, kind, qualName, node.ptr);
@@ -380,8 +373,7 @@ namespace Noctis
 				sym = symTable.Find(node.qualName, idenType.qualName);
 				if (sym->qualName->LastIden() != idenType.qualName->LastIden())
 				{
-					IdenSPtr iden = Iden::Create(idenType.qualName->LastIden()->Name(), sym->qualName->LastIden()->Generics());
-					SymbolSPtr typeSym = sym->children->FindChild(nullptr, iden);
+					SymbolSPtr typeSym = sym->children->FindChild(nullptr, idenType.qualName->LastIden());
 					if (typeSym)
 						sym->type = typeSym->type;
 				}
@@ -390,7 +382,7 @@ namespace Noctis
 			else
 			{
 				StdString typeName = m_pCtx->typeReg.ToString(sym->type);
-				m_TypeQualName = QualName::Create(Iden::Create(typeName));
+				m_TypeQualName = QualName::Create(typeName);
 			}
 			m_Syms.push(sym);
 			node.sym = sym;
@@ -403,9 +395,9 @@ namespace Noctis
 			m_ImplQualName = node.qualName;
 			m_ImplSymbol = sym;
 			ITrBodySPtr body = mod.GetBody(node);
-			for (ITrDefSPtr subDef : body->defs)
+			for (ITrDefSPtr def : body->defs)
 			{
-				ITrVisitor::Visit(subDef);
+				ITrVisitor::Visit(def);
 			}
 			AddMissingChildrenWithDefImpl();
 
@@ -455,7 +447,7 @@ namespace Noctis
 			else
 			{
 				StdString typeName = NameMangling::Mangle(m_pCtx, sym->type);// m_pCtx->typeReg.ToString(sym->type);
-				m_TypeQualName = QualName::Create(Iden::Create(typeName));
+				m_TypeQualName = QualName::Create(typeName);
 			}
 			
 			m_Syms.push(sym);
@@ -472,9 +464,9 @@ namespace Noctis
 			m_ImplSymbol = sym;
 			
 			ITrBodySPtr body = mod.GetBody(node);
-			for (ITrDefSPtr subDef : body->defs)
+			for (ITrDefSPtr def : body->defs)
 			{
-				ITrVisitor::Visit(subDef);
+				ITrVisitor::Visit(def);
 			}
 			AddMissingChildrenWithDefImpl();
 
@@ -490,16 +482,11 @@ namespace Noctis
 
 	bool ImplCollection::HandleImpls(SymbolSPtr sym)
 	{
-		//if (sym->qualName->LastIden()->Name() == "OpEq")
-		if (sym->qualName->LastIden()->Name().find("_7") != StdString::npos)
-			int br = 0;
-		
 		bool res = false;
 		for (SymbolInstSPtr inst : m_Interfaces)
 		{
 			QualNameSPtr qualName = inst->qualName;
-			IdenSPtr iden = sym->qualName->LastIden();
-			QualNameSPtr searchQualName = QualName::Create(iden);
+			QualNameSPtr searchQualName = QualName::Create(sym->qualName->LastIden());
 			
 			SymbolSPtr child = inst->sym.lock()->children->Find(searchQualName, 0, nullptr);
 			if (child)
@@ -528,11 +515,8 @@ namespace Noctis
 
 	void ImplCollection::CollectInterfaces(SymbolSPtr sym, QualNameSPtr nodeQualName, const StdPair<QualNameSPtr, SpanId>& implInterface)
 	{
-		if (sym->qualName->LastIden()->Name() == "OpEq")
-			int br = 0;
-		
 		SymbolSPtr iface = m_pCtx->activeModule->symTable.Find(nodeQualName, implInterface.first);
-		QualNameSPtr instQualName = QualName::Create(iface->qualName->Base(), implInterface.first->LastIden());
+		QualNameSPtr instQualName = iface->qualName->Base()->AppendLastIden(implInterface.first);
 		SymbolInstSPtr inst = iface->GetOrCreateInst(instQualName);
 
 		StdStack<SymbolInstSPtr> toProcess;
@@ -549,9 +533,6 @@ namespace Noctis
 
 			for (SymbolInstWPtr subIface : tmp->ifaces)
 			{
-				if (!subIface.lock())
-					int br = 0;
-				
 				toProcess.push(subIface.lock());
 			}
 		}
@@ -572,7 +553,7 @@ namespace Noctis
 				sym->kind != SymbolKind::AssocType)
 				return;
 			
-			IdenSPtr iden = sym->qualName->LastIden();
+			const StdString& iden = sym->qualName->LastIden();
 			auto it = m_NeededChildren.find(iden);
 
 			if (it == m_NeededChildren.end())
@@ -587,7 +568,7 @@ namespace Noctis
 		while (!m_NeededChildren.empty())
 		{
 			auto it = m_NeededChildren.begin();
-			StdPair<const IdenSPtr, StdPair<SymbolSPtr, SymbolInstSPtr>>& pair = *it;
+			StdPair<const StdString, StdPair<SymbolSPtr, SymbolInstSPtr>>& pair = *it;
 			
 			SymbolSPtr sym = pair.second.first;
 			SymbolInstSPtr ifaceInst = pair.second.second;
@@ -595,7 +576,14 @@ namespace Noctis
 
 			if (sym->kind == SymbolKind::Method)
 			{
-				QualNameSPtr qualName = QualName::Create(m_TypeQualName, pair.first);
+				StdVector<IdenGeneric> generics;
+				if (sym->qualName->Generics().empty() && sym->qualName->Generics().size() > m_TypeQualName->Generics().size())
+				{
+					usize numGens = sym->qualName->Generics().size() - m_TypeQualName->Generics().size();
+					generics.insert(generics.begin(), sym->qualName->Generics().end() - numGens, sym->qualName->Generics().end());
+				}
+				
+				QualNameSPtr qualName = m_TypeQualName->Append(pair.first, generics);
 				SymbolSPtr parent = sym->parent.lock();
 
 				SymbolSPtr child = CreateSymbol(m_pCtx, sym->kind, qualName);
@@ -627,7 +615,14 @@ namespace Noctis
 			}
 			else if (sym->kind == SymbolKind::AssocType)
 			{
-				QualNameSPtr qualName = QualName::Create(m_TypeQualName, pair.first);
+				StdVector<IdenGeneric> generics;
+				if (sym->qualName->Generics().empty() && sym->qualName->Generics().size() > m_TypeQualName->Generics().size())
+				{
+					usize numGens = sym->qualName->Generics().size() - m_TypeQualName->Generics().size();
+					generics.insert(generics.begin(), sym->qualName->Generics().end() - numGens, sym->qualName->Generics().end());
+				}
+				
+				QualNameSPtr qualName = m_TypeQualName->Append(pair.first, generics);
 				SymbolSPtr parent = sym->parent.lock();
 
 				SymbolSPtr child = CreateSymbol(m_pCtx, sym->kind, qualName);
@@ -722,7 +717,7 @@ namespace Noctis
 					if (!qualName->IsBase())
 						continue;
 
-					IdenSPtr iden = qualName->LastIden();
+					const StdString& iden = qualName->LastIden();
 					for (ITrGenParamSPtr param : node.genDecl->params)
 					{
 						if (!param->isType)
@@ -742,8 +737,6 @@ namespace Noctis
 					}
 				}
 			}
-			
-			//HandleGenerics(node.qualName, node.genDecl, node);
 		});
 
 
@@ -769,7 +762,7 @@ namespace Noctis
 		if (!decl)
 			return;
 		
-		StdVector<IdenGeneric>& generics = qualName->LastIden()->Generics();
+		StdVector<IdenGeneric>& generics = qualName->Generics();
 		for (usize i = 0; i < decl->params.size(); ++i)
 		{
 			ITrGenParamSPtr param = decl->params[i];

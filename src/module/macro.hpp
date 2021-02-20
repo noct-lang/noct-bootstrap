@@ -7,7 +7,6 @@ namespace Noctis
 {
 	struct Context;
 
-	FWDECL_CLASS_SPTR(Iden);
 	FWDECL_CLASS_SPTR(QualName);
 	FWDECL_STRUCT_SPTR(AstDeclMacro);
 
@@ -127,7 +126,7 @@ namespace Noctis
 
 	struct DeclMacro
 	{
-		IdenSPtr iden;
+		StdString iden;
 		StdVector<MacroPatternElemSPtr> pattern;
 		TokenTree body;
 
@@ -139,7 +138,7 @@ namespace Noctis
 	class MacroContext
 	{
 	public:
-		bool AddMacro(QualNameSPtr scope, IdenSPtr iden, AstDeclMacroSPtr astMacro);
+		bool AddMacro(QualNameSPtr scope, const StdString& iden, AstDeclMacroSPtr astMacro);
 
 		StdVector<DeclMacro> GetDeclMacros(QualNameSPtr curScope, QualNameSPtr qualName);
 
@@ -148,13 +147,12 @@ namespace Noctis
 		StdVector<MacroPatternElemSPtr> GeneratePattern(AstMacroFragment& astfragment);
 		bool DoPatternsMatch(StdVector<MacroPatternElemSPtr>& m0, StdVector<MacroPatternElemSPtr>& m1);
 		
-		bool AddMacro(const StdVector<IdenSPtr>& scopeIdens, DeclMacro& astMacro,
+		bool AddMacro(QualNameSPtr scope, DeclMacro& astMacro,
 			usize startIdx = 0);
 
-		StdVector<DeclMacro> GetDeclMacros(const StdVector<IdenSPtr>& curScopeIdens,
-			const StdVector<IdenSPtr>& idens, usize startIdx = 0);
+		StdVector<DeclMacro> GetDeclMacros(QualNameSPtr curScope, QualNameSPtr qualName, usize startIdx);
 
-		StdUnorderedMap<IdenSPtr, MacroContext> m_SubCtxs;
+		StdUnorderedMap<StdString, MacroContext> m_SubCtxs;
 		StdVector<DeclMacro> m_DeclMacros;
 	};
 

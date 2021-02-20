@@ -269,7 +269,7 @@ namespace Noctis
 			QualNameSPtr baseQualName = QualName::Create(StdVector<StdString>{ "core", "convert" });
 
 			{
-				QualNameSPtr interfaceQualName = QualName::Create(baseQualName, Iden::Create("From"));
+				QualNameSPtr interfaceQualName = baseQualName->Append("From");
 				SymbolSPtr interfaceSym = table.Find(nullptr, interfaceQualName);
 
 				if (interfaceSym)
@@ -282,7 +282,7 @@ namespace Noctis
 			}
 
 			{
-				QualNameSPtr interfaceQualName = QualName::Create(baseQualName, Iden::Create("TryFrom"));
+				QualNameSPtr interfaceQualName = baseQualName->Append("TryFrom");
 				SymbolSPtr interfaceSym = table.Find(nullptr, interfaceQualName);
 
 				if (interfaceSym)
@@ -295,7 +295,7 @@ namespace Noctis
 			}
 
 			{
-				QualNameSPtr interfaceQualName = QualName::Create(baseQualName, Iden::Create("To"));
+				QualNameSPtr interfaceQualName = baseQualName->Append("To");
 				SymbolSPtr interfaceSym = table.Find(nullptr, interfaceQualName);
 
 				if (interfaceSym)
@@ -308,7 +308,7 @@ namespace Noctis
 			}
 
 			{
-				QualNameSPtr interfaceQualName = QualName::Create(baseQualName, Iden::Create("TryTo"));
+				QualNameSPtr interfaceQualName = baseQualName->Append("TryTo");
 				SymbolSPtr interfaceSym = table.Find(nullptr, interfaceQualName);
 
 				if (interfaceSym)
@@ -327,7 +327,7 @@ namespace Noctis
 			QualNameSPtr baseQualName = QualName::Create(StdVector<StdString>{ "core", "ops" });
 			
 			{
-				QualNameSPtr interfaceQualName = QualName::Create(baseQualName, Iden::Create("OpIndex"));
+				QualNameSPtr interfaceQualName = baseQualName->Append("OpIndex");
 				SymbolSPtr interfaceSym = table.Find(nullptr, interfaceQualName);
 
 				if (interfaceSym)
@@ -342,7 +342,7 @@ namespace Noctis
 			}
 
 			{
-				QualNameSPtr interfaceQualName = QualName::Create(baseQualName, Iden::Create("OpMutIndex"));
+				QualNameSPtr interfaceQualName = baseQualName->Append("OpMutIndex");
 				SymbolSPtr interfaceSym = table.Find(nullptr, interfaceQualName);
 
 				if (interfaceSym)
@@ -437,7 +437,7 @@ namespace Noctis
 
 					TypeDisambiguationSPtr disambig = TypeDisambiguation::Create(searchHandle, resSym->parent.lock()->qualName);
 					QualNameSPtr qualName = QualName::Create(disambig);
-					qualName = QualName::Create(qualName, resSym->qualName->LastIden());
+					qualName = qualName->Append(resSym->qualName->LastIden());
 					op.result = m_pCtx->typeReg.Iden(op.result.Mod(), qualName);
 					
 					return op;
@@ -574,7 +574,7 @@ namespace Noctis
 
 					TypeDisambiguationSPtr disambig = TypeDisambiguation::Create(searchHandle, resSym->parent.lock()->qualName);
 					QualNameSPtr qualName = QualName::Create(disambig);
-					qualName = QualName::Create(qualName, resSym->qualName->LastIden());
+					qualName = qualName->Append(resSym->qualName->LastIden());
 					op.result = m_pCtx->typeReg.Iden(op.result.Mod(), qualName);
 
 					return op;
@@ -659,7 +659,7 @@ namespace Noctis
 			{
 				TypeDisambiguationSPtr disambig = TypeDisambiguation::Create(searchHandle, boundedQualName);
 				QualNameSPtr qualName = QualName::Create(disambig);
-				qualName = QualName::Create(qualName, "ResultT");
+				qualName = qualName->Append("ResultT");
 				
 				retType = typeReg.Iden(TypeMod::None, qualName);
 				break;
@@ -694,12 +694,10 @@ namespace Noctis
 			right = right.AsRef().subType;
 		
 		QualNameSPtr ifaceQualName = GetOpInterfaceQualName(kind);
-		IdenSPtr ifaceIden = ifaceQualName->LastIden();
 		IdenGeneric ifaceIdenGen;
 		ifaceIdenGen.isSpecialized = ifaceIdenGen.isType = true;
 		ifaceIdenGen.type = right;
-		ifaceIden = Iden::Create(ifaceIden->Name(), { ifaceIdenGen });
-		ifaceQualName = QualName::Create(ifaceQualName->Base(), ifaceIden);
+		ifaceQualName = ifaceQualName->Base()->Append(ifaceQualName->LastIden(), { ifaceIdenGen });
 
 		bool found = false;
 		QualNameSPtr boundQualName;
@@ -781,7 +779,7 @@ namespace Noctis
 			}
 			default:
 			{
-				retType = typeReg.Iden(TypeMod::None, QualName::Create(boundQualName, "ResultT"));
+				retType = typeReg.Iden(TypeMod::None, boundQualName->Append("ResultT"));
 				break;
 			}
 			}
@@ -803,15 +801,14 @@ namespace Noctis
 
 	void OperatorTable::HandleBinaryOp(OperatorKind kind, SymbolSPtr impl, SymbolInstSPtr ifaceInst)
 	{
-		TypeHandle rType = ifaceInst->qualName->LastIden()->Generics()[0].type;
+		TypeHandle rType = ifaceInst->qualName->Generics()[0].type;
 
 		IdenGeneric idenGen;
 		idenGen.isType = idenGen.isSpecialized = true;
 		idenGen.type = rType;
 		
-		IdenSPtr funcIden = GetOpFuncIden(kind);
-		IdenSPtr ifaceIden = Iden::Create(ifaceInst->qualName->LastIden()->Name(), { idenGen });
-		QualNameSPtr ifaceQualName = QualName::Create(ifaceInst->qualName->Base(), ifaceIden);
+		const StdString& funcIden = GetOpFuncIden(kind);
+		QualNameSPtr ifaceQualName = ifaceInst->qualName->Base()->Append(ifaceInst->qualName->LastIden(), { idenGen });
 		
 		SymbolSPtr funcSym;
 		if (impl)
@@ -860,7 +857,7 @@ namespace Noctis
 
 	void OperatorTable::HandleUnaryOp(OperatorKind kind, SymbolSPtr impl, SymbolInstSPtr ifaceInst)
 	{
-		IdenSPtr funcIden = GetOpFuncIden(kind);
+		const StdString& funcIden = GetOpFuncIden(kind);
 		SymbolSPtr funcSym;
 		if (impl)
 			funcSym = impl->children->FindChild(ifaceInst->qualName, funcIden);
@@ -914,8 +911,8 @@ namespace Noctis
 
 	void OperatorTable::HandleConvOp(SymbolSPtr impl, SymbolInstSPtr ifaceInst)
 	{	
-		TypeHandle genType = ifaceInst->qualName->LastIden()->Generics()[0].type;
-		StdString funcName = ifaceInst->qualName->LastIden()->Name();
+		TypeHandle genType = ifaceInst->qualName->Generics()[0].type;
+		StdString funcName = ifaceInst->qualName->LastIden();
 
 		bool isTry = funcName.find("Try") != StdString::npos;
 		bool isTo = funcName.find("To") != StdString::npos;
@@ -924,12 +921,8 @@ namespace Noctis
 		idenGen.isType = idenGen.isSpecialized = true;
 		idenGen.type = isTo ? impl->type : genType;
 
-		IdenSPtr funcIden = Iden::Create(funcName);
-
-		IdenSPtr ifaceIden = Iden::Create(ifaceInst->qualName->LastIden()->Name(), { idenGen });
-		QualNameSPtr ifaceQualName = QualName::Create(ifaceInst->qualName->Base(), ifaceIden);
-
-		SymbolSPtr funcSym = impl->children->FindChild(ifaceQualName, funcIden);
+		QualNameSPtr ifaceQualName = ifaceInst->qualName->Base()->Append(ifaceInst->qualName->LastIden(), { idenGen });
+		SymbolSPtr funcSym = impl->children->FindChild(ifaceQualName, funcName);
 
 		TypeSPtr funcType = funcSym->type.Type();
 		Operator op;
@@ -1044,8 +1037,8 @@ namespace Noctis
 				{
 					IdenGeneric idenGen;
 					idenGen.isType = true;
-					idenGen.iden = Iden::Create("__T");
-					qualName->LastIden()->Generics().push_back(idenGen);
+					idenGen.iden = "__T";
+					qualName->Generics().push_back(idenGen);
 				}
 
 				ifaces.push_back(qualName);
@@ -1055,76 +1048,76 @@ namespace Noctis
 		return ifaces[u8(kind)];
 	}
 
-	IdenSPtr OperatorTable::GetOpFuncIden(OperatorKind kind)
+	const StdString& OperatorTable::GetOpFuncIden(OperatorKind kind)
 	{
-		static StdVector<IdenSPtr> funcIdens;
+		static StdVector<StdString> funcIdens;
 		if (funcIdens.empty())
 		{
 			for (u8 i = 0; i < u8(OperatorKind::Count); ++i)
 			{
-				IdenSPtr funcIden;
+				StdString funcIden;
 				switch (OperatorKind(i))
 				{
-				case OperatorKind::Pos:					funcIden = Iden::Create("opPos"); break;
-				case OperatorKind::Neg:					funcIden = Iden::Create("opNeg"); break;
-				case OperatorKind::PreInc:				funcIden = Iden::Create("opInc"); break;
-				case OperatorKind::PreDec:				funcIden = Iden::Create("opDec"); break;
-				case OperatorKind::Not:					funcIden = Iden::Create("opNot"); break;
-				case OperatorKind::BinNeg:				funcIden = Iden::Create("opBinNeg"); break;
-				case OperatorKind::Deref:				funcIden = Iden::Create("opDeref"); break;
-				case OperatorKind::MutDeref:			funcIden = Iden::Create("opMutDeref"); break;
+				case OperatorKind::Pos:					funcIden = "opPos"; break;
+				case OperatorKind::Neg:					funcIden = "opNeg"; break;
+				case OperatorKind::PreInc:				funcIden = "opInc"; break;
+				case OperatorKind::PreDec:				funcIden = "opDec"; break;
+				case OperatorKind::Not:					funcIden = "opNot"; break;
+				case OperatorKind::BinNeg:				funcIden = "opBinNeg"; break;
+				case OperatorKind::Deref:				funcIden = "opDeref"; break;
+				case OperatorKind::MutDeref:			funcIden = "opMutDeref"; break;
 				case OperatorKind::RefOrAddrOf:			break; // Not overloadable
-				case OperatorKind::PostInc:				funcIden = Iden::Create("opInc"); break;
-				case OperatorKind::PostDec:				funcIden = Iden::Create("opDec"); break;
-				case OperatorKind::NullPanic:			funcIden = Iden::Create("opNullPanic"); break;
-				case OperatorKind::Add:					funcIden = Iden::Create("opAdd"); break;
-				case OperatorKind::Sub:					funcIden = Iden::Create("opSub"); break;
-				case OperatorKind::Mul:					funcIden = Iden::Create("opMul"); break;
-				case OperatorKind::Div:					funcIden = Iden::Create("opDiv"); break;
-				case OperatorKind::Rem:					funcIden = Iden::Create("opRem"); break;
-				case OperatorKind::Concat:				funcIden = Iden::Create("opConcat"); break;
+				case OperatorKind::PostInc:				funcIden = "opInc"; break;
+				case OperatorKind::PostDec:				funcIden = "opDec"; break;
+				case OperatorKind::NullPanic:			funcIden = "opNullPanic"; break;
+				case OperatorKind::Add:					funcIden = "opAdd"; break;
+				case OperatorKind::Sub:					funcIden = "opSub"; break;
+				case OperatorKind::Mul:					funcIden = "opMul"; break;
+				case OperatorKind::Div:					funcIden = "opDiv"; break;
+				case OperatorKind::Rem:					funcIden = "opRem"; break;
+				case OperatorKind::Concat:				funcIden = "opConcat"; break;
 				case OperatorKind::Or:					break; // Not overloadable
 				case OperatorKind::And:					break; // Not overloadable
-				case OperatorKind::LShl:				funcIden = Iden::Create("opShl"); break;
-				case OperatorKind::AShl:				funcIden = Iden::Create("opAShl"); break;
-				case OperatorKind::Rotl:				funcIden = Iden::Create("opRotl"); break;
-				case OperatorKind::LShr:				funcIden = Iden::Create("opShr"); break;
-				case OperatorKind::AShr:				funcIden = Iden::Create("opAShr"); break;
-				case OperatorKind::Rotr:				funcIden = Iden::Create("opRotr"); break;
-				case OperatorKind::BinOr:				funcIden = Iden::Create("opBinOr"); break;
-				case OperatorKind::BinXor:				funcIden = Iden::Create("opBinXor"); break;
-				case OperatorKind::BinAnd:				funcIden = Iden::Create("opBinAnd"); break;
-				case OperatorKind::Eq:					funcIden = Iden::Create("opEq"); break;
-				case OperatorKind::Ne:					funcIden = Iden::Create("opNe"); break;
-				case OperatorKind::Lt:					funcIden = Iden::Create("opLt"); break;
-				case OperatorKind::Le:					funcIden = Iden::Create("opLe"); break;
-				case OperatorKind::Gt:					funcIden = Iden::Create("opGt"); break;
-				case OperatorKind::Ge:					funcIden = Iden::Create("opGe"); break;
-				case OperatorKind::Range:				funcIden = Iden::Create("opRange"); break;
-				case OperatorKind::IncRange:			funcIden = Iden::Create("opRange"); break;
+				case OperatorKind::LShl:				funcIden = "opShl"; break;
+				case OperatorKind::AShl:				funcIden = "opAShl"; break;
+				case OperatorKind::Rotl:				funcIden = "opRotl"; break;
+				case OperatorKind::LShr:				funcIden = "opShr"; break;
+				case OperatorKind::AShr:				funcIden = "opAShr"; break;
+				case OperatorKind::Rotr:				funcIden = "opRotr"; break;
+				case OperatorKind::BinOr:				funcIden = "opBinOr"; break;
+				case OperatorKind::BinXor:				funcIden = "opBinXor"; break;
+				case OperatorKind::BinAnd:				funcIden = "opBinAnd"; break;
+				case OperatorKind::Eq:					funcIden = "opEq"; break;
+				case OperatorKind::Ne:					funcIden = "opNe"; break;
+				case OperatorKind::Lt:					funcIden = "opLt"; break;
+				case OperatorKind::Le:					funcIden = "opLe"; break;
+				case OperatorKind::Gt:					funcIden = "opGt"; break;
+				case OperatorKind::Ge:					funcIden = "opGe"; break;
+				case OperatorKind::Range:				funcIden = "opRange"; break;
+				case OperatorKind::IncRange:			funcIden = "opRange"; break;
 				case OperatorKind::NullCoalesce:		break; // Not overloadable
 				case OperatorKind::Elvis:				break; // Not overloadable
-				case OperatorKind::In:					funcIden = Iden::Create("opContains"); break;
-				case OperatorKind::NotIn:				funcIden = Iden::Create("opNotContains"); break;
+				case OperatorKind::In:					funcIden = "opContains"; break;
+				case OperatorKind::NotIn:				funcIden = "opNotContains"; break;
 				case OperatorKind::Assign:				break; // Not overloadable
-				case OperatorKind::AddAssign:			funcIden = Iden::Create("opAddAssign"); break;
-				case OperatorKind::SubAssign:			funcIden = Iden::Create("opSubAssign"); break;
-				case OperatorKind::MulAssign:			funcIden = Iden::Create("opMulAssign"); break;
-				case OperatorKind::DivAssign:			funcIden = Iden::Create("opDivAssign"); break;
-				case OperatorKind::RemAssign:			funcIden = Iden::Create("opRemAssign"); break;
-				case OperatorKind::ConcatAssign:		funcIden = Iden::Create("opConcatAssign"); break;
-				case OperatorKind::LShlAssign:			funcIden = Iden::Create("opShlAssign"); break;
-				case OperatorKind::AShlAssign:			funcIden = Iden::Create("opAShlAssign"); break;
-				case OperatorKind::RotlAssign:			funcIden = Iden::Create("opRotlAssign"); break;
-				case OperatorKind::LShrAssign:			funcIden = Iden::Create("opShrAssign"); break;
-				case OperatorKind::AShrAssign:			funcIden = Iden::Create("opAShrAssign"); break;
-				case OperatorKind::RotrAssign:			funcIden = Iden::Create("opRotrAssign"); break;
-				case OperatorKind::BinOrAssign:			funcIden = Iden::Create("opBinOrAssign"); break;
-				case OperatorKind::BinXorAssign:		funcIden = Iden::Create("opBinXorAssign"); break;
-				case OperatorKind::BinAndAssign:		funcIden = Iden::Create("opBinAndAssign"); break;
+				case OperatorKind::AddAssign:			funcIden = "opAddAssign"; break;
+				case OperatorKind::SubAssign:			funcIden = "opSubAssign"; break;
+				case OperatorKind::MulAssign:			funcIden = "opMulAssign"; break;
+				case OperatorKind::DivAssign:			funcIden = "opDivAssign"; break;
+				case OperatorKind::RemAssign:			funcIden = "opRemAssign"; break;
+				case OperatorKind::ConcatAssign:		funcIden = "opConcatAssign"; break;
+				case OperatorKind::LShlAssign:			funcIden = "opShlAssign"; break;
+				case OperatorKind::AShlAssign:			funcIden = "opAShlAssign"; break;
+				case OperatorKind::RotlAssign:			funcIden = "opRotlAssign"; break;
+				case OperatorKind::LShrAssign:			funcIden = "opShrAssign"; break;
+				case OperatorKind::AShrAssign:			funcIden = "opAShrAssign"; break;
+				case OperatorKind::RotrAssign:			funcIden = "opRotrAssign"; break;
+				case OperatorKind::BinOrAssign:			funcIden = "opBinOrAssign"; break;
+				case OperatorKind::BinXorAssign:		funcIden = "opBinXorAssign"; break;
+				case OperatorKind::BinAndAssign:		funcIden = "opBinAndAssign"; break;
 				case OperatorKind::NullCoalesceAssign:	break; // Not overloadable
-				case OperatorKind::Index:               funcIden = Iden::Create("opIndex"); break;
-				case OperatorKind::MutIndex:            funcIden = Iden::Create("opMutIndex"); break;
+				case OperatorKind::Index:               funcIden = "opIndex"; break;
+				case OperatorKind::MutIndex:            funcIden = "opMutIndex"; break;
 				case OperatorKind::Cast:                break;
 				case OperatorKind::Invalid:             break;
 				case OperatorKind::TryCast:             break;

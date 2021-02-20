@@ -18,7 +18,10 @@ namespace Noctis::NameMangling
 			StdString mangledName;
 			if (sym->qualName->Base())
 				mangledName += Mangle(pCtx, sym->qualName->Base(), pBoundsInfo);
-			mangledName += Mangle(pCtx, sym->qualName->LastIden(), pBoundsInfo);
+			
+			mangledName += Mangle(sym->qualName->LastIden());
+			mangledName += Mangle(pCtx, sym->qualName->Generics(), pBoundsInfo);
+			
 			StdString mangledType = Mangle(pCtx, sym->type);
 			return "_NF" + mangledName + mangledType;
 		}
@@ -31,7 +34,8 @@ namespace Noctis::NameMangling
 				parent->kind == SymbolKind::WeakInterface)
 			{
 				StdString mangledName = Mangle(pCtx, sym->type);
-				mangledName += Mangle(pCtx, sym->qualName->LastIden(), pBoundsInfo);
+				mangledName += Mangle(sym->qualName->LastIden());
+				mangledName += Mangle(pCtx, sym->qualName->Generics(), pBoundsInfo);
 
 				StdString mangledType = Mangle(pCtx, sym->type);
 				return "_NM" + mangledName + mangledType;
@@ -42,7 +46,8 @@ namespace Noctis::NameMangling
 				StdString parentMangled = Mangle(pCtx, parentQualName, pBoundsInfo);
 				
 				StdString mangledName = Mangle(pCtx, parent->type);
-				mangledName += Mangle(pCtx, sym->qualName->LastIden(), pBoundsInfo);
+				mangledName += Mangle(sym->qualName->LastIden());
+				mangledName += Mangle(pCtx, sym->qualName->Generics(), pBoundsInfo);
 				
 				StdString mangledType = Mangle(pCtx, sym->type);
 				return "_NN"  + parentMangled + "Z" + mangledName + mangledType;
@@ -55,75 +60,74 @@ namespace Noctis::NameMangling
 	StdString Mangle(Context* pCtx, QualNameSPtr qualName, BoundsInfo* pBoundsInfo)
 	{
 		StdString mangled;
-		StdVector<IdenSPtr> idens = qualName->Idens();
-		for (IdenSPtr iden : idens)
+		for (const StdString& iden : qualName->Idens())
 		{
-			mangled += Mangle(pCtx, iden, pBoundsInfo);
+			mangled += Mangle(iden);
+		}
+		mangled += Mangle(pCtx, qualName->Generics(), pBoundsInfo);
+		return mangled;
+	}
+
+	StdString Mangle(Context* pCtx, StdVector<IdenGeneric>& idenGens, BoundsInfo* pBoundsInfo)
+	{
+		if (idenGens.empty())
+			return "";
+
+		StdString mangled = "G";
+
+		for (IdenGeneric& generic : idenGens)
+		{
+			if (generic.isType)
+			{
+				if (generic.isSpecialized)
+				{
+					mangled += "U";
+					mangled += Mangle(pCtx, generic.type);
+					mangled += "Z";
+				}
+				else
+				{
+					mangled += Format("T%u", generic.type.AsGeneric().id);
+					if (pBoundsInfo)
+					{
+						const Bounds& bounds = pBoundsInfo->GetBounds(generic.type);
+						if (!bounds.bounds.empty())
+						{
+							mangled += "C";
+							for (TypeHandle constraint : bounds.bounds)
+							{
+								mangled += Mangle(pCtx, constraint);
+							}
+							mangled += "Z";
+						}
+					}
+
+					mangled += "Z";
+				}
+			}
+			else
+			{
+				if (generic.isSpecialized)
+				{
+					mangled += "W";
+					// TODO
+					mangled += "Z";
+				}
+				else
+				{
+					mangled += "V";
+					mangled += Mangle(generic.iden);
+					mangled += Mangle(pCtx, generic.type);
+					mangled += "Z";
+				}
+			}
 		}
 		return mangled;
 	}
 
-	StdString Mangle(Context* pCtx, IdenSPtr iden, BoundsInfo* pBoundsInfo)
+	StdString Mangle(const StdString& iden)
 	{
-		const StdString& name = iden->Name();
-		u32 len = u32(name.length());
-		StdString mangled = Format("%u%s", len, name.c_str());
-
-		
-		if (!iden->Generics().empty())
-		{
-			mangled += 'G';
-
-			for (IdenGeneric& generic : iden->Generics())
-			{
-				if (generic.isType)
-				{
-					if (generic.isSpecialized)
-					{
-						mangled += "U";
-						mangled += Mangle(pCtx, generic.type);
-						mangled += "Z";
-					}
-					else
-					{
-						mangled += Format("T%u", generic.type.AsGeneric().id);
-						if (pBoundsInfo)
-						{
-							const Bounds& bounds = pBoundsInfo->GetBounds(generic.type);
-							if (!bounds.bounds.empty())
-							{
-								mangled += "C";
-								for (TypeHandle constraint : bounds.bounds)
-								{
-									mangled += Mangle(pCtx, constraint);
-								}
-								mangled += "Z";
-							}
-						}
-						
-						mangled += "Z";
-					}
-				}
-				else
-				{
-					if (generic.isSpecialized)
-					{
-						mangled += "W";
-						// TODO
-						mangled += "Z";
-					}
-					else
-					{
-						mangled += "V";
-						mangled += Mangle(pCtx, generic.iden, pBoundsInfo);
-						mangled += Mangle(pCtx, generic.type);
-						mangled += "Z";
-					}
-				}
-			}
-		}
-
-		return mangled;
+		return Format("%u%s", iden.size(), iden.c_str());
 	}
 
 	StdString Mangle(Context* pCtx, TypeHandle type)
@@ -250,16 +254,21 @@ namespace Noctis::NameMangling
 		QualNameSPtr qualName;
 		while (idx < data.size() && isdigit(data[idx]))
 		{
-			IdenSPtr iden = DemangleIden(pCtx, data, idx, pBoundsInfo);
-			qualName = QualName::Create(qualName, iden);
+			if (!qualName)
+				qualName = QualName::Create(DemangleLName(data, idx));
+			else
+				qualName = qualName->Append(DemangleLName(data, idx));
 		}
+
+		StdVector<IdenGeneric> generics = DemangledGenerics(pCtx, data, idx, pBoundsInfo);
+		if (!generics.empty())
+			qualName = qualName->Base()->Append(qualName->LastIden(), generics);
+		
 		return qualName;
 	}
 
-	IdenSPtr DemangleIden(Context* pCtx, StdStringView data, usize& idx, BoundsInfo* pBoundsInfo)
+	StdVector<IdenGeneric> DemangledGenerics(Context* pCtx, StdStringView data, usize& idx, BoundsInfo* pBoundsInfo)
 	{
-		StdString name = DemangleLName(data, idx);
-
 		StdVector<IdenGeneric> generics;
 		if (idx < data.size() && data[idx] == 'G')
 		{
@@ -275,7 +284,7 @@ namespace Noctis::NameMangling
 
 					IdenGeneric idenGen;
 					idenGen.isType = true;
-					idenGen.iden = Iden::Create(Format("T%u", id));
+					idenGen.iden = Format("T%u", id);
 					idenGen.type = pCtx->typeReg.Generic(TypeMod::None, id);
 					generics.push_back(idenGen);
 
@@ -306,7 +315,7 @@ namespace Noctis::NameMangling
 
 					IdenGeneric idenGen;
 					idenGen.isType = false;
-					idenGen.iden = Iden::Create(genName);
+					idenGen.iden = genName;
 					idenGen.type = type;
 
 					generics.push_back(idenGen);
@@ -335,7 +344,7 @@ namespace Noctis::NameMangling
 			++idx;
 		}
 
-		return Iden::Create(name, generics);
+		return generics;
 	}
 
 	TypeHandle DemangleType(Context* pCtx, StdStringView data)

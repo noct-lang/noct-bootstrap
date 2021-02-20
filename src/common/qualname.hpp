@@ -4,8 +4,6 @@
 
 namespace Noctis
 {
-	FWDECL_CLASS_SPTR(Iden);
-	FWDECL_CLASS_WPTR(Iden);
 	FWDECL_CLASS_SPTR(TypeDisambiguation);
 	FWDECL_CLASS_SPTR(QualName);
 	FWDECL_CLASS_WPTR(QualName);
@@ -16,39 +14,12 @@ namespace Noctis
 		
 		bool isType;
 		bool isSpecialized;
-		IdenSPtr iden;
+		StdString iden;
 		TypeHandle type;
 
 		ITrExprSPtr itrExpr;
 	};
 	
-	class Iden
-	{
-	public:
-		static IdenSPtr Create(StdStringView name);
-		static IdenSPtr Create(StdStringView name, const StdVector<IdenGeneric>& generics);
-
-		const StdString& Name() const { return m_Name; }
-		StdVector<IdenGeneric>& Generics() { return m_Generics; }
-		IdenSPtr Fuzzy() { return fuzzy.lock(); }
-
-		StdString ToString() const;
-
-	private:
-		Iden(StdString name, StdVector<IdenGeneric> generics);
-
-		static IdenSPtr CreateFuzzy(StdStringView name, const StdVector<IdenGeneric>& generics);
-		
-		StdString m_Name;
-		StdVector<IdenGeneric> m_Generics;
-
-		IdenWPtr fuzzy;
-
-		static StdUnorderedMap<StdString, StdUnorderedMap<u64, StdVector<IdenSPtr>>> s_Idens;
-		static StdUnorderedMap<StdString, StdUnorderedMap<u64, StdVector<IdenSPtr>>> s_FuzzyIdens;
-		static StdString s_SearchString;
-	};
-
 	class TypeDisambiguation
 	{
 	public:
@@ -69,18 +40,25 @@ namespace Noctis
 	class QualName
 	{
 	public:
-		static QualNameSPtr Create(IdenSPtr iden);
-		static QualNameSPtr Create(TypeDisambiguationSPtr disambiguation);
-		
-		static QualNameSPtr Create(QualNameSPtr base, IdenSPtr iden);
-		static QualNameSPtr Create(QualNameSPtr base, StdStringView name);
-		static QualNameSPtr Create(const StdVector<StdString>& names);
-		static QualNameSPtr Create(const StdVector<IdenSPtr>& idens);
-		static QualNameSPtr Create(QualNameSPtr first, const StdVector<IdenSPtr>& idens);
+		static QualNameSPtr Create(const StdString& iden);
+		static QualNameSPtr Create(const StdString& iden, const StdVector<IdenGeneric>& generics);
+		static QualNameSPtr Create(const StdVector<StdString>& idens);
+		static QualNameSPtr Create(const StdVector<StdString>& idens, const StdVector<IdenGeneric>& generics);
+		static QualNameSPtr Create(TypeDisambiguationSPtr disambig);
+
+		QualNameSPtr Append(QualNameSPtr qualName);
+		QualNameSPtr Append(const StdString& iden);
+		QualNameSPtr Append(const StdString& iden, const StdVector<IdenGeneric>& generics);
+		QualNameSPtr Append(const StdVector<StdString>& idens);
+		QualNameSPtr Append(const StdVector<StdString>& idens, const StdVector<IdenGeneric>& generics);
+
+		QualNameSPtr AppendLastIden(QualNameSPtr qualName);
+
+		QualNameSPtr WithGenerics(const StdVector<IdenGeneric>& generics);
 
 		StdString ToString() const;
 		QualNameSPtr GetSubName(QualNameSPtr base);
-		QualNameSPtr GetSubName(usize depth);
+		QualNameSPtr GetSubName(usize depth, usize numGenerics);
 
 		QualNameSPtr GetBaseName(usize depth);
 		 
@@ -88,28 +66,37 @@ namespace Noctis
 		bool IsSubnameOf(QualNameSPtr base);
 
 		TypeDisambiguationSPtr Disambiguation() { return m_Disambiguation; }
-		IdenSPtr LastIden() { return m_Idens.back(); }
-		const IdenSPtr LastIden() const { return m_Idens.back(); }
-		const StdVector<IdenSPtr>& Idens() { return m_Idens; }
+		StdString& LastIden() { return m_Idens.back(); }
+		const StdString& LastIden() const { return m_Idens.back(); }
+		const StdVector<StdString>& Idens() { return m_Idens; }
 		usize Depth() { return m_Idens.size(); }
+		
+		StdVector<IdenGeneric>& Generics() { return m_Generics; }
+		bool IsGeneric() const { return !m_Generics.empty(); }
 
-		QualNameSPtr Base() { return m_Base; }
-		const QualNameSPtr Base() const { return m_Base; }
+		QualNameSPtr Base(usize numGenerics = 0);
 
 		QualNameSPtr Fuzzy() { return m_Fuzzy.lock(); }
 
 	private:
-		QualName(QualNameSPtr base, IdenSPtr iden);
+		QualName(QualNameSPtr base, StdString iden);
 		QualName(TypeDisambiguationSPtr disambiguation);
+
+		static bool CompareGenerics(const StdVector<IdenGeneric>& gens0, const StdVector<IdenGeneric>& gens1);
+		static QualNameSPtr CreateFuzzy(TypeDisambiguationSPtr disambig, const StdVector<StdString>& idens, const StdVector<IdenGeneric>& generics);
 		
 		TypeDisambiguationSPtr m_Disambiguation;
-		StdVector<IdenSPtr> m_Idens;
+		StdVector<StdString> m_Idens;
 		QualNameWPtr m_Fuzzy;
+
+		StdVector<IdenGeneric> m_Generics;
 		
+		QualNameWPtr m_Self;
+		QualNameWPtr m_NoGenSelf;
 		QualNameSPtr m_Base;
-		StdUnorderedMap<IdenSPtr, QualNameSPtr> m_Children;
+		StdUnorderedMap<StdString, StdVector<QualNameSPtr>> m_Children;
 		
-		static StdUnorderedMap<IdenSPtr, QualNameSPtr> s_BaseNames;
+		static StdUnorderedMap<StdString, StdVector<QualNameSPtr>> s_BaseNames;
 		static StdUnorderedMap<TypeDisambiguationSPtr, QualNameSPtr> s_TypeDisambiguationBaseNames;
 	};
 	

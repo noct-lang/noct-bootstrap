@@ -96,7 +96,7 @@ namespace Noctis
 		u32 AddNewBlock();
 		void SetCurBlock(u32 label);
 
-		void MapVar(IdenSPtr iden, ILVar var);
+		void MapVar(const StdString& iden, ILVar var);
 
 		ILVar CreateDstVar(TypeHandle type);
 		ILVar PopTmpVar();
@@ -160,8 +160,8 @@ namespace Noctis
 		QualNameSPtr m_FuncScope;
 		StdVector<StdString> m_ScopeNames;
 
-		StdUnorderedMap<IdenSPtr, StdVector<ILVar>> m_VarMapping;
-		StdUnorderedMap<IdenSPtr, u32> m_LabelMapping;
+		StdUnorderedMap<StdString, StdVector<ILVar>> m_VarMapping;
+		StdUnorderedMap<StdString, u32> m_LabelMapping;
 		StdUnorderedMap<ITrBlock*, u32> m_ITrBlockMapping;
 		StdStack<u32> m_LabelStack;
 		StdStack<u32> m_LoopBeginLabels;

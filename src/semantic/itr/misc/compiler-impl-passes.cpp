@@ -151,7 +151,7 @@ namespace Noctis
 			else
 			{
 				StdString typeName = NameMangling::Mangle(m_pCtx, type);
-				parentQualName = QualName::Create(Iden::Create(typeName));
+				parentQualName = QualName::Create(typeName);
 			}
 
 			usize implDepth = node.qualName->Depth();
@@ -164,7 +164,7 @@ namespace Noctis
 				if (!subName)
 					return;
 				
-				QualNameSPtr qualName = QualName::Create(parentQualName, subName->Idens());
+				QualNameSPtr qualName = parentQualName->Append(subName);
 				child->qualName = qualName;
 			});
 
