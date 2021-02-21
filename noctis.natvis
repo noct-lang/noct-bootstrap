@@ -2,17 +2,17 @@
 <AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
   <!--Types-->
   <Type Name="Noctis::TypeHandle">
-    <DisplayString Condition="type == 0">invalid</DisplayString>
+    <DisplayString Condition="type._Ptr == 0">invalid</DisplayString>
     <DisplayString>type-handle {{{type->type}}}</DisplayString>
     <Expand>
-      <ExpandedItem>type->type</ExpandedItem>
+      <ExpandedItem Condition="type._Ptr == 0">type->type</ExpandedItem>
     </Expand>
   </Type>
   <Type Name="std::shared_ptr&lt;Noctis::Type&gt;">
     <DisplayString Condition="_Ptr == 0">invalid-type</DisplayString>
     <DisplayString>{*_Ptr}</DisplayString>
     <Expand>
-      <ExpandedItem>*_Ptr</ExpandedItem>
+      <ExpandedItem Condition="_Ptr != 0">*_Ptr</ExpandedItem>
       <Item Name="[ptr]">_Ptr</Item>
     </Expand>
   </Type>
@@ -37,7 +37,7 @@
     <DisplayString Condition="_Ptr == 0">empty</DisplayString>
     <DisplayString>qualname {*_Ptr}</DisplayString>
     <Expand>
-      <ExpandedItem>*_Ptr</ExpandedItem>
+      <ExpandedItem Condition="_Ptr != 0">*_Ptr</ExpandedItem>
       <Item Name="[ptr]">_Ptr</Item>
     </Expand>
   </Type>
@@ -52,21 +52,6 @@
       <Item Name="[generics]">m_Generics</Item>
     </Expand>
   </Type>
-  <Type Name="std::shared_ptr&lt;Noctis::Iden&gt;">
-    <DisplayString Condition="_Ptr == 0">empty</DisplayString>
-    <DisplayString>iden {*_Ptr}</DisplayString>
-    <Expand>
-      <ExpandedItem>*_Ptr</ExpandedItem>
-      <Item Name="[ptr]">_Ptr</Item>
-    </Expand>
-  </Type>
-  <Type Name="Noctis::Iden">
-    <DisplayString>{{name='{m_Name}', generics={m_Generics}}}</DisplayString>
-    <Expand>
-      <Item Name="[name]">m_Name</Item>
-      <Item Name="[generics]">m_Generics</Item>
-    </Expand>
-  </Type>
   <Type Name="Noctis::TypeDisambiguation">
     <DisplayString>{{type='{m_Type}', iface='{m_QualName}'}}</DisplayString>
     <Expand>
@@ -75,10 +60,19 @@
     </Expand>
   </Type>
   <Type Name="std::shared_ptr&lt;Noctis::TypeDisambiguation&gt;">
+    <DisplayString Condition="_Ptr == 0">empty</DisplayString>
     <DisplayString>disambig {*_Ptr}</DisplayString>
     <Expand>
-      <ExpandedItem>*_Ptr</ExpandedItem>
+      <ExpandedItem Condition="_Ptr != 0">*_Ptr</ExpandedItem>
       <Item Name="[ptr]">_Ptr</Item>
     </Expand>
+  </Type>
+  <!--Symbol-->
+  <Type Name="Noctis::Symbol">
+    <DisplayString>{{ vis={vis}, kind={kind}, {qualName}}}</DisplayString>
+  </Type>
+  <!--SymbolInst-->
+  <Type Name="Noctis::SymbolInst">
+    <DisplayString>{{ {qualName}}}</DisplayString>
   </Type>
 </AutoVisualizer>
