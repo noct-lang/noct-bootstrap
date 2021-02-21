@@ -6,7 +6,7 @@
 #include "itr/itr.hpp"
 #include "module/function.hpp"
 #include "module/module.hpp"
-
+#include <algorithm>
 
 // TODO: Inference needs to work in the opposite direction, e.g. should infer type of return from func, type of the arg from the expected type, etc
 namespace Noctis

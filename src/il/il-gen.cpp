@@ -6,6 +6,7 @@
 #include "common/utils.hpp"
 #include "module/module.hpp"
 #include "module/function.hpp"
+#include <algorithm>
 
 namespace Noctis
 {

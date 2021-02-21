@@ -1,7 +1,5 @@
 #include "misc-passes.hpp"
 
-
-
 #include "ast/ast.hpp"
 #include "common/context.hpp"
 #include "common/errorsystem.hpp"
@@ -10,6 +8,7 @@
 #include "itr/itr.hpp"
 #include "module/function.hpp"
 #include "module/symbol.hpp"
+#include <algorithm>
 
 namespace Noctis
 {
