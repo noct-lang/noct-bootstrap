@@ -59,8 +59,14 @@ namespace Noctis
 		StdVector<IdenGeneric> idenGens;
 		for (AstQualIdenSPtr iden : node.idens)
 		{
+			if (iden->qualIdenKind != AstQualIdenKind::Identifier)
+				continue;
+			
 			AstIden& astIden = static_cast<AstIden&>(*iden);
 			idens.push_back(astIden.iden);
+
+			if (!astIden.ctx->qualName)
+				continue;
 			
 			const StdVector<IdenGeneric> generics = astIden.ctx->qualName->Generics();
 			if (generics.empty())
@@ -255,6 +261,13 @@ namespace Noctis
 			AstBlockStmt& body = static_cast<AstBlockStmt&>(*case_.body);
 			StdString name = Format("case_%u", i);
 			IdenScope(body.ctx, name);
+
+			AstVisitor::Visit(case_.pattern);
+			if (case_.expr)
+				AstVisitor::Visit(case_.expr);
+			AstVisitor::Visit(case_.body);
+
+			m_CurScope = m_CurScope->Base();
 		}
 		
 		m_CurScope = m_CurScope->Base();

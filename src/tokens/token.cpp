@@ -209,39 +209,39 @@ namespace Noctis
 		return u8(type) >= u8(TokenType::F16Lit) && u8(type) <= u8(TokenType::F128Lit);
 	}
 
-	Token::Token(TokenType type, u64 tokenIdx)
+	Token::Token(TokenType type, u64 spanIdx)
 		: m_Type(type)
-		, m_TokenIdx(tokenIdx)
+		, m_SpanIdx(spanIdx)
 		, m_Signed(0)
 	{
 	}
 
-	Token::Token(TokenType type, StdString text, u64 tokenIdx)
+	Token::Token(TokenType type, StdString text, u64 spanIdx)
 		: m_Type(type)
 		, m_Iden(std::move(text))
-		, m_TokenIdx(tokenIdx)
+		, m_SpanIdx(spanIdx)
 		, m_Signed(0)
 		, m_Bool(type == TokenType::True)
 	{
 	}
 
-	Token::Token(TokenType type, i64 val, u64 tokenIdx)
+	Token::Token(TokenType type, i64 val, u64 spanIdx)
 		: m_Type(type)
-		, m_TokenIdx(tokenIdx)
+		, m_SpanIdx(spanIdx)
 		, m_Signed(val)
 	{
 	}
 
-	Token::Token(TokenType type, u64 val, u64 tokenIdx)
+	Token::Token(TokenType type, u64 val, u64 spanIdx)
 		: m_Type(type)
-		, m_TokenIdx(tokenIdx)
+		, m_SpanIdx(spanIdx)
 		, m_Unsigned(val)
 	{
 	}
 
-	Token::Token(TokenType type, f64 val, u64 tokenIdx)
+	Token::Token(TokenType type, f64 val, u64 spanIdx)
 		: m_Type(type)
-		, m_TokenIdx(tokenIdx)
+		, m_SpanIdx(spanIdx)
 		, m_Fp(val)
 	{
 	}
@@ -348,7 +348,7 @@ namespace Noctis
 			const Token& tok = subTree.tok;
 			std::stringstream ss;
 
-			Span span = spanManager.GetSpan(i);
+			Span span = spanManager.GetSpan(tok.Idx());
 
 			ss << '[' << span.line << ':' << span.column << ']';
 			ss << ", ";

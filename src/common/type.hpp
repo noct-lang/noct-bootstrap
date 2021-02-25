@@ -99,11 +99,9 @@ namespace Noctis
 	struct TypeHandle
 	{
 		TypeHandle()
-			: pReg(nullptr)
 		{}
-		explicit TypeHandle(TypeRegistry* pReg, StdSharedPtr<THandle> handle)
-			: pReg(pReg)
-			, type(handle)
+		explicit TypeHandle(StdSharedPtr<THandle> handle)
+			: type(handle)
 		{}
 
 		TypeKind Kind() const;
@@ -130,13 +128,12 @@ namespace Noctis
 
 		StdString ToString() const;
 
-		bool IsValid() const { return pReg && !!type; }
+		bool IsValid() const { return !!type; }
 
 		bool operator==(const TypeHandle& other) const;
 		bool operator!=(const TypeHandle& other) const;
 
 		StdSharedPtr<THandle> type;
-		TypeRegistry* pReg;
 	};
 }
 

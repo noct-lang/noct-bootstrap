@@ -84,6 +84,9 @@ namespace Noctis
 		void HandleAssocTypes(TypeHandle srcType, ITrGenBoundType& boundType);
 
 		void UpdateInstantiations(SymbolSPtr sym);
+
+		StdVector<TypeHandle> GetPossibleCallerType(TypeHandle type);
+		StdVector<TypeHandle> GetPossibleCallersForType(TypeHandle type);
 		
 		QualNameSPtr GetCurScope();
 

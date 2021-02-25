@@ -283,7 +283,7 @@ namespace Noctis
 	StdString TypeHandle::ToString() const
 	{
 		if (IsValid())
-			return pReg->ToString(*this);
+			return g_TypeReg.ToString(*this);
 		return "__unknown__";
 	}
 
@@ -291,7 +291,7 @@ namespace Noctis
 	{
 		if (!IsValid() || !other.IsValid())
 			return false;
-		return pReg->CompareTypes(*this, other);
+		return g_TypeReg.CompareTypes(*this, other);
 	}
 
 	bool TypeHandle::operator!=(const TypeHandle& other) const
@@ -751,69 +751,54 @@ namespace Noctis
 		if (param == arg)
 			return true;
 
-		TypeSPtr paramType = param.Type();
-		TypeSPtr argType = arg.Type();
-
-		if (paramType->base.mod == TypeMod::Mut &&
-				argType->base.mod == TypeMod::None &&
-				Mod(TypeMod::None, param) == arg)
+		if (param.Mod() == TypeMod::None &&
+			arg.Mod() == TypeMod::Mut &&
+			Mod(TypeMod::None, param) == arg)
 			return true;
 
-		if (paramType->typeKind == argType->typeKind)
+		if (param.Kind() == arg.Kind())
 		{
-			switch (paramType->typeKind)
+			switch (param.Kind())
 			{
 			case TypeKind::Builtin:
 			case TypeKind::Iden:
+			case TypeKind::Func:
 			{
-				// Should never get here
-				break;
+				// If we get here, it isn't valid
+				return false;
 			}
 			case TypeKind::Ptr:
-			{
-				TypeHandle paramSubType = paramType->AsPtr().subType;
-				TypeHandle argSubType = argType->AsPtr().subType;
-
-				if (paramSubType.Type()->base.mod == TypeMod::Mut &&
-					argSubType.Type()->base.mod == TypeMod::None &&
-					Mod(TypeMod::None, paramSubType) == argSubType)
-					return true;
-			}
+				return CanPassTo(param.AsPtr().subType, arg.AsPtr().subType);
 			case TypeKind::Ref:
-			{
-				TypeHandle paramSubType = paramType->AsRef().subType;
-				TypeHandle argSubType = argType->AsRef().subType;;
-
-				if (paramSubType.Type()->base.mod == TypeMod::Mut &&
-					argSubType.Type()->base.mod == TypeMod::None &&
-					Mod(TypeMod::None, paramSubType) == argSubType)
-					return true;
-			}
+				return CanPassTo(param.AsRef().subType, arg.AsRef().subType);
 			case TypeKind::Slice:
-			{
-				TypeHandle paramSubTypeHandle = paramType->AsSlice().subType;
-				TypeHandle argSubTypeHandle = argType->AsSlice().subType;
-
-				TypeSPtr paramSubType = paramSubTypeHandle.Type();
-				TypeSPtr argSubType = argSubTypeHandle.Type();
-
-				if (paramSubType->base.mod == TypeMod::Mut &&
-					argSubType->base.mod == TypeMod::None &&
-					Mod(TypeMod::None, paramSubTypeHandle) == argSubTypeHandle)
-					return true;
-			}
+				return CanPassTo(param.AsSlice().subType, arg.AsSlice().subType);
 			case TypeKind::Array:
-				// TODO
-				break;
-			case TypeKind::Tuple: break;
-			case TypeKind::Opt: break;
-			case TypeKind::Func: break;
+				return CanPassTo(param.AsArray().subType, arg.AsArray().subType);
+			case TypeKind::Tuple:
+			{
+				TupleType& tupParam = param.AsTuple();
+				TupleType& tupArg = arg.AsTuple();
+
+				if (tupParam.subTypes.size() != tupArg.subTypes.size())
+					return false;
+
+				for (usize i = 0; i < tupParam.subTypes.size(); ++i)
+				{
+					if (!CanPassTo(tupParam.subTypes[i], tupArg.subTypes[i]))
+						return false;
+				}
+
+				return true;
+			}
+			case TypeKind::Opt:
+				return CanPassTo(param.AsOpt().subType, arg.AsOpt().subType);
 			default:;
 			}
 		}
-		else if (argType->typeKind == TypeKind::Ref)
+		else if (arg.Kind() == TypeKind::Ref)
 		{
-			TypeHandle subArgType = argType->AsRef().subType;
+			TypeHandle subArgType = arg.AsRef().subType;
 			return CanPassTo(param, subArgType);
 		}
 		
@@ -1689,7 +1674,7 @@ namespace Noctis
 
 	TypeHandle TypeRegistry::CreateHandle(TypeSPtr type)
 	{
-		return TypeHandle{ this, StdSharedPtr<THandle>{ new THandle{ type } } };
+		return TypeHandle{ StdSharedPtr<THandle>{ new THandle{ type } } };
 	}
 
 	TypeHandle TypeRegistry::CreateHandle(Type* pType)

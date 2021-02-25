@@ -25,12 +25,12 @@ namespace Noctis
 
 		StdUnorderedMap<StdStringView, TokenType>& GetKeywordMap();
 
-		void ParseLiteral(SpanManager& spanManager, u64 tokIdx);
+		void ParseLiteral();
 		TokenType ParseLiteralType();
 
-		void ParseChar(SpanManager& spanManager, u64 tokIdx);
-		void ParseString(SpanManager& spanManager, u64 tokIdx);
-		void ParseWysiwygString(SpanManager& spanManager, u64 tokIdx);
+		void ParseChar();
+		void ParseString();
+		void ParseWysiwygString();
 
 		u32 ParseEscapeCode(usize offset, usize& escapeSize);
 

@@ -17,7 +17,7 @@ namespace Noctis
 
 	void LocalVarScope::AddLocalVarDeclSPtr(const StdVector<StdString>& scopeNames, LocalVarDataSPtr var, u64 curDepth)
 	{
-		if (!scopeNames.empty() && curDepth != scopeNames.size() - 1)
+		if (!scopeNames.empty() && curDepth < scopeNames.size())
 		{
 			auto it = subScopes.find(scopeNames[curDepth]);
 			if (it == subScopes.end())
@@ -35,7 +35,7 @@ namespace Noctis
 
 	LocalVarDataSPtr LocalVarScope::ActivateNextVar(const StdVector<StdString>& scopeNames, const StdString& iden, u64 curDepth)
 	{
-		if (!scopeNames.empty() && curDepth != scopeNames.size() - 1)
+		if (!scopeNames.empty() && curDepth < scopeNames.size())
 		{
 			auto it = subScopes.find(scopeNames[curDepth]);
 			if (it == subScopes.end())
@@ -65,7 +65,7 @@ namespace Noctis
 
 	LocalVarDataSPtr LocalVarScope::GetLocalVarData(const StdVector<StdString>& scopeNames, const StdString& varIden, u64 curDepth)
 	{
-		if (!scopeNames.empty() && curDepth != scopeNames.size() - 1)
+		if (!scopeNames.empty() && curDepth < scopeNames.size())
 		{
 			auto it = subScopes.find(scopeNames[curDepth]);
 			if (it != subScopes.end())
@@ -92,6 +92,20 @@ namespace Noctis
 		for (StdPair<const StdString, LocalVarScopeSPtr>& pair : subScopes)
 		{
 			pair.second->Foreach(lambda);
+		}
+	}
+
+	void LocalVarScope::ResetActiveVars()
+	{
+		for (StdPair<const StdString, StdPair<u64, StdVector<LocalVarDataSPtr>>>& pair : vars)
+		{
+			pair.second.first = 0;
+		}
+		
+		curMapping.clear();
+		for (StdPair<const StdString, LocalVarScopeSPtr>& subScope : subScopes)
+		{
+			subScope.second->ResetActiveVars();
 		}
 	}
 }

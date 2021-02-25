@@ -411,6 +411,9 @@ namespace Noctis
 		SymbolWPtr sym;
 
 		ILDependencyGraph graph;
+
+		// For IL Printer
+		StdUnorderedMap<StdString, TypeHandle> genMapping;
 	};
 	using ILFuncDefSPtr = StdSharedPtr<ILFuncDef>;
 

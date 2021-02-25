@@ -76,7 +76,7 @@ namespace Noctis
 			qualName = qualName->Append(m_Idens[i]->iden, m_Idens[i]->generics);
 		}
 
-		m_QualName.reset(new ITrQualName{ qualName, m_TypeDisambiguation, std::move(m_Idens) });
+		m_QualName.reset(new ITrQualName{ qualName, m_TypeDisambiguation, std::move(m_Idens), node.hasColonColon });
 		new (&m_Idens) StdVector<ITrIdenSPtr>{};
 		
 		node.ctx->qualName = qualName;
@@ -1408,7 +1408,7 @@ namespace Noctis
 			subPatterns.emplace_back(astPattern.first, VisitAndGetPattern(astPattern.second));
 		}
 
-		if (node.qualName->global && node.qualName->idens.size() == 1)
+		if (node.qualName->hasColonColon && node.qualName->idens.size() == 1)
 		{
 			ITrPatternSPtr pattern{ new ITrAdtAggrEnumPattern{ qualName, std::move(subPatterns), node.ctx->startIdx, node.ctx->endIdx } };
 			m_Pattern = pattern;
@@ -1645,6 +1645,7 @@ namespace Noctis
 			{
 				ITrGenTypeParam& genParam = *reinterpret_cast<ITrGenTypeParam*>(param.get());
 				idenGen.iden = genParam.iden;
+				idenGen.type = g_TypeReg.Generic(TypeMod::None, u16(i));
 			}
 			else
 			{
@@ -1716,7 +1717,7 @@ namespace Noctis
 				subTypes.push_back(tmp);
 
 				stmts.emplace_back(new ITrLocalVar{ nullptr,  { name }, tmp, nullptr, u64(-1), u64(-1) });
-				ITrQualNameSPtr itrQualName{ new ITrQualName{ QualName::Create(name), nullptr, StdVector<ITrIdenSPtr>{} } };
+				ITrQualNameSPtr itrQualName{ new ITrQualName{ QualName::Create(name), nullptr, StdVector<ITrIdenSPtr>{}, false } };
 				retSubExprs.emplace_back(new ITrQualNameExpr{ itrQualName });
 			}
 		}

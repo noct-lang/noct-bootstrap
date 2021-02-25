@@ -2,6 +2,8 @@
 
 #include <utility>
 
+
+#include "context.hpp"
 #include "utils.hpp"
 
 namespace Noctis
@@ -110,9 +112,9 @@ namespace Noctis
 
 		QualNameSPtr qualName{ new QualName{ disambiguation } };
 		qualName->m_Self = qualName->m_NoGenSelf = qualName;
-		qualName->m_Fuzzy = CreateFuzzy(disambiguation, {}, {});
 		
 		s_TypeDisambiguationBaseNames.try_emplace(disambiguation, qualName);
+		qualName->m_Fuzzy = CreateFuzzy(disambiguation, {}, {});
 		return qualName;
 	}
 
@@ -128,6 +130,9 @@ namespace Noctis
 
 	QualNameSPtr QualName::Append(const StdString& iden, const StdVector<IdenGeneric>& generics)
 	{
+		if (iden == "OpContains")
+			int br = 0;
+		
 		if (!m_Generics.empty())
 		{
 			QualNameSPtr qualName = m_NoGenSelf.lock();
@@ -146,28 +151,34 @@ namespace Noctis
 			it->second.push_back(qualName);
 		}
 
+		StdVector<IdenGeneric> tmpGens = generics;
+		FixupGenerics(tmpGens);
+
 		for (QualNameSPtr qualName : it->second)
 		{
-			if (CompareGenerics(qualName->Generics(), generics))
+			if (CompareGenerics(qualName->Generics(), tmpGens))
 				return qualName;
 		}
 
 		QualNameSPtr qualName{ new QualName{ m_Self.lock(), iden } };
 		qualName->m_Self = qualName;
-		qualName->m_Generics = generics;
+		qualName->m_Generics = tmpGens;
 		qualName->m_NoGenSelf = it->second[0];
 
 		// first add, then create fuzzy to prevent infinite recursion
 		it->second.push_back(qualName);
 		StdVector<StdString> fuzzyIdens = m_Idens;
 		fuzzyIdens.push_back(iden);
-		qualName->m_Fuzzy = CreateFuzzy(nullptr, fuzzyIdens, generics);
+		qualName->m_Fuzzy = CreateFuzzy(nullptr, fuzzyIdens, tmpGens);
 		return qualName;
 	}
 
 	QualNameSPtr QualName::Append(const StdVector<StdString>& idens)
 	{
 		QualNameSPtr qualName = m_Self.lock();
+		if (idens.empty())
+			return qualName;
+		
 		for (const StdString& iden : idens)
 		{
 			qualName = qualName->Append(iden);
@@ -178,6 +189,9 @@ namespace Noctis
 	QualNameSPtr QualName::Append(const StdVector<StdString>& idens, const StdVector<IdenGeneric>& generics)
 	{
 		QualNameSPtr qualName = m_Self.lock();
+		if (idens.empty())
+			return qualName;
+		
 		for (usize i = 0; i < idens.size() - 1; ++i)
 		{
 			qualName = qualName->Append(idens[i]);
@@ -342,7 +356,7 @@ namespace Noctis
 	}
 
 	QualName::QualName(TypeDisambiguationSPtr disambiguation)
-		: m_Disambiguation(std::move(disambiguation))
+		: m_Disambiguation(disambiguation)
 	{
 	}
 
@@ -381,6 +395,20 @@ namespace Noctis
 		}
 
 		return true;
+	}
+
+	void QualName::FixupGenerics(StdVector<IdenGeneric>& idenGens)
+	{
+		u16 genId = 0;
+		for (IdenGeneric& idenGen : idenGens)
+		{
+			if (idenGen.isType && !idenGen.isSpecialized)
+			{
+				if (!idenGen.type.IsValid() || idenGen.type.AsGeneric().id != genId)
+					idenGen.type = g_TypeReg.Generic(TypeMod::None, genId);
+				++genId;
+			}
+		}
 	}
 
 	QualNameSPtr QualName::CreateFuzzy(TypeDisambiguationSPtr disambig, const StdVector<StdString>& idens, const StdVector<IdenGeneric>& generics)

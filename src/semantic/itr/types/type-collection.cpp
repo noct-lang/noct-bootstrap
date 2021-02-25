@@ -367,23 +367,14 @@ namespace Noctis
 			IdenType& idenType = type->AsIden();
 			SymbolSPtr sym = symTable.Find(node.qualName, idenType.qualName);
 			
-			if (type->typeKind == TypeKind::Iden)
+			if (sym->qualName->LastIden() != idenType.qualName->LastIden())
 			{
-				IdenType& idenType = type->AsIden();
-				sym = symTable.Find(node.qualName, idenType.qualName);
-				if (sym->qualName->LastIden() != idenType.qualName->LastIden())
-				{
-					SymbolSPtr typeSym = sym->children->FindChild(nullptr, idenType.qualName->LastIden());
-					if (typeSym)
-						sym->type = typeSym->type;
-				}
-				m_TypeQualName = sym->qualName;
+				SymbolSPtr typeSym = sym->children->FindChild(nullptr, idenType.qualName->LastIden());
+				if (typeSym)
+					sym->type = typeSym->type;
 			}
-			else
-			{
-				StdString typeName = g_TypeReg.ToString(sym->type);
-				m_TypeQualName = QualName::Create(typeName);
-			}
+			m_TypeQualName = sym->qualName;
+			
 			m_Syms.push(sym);
 			node.sym = sym;
 			sym->associatedITr = node.ptr;
@@ -773,23 +764,10 @@ namespace Noctis
 				u16 id = u16(def.genMapping.size());
 				TypeHandle type = g_TypeReg.Generic(TypeMod::None, id);
 				def.genMapping.try_emplace(typeParam.iden, type);
-
-				if (!generics.empty())
-				{
-					generics[i].isType = true;
-					generics[i].type = type;
-					generics[i].iden = typeParam.iden;
-				}
 			}
 			else
 			{
 				ITrGenValParam& valParam = *reinterpret_cast<ITrGenValParam*>(param.get());
-
-				// TODO: type
-				if (!generics.empty())
-				{
-					generics[i].isType = false;
-				}
 			}
 		}
 	}

@@ -35,6 +35,8 @@ namespace Noctis
 		LocalVarDataSPtr GetLocalVarData(const StdVector<StdString>& scopeNames, const StdString& varIden, u64 curDepth = 0);
 
 		void Foreach(const std::function<void(LocalVarDataSPtr varData)>& lambda);
+
+		void ResetActiveVars();
 	};
 
 	struct FuncContext

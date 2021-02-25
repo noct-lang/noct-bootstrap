@@ -53,8 +53,7 @@ namespace Noctis
 			if (node.funcKind == ITrFuncKind::EmptyMethod)
 				return;
 
-			m_CurLabel = 0;
-			m_CurVarId = 0;
+			Reset();
 
 			StdVector<ILGeneric> generics;
 			if (node.genDecl)
@@ -94,7 +93,11 @@ namespace Noctis
 			QualNameSPtr qualName = node.sym.lock()->qualName;
 			m_Def.reset(new ILFuncDef{ qualName, std::move(generics) });
 			m_Def->sym = node.sym;
+			m_Def->genMapping = node.genMapping;
 			m_FuncScope = node.qualName;
+			m_FuncCtx = node.ctx;
+			m_FuncCtx->localVars.ResetActiveVars();
+			m_ErrType = node.errorType ? node.errorType->handle : TypeHandle{};
 
 			// params
 			for (ITrParamSPtr param : node.params)
@@ -102,13 +105,11 @@ namespace Noctis
 				u32 id = m_CurVarId++;
 				ILVar var{ ILVarKind::Copy, id, param->type->handle };
 
-
-				auto it = m_VarMapping.try_emplace(param->iden, StdVector<ILVar>{}).first;
-				it->second.push_back(var);
-
 				m_Def->params.push_back(var);
-
 				m_pILMod->types.insert(var.type.Type());
+
+				LocalVarDataSPtr varData = m_FuncCtx->localVars.ActivateNextVar(m_ScopeNames, param->iden);
+				varData->ilVar = var;
 			}
 
 			if (node.retType)
@@ -116,9 +117,6 @@ namespace Noctis
 				m_Def->retType = node.retType->handle;
 				m_pILMod->types.insert(m_Def->retType.Type());
 			}
-			
-			m_FuncCtx = node.ctx;
-			m_ErrType = node.errorType ? node.errorType->handle : TypeHandle{};
 
 			m_FuncCtx->localVars.Foreach([this](LocalVarDataSPtr varData)
 			{
@@ -161,17 +159,22 @@ namespace Noctis
 
 		Foreach(ITrVisitorDefKind::Any, [&, this](ITrErrHandler& node)
 		{
-			m_CurLabel = 0;
+			Reset();
 			m_CurVarId = 1;
 
 			QualNameSPtr qualName = node.sym.lock()->qualName;
 			m_Def.reset(new ILFuncDef{ qualName, {} });
 			m_Def->sym = node.sym;
+			m_Def->genMapping = node.genMapping;
 			m_FuncScope = node.qualName;
 
+			// TODO: ScopeName
+			//m_ScopeNames.push_back(node.)
+
+			LocalVarDataSPtr errValData = m_FuncCtx->localVars.ActivateNextVar(m_ScopeNames, node.errIden);
+			
 			ILVar param{ ILVarKind::Copy, 0, node.errType->handle };
-			auto paramIt = m_VarMapping.try_emplace(node.errIden, StdVector<ILVar>{}).first;
-			paramIt->second.push_back(param);
+			errValData->ilVar = param;
 			m_Def->params.emplace_back(param);
 			m_CurVarId = 1;
 
@@ -330,6 +333,11 @@ namespace Noctis
 		ITrVisitor::Visit(node.expr);
 		ILVar cond = PopTmpVar();
 		m_SwitchVars.push(cond);
+		m_ScopeNames.push_back(node.scopeName);
+
+		SaveRestore caseBindings{ m_CaseBindings };
+		SaveRestore caseToBody{ m_CaseToBodyBlocks };
+		SaveRestore caseToTerm{ m_CaseToTermBlocks };
 
 		ProcessSwitchGroup(node, node.baseGroup);
 
@@ -337,23 +345,32 @@ namespace Noctis
 		{
 			ITrSwitchCase& case_ = node.cases[pair.first];
 			u32 caseId = AddNewBlock();
+
+			m_ScopeNames.push_back(case_.block->scopeName);
 			AssignValueBinds(pair.first);
-			Visit(*case_.block);
+			for (ITrStmtSPtr stmt : case_.block->stmts)
+			{
+				ITrVisitor::Visit(stmt);
+			}
 			m_CaseToTermBlocks.push_back(m_pCurBlock->label);
 			
 			for (u32 blockId : pair.second)
 			{
 				SetTerminal(new ILGoto{ caseId }, blockId);
 			}
+
+			m_ScopeNames.pop_back();
 		}
 
 		u32 endBlock = AddNewBlock();
 		for (u32 blockId : m_CaseToTermBlocks)
 		{
-			SetTerminal(new ILGoto{ endBlock }, blockId);
+			if (!m_Def->blocks[blockId].terminal)
+				SetTerminal(new ILGoto{ endBlock }, blockId);
 		}
 
 		SetCurBlock(endBlock);
+		m_ScopeNames.pop_back();
 	}
 
 	void ILGen::Visit(ITrLabel& node)
@@ -447,7 +464,6 @@ namespace Noctis
 		{
 			LocalVarDataSPtr varData = m_FuncCtx->localVars.GetLocalVarData(m_ScopeNames, iden);
 			ILVar dst = varData->ilVar;
-			MapVar(iden, dst);
 
 			// TODO: multiple init
 			if (node.init)
@@ -535,38 +551,24 @@ namespace Noctis
 		LocalVarDataSPtr local = m_FuncCtx->localVars.GetLocalVarData(m_ScopeNames, node.qualName->LastIden());
 		if (local)
 		{
-			ILVar var;
-			auto it = m_VarMapping.find(local->iden);
-			if (it == m_VarMapping.end())
-			{
-				var = ILVar{ ILVarKind::Copy, std::numeric_limits<u32>::max(), local->type };
-				m_pILMod->types.insert(local->type.Type());
-			}
-			else
-			{
-				var = it->second.back();
-				m_pILMod->types.insert(var.type.Type());
-			}
-
-			m_TmpVars.push(var);
+			m_TmpVars.push(local->ilVar);
+			m_pILMod->types.insert(local->type.Type());
 		}
 		else
 		{
-			SymbolSPtr sym = g_Ctx.activeModule->symTable.Find(GetCurScope(), node.qualName);
-
-			if (sym->kind == SymbolKind::ValEnumMember)
+			if (node.sym->kind == SymbolKind::ValEnumMember)
 			{
 				ILVar dst = CreateDstVar(node.handle);
 				AddElem(new ILValEnumInit{ dst, node.qualName->LastIden() });
 				m_TmpVars.push(dst);
 			}
-			else if (sym->kind == SymbolKind::AdtEnumMember)
+			else if (node.sym->kind == SymbolKind::AdtEnumMember)
 			{
 				ILVar dst = CreateDstVar(node.handle);
 				AddElem(new ILAdtEnumInit{ dst, node.qualName->LastIden(), {} });
 				m_TmpVars.push(dst);
 			}
-			else if (sym->kind == SymbolKind::GenVal)
+			else if (node.sym->kind == SymbolKind::GenVal)
 			{
 				ILVar dst = CreateDstVar(node.handle);
 				AddElem(new ILGenVal{ dst, node.qualName->LastIden() });
@@ -1038,6 +1040,46 @@ namespace Noctis
 		// Don't do anything
 	}
 
+	void ILGen::Reset()
+	{
+		m_CurLabel = 0;
+		m_CurDeferLabel = 0;
+		m_CurVarId = 0;
+
+		while (!m_TmpVars.empty())
+		{
+			m_TmpVars.pop();
+		}
+
+		while (!m_SwitchVars.empty())
+		{
+			m_SwitchVars.pop();
+		}
+		m_CurSwitchPatternDepth = 0;
+
+		m_CaseToBodyBlocks.clear();
+		m_CaseToTermBlocks.clear();
+		m_CaseBindings.clear();
+		
+		m_LabelMapping.clear();
+		m_ITrBlockMapping.clear();
+		
+		while (!m_LabelStack.empty())
+		{
+			m_LabelStack.pop();
+		}
+		while (!m_LoopBeginLabels.empty())
+		{
+			m_LoopBeginLabels.pop();
+		}
+		while (!m_LoopEndLabels.empty())
+		{
+			m_LoopEndLabels.pop();
+		}
+
+		m_FallThrough = false;
+	}
+
 	u32 ILGen::AddNewBlock()
 	{
 		m_Def->blocks.push_back(ILBlock{ m_CurLabel++ });
@@ -1048,20 +1090,6 @@ namespace Noctis
 	void ILGen::SetCurBlock(u32 label)
 	{
 		m_pCurBlock = &m_Def->blocks[label];
-	}
-
-	void ILGen::MapVar(const StdString& iden, ILVar var)
-	{
-		usize curDepth = m_ScopeNames.size();
-
-		auto it = m_VarMapping.find(iden);
-		if (it == m_VarMapping.end())
-		{
-			it = m_VarMapping.try_emplace(iden, StdVector<ILVar>{}).first;
-		}
-		it->second.resize(curDepth + 1);
-		it->second[curDepth] = var;
-		
 	}
 
 	ILVar ILGen::CreateDstVar(TypeHandle type)
@@ -1402,16 +1430,55 @@ namespace Noctis
 
 		SetCurBlock(curId);
 
+		TypeHandle enumType = m_SwitchVars.top().type;
+		if (enumType.Kind() == TypeKind::Ref)
+			enumType = enumType.AsRef().subType;
+		
 		StdPairVector<ILVar, u32> cases;
 		for (ITrSwitchGroup& subGroup : group.subGroups)
 		{
-			u32 id = AddCaseToBody(subGroup.cases[0]);
-			ILVar lit = CreateDstVar(m_SwitchVars.top().type);
-			AddElem(new ILValEnumInit{ lit, subGroup.member });
-			cases.emplace_back(lit, id);
+			if (subGroup.kind == ITrSwitchGroupKind::Leaf)
+			{
+				// Def case
+				if (subGroup.member.empty())
+				{
+					SetCurBlock(falseId);
+				}
+				else
+				{
+					ILVar lit = CreateDstVar(enumType);
+					AddElem(new ILValEnumInit{ lit, subGroup.member });
+
+					u32 id = AddNewBlock();
+					cases.emplace_back(lit, id);
+				}
+
+				ProcessSwitchGroup(node, subGroup);
+			}
+			else
+			{
+				ILVar lit = CreateDstVar(enumType);
+				AddElem(new ILValEnumInit{ lit, subGroup.member });
+				
+				u32 id = AddNewBlock();
+				cases.emplace_back(lit, id);
+
+				SymbolSPtr sym = enumType.AsIden().sym.lock();
+				SymbolSPtr child = sym->children->FindChild(nullptr, subGroup.member);
+
+				LocalVarDataSPtr localVar = m_FuncCtx->localVars.ActivateNextVar(m_ScopeNames, subGroup.imm);
+				// TODO: ADT enum element access
+				AddElem(new ILAssign{ localVar->ilVar, m_SwitchVars.top() });
+				
+				m_SwitchVars.push(localVar->ilVar);
+				
+				ProcessSwitchGroup(node, subGroup);
+				PopSwitchVarToDepth(group.depth);
+			}
+			SetCurBlock(curId);
 		}
 
-		SetTerminal(new ILSwitch{ m_SwitchVars.top(), cases, falseId });
+		SetTerminal(new ILSwitch{ m_SwitchVars.top(), cases, falseId }, curId);
 
 		SetCurBlock(falseId);
 	}
@@ -1533,9 +1600,9 @@ namespace Noctis
 		{
 			auto it = m_CaseBindings.find(caseId);
 			if (it == m_CaseBindings.end())
-				it = m_CaseBindings.try_emplace(caseId, StdPairVector<StdString, ILVar>{}).first;
-
-			it->second.emplace_back(bindName, m_SwitchVars.top());
+				it = m_CaseBindings.try_emplace(caseId, StdVector<SwitchValBindInfo>{}).first;
+			
+			it->second.emplace_back(bindName, m_SwitchVars.top(), m_pCurBlock->label);
 		}
 	}
 
@@ -1545,14 +1612,10 @@ namespace Noctis
 		if (it == m_CaseBindings.end())
 			return;
 
-		for (StdPair<StdString, ILVar>& pair : it->second)
+		for (SwitchValBindInfo& bindInfo : it->second)
 		{
-			LocalVarDataSPtr varData{ new LocalVarData{ pair.first, pair.second.type, false} };
-			m_FuncCtx->localVars.AddLocalVarDeclSPtr(m_ScopeNames, varData);
-			ILVar dst{ ILVarKind::Copy, m_CurVarId++, pair.second.type };
-			varData->ilVar = dst;
-			MapVar(pair.first, dst);
-			AddElem(new ILAssign{ dst, pair.second });
+			LocalVarDataSPtr var = m_FuncCtx->localVars.ActivateNextVar(m_ScopeNames, bindInfo.bindName);
+			AddElem(new ILAssign{ var->ilVar, bindInfo.var }, bindInfo.blockId);
 		}
 	}
 

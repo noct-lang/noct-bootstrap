@@ -15,8 +15,8 @@ namespace Noctis
 	SymbolInst::SymbolInst(SymbolSPtr sym, QualNameSPtr qualName)
 		: sym(sym)
 		, qualName(qualName)
+		, isImported(false)
 	{
-		// TODO: type
 	}
 
 	TypeHandle SymbolInst::SelfType()
@@ -702,6 +702,10 @@ namespace Noctis
 		auto it = m_TypeSymbols.find(type);
 		if (it != m_TypeSymbols.end())
 			return it->second;
+
+		if (type->typeKind == TypeKind::Iden)
+			return Find(type->AsIden().qualName);
+		
 		return nullptr;
 	}
 
@@ -919,7 +923,8 @@ namespace Noctis
 		{
 			if (idenIdx == qualName->Idens().size() - 1)
 				return symIt->second;
-			return symIt->second->children->Find(qualName, idenIdx + 1, nullptr);
+			if (idenIdx == qualName->Idens().size() - 2)
+				return symIt->second->children->Find(qualName, idenIdx + 1, nullptr);
 		}
 
 		auto subIt = m_SubTables.find(iden);

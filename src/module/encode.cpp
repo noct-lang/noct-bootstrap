@@ -30,6 +30,7 @@ namespace Noctis
 		
 		// Encode all sections
 		EncodeSymSection();
+		EncodeInstSection();
 		EncodeSLnkSection();
 		EncodeILSection();
 
@@ -172,31 +173,17 @@ namespace Noctis
 			{
 				SymbolSPtr parent = sym->parent.lock();
 				
-				if (!sym->impls.empty())
+				if (!sym->ifaces.empty())
 				{
 					// If we get here, we have a parent
-					//WriteData(section.data, u16(sym->impls.size()));
 
-					SymbolSPtr iface = g_Ctx.activeModule->symTable.Find(ifaceName);
-					if (iface)
+					SymbolInstSPtr ifaceInst = sym->ifaces.front().lock();
+					WriteData(section.data, u16(1 + ifaceInst->ifaces.size()));
+					WriteQualName(section.data, ifaceInst->qualName);
+					for (SymbolInstWPtr subIFace : ifaceInst->ifaces)
 					{
-						WriteData(section.data, u16(1 + iface->ifaces.size()));
-						for (SymbolInstWPtr subIFace : iface->ifaces)
-						{
-							WriteQualName(section.data, subIFace.lock()->qualName);
-						}
+						WriteQualName(section.data, subIFace.lock()->qualName);
 					}
-					else
-					{
-						WriteData(section.data, u16(0));
-					}
-					
-					//for (SymbolSPtr impl : sym->impls)
-					//{
-					//	SymbolSPtr iface = impl->parent.lock();
-					//	const StdString& mangledIFaceName = GetMangledQualName(iface->qualName);
-					//	WriteName(section.data, mangledIFaceName);
-					//}
 				}
 				else
 				{
@@ -212,7 +199,6 @@ namespace Noctis
 			StdString mangleName;
 			switch (sym->kind)
 			{
-				break;
 			case SymbolKind::Type:
 				mangleName = GetMangledType(sym->type);
 				break;
@@ -289,14 +275,37 @@ namespace Noctis
 		u32 numInsts = 0;
 		m_pMod->symTable.Foreach([this, &section, &numInsts](SymbolSPtr sym, QualNameSPtr)
 		{
-			WriteData(section.data, u32(sym->instantiations.size()));
-			WriteQualName(section.data, sym->qualName);
-			
+			if (sym->instantiations.empty())
+				return;
+
+			StdVector<SymbolInstSPtr> insts;
 			for (SymbolInstSPtr inst : sym->instantiations)
 			{
+				if (!inst->isImported)
+					insts.push_back(inst);
+			}
+
+			if (insts.empty())
+				return;
+			
+			WriteData(section.data, u32(insts.size()));
+			WriteQualName(section.data, sym->qualName);
+			
+			for (SymbolInstSPtr inst : insts)
+			{
 				WriteQualName(section.data, inst->qualName);
-			}	
+			}
+			++numInsts;
 		});
+
+		if (numInsts == 0)
+			return;
+
+		u8* pNumInstsAddr = reinterpret_cast<u8*>(&numInsts);
+		section.data.insert(section.data.begin(), pNumInstsAddr, pNumInstsAddr + sizeof(u32));
+
+		section.header.size = section.data.size() + sizeof(ModuleSectionHeader);
+		m_Sections.push_back(section);
 	}
 
 	void ModuleEncode::EncodeSLnkSection()
@@ -345,9 +354,15 @@ namespace Noctis
 					StdVector<StdString> ifaceNames;
 					for (SymbolInstWPtr iface : sym->ifaces)
 					{
+						if (iface.lock()->sym.lock()->isImported)
+							continue;
+						
 						const StdString& iFaceMangle = GetMangledQualName(iface.lock()->qualName);
 						ifaceNames.push_back(iFaceMangle);
 					}
+
+					if (ifaceNames.empty())
+						break;
 
 					WriteData(section.data, u8(SymbolLinkKind::TypeImpl));
 					WriteData(section.data, u16(ifaceNames.size()));
@@ -709,7 +724,6 @@ namespace Noctis
 
 	void ModuleDecode::DecodeSyms(const ModuleSectionHeader& header)
 	{
-		const StdVector<u8>& data = *m_pData;
 		u64 sectionEnd = m_DataPos + header.size;
 		m_DataPos += sizeof(ModuleSectionHeader);
 
@@ -741,7 +755,6 @@ namespace Noctis
 				TypeHandle parentType = ReadType();
 				if (parentType.IsValid())
 				{
-					const StdString& iden = ReadQualName()->LastIden();
 					QualNameSPtr idenQualName = ReadQualName();
 
 					if (parentType.Type()->typeKind == TypeKind::Iden)
@@ -810,7 +823,7 @@ namespace Noctis
 			}
 			default: ;
 			}
-
+			
 			if (!ifaceQualNames.empty())
 			{
 				for (QualNameSPtr ifaceQualName : ifaceQualNames)
@@ -839,6 +852,9 @@ namespace Noctis
 
 	void ModuleDecode::DecodeInst(const ModuleSectionHeader& header)
 	{
+		u64 sectionEnd = m_DataPos + header.size;
+		m_DataPos += sizeof(ModuleSectionHeader);
+		
 		u32 numEntries = ReadData<u32>();
 		for (u32 i = 0; i < numEntries; ++i)
 		{
@@ -850,8 +866,14 @@ namespace Noctis
 			{
 				QualNameSPtr instQualName = ReadQualName();
 				SymbolInstSPtr inst = iface->GetOrCreateInst(instQualName);
+				inst->isImported = true;
 				m_Insts.try_emplace(instQualName, inst);
 			}
+		}
+
+		if (m_DataPos != sectionEnd)
+		{
+			g_ErrorSystem.Error("nxm contains invalid 'INST' section!\n");
 		}
 	}
 
@@ -958,20 +980,38 @@ namespace Noctis
 			if (qualName->Depth() == 1)
 				continue;
 
-			QualNameSPtr possibleParent = qualName->Base();
-			auto it = m_Syms.find(possibleParent);
-			if (it == m_Syms.end())
-				continue;
-
-			it->second->children->Add(pair.second);
+			SymbolSPtr parent;
+			usize numGenerics = pair.first->Generics().size();
+			for (usize i = 0; i <= numGenerics; ++i)
+			{
+				QualNameSPtr possibleParent = qualName->Base(i);
+				auto it = m_Syms.find(possibleParent);
+				if (it != m_Syms.end())
+				{
+					parent = it->second;
+					break;
+				}
+			}
+			
+			if (parent)
+				parent->children->Add(pair.second);
 		}
 
 		for (StdPair<const QualNameSPtr, StdUnorderedMap<QualNameSPtr, SymbolSPtr>>& ifacePair : m_ImplSyms)
 		{
 			for (StdPair<QualNameSPtr, SymbolSPtr> pair : ifacePair.second)
 			{
-				QualNameSPtr parentName = pair.first->Base();
-				SymbolSPtr parent = GetSymbol(parentName);
+				SymbolSPtr parent;
+				usize numGenerics = pair.first->Generics().size();
+				for (usize i = 0; i <= numGenerics; ++i)
+				{
+					QualNameSPtr parentName = pair.first->Base(i);
+					parent = GetSymbol(parentName);
+
+					if (parent)
+						break;
+				}
+				
 				parent->children->Add(pair.second, ifacePair.first);
 			}
 		}

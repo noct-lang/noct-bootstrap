@@ -214,15 +214,15 @@ namespace Noctis
 	{
 	public:
 
-		Token(TokenType type, u64 tokenIdx);
-		Token(TokenType type, StdString text, u64 tokenIdx);
-		Token(TokenType type, i64 val, u64 tokenIdx);
-		Token(TokenType type, u64 val, u64 tokenIdx);
-		Token(TokenType type, f64 val, u64 tokenIdx);
+		Token(TokenType type, u64 spanIdx);
+		Token(TokenType type, StdString text, u64 spanIdx);
+		Token(TokenType type, i64 val, u64 spanIdx);
+		Token(TokenType type, u64 val, u64 spanIdx);
+		Token(TokenType type, f64 val, u64 spanIdx);
 
 		TokenType Type() const { return m_Type; }
 		const StdString& Text() const { return m_Iden; }
-		u64 Idx() const { return m_TokenIdx; }
+		u64 Idx() const { return m_SpanIdx; }
 		
 		i64 Signed() const { return m_Signed; }
 		u64 Unsigned() const { return m_Unsigned; }
@@ -235,7 +235,7 @@ namespace Noctis
 	private:
 
 		TokenType m_Type;
-		u64 m_TokenIdx;
+		u64 m_SpanIdx;
 		
 		union 
 		{

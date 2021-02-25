@@ -285,6 +285,7 @@ namespace Noctis
 				}
 			}
 
+			m_FuncCtx->localVars.ResetActiveVars();
 			m_GenDecl = nullptr;
 			m_Impl = nullptr;
 			m_InterfaceQualname = nullptr;
@@ -359,11 +360,27 @@ namespace Noctis
 	{
 		ITrVisitor::Visit(node.expr);
 
-		SaveRestore tmpExpected(m_ExpectedHandle, node.expr->handle);
+		TypeHandle expected = node.expr->handle;
+		if (expected.Kind() == TypeKind::Ref)
+			expected = expected.AsRef().subType;
+		
+		SaveRestore tmpExpected(m_ExpectedHandle, expected);
+		m_ScopeNames.push_back(node.scopeName);
 		for (ITrSwitchCase& case_ : node.cases)
 		{
+			m_ScopeNames.push_back(case_.block->scopeName);
+			SaveRestore caseExpected(m_ExpectedHandle);
 			ITrVisitor::Visit(case_.pattern);
+			if (case_.expr)
+				Visit(case_.expr);
+
+			for (ITrStmtSPtr stmt : case_.block->stmts)
+			{
+				ITrVisitor::Visit(stmt);
+			}
+			m_ScopeNames.pop_back();
 		}
+		m_ScopeNames.pop_back();
 	}
 
 	void TypeInference::Visit(ITrReturn& node)
@@ -579,8 +596,19 @@ namespace Noctis
 			if (!op.result.IsValid() && m_Impl && m_Impl->genDecl)
 				op = g_Ctx.activeModule->opTable.GetConstriantOperator(node.op, lTypeHandle, rTypeHandle, m_Impl->genDecl, *m_pBoundsInfo);
 		}
+
+		const Bounds& bounds = m_pBoundsInfo->GetBounds(op.result);
+		op.result = bounds.NarrowType(op.result);
 		
 		node.handle = op.result;
+		if (op.isInterfaceOp)
+		{
+			if (lTypeHandle.Kind() == TypeKind::Ref)
+				lTypeHandle = lTypeHandle.AsRef().subType;
+			if (op.left != lTypeHandle)
+				node.handle = g_TypeReg.ReplaceSubType(node.handle, op.left, lTypeHandle);
+		}
+		
 		node.operator_ = op;
 
 		if (!op.sym)
@@ -638,6 +666,14 @@ namespace Noctis
 		op.result = bounds.NarrowType(op.result);
 		
 		node.handle = op.result;
+		if (op.isInterfaceOp)
+		{
+			if (exprTypeHandle.Kind() == TypeKind::Ref)
+				exprTypeHandle = exprTypeHandle.AsRef().subType;
+			if (op.left != exprTypeHandle)
+				node.handle = g_TypeReg.ReplaceSubType(node.handle, op.left, exprTypeHandle);
+		}
+		
 		node.operator_ = op;
 
 		if (!node.operator_.left.IsValid())
@@ -653,9 +689,19 @@ namespace Noctis
 	{
 		QualNameSPtr qualName = node.qualName = InferQualNameGenerics(node.qualName);
 
-		if (m_FuncCtx)
+		if (qualName->LastIden() == "val")
+			int br = 0;
+
+		SymbolSPtr sym;
+		if (node.itrQualName->hasColonColon)
 		{
-			if (qualName->IsBase())
+			SymbolSPtr typeSym = g_Ctx.activeModule->symTable.Find(m_ExpectedHandle);
+			if (typeSym)
+				sym = typeSym->children->FindChild(nullptr, node.qualName->LastIden());
+		}
+		else
+		{
+			if (m_FuncCtx && qualName->IsBase())
 			{
 				LocalVarDataSPtr local = m_FuncCtx->localVars.GetLocalVarData(m_ScopeNames, qualName->LastIden());
 				if (local)
@@ -664,27 +710,29 @@ namespace Noctis
 					return;
 				}
 			}
+
+			if (qualName->Disambiguation())
+			{
+				// TODO
+
+				return;
+			}
+
+			if (m_Impl)
+			{
+				sym = m_Impl->sym.lock()->children->FindChild(nullptr, qualName->LastIden());
+			}
+
+			if (!sym)
+				sym = g_Ctx.activeModule->symTable.Find(GetCurScope(), qualName);
 		}
-
-		if (qualName->Disambiguation())
-		{
-			// TODO
-
-			return;
-		}
-
-		SymbolSPtr sym;
-		if (m_Impl)
-		{
-			sym = m_Impl->sym.lock()->children->FindChild(nullptr, qualName->LastIden());
-		}
-
-		if (!sym)
-			sym = g_Ctx.activeModule->symTable.Find(GetCurScope(), qualName);
+		
 		if (!sym)
 		{
 			MultiSpan span = g_SpanManager.GetSpan(node.startIdx, node.endIdx);
 			StdString varName = qualName->ToString();
+			if (node.itrQualName->hasColonColon)
+				varName = "::" + varName;
 			g_ErrorSystem.Error(span, "Cannot find '%s'", varName.c_str());
 			return;
 		}
@@ -797,6 +845,7 @@ namespace Noctis
 		else
 		{
 			// TODO
+			int br = 0;
 		}
 	}
 
@@ -810,99 +859,71 @@ namespace Noctis
 
 		if (node.isMethod)
 		{
-			TypeSPtr type = node.callerOrFunc->handle.Type();
-			
+			TypeHandle handle = node.callerOrFunc->handle;
+			StdVector<TypeHandle> possibleCallerTypes = GetPossibleCallerType(node.callerOrFunc->handle);
 			SymbolSPtr callerSym, methodSym;
-			if (type->typeKind == TypeKind::Ref)
+
+			// TODO: prefer mutable over immutable
+			for (TypeHandle type : possibleCallerTypes)
 			{
 				callerSym = g_Ctx.activeModule->symTable.Find(type);
-				if (callerSym)
-					methodSym = callerSym->children->FindChild(nullptr, node.iden);
-
-				if (!methodSym && type->Mod() == TypeMod::Mut)
-				{
-					TypeHandle nonMutHandle = g_TypeReg.Mod(TypeMod::None, node.callerOrFunc->handle);
-					TypeSPtr nonMutType = nonMutHandle.Type();
-					callerSym = g_Ctx.activeModule->symTable.Find(type);
-					if (callerSym)
-						methodSym = callerSym->children->FindChild(nullptr, node.iden);
-				}
-
-				if (!methodSym)
-				{
-					type = type->AsRef().subType.Type();
-					if (type->typeKind == TypeKind::Iden)
-					{
-						callerSym = g_Ctx.activeModule->symTable.Find(GetCurScope(), type->AsIden().qualName);
-					}
-					else
-					{
-						callerSym = g_Ctx.activeModule->symTable.Find(type);
-					}
-
-					methodSym = callerSym->children->FindChild(nullptr, node.iden);
-					if (!methodSym && callerSym->kind == SymbolKind::StrongInterface)
-					{
-						for (SymbolInstWPtr iface : callerSym->ifaces)
-						{
-							methodSym = callerSym->children->FindChild(iface.lock()->qualName, node.iden);
-							if (methodSym)
-								break;
-						}
-					}
-				}
-			}
-			else
-			{
-				if (type->typeKind == TypeKind::Iden)
-					callerSym = g_Ctx.activeModule->symTable.Find(GetCurScope(), type->AsIden().qualName);
-				else
-					callerSym = g_Ctx.activeModule->symTable.Find(type);
+				if (!callerSym)
+					continue;
 				
-				if (callerSym)
-					methodSym = callerSym->children->FindChild(nullptr, node.iden);
-
-				if (!methodSym)
+				methodSym = callerSym->children->FindChild(nullptr, node.iden);
+				if (!methodSym && callerSym->kind == SymbolKind::StrongInterface)
 				{
-					if (type->Mod() == TypeMod::Mut)
+					for (SymbolInstWPtr iface : callerSym->ifaces)
 					{
-						TypeHandle constHandle = node.callerOrFunc->handle;
-						TypeSPtr constType = constHandle.Type();
-						callerSym = g_Ctx.activeModule->symTable.Find(type);
-						if (callerSym)
-							methodSym = callerSym->children->FindChild(nullptr, node.iden);
+						methodSym = callerSym->children->FindChild(iface.lock()->qualName, node.iden);
+						if (methodSym)
+							break;
 					}
-
-					if (!methodSym)
-					{
-						TypeHandle refHandle = g_TypeReg.Ref(TypeMod::None, node.callerOrFunc->handle);
-						TypeSPtr refType = refHandle.Type();
-						callerSym = g_Ctx.activeModule->symTable.Find(refType);
-						if (callerSym)
-							methodSym = callerSym->children->FindChild(nullptr, node.iden);
-					}
-
-					
 				}
+				
+				if (methodSym)
+					break;
 			}
 
-			if (!methodSym && type->typeKind == TypeKind::Ptr)
+			
+			// If not found and we have a ptr, try to deref and see if it has the method
+			if (!methodSym && handle.Kind() == TypeKind::Ptr)
 			{
 				// TODO: Deref
 			}
 
+			// If not found, check constrains
+			TypeHandle calledBound;
+			if (!methodSym)
+			{
+				const Bounds& bounds = m_pBoundsInfo->GetBounds(handle);
+				for (TypeHandle bound : bounds.bounds)
+				{
+					callerSym = g_Ctx.activeModule->symTable.Find(bound);
+					if (!callerSym)
+						continue;
+					methodSym = callerSym->children->FindChild(nullptr, node.iden);
+					if (methodSym)
+					{
+						calledBound = bound;
+						break;
+					}
+				}
+			}
+			
 			if (!methodSym)
 			{
 				Span span = g_SpanManager.GetSpan(node.startIdx);
-				StdString callerTypeName = g_TypeReg.ToString(type);
+				StdString callerTypeName = g_TypeReg.ToString(handle);
 				g_ErrorSystem.Error(span, "Cannot find method '%s' with caller '%s'\n", node.iden.c_str(), callerTypeName.c_str());
 			}
-
-
-
+			
 			node.sym = methodSym;
 			FuncType& funcType = methodSym->type.AsFunc();
 			node.handle = funcType.retType;
+
+			if (calledBound.IsValid())
+				node.handle = g_TypeReg.ReplaceSubType(node.handle, calledBound, handle);
 		}
 		
 	}
@@ -1924,7 +1945,6 @@ namespace Noctis
 	void TypeInference::Visit(ITrAdtAggrEnumPattern& node)
 	{
 		// Should only receive patterns like: '::iden{...}'
-		
 		if (m_ExpectedHandle.Kind() != TypeKind::Iden ||
 			m_ExpectedHandle.AsIden().sym.lock()->kind != SymbolKind::AdtEnumMember)
 		{
@@ -1941,11 +1961,8 @@ namespace Noctis
 		StdVector<SymbolSPtr> children;
 		typeSym->children->Foreach([&children](SymbolSPtr sym, QualNameSPtr ifaceQualName)
 		{
-			if (ifaceQualName)
-				return;
-			if (sym->kind != SymbolKind::Var)
-				return;
-			children.push_back(sym);
+			if (!ifaceQualName && sym->kind == SymbolKind::Var)
+				children.push_back(sym);
 		});
 
 		if (node.args.size() > children.size())
@@ -1999,6 +2016,10 @@ namespace Noctis
 		}
 
 		node.patternType = m_ExpectedHandle;
+
+		StdVector<StdString> scopeNames{ m_ScopeNames.begin(), m_ScopeNames.end() - 1 };
+		LocalVarDataSPtr var = m_FuncCtx->localVars.ActivateNextVar(scopeNames, node.imm);
+		var->type = typeSym->type;
 	}
 
 	void TypeInference::Visit(ITrAdtTupleEnumPattern& node)
@@ -2061,6 +2082,10 @@ namespace Noctis
 		}
 
 		node.patternType = m_ExpectedHandle;
+
+		StdVector<StdString> scopeNames{ m_ScopeNames.begin(), m_ScopeNames.end() - 1 };
+		LocalVarDataSPtr var = m_FuncCtx->localVars.ActivateNextVar(scopeNames, node.imm);
+		var->type = memberSym->type;
 	}
 
 	void TypeInference::Visit(ITrAggrPattern& node)
@@ -2146,6 +2171,10 @@ namespace Noctis
 		}
 
 		node.patternType = m_ExpectedHandle;
+
+		StdVector<StdString> scopeNames{ m_ScopeNames.begin(), m_ScopeNames.end() - 1 };
+		LocalVarDataSPtr var = m_FuncCtx->localVars.ActivateNextVar(scopeNames, node.imm);
+		var->type = m_ExpectedHandle;
 	}
 
 	void TypeInference::Visit(ITrLiteralPattern& node)
@@ -2219,16 +2248,19 @@ namespace Noctis
 		{
 			return;
 		}
-		
+
+		StdString imm = node.imm;
 		if (sym->kind == SymbolKind::Struct)
 		{
 			ptr.reset(new ITrAggrPattern{ node.qualName, std::move(node.args), node.startIdx, node.endIdx });
 			ITrVisitor::Visit(ptr);
+			ptr->imm = imm;
 		}
 		else if (sym->kind == SymbolKind::AdtEnumMember)
 		{
 			ptr.reset(new ITrAdtAggrEnumPattern{ node.qualName, std::move(node.args), node.startIdx, node.endIdx });
 			ITrVisitor::Visit(ptr);
+			ptr->imm = imm;
 		}
 		else
 		{
@@ -2236,7 +2268,7 @@ namespace Noctis
 			StdString typeName = m_ExpectedHandle.ToString();
 			g_ErrorSystem.Error(span, "unknown aggregate match pattern of type '%s'\n", typeName.c_str());
 		}
-		node.patternType = m_ExpectedHandle;
+		ptr->patternType = m_ExpectedHandle;
 	}
 
 	void TypeInference::Visit(ITrSlicePattern& node)
@@ -2255,6 +2287,10 @@ namespace Noctis
 		Walk(node);
 
 		node.patternType = m_ExpectedHandle;
+
+		StdVector<StdString> scopeNames{ m_ScopeNames.begin(), m_ScopeNames.end() - 1 };
+		LocalVarDataSPtr var = m_FuncCtx->localVars.ActivateNextVar(scopeNames, node.imm);
+		var->type = m_ExpectedHandle;
 	}
 
 	void TypeInference::Visit(ITrTuplePattern& node)
@@ -2302,6 +2338,10 @@ namespace Noctis
 		}
 
 		node.patternType = m_ExpectedHandle;
+
+		StdVector<StdString> scopeNames{ m_ScopeNames.begin(), m_ScopeNames.end() - 1 };
+		LocalVarDataSPtr var = m_FuncCtx->localVars.ActivateNextVar(scopeNames, node.imm);
+		var->type = m_ExpectedHandle;
 	}
 
 	void TypeInference::Visit(ITrTypePattern& node)
@@ -2321,7 +2361,8 @@ namespace Noctis
 	{
 		Walk(node);
 
-		node.patternType = m_ExpectedHandle;
+		LocalVarDataSPtr localVar = m_FuncCtx->localVars.ActivateNextVar(m_ScopeNames, node.iden);
+		node.patternType = localVar->type = InferType(m_ExpectedHandle, m_ExpectedHandle.Mod());
 	}
 
 	void TypeInference::Visit(ITrValueEnumPattern& node)
@@ -2348,14 +2389,19 @@ namespace Noctis
 			return;
 		}
 
-		if (enumSym->kind == SymbolKind::AdtEnum)
+		SymbolSPtr child = enumSym->children->FindChild(nullptr, node.qualName->LastIden());
+		if (!child)
 		{
-			if (!enumSym->children->Empty())
-			{
-				Span span = g_SpanManager.GetSpan(node.startIdx);
-				StdString name = enumSym->qualName->ToString();
-				g_ErrorSystem.Error(span, "adt enum value '%s' has unmatched children\n", name.c_str());
-			}
+			Span span = g_SpanManager.GetSpan(node.startIdx);
+			StdString name = enumSym->qualName->ToString();
+			g_ErrorSystem.Error(span, "'%s' is not a valid member of '%s'", node.qualName->LastIden().c_str(), name.c_str());
+		}
+		
+		if (enumSym->kind == SymbolKind::AdtEnum && !child->children->Empty())
+		{
+			Span span = g_SpanManager.GetSpan(node.startIdx);
+			StdString name = enumSym->qualName->ToString();
+			g_ErrorSystem.Error(span, "adt enum value '%s' has unmatched children\n", name.c_str());
 		}
 
 		node.patternType = m_ExpectedHandle;
@@ -2567,6 +2613,49 @@ namespace Noctis
 
 	void TypeInference::UpdateInstantiations(SymbolSPtr sym)
 	{
+	}
+
+	StdVector<TypeHandle> TypeInference::GetPossibleCallerType(TypeHandle type)
+	{
+		StdVector<TypeHandle> possibleTypes = GetPossibleCallersForType(type);
+		if (type.Kind() == TypeKind::Ref)
+		{
+			StdVector<TypeHandle> tmp = GetPossibleCallersForType(type.AsRef().subType);
+			possibleTypes.insert(possibleTypes.begin(), tmp.begin(), tmp.end());
+		}
+		else
+		{
+			TypeHandle tmpType = g_TypeReg.Ref(TypeMod::None, type);
+			StdVector<TypeHandle> tmp = GetPossibleCallersForType(tmpType);
+			possibleTypes.insert(possibleTypes.begin(), tmp.begin(), tmp.end());
+		}
+
+		// TODO: OpDeref && OpMutDeref
+		if (type.Kind() == TypeKind::Ptr)
+		{
+			StdVector<TypeHandle> tmp = GetPossibleCallersForType(type.AsPtr().subType);
+			possibleTypes.insert(possibleTypes.begin(), tmp.begin(), tmp.end());
+		}
+		return possibleTypes;
+	}
+
+	StdVector<TypeHandle> TypeInference::GetPossibleCallersForType(TypeHandle type)
+	{
+		StdVector<TypeHandle> possibleTypes;
+		if (type.Kind() == TypeKind::Iden)
+		{
+			possibleTypes.push_back(type);
+			if (type.Mod() == TypeMod::Mut)
+				possibleTypes.push_back(g_TypeReg.Mod(TypeMod::None, type));
+			return possibleTypes;
+		}
+		
+		for (const StdPair<const TypeSPtr, SymbolSPtr>& pair : g_Ctx.activeModule->symTable.GetTypeSymbols())
+		{
+			if (g_TypeReg.CanPassTo(pair.second->type, type))
+				possibleTypes.push_back(pair.second->type);
+		}
+		return possibleTypes;
 	}
 
 	QualNameSPtr TypeInference::GetCurScope()

@@ -93,10 +93,24 @@ namespace Noctis
 
 
 	private:
+
+		struct SwitchValBindInfo
+		{
+			SwitchValBindInfo(const StdString& bindName, ILVar var, u32 blockId)
+				: bindName(bindName)
+				, var(var)
+				, blockId(blockId)
+			{}
+		
+			StdString bindName;
+			ILVar var;
+			u32 blockId;
+		};
+
+		void Reset();
+		
 		u32 AddNewBlock();
 		void SetCurBlock(u32 label);
-
-		void MapVar(const StdString& iden, ILVar var);
 
 		ILVar CreateDstVar(TypeHandle type);
 		ILVar PopTmpVar();
@@ -154,7 +168,7 @@ namespace Noctis
 
 		StdPairVector<usize, StdVector<u32>> m_CaseToBodyBlocks;
 		StdVector<u32> m_CaseToTermBlocks;
-		StdUnorderedMap<usize, StdPairVector<StdString, ILVar>> m_CaseBindings;
+		StdUnorderedMap<usize, StdVector<SwitchValBindInfo>> m_CaseBindings;
 		
 		FuncContextSPtr m_FuncCtx;
 		QualNameSPtr m_FuncScope;

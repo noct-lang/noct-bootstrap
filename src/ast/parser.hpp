@@ -174,6 +174,8 @@ namespace Noctis
 
 		OpPrecedence GetPrecedence(TokenType op);
 
+		u64 EatStmtEndIdx();
+
 		Token& EatToken();
 		Token& EatToken(TokenType type);
 		Token& EatIdenToken(StdStringView text);
@@ -187,7 +189,9 @@ namespace Noctis
 		StdVector<Token> m_Tokens;
 		u64 m_TokIdx;
 		MacroVarSolver* m_pMacroSolver;
+		
 		bool m_AllowAggrInit;
+		bool m_IsSwitchStmt;
 	};
 	
 }

@@ -288,7 +288,7 @@ namespace Noctis
 	{
 		AstQualName(u64 startIdx, bool global, StdVector<AstQualIdenSPtr>&& idens);
 
-		bool global;
+		bool hasColonColon;
 		StdVector<AstQualIdenSPtr> idens;
 		AstContextPtr ctx;
 	};
@@ -626,7 +626,7 @@ namespace Noctis
 
 	struct AstThrowStmt : public AstStmt
 	{
-		AstThrowStmt(u64 startIdx, AstExprSPtr expr);
+		AstThrowStmt(u64 startIdx, AstExprSPtr expr, u64 endIdx);
 
 		AstExprSPtr expr;
 	};

@@ -24,10 +24,11 @@ namespace Noctis
 	{
 	}
 
-	ITrQualName::ITrQualName(QualNameSPtr qualName, ITrTypeDisambiguationSPtr assocDisambiguation, StdVector<ITrIdenSPtr>&& assocIdens)
+	ITrQualName::ITrQualName(QualNameSPtr qualName, ITrTypeDisambiguationSPtr assocDisambiguation, StdVector<ITrIdenSPtr>&& assocIdens, bool hasColonColon)
 		: qualName(qualName)
 		, assocDisambiguation(assocDisambiguation)
 		, assocIdens(std::move(assocIdens))
+		, hasColonColon(hasColonColon)
 	{
 		startIdx = assocDisambiguation ? assocDisambiguation->startIdx : this->assocIdens.front()->startIdx;
 		endIdx = this->assocIdens.back()->endIdx;
@@ -222,7 +223,7 @@ namespace Noctis
 		, expr(expr)
 		, cases(std::move(cases))
 		, scopeName(scopeName)
-		, baseGroup(ITrSwitchGroupKind::Base, 0)
+		, baseGroup(ITrSwitchGroupKind::Base, 0, usize(-1))
 	{
 	}
 

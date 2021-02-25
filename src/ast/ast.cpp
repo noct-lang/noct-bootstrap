@@ -63,7 +63,7 @@ namespace Noctis
 	}
 
 	AstQualName::AstQualName(u64 startIdx, bool global, StdVector<AstQualIdenSPtr>&& idens)
-		: global(global)
+		: hasColonColon(global)
 		, idens(std::move(idens))
 		, ctx(new AstContext{})
 	{
@@ -408,8 +408,8 @@ namespace Noctis
 	}
 
 
-	AstThrowStmt::AstThrowStmt(u64 startIdx, AstExprSPtr expr)
-		: AstStmt(AstStmtKind::Throw, startIdx, expr->ctx->endIdx)
+	AstThrowStmt::AstThrowStmt(u64 startIdx, AstExprSPtr expr, u64 endIdx)
+		: AstStmt(AstStmtKind::Throw, startIdx, endIdx)
 		, expr(expr)
 	{
 	}

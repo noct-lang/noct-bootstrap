@@ -61,6 +61,7 @@ namespace Noctis
 		QualNameSPtr GetSubName(usize depth, usize numGenerics);
 
 		QualNameSPtr GetBaseName(usize depth);
+		//QualNameSPtr GetBaseName
 		 
 		bool IsBase();
 		bool IsSubnameOf(QualNameSPtr base);
@@ -83,6 +84,7 @@ namespace Noctis
 		QualName(TypeDisambiguationSPtr disambiguation);
 
 		static bool CompareGenerics(const StdVector<IdenGeneric>& gens0, const StdVector<IdenGeneric>& gens1);
+		static void FixupGenerics(StdVector<IdenGeneric>& idenGens);
 		static QualNameSPtr CreateFuzzy(TypeDisambiguationSPtr disambig, const StdVector<StdString>& idens, const StdVector<IdenGeneric>& generics);
 		
 		TypeDisambiguationSPtr m_Disambiguation;

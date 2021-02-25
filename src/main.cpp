@@ -25,11 +25,11 @@
 // build "../noct/src/core/marker.nx"
 // build "../noct/src/core/intrin/compintrin.nx"
 // build "../noct/src/core/result.nx"
-// build "../noct/src/core/ops/arith.nx" "../noct/src/core/ops/deref.nx" "../noct/src/core/ops/cmp.nx" "../noct/src/core/ops/index.nx" "../noct/src/core/ops/concat.nx" -I "./"
-// build "../noct/src/core/convert.nx" -I "./"
-//
 // build "../noct/src/core/clone.nx"
 // build "../noct/src/core/default.nx"
+// 
+// build "../noct/src/core/ops/arith.nx" "../noct/src/core/ops/cmp.nx" "../noct/src/core/ops/concat.nx" "../noct/src/core/ops/contains.nx" "../noct/src/core/ops/deref.nx" "../noct/src/core/ops/index.nx" "../noct/src/core/ops/range.nx" -I "./"
+// build "../noct/src/core/convert.nx" -I "./"
 // 
 // build "../noct/src/core/iter.nx"
 //

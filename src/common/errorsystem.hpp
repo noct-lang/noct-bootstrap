@@ -66,7 +66,7 @@ namespace Noctis
 		{
 			StdString text = Format(format, args...);
 			const Span& tmp = span.start;
-			LogWarning(tmp.filePath, tmp.line, tmp.column, text);
+			LogError(tmp.filePath, tmp.line, tmp.column, text);
 		}
 
 		void SetCurrentFile(const StdString& file);

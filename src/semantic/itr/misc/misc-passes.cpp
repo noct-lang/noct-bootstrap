@@ -162,16 +162,21 @@ namespace Noctis
 			ITrSwitchCase& case_ = node.cases[i];
 
 			StdVector<ITrPatternSPtr> patterns = SplitEither(case_.pattern);
+
+			TypeHandle switchType = node.expr->handle;
+			if (switchType.Kind() == TypeKind::Ref)
+				switchType = switchType.AsRef().subType;
+			
 			if (patterns.empty())
 			{
-				ITrSwitchGroup group = CreateGroup(case_.pattern, node.expr->handle, i);
+				ITrSwitchGroup group = CreateGroup(case_.pattern, switchType, i);
 				MergeGroups(node.baseGroup, group);
 			}
 			else
 			{
 				for (ITrPatternSPtr pattern : patterns)
 				{
-					ITrSwitchGroup group = CreateGroup(case_.pattern, node.expr->handle, i);
+					ITrSwitchGroup group = CreateGroup(case_.pattern, switchType, i);
 					MergeGroups(node.baseGroup, group);
 				}	
 			}
@@ -350,7 +355,7 @@ namespace Noctis
 			pattern = valueBind.subPattern;
 		}
 
-		ITrSwitchGroup group{ ITrSwitchGroupKind::Leaf, depth };
+		ITrSwitchGroup group{ ITrSwitchGroupKind::Leaf, depth, caseId };
 		if (pattern)
 		{
 			switch (pattern->patternKind)
@@ -383,17 +388,14 @@ namespace Noctis
 
 	ITrSwitchGroup SwitchProcessPass::CreateLeaf(ITrPatternSPtr pattern, TypeHandle& type, usize caseId, usize depth)
 	{
-		ITrSwitchGroup group{ ITrSwitchGroupKind::Leaf, depth };
-		group.depth = depth;
-		group.cases.push_back(caseId);
+		ITrSwitchGroup group{ ITrSwitchGroupKind::Leaf, depth, caseId };
 		return group;
 	}
 
 	ITrSwitchGroup SwitchProcessPass::CreateRange(ITrPatternSPtr pattern, TypeHandle& type, usize caseId, usize depth)
 	{
-		ITrSwitchGroup group{ ITrSwitchGroupKind::Range, depth };
-		group.depth = depth;
-		group.cases.push_back(caseId);
+		ITrSwitchGroup group{ ITrSwitchGroupKind::Range, depth, caseId };
+		group.imm = pattern->imm;
 
 		ITrRangePattern& range = static_cast<ITrRangePattern&>(*pattern);
 		group.valOrFrom = GetLitVal(range.from);
@@ -412,12 +414,10 @@ namespace Noctis
 		return group;
 	}
 
-	ITrSwitchGroup SwitchProcessPass::CreateLitMatch(ITrPatternSPtr pattern, TypeHandle& type, usize caseId,
-	                                                 usize depth)
+	ITrSwitchGroup SwitchProcessPass::CreateLitMatch(ITrPatternSPtr pattern, TypeHandle& type, usize caseId, usize depth)
 	{
-		ITrSwitchGroup group{ ITrSwitchGroupKind::LitMatch, depth };
-		group.depth = depth;
-		group.cases.push_back(caseId);
+		ITrSwitchGroup group{ ITrSwitchGroupKind::LitMatch, depth, caseId };
+		group.imm = pattern->imm;
 
 		ITrSwitchGroup subGroup = CreateLeaf(pattern, type, caseId, depth);
 		Token& lit = static_cast<ITrLiteralPattern&>(*pattern).lit;
@@ -431,25 +431,32 @@ namespace Noctis
 	{
 		SymbolSPtr sym = type.AsIden().sym.lock();
 
-		if (sym->kind == SymbolKind::ValEnum)
+		if (pattern->patternKind == ITrPatternKind::ValueEnum)
 			return CreateEnumMatch(pattern, type, caseId, depth);
 
-		if (pattern->patternKind != ITrPatternKind::ValueEnum)
+		if (pattern->patternKind != ITrPatternKind::AdtAggrEnum &&
+			pattern->patternKind != ITrPatternKind::AdtTupleEnum)
 		{
 			Span span = g_SpanManager.GetSpan(pattern->startIdx);
 			g_ErrorSystem.Error(span, "No members are matched");
 			return CreateLeaf(pattern, type, caseId, depth);
 		}
 
-		if (sym->type.Kind() == TypeKind::Tuple)
-			return CreateTupleEnumMatch(pattern, type, caseId, depth);
-		return CreateAggrEnumMatch(pattern, type, caseId, depth);
+		if (pattern->patternKind == ITrPatternKind::AdtAggrEnum)
+		{
+			ITrAdtAggrEnumPattern& aggrPat = static_cast<ITrAdtAggrEnumPattern&>(*pattern);
+			SymbolSPtr child = sym->children->FindChild(nullptr, aggrPat.qualName->LastIden());
+			return CreateAggrEnumMatch(pattern, child->type, caseId, depth);
+		}
+
+		ITrAdtTupleEnumPattern& tupPat = static_cast<ITrAdtTupleEnumPattern&>(*pattern);
+		SymbolSPtr child = sym->children->FindChild(nullptr, tupPat.qualName->LastIden());
+		return CreateTupleEnumMatch(pattern, child->type, caseId, depth);
 	}
 
 	ITrSwitchGroup SwitchProcessPass::CreateEnumMatch(ITrPatternSPtr pattern, TypeHandle& type, usize caseId, usize depth)
 	{
-		ITrSwitchGroup group{ ITrSwitchGroupKind::EnumMatch, depth };
-		group.cases.push_back(caseId);
+		ITrSwitchGroup group{ ITrSwitchGroupKind::EnumMatch, depth, caseId };
 
 		ITrSwitchGroup subGroup = CreateLeaf(pattern, type, caseId, depth);
 		subGroup.member = static_cast<ITrValueEnumPattern&>(*pattern).qualName->LastIden();
@@ -459,8 +466,8 @@ namespace Noctis
 
 	ITrSwitchGroup SwitchProcessPass::CreateTupleEnumMatch(ITrPatternSPtr pattern, TypeHandle& type, usize caseId, usize depth)
 	{
-		ITrSwitchGroup group{ ITrSwitchGroupKind::EnumMatch, depth };
-		group.cases.push_back(caseId);
+		ITrSwitchGroup group{ ITrSwitchGroupKind::EnumMatch, depth, caseId };
+		group.imm = pattern->imm;
 
 		ITrSwitchGroup subGroup = CreateTuple(pattern, type, caseId, depth + 1);
 		subGroup.member = static_cast<ITrAdtTupleEnumPattern&>(*pattern).qualName->LastIden();
@@ -470,8 +477,8 @@ namespace Noctis
 
 	ITrSwitchGroup SwitchProcessPass::CreateAggrEnumMatch(ITrPatternSPtr pattern, TypeHandle& type, usize caseId, usize depth)
 	{
-		ITrSwitchGroup group{ ITrSwitchGroupKind::EnumMatch, depth };
-		group.cases.push_back(caseId);
+		ITrSwitchGroup group{ ITrSwitchGroupKind::EnumMatch, depth, caseId };
+		group.imm = pattern->imm;
 
 		ITrSwitchGroup subGroup = CreateAggr(pattern, type, caseId, depth + 1);
 		subGroup.member = static_cast<ITrAdtTupleEnumPattern&>(*pattern).qualName->LastIden();
@@ -481,8 +488,8 @@ namespace Noctis
 
 	ITrSwitchGroup SwitchProcessPass::CreateTuple(ITrPatternSPtr pattern, TypeHandle& type, usize caseId, usize depth)
 	{
-		ITrSwitchGroup tupleGroup{ ITrSwitchGroupKind::Tuple, depth };
-		tupleGroup.cases.push_back(caseId);
+		ITrSwitchGroup tupleGroup{ ITrSwitchGroupKind::Tuple, depth, caseId };
+		tupleGroup.imm = pattern->imm;
 
 		TupleType& tupType = type.AsTuple();
 		usize numElems = tupType.subTypes.size();
@@ -516,9 +523,9 @@ namespace Noctis
 			TypeHandle subType = tupType.subTypes[i];
 			ITrPatternSPtr subPattern = subPatterns[i];
 			
-			ITrSwitchGroup indexGroup{ ITrSwitchGroupKind::TupleIndex, depth + 1 };
-			indexGroup.cases.push_back(caseId);
+			ITrSwitchGroup indexGroup{ ITrSwitchGroupKind::TupleIndex, depth + 1, caseId };
 			indexGroup.idx = i;
+			indexGroup.imm = pattern->imm;
 			
 			ITrSwitchGroup subGroup = CreateGroup(subPattern, subType, caseId, depth + 2);
 			// Skip empty node
@@ -559,7 +566,8 @@ namespace Noctis
 			static_cast<ITrAggrPattern&>(*pattern).args :
 			static_cast<ITrAdtAggrEnumPattern&>(*pattern).args;
 
-		ITrSwitchGroup aggrGroup{ ITrSwitchGroupKind::Aggr, depth };
+		ITrSwitchGroup aggrGroup{ ITrSwitchGroupKind::Aggr, depth, caseId };
+		aggrGroup.imm = pattern->imm;
 		
 		ITrSwitchGroup* pLastGroup = &aggrGroup;
 		usize numMembers = members.size();
@@ -573,9 +581,9 @@ namespace Noctis
 				if (member.first != name)
 					continue;
 
-				ITrSwitchGroup memberGroup{ ITrSwitchGroupKind::AggrMember, depth + 1 };
+				ITrSwitchGroup memberGroup{ ITrSwitchGroupKind::AggrMember, depth + 1, caseId };
 				memberGroup.member = name;
-				memberGroup.cases.push_back(caseId);
+				memberGroup.imm = pattern->imm;
 				
 				ITrSwitchGroup subGroup = CreateGroup(member.second, child->type, caseId, depth + 2);
 				memberGroup.subGroups.push_back(subGroup);
@@ -602,8 +610,8 @@ namespace Noctis
 
 		StdVector<ITrPatternSPtr> subPatterns = static_cast<ITrSlicePattern&>(*pattern).subPatterns;
 
-		ITrSwitchGroup group{ ITrSwitchGroupKind::Slice, depth };
-		group.cases.push_back(caseId);
+		ITrSwitchGroup group{ ITrSwitchGroupKind::Slice, depth, caseId };
+		group.imm = pattern->imm;
 
 		bool foundWildcard = false;
 		ITrSwitchGroup* pLastGroup = &group;
@@ -619,10 +627,10 @@ namespace Noctis
 					continue;
 				}
 
-				ITrSwitchGroup indexGroup{ ITrSwitchGroupKind::SliceIndex, depth + 1 };
+				ITrSwitchGroup indexGroup{ ITrSwitchGroupKind::SliceIndex, depth + 1, caseId };
 				indexGroup.idx = subPatterns.size() - i;
 				indexGroup.indexFromBack = true;
-				indexGroup.cases.push_back(caseId);
+				indexGroup.imm = pattern->imm;
 
 				ITrSwitchGroup subGroup = CreateGroup(subPattern, subType, caseId, depth + 2);
 				indexGroup.subGroups.push_back(subGroup);
@@ -636,9 +644,9 @@ namespace Noctis
 					continue;
 				}
 
-				ITrSwitchGroup indexGroup{ ITrSwitchGroupKind::SliceIndex, depth + 1 };
+				ITrSwitchGroup indexGroup{ ITrSwitchGroupKind::SliceIndex, depth + 1, caseId };
 				indexGroup.idx = i;
-				indexGroup.cases.push_back(caseId);
+				indexGroup.imm = pattern->imm;
 				
 				ITrSwitchGroup subGroup = CreateGroup(subPattern, subType, caseId, depth + 2);
 				indexGroup.subGroups.push_back(subGroup);

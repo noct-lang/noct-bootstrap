@@ -57,6 +57,8 @@
 
 		SymbolInstSPtr parent;
 		StdVector<SymbolInstWPtr> ifaces;
+
+		bool isImported : 1;
  	};
 	
 	struct Symbol
@@ -186,6 +188,8 @@
 		void Foreach(const std::function<void(SymbolSPtr, QualNameSPtr)>& lambda);
 
 		void Log(bool includeImports);
+
+		const StdUnorderedMap<TypeSPtr, SymbolSPtr>& GetTypeSymbols() { return m_TypeSymbols; }
 		
 	private:
 		ScopedSymbolTableSPtr m_ScopedTable;

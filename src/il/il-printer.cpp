@@ -23,6 +23,7 @@ namespace Noctis
 
 	void ILPrinter::Visit(ILFuncDef& node)
 	{
+		m_pFuncDef = &node;
 		g_Logger.Log("func");
 
 		if (!node.generics.empty())
@@ -37,7 +38,15 @@ namespace Noctis
 				ILGeneric& gen = node.generics[i];
 				g_Logger.Log(gen.iden);
 				if (gen.type.IsValid())
-					g_Logger.Log(":%s", g_TypeReg.ToString(gen.type).c_str());
+				{
+					TypeHandle logType = gen.type;
+					for (StdPair<const StdString, TypeHandle>& pair : m_pFuncDef->genMapping)
+					{
+						logType = g_TypeReg.ReplaceSubType(logType, pair.second, g_TypeReg.Iden(TypeMod::None, QualName::Create(pair.first)));
+					}
+					StdString typeName = g_TypeReg.ToString(logType);
+					g_Logger.Log(":%s", typeName.c_str());
+				}
 			}
 			
 			g_Logger.Log(">");
@@ -53,8 +62,20 @@ namespace Noctis
 			LogVar(node.params[i]);
 		}
 
-		StdString retTypeName = node.retType.IsValid() ? g_TypeReg.ToString(node.retType) : "()";
-		g_Logger.Log(") -> %s {\n", retTypeName.c_str());
+		if (node.retType.IsValid())
+		{
+			TypeHandle logType = node.retType;
+			for (StdPair<const StdString, TypeHandle>& pair : m_pFuncDef->genMapping)
+			{
+				logType = g_TypeReg.ReplaceSubType(logType, pair.second, g_TypeReg.Iden(TypeMod::None, QualName::Create(pair.first)));
+			}
+			StdString typeName = g_TypeReg.ToString(logType);
+			g_Logger.Log(") -> %s {\n", typeName.c_str());
+		}
+		else
+		{
+			g_Logger.Log(") -> () {\n");
+		}
 
 		for (ILVar& var : node.localVars)
 		{
@@ -472,7 +493,13 @@ namespace Noctis
 
 	void ILPrinter::LogVar(ILVar& var)
 	{
-		StdString typeName = g_TypeReg.ToString(var.type);
+		TypeHandle logType = var.type;
+		for (StdPair<const StdString, TypeHandle>& pair : m_pFuncDef->genMapping)
+		{
+			logType = g_TypeReg.ReplaceSubType(logType, pair.second, g_TypeReg.Iden(TypeMod::None, QualName::Create(pair.first)));
+		}
+		StdString typeName = g_TypeReg.ToString(logType);
+		
 		switch (var.kind)
 		{
 		case ILVarKind::Copy:

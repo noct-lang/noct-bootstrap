@@ -87,7 +87,7 @@ namespace Noctis::NameMangling
 				}
 				else
 				{
-					mangled += Format("T%u", generic.type.AsGeneric().id);
+					mangled += Format("H%u", generic.type.AsGeneric().id);
 					if (pBoundsInfo)
 					{
 						const Bounds& bounds = pBoundsInfo->GetBounds(generic.type);
@@ -237,7 +237,7 @@ namespace Noctis::NameMangling
 		case TypeKind::Generic:
 		{
 			// TODO: bounds
-			return mod + Format("HT%u", type->AsGeneric().id);
+			return mod + Format("H%u", type->AsGeneric().id);
 		}
 		default: return "";
 		}
@@ -277,14 +277,13 @@ namespace Noctis::NameMangling
 			{
 				switch (data[idx])
 				{
-				case 'T':
+				case 'H':
 				{
 					++idx;
 					u16 id = u16(DemangleUSize(data, idx));
 
 					IdenGeneric idenGen;
 					idenGen.isType = true;
-					idenGen.iden = Format("T%u", id);
 					idenGen.type = g_TypeReg.Generic(TypeMod::None, id);
 					generics.push_back(idenGen);
 
@@ -458,7 +457,7 @@ namespace Noctis::NameMangling
 		}
 		case 'H':
 		{
-			idx += 2;
+			++idx;
 			usize id = DemangleUSize(data, idx);
 			// TODO: bounds
 			return g_TypeReg.Generic(mod, u16(id));

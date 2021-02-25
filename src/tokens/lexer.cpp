@@ -30,13 +30,10 @@ namespace Noctis
 		m_Content = content;
 		
 		usize size = m_Content.size();
-
-		SpanManager& spanManager = g_SpanManager;
 		
 		while (m_Index < size)
 		{
 			usize start = m_Index;
-			u64 tokIdx = u64(m_Tokens.size());
 			switch (m_Content[m_Index])
 			{
 			case '=':
@@ -47,21 +44,21 @@ namespace Noctis
 					if (m_Content[m_Index] == '=')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::EqEq, tokIdx });
-						spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						m_Tokens.push_back({ TokenType::EqEq, spanId });
 						break;
 					}
 					if (m_Content[m_Index] == '>')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::DblArrow, tokIdx });
-						spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						m_Tokens.push_back({ TokenType::DblArrow, spanId });
 						break;
 					}
 				}
 
-				m_Tokens.push_back({ TokenType::Eq, tokIdx });
-				spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				m_Tokens.push_back({ TokenType::Eq, spanId });
 				break;
 			}
 			case '+':
@@ -72,21 +69,21 @@ namespace Noctis
 					if (m_Content[m_Index] == '+')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::PlusPlus, tokIdx });
-						spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						m_Tokens.push_back({ TokenType::PlusPlus, spanId });
 						break;
 					}
 					if (m_Content[m_Index] == '=')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::PlusEq, tokIdx });
-						spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						m_Tokens.push_back({ TokenType::PlusEq, spanId });
 						break;
 					}
 				}
 
-				m_Tokens.push_back({ TokenType::Plus, tokIdx });
-				spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				m_Tokens.push_back({ TokenType::Plus, spanId });
 				break;
 			}
 			case '-':
@@ -97,34 +94,34 @@ namespace Noctis
 					if (m_Content[m_Index] == '-')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::MinusMinus, tokIdx });
-						spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						m_Tokens.push_back({ TokenType::MinusMinus, spanId });
 						break;
 					}
 					if (m_Content[m_Index] == '=')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::MinusEq, tokIdx });
-						spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						m_Tokens.push_back({ TokenType::MinusEq, spanId });
 						break;
 					}
 					if (m_Content[m_Index] == '>')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::Arrow, tokIdx });
-						spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						m_Tokens.push_back({ TokenType::Arrow, spanId });
 						break;
 					}
 					if (isdigit(m_Content[m_Index]))
 					{
 						--m_Index;
-						ParseLiteral(spanManager, tokIdx);
+						ParseLiteral();
 						break;
 					}
 				}
 
-				m_Tokens.push_back({ TokenType::Minus, tokIdx });
-				spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				m_Tokens.push_back({ TokenType::Minus, spanId });
 				break;
 			}
 			case '*':
@@ -133,13 +130,13 @@ namespace Noctis
 				if (m_Index < size && m_Content[m_Index] == '=')
 				{
 					++m_Index;
-					m_Tokens.push_back({ TokenType::AsteriskEq, tokIdx });
-					spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+					u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+					m_Tokens.push_back({ TokenType::AsteriskEq, spanId });
 					break;
 				}
 
-				m_Tokens.push_back({ TokenType::Asterisk, tokIdx });
-				spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				m_Tokens.push_back({ TokenType::Asterisk, spanId });
 				break;
 			}
 			case '/':
@@ -149,8 +146,8 @@ namespace Noctis
 					if (m_Content[m_Index + 1] == '=')
 					{
 						m_Index += 2;
-						m_Tokens.push_back({ TokenType::SlashEq, tokIdx });
-						spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						m_Tokens.push_back({ TokenType::SlashEq, spanId });
 						break;
 					}
 					if (m_Content[m_Index + 1] == '/')
@@ -168,8 +165,8 @@ namespace Noctis
 				}
 
 				++m_Index;
-				m_Tokens.push_back({ TokenType::Slash, tokIdx });
-				spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				m_Tokens.push_back({ TokenType::Slash, spanId });
 				break;
 			}
 			case '%':
@@ -178,13 +175,13 @@ namespace Noctis
 				if (m_Index < size && m_Content[m_Index] == '=')
 				{
 					++m_Index;
-					m_Tokens.push_back({ TokenType::PercentEq, tokIdx });
-					spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+					u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+					m_Tokens.push_back({ TokenType::PercentEq, spanId });
 					break;
 				}
 
-				m_Tokens.push_back({ TokenType::Percent, tokIdx });
-				spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				m_Tokens.push_back({ TokenType::Percent, spanId });
 				break;
 			}
 			case '~':
@@ -193,13 +190,13 @@ namespace Noctis
 				if (m_Index < size && m_Content[m_Index] == '=')
 				{
 					++m_Index;
-					m_Tokens.push_back({ TokenType::TildeEq, tokIdx });
-					spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+					u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+					m_Tokens.push_back({ TokenType::TildeEq, spanId });
 					break;
 				}
 
-				m_Tokens.push_back({ TokenType::Tilde, tokIdx });
-				spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				m_Tokens.push_back({ TokenType::Tilde, spanId });
 				break;
 			}
 			case '&':
@@ -210,21 +207,21 @@ namespace Noctis
 					if (m_Content[m_Index] == '&')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::AndAnd, tokIdx });
-						spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						m_Tokens.push_back({ TokenType::AndAnd, spanId });
 						break;
 					}
 					if (m_Content[m_Index] == '=')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::AndEq, tokIdx });
-						spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						m_Tokens.push_back({ TokenType::AndEq, spanId });
 						break;
 					}
 				}
 
-				m_Tokens.push_back({ TokenType::And, tokIdx });
-				spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				m_Tokens.push_back({ TokenType::And, spanId });
 				break;
 			}
 			case '|':
@@ -235,21 +232,21 @@ namespace Noctis
 					if (m_Content[m_Index] == '|')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::OrOr, tokIdx });
-						spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						m_Tokens.push_back({ TokenType::OrOr, spanId });
 						break;
 					}
 					if (m_Content[m_Index] == '=')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::OrEq, tokIdx });
-						spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						m_Tokens.push_back({ TokenType::OrEq, spanId });
 						break;
 					}
 				}
 
-				m_Tokens.push_back({ TokenType::Or, tokIdx });
-				spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				m_Tokens.push_back({ TokenType::Or, spanId });
 				break;
 			}
 			case '^':
@@ -258,13 +255,13 @@ namespace Noctis
 				if (m_Index + 1 < size && m_Content[m_Index] == '=')
 				{
 					++m_Index;
-					m_Tokens.push_back({ TokenType::CaretEq, tokIdx });
-					spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+					u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+					m_Tokens.push_back({ TokenType::CaretEq, spanId });
 					break;
 				}
 
-				m_Tokens.push_back({ TokenType::Caret, tokIdx });
-				spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				m_Tokens.push_back({ TokenType::Caret, spanId });
 				break;
 			}
 			case '<':
@@ -281,14 +278,14 @@ namespace Noctis
 								if (m_Index + 2 < size && m_Content[m_Index + 2] == '=')
 								{
 									m_Index += 3;
-									m_Tokens.push_back({ TokenType::LessLessLessEq, tokIdx });
-									spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+									u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+									m_Tokens.push_back({ TokenType::LessLessLessEq, spanId });
 									break;
 								}
 
 								m_Index += 2;
-								m_Tokens.push_back({ TokenType::LessLessLess, tokIdx });
-								spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+								u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+								m_Tokens.push_back({ TokenType::LessLessLess, spanId });
 								break;
 							}
 							if (m_Content[m_Index + 1] == '*')
@@ -296,41 +293,41 @@ namespace Noctis
 								if (m_Index + 2 < size && m_Content[m_Index + 2] == '=')
 								{
 									m_Index += 3;
-									m_Tokens.push_back({ TokenType::LessLessAsteriskEq, tokIdx });
-									spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+									u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+									m_Tokens.push_back({ TokenType::LessLessAsteriskEq, spanId });
 									break;
 								}
 
 								m_Index += 2;
-								m_Tokens.push_back({ TokenType::LessLessAsterisk, tokIdx });
-								spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+								u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+								m_Tokens.push_back({ TokenType::LessLessAsterisk, spanId });
 								break;
 							}
 							if (m_Content[m_Index + 1] == '=')
 							{
 								m_Index += 2;
-								m_Tokens.push_back({ TokenType::LessLessEq, tokIdx });
-								spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+								u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+								m_Tokens.push_back({ TokenType::LessLessEq, spanId });
 								break;
 							}
 						}
 						
 						++m_Index;
-						m_Tokens.push_back({ TokenType::LessLess, tokIdx });
-						spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						m_Tokens.push_back({ TokenType::LessLess, spanId });
 						break;
 					}
 					if (m_Content[m_Index] == '=')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::LessEq, tokIdx });
-						spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						m_Tokens.push_back({ TokenType::LessEq, spanId });
 						break;
 					}
 				}
 
-				m_Tokens.push_back({ TokenType::Less, tokIdx });
-				spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				m_Tokens.push_back({ TokenType::Less, spanId });
 				break;
 			}
 			case '>':
@@ -347,14 +344,14 @@ namespace Noctis
 								if (m_Index + 2 < size && m_Content[m_Index + 2] == '=')
 								{
 									m_Index += 3;
-									m_Tokens.push_back({ TokenType::GreaterGreaterGreaterEq, tokIdx });
-									spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+									u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+									m_Tokens.push_back({ TokenType::GreaterGreaterGreaterEq, spanId });
 									break;
 								}
 
 								m_Index += 2;
-								m_Tokens.push_back({ TokenType::GreaterGreaterGreater, tokIdx });
-								spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+								u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+								m_Tokens.push_back({ TokenType::GreaterGreaterGreater, spanId });
 								break;
 							}
 							if (m_Content[m_Index + 1] == '*')
@@ -362,41 +359,41 @@ namespace Noctis
 								if (m_Index + 2 < size && m_Content[m_Index + 2] == '=')
 								{
 									m_Index += 3;
-									m_Tokens.push_back({ TokenType::GreaterGreaterAsteriskEq, tokIdx });
-									spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+									u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+									m_Tokens.push_back({ TokenType::GreaterGreaterAsteriskEq, spanId });
 									break;
 								}
 
 								m_Index += 2;
-								m_Tokens.push_back({ TokenType::GreaterGreaterAsterisk, tokIdx });
-								spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+								u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+								m_Tokens.push_back({ TokenType::GreaterGreaterAsterisk, spanId });
 								break;
 							}
 							if (m_Content[m_Index + 1] == '=')
 							{
 								m_Index += 2;
-								m_Tokens.push_back({ TokenType::GreaterGreaterEq, tokIdx });
-								spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+								u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+								m_Tokens.push_back({ TokenType::GreaterGreaterEq, spanId });
 								break;
 							}
 						}
 
 						++m_Index;
-						m_Tokens.push_back({ TokenType::GreaterGreater, tokIdx });
-						spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						m_Tokens.push_back({ TokenType::GreaterGreater, spanId });
 						break;
 					}
 					if (m_Content[m_Index] == '=')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::GreaterEq, tokIdx });
-						spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						m_Tokens.push_back({ TokenType::GreaterEq, spanId });
 						break;
 					}
 				}
 
-				m_Tokens.push_back({ TokenType::Greater, ">", tokIdx });
-				spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				m_Tokens.push_back({ TokenType::Greater, ">", spanId });
 				break;
 			}
 			case '!':
@@ -407,77 +404,77 @@ namespace Noctis
 					if (m_Content[m_Index] == '=')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::ExclaimEq, tokIdx });
-						spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						m_Tokens.push_back({ TokenType::ExclaimEq, spanId });
 						break;
 					}
 					if (m_Content[m_Index] == '<')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::ExclaimLess, tokIdx });
-						spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						m_Tokens.push_back({ TokenType::ExclaimLess, spanId });
 						break;
 					}
 				}
 
-				m_Tokens.push_back({ TokenType::Exclaim, tokIdx });
-				spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				m_Tokens.push_back({ TokenType::Exclaim, spanId });
 				break;
 			}
 			case '(':
 			{
 				++m_Index;
-				m_Tokens.push_back({ TokenType::LParen, tokIdx });
-				spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				m_Tokens.push_back({ TokenType::LParen, spanId });
 				break;
 			}
 			case ')':
 			{
 				++m_Index;
-				m_Tokens.push_back({ TokenType::RParen, tokIdx });
-				spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				m_Tokens.push_back({ TokenType::RParen, spanId });
 				break;
 			}
 			case '{':
 			{
 				++m_Index;
-				m_Tokens.push_back({ TokenType::LBrace, tokIdx });
-				spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				m_Tokens.push_back({ TokenType::LBrace, spanId });
 				break;
 			}
 			case '}':
 			{
 				++m_Index;
-				m_Tokens.push_back({ TokenType::RBrace, tokIdx });
-				spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				m_Tokens.push_back({ TokenType::RBrace, spanId });
 				break;
 			}
 			case '[':
 			{
 				++m_Index;
-				m_Tokens.push_back({ TokenType::LBracket, tokIdx });
-				spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				m_Tokens.push_back({ TokenType::LBracket, spanId });
 				break;
 			}
 			case ']':
 			{
 				++m_Index;
-				m_Tokens.push_back({ TokenType::RBracket, tokIdx });
-				spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				m_Tokens.push_back({ TokenType::RBracket, spanId });
 				break;
 			}
 			case ',':
 			{
 				++m_Index;
-				m_Tokens.push_back({ TokenType::Comma, tokIdx });
-				spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				m_Tokens.push_back({ TokenType::Comma, spanId });
 				break;
 			}
 			case ';':
 			{
 				++m_Index;
-				m_Tokens.push_back({ TokenType::Semicolon, tokIdx });
-				spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				m_Tokens.push_back({ TokenType::Semicolon, spanId });
 				break;
 			}
 			case ':':
@@ -488,21 +485,21 @@ namespace Noctis
 					if (m_Content[m_Index] == ':')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::ColonColon, tokIdx });
-						spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						m_Tokens.push_back({ TokenType::ColonColon, spanId });
 						break;
 					}
 					if (m_Content[m_Index] == '=')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::ColonEq, tokIdx });
-						spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						m_Tokens.push_back({ TokenType::ColonEq, spanId });
 						break;
 					}
 				}
 
-				m_Tokens.push_back({ TokenType::Colon, ":", tokIdx });
-				spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				m_Tokens.push_back({ TokenType::Colon, ":", spanId });
 				break;
 			}
 			case '.':
@@ -515,33 +512,33 @@ namespace Noctis
 						if (m_Content[m_Index + 1] == '.')
 						{
 							m_Index += 2;
-							m_Tokens.push_back({ TokenType::DotDotDot, tokIdx });
-							spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+							u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+							m_Tokens.push_back({ TokenType::DotDotDot, spanId });
 							break;
 						}
 						if (m_Content[m_Index + 1] == '=')
 						{
 							m_Index += 2;
-							m_Tokens.push_back({ TokenType::DotDotEq, tokIdx });
-							spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+							u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+							m_Tokens.push_back({ TokenType::DotDotEq, spanId });
 							break;
 						}
 					}
 
 					++m_Index;
-					m_Tokens.push_back({ TokenType::DotDot, tokIdx });
-					spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+					u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+					m_Tokens.push_back({ TokenType::DotDot, spanId });
 					break;
 				}
 				if (isdigit(m_Content[m_Index + 1]))
 				{
 					--m_Index;
-					ParseLiteral(spanManager, tokIdx);
+					ParseLiteral();
 					break;
 				}
 
-				m_Tokens.push_back({ TokenType::Dot, tokIdx });
-				spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				m_Tokens.push_back({ TokenType::Dot, spanId });
 				break;
 			}
 			case '@':
@@ -550,13 +547,13 @@ namespace Noctis
 				if (m_Index < size && m_Content[m_Index] == ':')
 				{
 					++m_Index;
-					m_Tokens.push_back({ TokenType::AtColon, tokIdx });
-					spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+					u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+					m_Tokens.push_back({ TokenType::AtColon, spanId });
 					break;
 				}
 
-				m_Tokens.push_back({ TokenType::At, tokIdx });
-				spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				m_Tokens.push_back({ TokenType::At, spanId });
 				break;
 			}
 			case '?':
@@ -569,41 +566,41 @@ namespace Noctis
 						if (m_Index + 1 < size && m_Content[m_Index + 1] == '=')
 						{
 							m_Index += 2;
-							m_Tokens.push_back({ TokenType::QuestionQuestionEq, tokIdx });
-							spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+							u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+							m_Tokens.push_back({ TokenType::QuestionQuestionEq, spanId });
 							break;
 						}
 						
 						++m_Index;
-						m_Tokens.push_back({ TokenType::QuestionQuestion, tokIdx });
-						spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						m_Tokens.push_back({ TokenType::QuestionQuestion, spanId });
 						break;
 					}
 					if (m_Content[m_Index] == ':')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::QuestionColon, tokIdx });
-						spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						m_Tokens.push_back({ TokenType::QuestionColon, spanId });
 						break;
 					}
 					if (m_Content[m_Index] == '.')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::QuestionDot, tokIdx });
-						spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						m_Tokens.push_back({ TokenType::QuestionDot, spanId });
 						break;
 					}
 					if (m_Content[m_Index] == '[')
 					{
 						++m_Index;
-						m_Tokens.push_back({ TokenType::QuestionBracket, tokIdx });
-						spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+						m_Tokens.push_back({ TokenType::QuestionBracket, spanId });
 						break;
 					}
 				}
 
-				m_Tokens.push_back({ TokenType::Question, tokIdx });
-				spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+				m_Tokens.push_back({ TokenType::Question, spanId });
 				break;
 			}
 			case '$':
@@ -613,22 +610,22 @@ namespace Noctis
 				if (m_Content[m_Index] == '(')
 				{
 					++m_Index;
-					m_Tokens.push_back({ TokenType::DollarParen, tokIdx });
-					spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+					u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+					m_Tokens.push_back({ TokenType::DollarParen, spanId });
 					break;
 				}
 				else if (m_Content[m_Index] == '[')
 				{
 					++m_Index;
-					m_Tokens.push_back({ TokenType::DollarBracket, tokIdx });
-					spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+					u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+					m_Tokens.push_back({ TokenType::DollarBracket, spanId });
 					break;
 				}
 				else if (m_Content[m_Index] == '{')
 				{
 					++m_Index;
-					m_Tokens.push_back({ TokenType::DollarBrace, tokIdx });
-					spanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+					u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
+					m_Tokens.push_back({ TokenType::DollarBrace, spanId });
 					break;
 				}
 
@@ -636,8 +633,8 @@ namespace Noctis
 				usize end = m_Content.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDDEFGHIJKLMNOPQRSTUVWXYZ1234567890_", searchStart);
 				StdStringView iden = m_Content.substr(m_Index, end - m_Index);
 
-				m_Tokens.push_back({ TokenType::MacroIden, StdString{ iden }, tokIdx });
-				spanManager.AddSpan(m_FilePath, { m_Index, end, m_Line, m_Column });
+				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { m_Index, end, m_Line, m_Column });
+				m_Tokens.push_back({ TokenType::MacroIden, StdString{ iden }, spanId });
 				m_Index = end;
 				break;
 			}
@@ -651,7 +648,7 @@ namespace Noctis
 			case '7':
 			case '8':
 			case '9':
-				ParseLiteral(spanManager, tokIdx);
+				ParseLiteral();
 				break;
 
 			case ' ':
@@ -681,12 +678,12 @@ namespace Noctis
 			}
 			case '\'':
 			{
-				ParseChar(spanManager, tokIdx);
+				ParseChar();
 				break;
 			}
 			case '"':
 			{
-				ParseString(spanManager, tokIdx);
+				ParseString();
 				break;
 			}
 			case '\0':
@@ -696,7 +693,7 @@ namespace Noctis
 			{
 				if (m_Index + 1 < size && m_Content[m_Index + 1] == '"')
 				{
-					ParseWysiwygString(spanManager, tokIdx);
+					ParseWysiwygString();
 					break;
 				}
 				
@@ -718,41 +715,45 @@ namespace Noctis
 					if (it->second == TokenType::In &&
 						!m_Tokens.empty() && m_Tokens.back().Type() == TokenType::Exclaim)
 					{
-						m_Tokens.back() = Token{ TokenType::NotIn, tokIdx - 1 };
+						m_Tokens.back() = Token{ TokenType::NotIn, m_Tokens.back().Idx() };
 					}
 					else if (it->second == TokenType::Is &&
 						!m_Tokens.empty() && m_Tokens.back().Type() == TokenType::Exclaim)
 					{
-						m_Tokens.back() = Token{ TokenType::NotIs, tokIdx - 1 };
+						m_Tokens.back() = Token{ TokenType::NotIs, m_Tokens.back().Idx() };
 					}
 					else if (it->second == TokenType::Try && m_Content.size() > m_Index + 1)
 					{
 						if (m_Content[m_Index] == '?')
 						{
-							m_Tokens.emplace_back(TokenType::TryNullable, tokIdx);
+							u64 spanId = g_SpanManager.AddSpan(m_FilePath, { m_Index, end, m_Line, m_Column });
+							m_Tokens.emplace_back(TokenType::TryNullable, spanId);
 							++m_Index;
 						}
 						else if (m_Content[m_Index] == '!')
 						{
-							m_Tokens.emplace_back(TokenType::TryPanic, tokIdx);
+							u64 spanId = g_SpanManager.AddSpan(m_FilePath, { m_Index, end, m_Line, m_Column });
+							m_Tokens.emplace_back(TokenType::TryPanic, spanId);
 							++m_Index;
 						}
 						else
 						{
-							m_Tokens.emplace_back(TokenType::Try, tokIdx);
+							u64 spanId = g_SpanManager.AddSpan(m_FilePath, { m_Index, end, m_Line, m_Column });
+							m_Tokens.emplace_back(TokenType::Try, spanId);
 						}
 					}
 					else
 					{
-						m_Tokens.emplace_back(it->second, StdString{ iden }, tokIdx);
+						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { m_Index, end, m_Line, m_Column });
+						m_Tokens.emplace_back(it->second, StdString{ iden }, spanId);
 					}
 				}
 				else
 				{
-					m_Tokens.emplace_back(TokenType::Iden, StdString{ iden }, tokIdx);
+					u64 spanId = g_SpanManager.AddSpan(m_FilePath, { m_Index, end, m_Line, m_Column });
+					m_Tokens.emplace_back(TokenType::Iden, StdString{ iden }, spanId);
 				}
 
-				spanManager.AddSpan(m_FilePath, { m_Index, end, m_Line, m_Column });
 				m_Index = end;
 			}
 			}
@@ -769,7 +770,7 @@ namespace Noctis
 			const Token& tok = m_Tokens[i];
 			std::stringstream ss;
 
-			Span span = g_SpanManager.GetSpan(i);
+			Span span = g_SpanManager.GetSpan(tok.Idx());
 
 			ss << '[' << span.line << ':' << span.column << ']';
 			ss << ", ";
@@ -893,7 +894,7 @@ namespace Noctis
 		return keywords;
 	}
 
-	void Lexer::ParseLiteral(SpanManager& spanManager, u64 tokIdx)
+	void Lexer::ParseLiteral()
 	{
 		usize size = m_Content.size();
 		usize start = m_Index;
@@ -928,8 +929,8 @@ namespace Noctis
 				}
 
 				StdString text = StdString(m_Content.substr(start, m_Index - start));
-				m_Tokens.push_back({ litType, value, tokIdx });
-				spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+				m_Tokens.push_back({ litType, value, spanId });
 
 				return;
 			}
@@ -959,8 +960,8 @@ namespace Noctis
 				}
 
 				StdString text = StdString(m_Content.substr(start, m_Index - start));
-				m_Tokens.push_back({ litType, value, tokIdx });
-				spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+				m_Tokens.push_back({ litType, value, spanId });
 				
 				return;
 			}
@@ -990,8 +991,8 @@ namespace Noctis
 				}
 
 				StdString text = StdString(m_Content.substr(start, m_Index - start));
-				m_Tokens.push_back({ litType, value, tokIdx });
-				spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+				m_Tokens.push_back({ litType, value, spanId });
 
 				return;
 			}
@@ -1089,21 +1090,22 @@ namespace Noctis
 			}
 
 			StdString text = StdString{ m_Content.substr(start, m_Index - start) };
-			m_Tokens.push_back({ litType, val, tokIdx });
-			spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+			u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+			m_Tokens.push_back({ litType, val, spanId });
 		}
 		else
 		{
 			m_Index = end;
 			TokenType litType = ParseLiteralType();
 
+			u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
 			if (IsTokenTypeUnsignedLiteral(litType))
 			{
 				u64 val;
 				std::from_chars(digits.data(), digits.data() + digits.size(), val);
 
+				m_Tokens.push_back({ litType, val, spanId });
 				StdString text = StdString{ m_Content.substr(start, m_Index - start) };
-				m_Tokens.push_back({ litType, val, tokIdx });
 			}
 			else
 			{
@@ -1119,10 +1121,9 @@ namespace Noctis
 				}
 
 				StdString text = StdString{ m_Content.substr(start, m_Index - start) };
-				m_Tokens.push_back({ litType, val, tokIdx });
+				m_Tokens.push_back({ litType, val, spanId });
 			}
 
-			spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
 		}
 	}
 
@@ -1247,7 +1248,7 @@ namespace Noctis
 		return TokenType::Unknown;
 	}
 
-	void Lexer::ParseChar(SpanManager& spanManager, u64 tokIdx)
+	void Lexer::ParseChar()
 	{
 		usize size = m_Content.size();
 		usize start = m_Index;
@@ -1278,11 +1279,11 @@ namespace Noctis
 		++m_Index;
 		
 		StdString text = StdString{ m_Content.substr(start, m_Index - start) };
-		m_Tokens.push_back({ TokenType::CharLit, u64(val), tokIdx });
-		spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+		u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+		m_Tokens.push_back({ TokenType::CharLit, u64(val), spanId });
 	}
 
-	void Lexer::ParseString(SpanManager& spanManager, u64 tokIdx)
+	void Lexer::ParseString()
 	{
 		usize start = m_Index;
 		m_Index = m_Content.find('"', m_Index + 1);
@@ -1312,11 +1313,11 @@ namespace Noctis
 		}
 
 		StdString text = StdString{ string };
-		m_Tokens.push_back({ TokenType::StringLit, text, tokIdx });
-		spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+		u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+		m_Tokens.push_back({ TokenType::StringLit, text, spanId });
 	}
 
-	void Lexer::ParseWysiwygString(SpanManager& spanManager, u64 tokIdx)
+	void Lexer::ParseWysiwygString()
 	{
 		usize start = m_Index;
 		m_Index = m_Content.find('"', m_Index + 2);
@@ -1340,8 +1341,8 @@ namespace Noctis
 
 		++m_Index;
 		StdString text = StdString{ m_Content.substr(start, m_Index - start) };
-		m_Tokens.push_back({ TokenType::StringLit, text, tokIdx });
-		spanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+		u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+		m_Tokens.push_back({ TokenType::StringLit, text, spanId });
 	}
 
 	u32 Lexer::ParseEscapeCode(usize offset, usize& escapeSize)

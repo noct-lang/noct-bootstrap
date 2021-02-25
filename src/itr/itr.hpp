@@ -159,12 +159,13 @@ namespace Noctis
 
 	struct ITrQualName
 	{
-		ITrQualName(QualNameSPtr qualName, ITrTypeDisambiguationSPtr assocDisambiguation, StdVector<ITrIdenSPtr>&& assocIdens);
+		ITrQualName(QualNameSPtr qualName, ITrTypeDisambiguationSPtr assocDisambiguation, StdVector<ITrIdenSPtr>&& assocIdens, bool hasColonColon);
 
 		QualNameSPtr qualName;
 		ITrTypeDisambiguationSPtr assocDisambiguation;
 		StdVector<ITrIdenSPtr> assocIdens;
 		u64 startIdx, endIdx;
+		bool hasColonColon;
 	};
 
 	struct ITrParam
@@ -391,7 +392,7 @@ namespace Noctis
 
 	struct ITrSwitchGroup
 	{
-		ITrSwitchGroup(ITrSwitchGroupKind kind, usize depth)
+		ITrSwitchGroup(ITrSwitchGroupKind kind, usize depth, usize caseId)
 			: kind(kind)
 			, depth(depth)
 			, valOrFrom(0)
@@ -399,7 +400,10 @@ namespace Noctis
 			, idx(0)
 			, isDefCase(false)
 			, indexFromBack(false)
-		{}
+		{
+			if (caseId != usize(-1))
+				cases.push_back(caseId);
+		}
 
 		ITrSwitchGroupKind kind;
 		usize depth;
@@ -409,6 +413,8 @@ namespace Noctis
 		StdString member;
 
 		usize idx;
+
+		StdString imm;
 
 		StdVector<usize> cases;
 		StdVector<ITrSwitchGroup> subGroups;
@@ -820,6 +826,7 @@ namespace Noctis
 		ITrPatternKind patternKind;
 		TypeHandle patternType;
 		u64 startIdx, endIdx;
+		StdString imm;
 	};
 
 	struct ITrPlaceholderPattern : ITrPattern

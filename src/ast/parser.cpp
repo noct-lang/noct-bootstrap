@@ -12,6 +12,7 @@ namespace Noctis
 		, m_TokIdx(0)
 		, m_pMacroSolver(nullptr)
 		, m_AllowAggrInit(true)
+		, m_IsSwitchStmt(false)
 	{
 	}
 
@@ -717,8 +718,10 @@ namespace Noctis
 			if (TryEatIdenToken("where"))
 				expr = ParseExpression();
 			EatToken(TokenType::DblArrow);
+			m_IsSwitchStmt = true;
 			AstStmtSPtr body = ParseStatement();
-
+			m_IsSwitchStmt = false;
+			
 			if (body->stmtKind != AstStmtKind::Block)
 				body.reset(new AstBlockStmt{ body->ctx->startIdx, { body }, body->ctx->endIdx });
 
@@ -744,7 +747,8 @@ namespace Noctis
 		StdString label;
 		if (PeekToken().Type() == TokenType::Iden)
 			label = EatToken().Text();
-		u64 endIdx = EatToken(TokenType::Semicolon).Idx();
+		
+		u64 endIdx = EatStmtEndIdx();
 		return AstStmtSPtr{ new AstBreakStmt{ startIdx, std::move(label), endIdx } };
 	}
 
@@ -754,14 +758,15 @@ namespace Noctis
 		StdString label;
 		if (PeekToken().Type() == TokenType::Iden)
 			label = EatToken().Text();
-		u64 endIdx = EatToken(TokenType::Semicolon).Idx();
+		
+		u64 endIdx = EatStmtEndIdx();
 		return AstStmtSPtr{ new AstContinueStmt{ startIdx, std::move(label), endIdx } };
 	}
 
 	AstStmtSPtr Parser::ParseFallthroughStmt()
 	{
 		u64 startIdx = EatToken(TokenType::Fallthrough).Idx();
-		u64 endIdx = EatToken(TokenType::Semicolon).Idx();
+		u64 endIdx = EatStmtEndIdx();
 		return AstStmtSPtr{ new AstFallthroughStmt{ startIdx, endIdx } };
 	}
 
@@ -769,7 +774,7 @@ namespace Noctis
 	{
 		u64 startIdx = EatToken(TokenType::Goto).Idx();
 		StdString label = EatToken(TokenType::Iden).Text();
-		u64 endIdx = EatToken(TokenType::Semicolon).Idx();
+		u64 endIdx = EatStmtEndIdx();
 		return AstStmtSPtr{ new AstGotoStmt{ startIdx, std::move(label), endIdx } };
 	}
 
@@ -778,8 +783,8 @@ namespace Noctis
 		u64 startIdx = EatToken(TokenType::Return).Idx();
 		AstExprSPtr expr;
 		if (PeekToken().Type() != TokenType::Semicolon)
-			expr = ParseCommaExpression();
-		u64 endIdx = EatToken(TokenType::Semicolon).Idx();
+			expr = m_IsSwitchStmt ? ParseExpression() : ParseCommaExpression();
+		u64 endIdx = EatStmtEndIdx();
 		return AstStmtSPtr{ new AstReturnStmt{ startIdx, expr, endIdx } };
 	}
 
@@ -788,7 +793,9 @@ namespace Noctis
 	{
 		u64 startIdx = EatToken(TokenType::Throw).Idx();
 		AstExprSPtr expr = ParseOperand(nullptr);
-		return AstStmtSPtr{ new AstThrowStmt{ startIdx, expr } };
+
+		u64 endIdx = EatStmtEndIdx();
+		return AstStmtSPtr{ new AstThrowStmt{ startIdx, expr, endIdx } };
 	}
 
 
@@ -2025,7 +2032,7 @@ namespace Noctis
 				break;
 			}
 			
-			if (!qualName->global && qualName->idens.size() == 1 && qualName->idens[0]->qualIdenKind == AstQualIdenKind::Identifier)
+			if (!qualName->hasColonColon && qualName->idens.size() == 1 && qualName->idens[0]->qualIdenKind == AstQualIdenKind::Identifier)
 			{
 				AstIden* pIden = static_cast<AstIden*>(qualName->idens[0].get());
 				StdString iden = pIden->iden;
@@ -3022,6 +3029,17 @@ namespace Noctis
 		}
 	}
 
+	u64 Parser::EatStmtEndIdx()
+	{
+		if (!m_IsSwitchStmt)
+			return EatToken(TokenType::Semicolon).Idx();
+
+		Token& tok = PeekToken();
+		if (tok.Type() == TokenType::Comma)
+			return m_Tokens[m_TokIdx].Idx();
+		return m_Tokens[m_TokIdx - 1].Idx();
+	}
+
 	Token& Parser::EatToken()
 	{
 		static Token emptyTok{ TokenType::Unknown, "", u64(-1) };
@@ -3046,7 +3064,7 @@ namespace Noctis
 		Token& tok = m_Tokens[m_TokIdx];
 		if (tok.Type() != type)
 		{
-			Span span = g_SpanManager.GetSpan(m_TokIdx);
+			Span span = g_SpanManager.GetSpan(tok.Idx());
 			const char* pFoundName = GetTokenTypeName(tok.Type()).data();
 			const char* pExpectedName = GetTokenTypeName(type).data();
 			g_ErrorSystem.Error(span, "Found '%s', expected '%s'", pFoundName, pExpectedName);
@@ -3070,7 +3088,7 @@ namespace Noctis
 		Token& tok = m_Tokens[m_TokIdx];
 		if (tok.Type() != TokenType::Iden || tok.Text() != text)
 		{
-			Span span = g_SpanManager.GetSpan(m_TokIdx);
+			Span span = g_SpanManager.GetSpan(tok.Idx());
 			const char* pFoundName = GetTokenTypeName(tok.Type()).data();
 			const char* pExpectedName = text.data();
 			g_ErrorSystem.Error(span, "Found '%s', expected '%s'", pFoundName, pExpectedName);

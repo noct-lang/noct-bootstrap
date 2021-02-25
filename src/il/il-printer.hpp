@@ -46,7 +46,8 @@ namespace Noctis
 	private:
 		void PrintIndent();
 		void LogVar(ILVar& var);
-		
+
+		ILFuncDef* m_pFuncDef;
 		u8 m_Indent;
 	};
 	

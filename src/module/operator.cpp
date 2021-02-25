@@ -1029,7 +1029,7 @@ namespace Noctis
 					IdenGeneric idenGen;
 					idenGen.isType = true;
 					idenGen.iden = "__T";
-					qualName->Generics().push_back(idenGen);
+					qualName = qualName->WithGenerics({ idenGen });
 				}
 
 				ifaces.push_back(qualName);

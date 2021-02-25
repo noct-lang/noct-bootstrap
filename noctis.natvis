@@ -3,9 +3,9 @@
   <!--Types-->
   <Type Name="Noctis::TypeHandle">
     <DisplayString Condition="type._Ptr == 0">invalid</DisplayString>
-    <DisplayString>type-handle {{{type->type}}}</DisplayString>
+    <DisplayString>type-handle {type->type}</DisplayString>
     <Expand>
-      <ExpandedItem Condition="type._Ptr == 0">type->type</ExpandedItem>
+      <ExpandedItem Condition="type._Ptr != 0">type->type</ExpandedItem>
     </Expand>
   </Type>
   <Type Name="std::shared_ptr&lt;Noctis::Type&gt;">
@@ -32,17 +32,18 @@
       <ExpandedItem Condition="typeKind==Noctis::TypeKind::Generic">generic</ExpandedItem>
     </Expand>
   </Type>
+
   <!--QualName-->
   <Type Name="std::shared_ptr&lt;Noctis::QualName&gt;">
     <DisplayString Condition="_Ptr == 0">empty</DisplayString>
-    <DisplayString>qualname {*_Ptr}</DisplayString>
+    <DisplayString>{*_Ptr}</DisplayString>
     <Expand>
       <ExpandedItem Condition="_Ptr != 0">*_Ptr</ExpandedItem>
       <Item Name="[ptr]">_Ptr</Item>
     </Expand>
   </Type>
   <Type Name="Noctis::QualName">
-    <DisplayString>{m_Idens}</DisplayString>
+    <DisplayString>qualname {m_Idens}, generics={m_Generics}</DisplayString>
     <Expand>
       <Item Name="[disambig]">m_Disambiguation</Item>
       <ArrayItems>
@@ -67,12 +68,92 @@
       <Item Name="[ptr]">_Ptr</Item>
     </Expand>
   </Type>
+
   <!--Symbol-->
   <Type Name="Noctis::Symbol">
     <DisplayString>{{ vis={vis}, kind={kind}, {qualName}}}</DisplayString>
   </Type>
+  <Type Name="std::shared_ptr&lt;Noctis::Symbol&gt;">
+    <DisplayString Condition="_Ptr == 0">empty</DisplayString>
+    <DisplayString>symbol {*_Ptr}</DisplayString>
+    <Expand>
+      <ExpandedItem Condition="_Ptr != 0">*_Ptr</ExpandedItem>
+      <Item Name="[ptr]">_Ptr</Item>
+    </Expand>
+  </Type>
+  <Type Name="std::weak_ptr&lt;Noctis::Symbol&gt;">
+    <DisplayString Condition="_Ptr == 0">empty</DisplayString>
+    <DisplayString Condition="_Rep->_Uses == 0">expired</DisplayString>
+    <DisplayString>symbol {*_Ptr}</DisplayString>
+    <Expand>
+      <ExpandedItem Condition="_Ptr != 0 &amp;&amp; _Rep->_Uses != 0">*_Ptr</ExpandedItem>
+      <Item Name="[ptr]">_Ptr</Item>
+    </Expand>
+  </Type>
+
   <!--SymbolInst-->
   <Type Name="Noctis::SymbolInst">
     <DisplayString>{{ {qualName}}}</DisplayString>
+  </Type>
+  <Type Name="std::shared_ptr&lt;Noctis::SymbolInst&gt;">
+    <DisplayString Condition="_Ptr == 0">empty</DisplayString>
+    <DisplayString>symbol-inst {*_Ptr}</DisplayString>
+    <Expand>
+      <ExpandedItem Condition="_Ptr != 0">*_Ptr</ExpandedItem>
+      <Item Name="[ptr]">_Ptr</Item>
+    </Expand>
+  </Type>
+  <Type Name="std::weak_ptr&lt;Noctis::SymbolInst&gt;">
+    <DisplayString Condition="_Ptr == 0">empty</DisplayString>
+    <DisplayString Condition="_Rep->_Uses == 0">expired</DisplayString>
+    <DisplayString>symbol {*_Ptr}</DisplayString>
+    <Expand>
+      <ExpandedItem Condition="_Ptr != 0">*_Ptr</ExpandedItem>
+      <Item Name="[ptr]">_Ptr</Item>
+    </Expand>
+  </Type>
+
+  <!--Symbol tables-->
+  <Type Name="std::shared_ptr&lt;Noctis::SymbolSubTable&gt;">
+    <DisplayString Condition="_Ptr == 0">empty</DisplayString>
+    <DisplayString>symbol-inst {*_Ptr}</DisplayString>
+    <Expand>
+      <ExpandedItem Condition="_Ptr != 0">*_Ptr</ExpandedItem>
+      <Item Name="[ptr]">_Ptr</Item>
+    </Expand>
+  </Type>
+  <Type Name="std::shared_ptr&lt;Noctis::ModuleSymbolTable&gt;">
+    <DisplayString Condition="_Ptr == 0">empty</DisplayString>
+    <DisplayString>symbol-inst {*_Ptr}</DisplayString>
+    <Expand>
+      <ExpandedItem Condition="_Ptr != 0">*_Ptr</ExpandedItem>
+      <Item Name="[ptr]">_Ptr</Item>
+    </Expand>
+  </Type>
+  <Type Name="std::shared_ptr&lt;Noctis::ScopedSymbolTable&gt;">
+    <DisplayString Condition="_Ptr == 0">empty</DisplayString>
+    <DisplayString>symbol-inst {*_Ptr}</DisplayString>
+    <Expand>
+      <ExpandedItem Condition="_Ptr != 0">*_Ptr</ExpandedItem>
+      <Item Name="[ptr]">_Ptr</Item>
+    </Expand>
+  </Type>
+
+  <!--FuncCtx-->
+  <Type Name="std::shared_ptr&lt;Noctis::FuncContext&gt;">
+    <DisplayString Condition="_Ptr == 0">empty</DisplayString>
+    <DisplayString>funcCtx {*_Ptr}</DisplayString>
+    <Expand>
+      <ExpandedItem Condition="_Ptr != 0">*_Ptr</ExpandedItem>
+      <Item Name="[ptr]">_Ptr</Item>
+    </Expand>
+  </Type>
+  <Type Name="std::shared_ptr&lt;Noctis::LocalVarScope&gt;">
+    <DisplayString Condition="_Ptr == 0">empty</DisplayString>
+    <DisplayString>localVarScope {*_Ptr}</DisplayString>
+    <Expand>
+      <ExpandedItem Condition="_Ptr != 0">*_Ptr</ExpandedItem>
+      <Item Name="[ptr]">_Ptr</Item>
+    </Expand>
   </Type>
 </AutoVisualizer>
