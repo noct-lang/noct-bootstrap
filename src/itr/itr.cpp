@@ -336,6 +336,14 @@ namespace Noctis
 	{
 	}
 
+	ITrRange::ITrRange(u64 startIdx, ITrExprSPtr lExpr, bool inclusive, ITrExprSPtr rExpr, u64 endIdx)
+		: ITrExpr(ITrExprKind::Range, startIdx, endIdx)
+		, lExpr(lExpr)
+		, rExpr(rExpr)
+		, inclusive(inclusive)
+	{
+	}
+
 	ITrUnary::ITrUnary(OperatorKind op, ITrExprSPtr expr, u64 startIdx, u64 endIdx)
 		: ITrExpr(ITrExprKind::Unary, startIdx, endIdx)
 		, op(op)
@@ -355,15 +363,6 @@ namespace Noctis
 		, explicitSlice(false)
 		, expr(expr)
 		, index(index)
-	{
-	}
-
-	ITrIndexSlice::ITrIndexSlice(ITrExprSPtr expr, ITrExprSPtr from, ITrExprSPtr to, u64 endIdx)
-		: ITrExpr(ITrExprKind::IndexSlice, expr->startIdx, endIdx)
-		, explicitSlice(true)
-		, expr(expr)
-		, index(from)
-		, to(to)
 	{
 	}
 

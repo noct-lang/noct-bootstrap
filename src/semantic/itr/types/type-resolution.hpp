@@ -23,7 +23,7 @@ namespace Noctis
 
 		void Process(ITrModule& mod) override;
 
-		IdenGeneric GetGeneric(ITrGenDeclSPtr genDecl, IdenGeneric origGeneric, StdUnorderedMap<StdString, TypeHandle>& genMapping);
+		IdenGeneric GetGeneric(ITrGenDeclSPtr genDecl, IdenGeneric generic, StdUnorderedMap<StdString, TypeHandle>& genMapping);
 	};
 	
 }

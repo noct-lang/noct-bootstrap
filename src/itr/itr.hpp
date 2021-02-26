@@ -84,6 +84,7 @@ namespace Noctis
 		Assign,
 		Ternary,
 		Binary,
+		Range,
 		Unary,
 		QualName,
 		IndexSlice,
@@ -572,6 +573,15 @@ namespace Noctis
 		Operator operator_;
 	};
 
+	struct ITrRange : ITrExpr
+	{
+		ITrRange(u64 startIdx, ITrExprSPtr lExpr, bool inclusive, ITrExprSPtr rExpr, u64 endIdx);
+
+		ITrExprSPtr lExpr;
+		ITrExprSPtr rExpr;
+		bool inclusive;
+	};
+
 	struct ITrUnary : ITrExpr
 	{
 		ITrUnary(OperatorKind op, ITrExprSPtr expr, u64 startIdx, u64 endIdx);
@@ -593,12 +603,10 @@ namespace Noctis
 	struct ITrIndexSlice : ITrExpr
 	{
 		ITrIndexSlice(ITrExprSPtr expr, ITrExprSPtr index, u64 endIdx);
-		ITrIndexSlice(ITrExprSPtr expr, ITrExprSPtr from, ITrExprSPtr to, u64 endIdx);
 		
 		bool explicitSlice;
 		ITrExprSPtr expr;
 		ITrExprSPtr index;
-		ITrExprSPtr to;
 
 		Operator operator_;
 	};

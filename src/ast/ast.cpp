@@ -499,6 +499,14 @@ namespace Noctis
 	{
 	}
 
+	AstRangeExpr::AstRangeExpr(u64 startIdx, AstExprSPtr lExpr, bool inclusive, AstExprSPtr rExpr, u64 endIdx)
+		: AstExpr(AstExprKind::Range, startIdx, endIdx)
+		, lExpr(lExpr)
+		, rExpr(rExpr)
+		, inclusive(inclusive)
+	{
+	}
+
 	AstPostfixExpr::AstPostfixExpr(AstExprSPtr expr, Token op)
 		: AstExpr(AstExprKind::Postfix, expr->ctx->startIdx, op.Idx())
 		, expr(expr)
@@ -524,15 +532,6 @@ namespace Noctis
 		, expr(expr)
 		, nullCoalesce(nullCoalesce)
 		, index(index)
-	{
-	}
-
-	AstSliceExpr::AstSliceExpr(AstExprSPtr expr, bool nullCoalesce, AstExprSPtr begin, AstExprSPtr end, u64 endIdx)
-		: AstExpr(AstExprKind::Slice, expr->ctx->startIdx, endIdx)
-		, expr(expr)
-		, nullCoalesce(nullCoalesce)
-		, begin(begin)
-		, end(end)
 	{
 	}
 

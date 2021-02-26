@@ -47,21 +47,17 @@ namespace Noctis
 				return;
 			
 			SymbolSPtr sym = node.sym.lock();
-
-			StdVector<SymbolSPtr> interfaces;
 			for (StdPair<QualNameSPtr, SpanId>& pair : node.implInterfaces)
 			{
 				if (!pair.first->Generics().empty())
 				{
 					StdVector<IdenGeneric> generics;
+					generics.reserve(pair.first->Generics().size());
 					for (IdenGeneric& origGeneric : pair.first->Generics())
 					{
 						generics.push_back(GetGeneric(node.genDecl, origGeneric, node.genMapping));
 					}
-					if (pair.first->Base())
-						pair.first = pair.first->Base()->Append(pair.first->LastIden(), generics);
-					else
-						pair.first = QualName::Create(pair.first->LastIden(), generics);
+					pair.first = pair.first->WithGenerics(generics);
 				}
 				
 				SymbolSPtr interface = symTable.Find(node.qualName, pair.first);
@@ -98,101 +94,77 @@ namespace Noctis
 		Foreach(ITrVisitorDefKind::Any, [this](ITrImpl& node)
 		{
 			QualNameSPtr ifaceQualName = node.interface.first;
-			if (!ifaceQualName)
-				return;
-
-			if (ifaceQualName->Generics().empty())
-				return;
-			if (!node.genDecl)
+			if (!ifaceQualName ||
+				ifaceQualName->Generics().empty() ||
+				!node.genDecl)
 				return;
 
 			StdVector<IdenGeneric> gens;
-			StdVector<ITrGenParamSPtr>& availableGenerics = node.genDecl->params;
-			for (IdenGeneric& origGen : ifaceQualName->Generics())
+			for (IdenGeneric gen : ifaceQualName->Generics())
 			{
-				if (origGen.isType)
+				if (!gen.isType)
+					continue;
+				
+				for (ITrGenParamSPtr param : node.genDecl->params)
 				{
-					bool found = false;
-					for (ITrGenParamSPtr param : availableGenerics)
-					{
-						if (param->isType)
-						{
-							ITrGenTypeParam& typeParam = static_cast<ITrGenTypeParam&>(*param);
-							TypeHandle genType = node.genMapping.at(typeParam.iden);
+					if (!param->isType)
+						continue;
+					
+					ITrGenTypeParam& typeParam = static_cast<ITrGenTypeParam&>(*param);
+					TypeHandle genType = node.genMapping.at(typeParam.iden);
 
-							found = origGen.iden == typeParam.iden;
-							if (!found)
-							{
-								TypeHandle type = origGen.type;
-								if (type.Kind() == TypeKind::Iden &&
-									type.AsIden().qualName->IsBase() &&
-									type.AsIden().qualName->LastIden() == typeParam.iden)
-								{
-									found = true;
-								}
-								else if (type.Kind() == TypeKind::Generic &&
-										 type.AsGeneric().id == genType.AsGeneric().id)
-								{
-									found = true;
-								}
-							}
-							
-							if (found)
-							{
-								IdenGeneric gen;
-								gen.isType = true;
-								gen.isSpecialized = true;
-								gen.iden = origGen.iden;
-								gen.type = genType;
-								gens.push_back(gen);
-								break;
-							}
+					bool found = gen.iden == typeParam.iden;
+					if (!found)
+					{
+						TypeHandle type = gen.type;
+						if (type.Kind() == TypeKind::Iden &&
+							type.AsIden().qualName->IsBase() &&
+							type.AsIden().qualName->LastIden() == typeParam.iden)
+						{
+							found = true;
+						}
+						else if (type.Kind() == TypeKind::Generic &&
+								 type.AsGeneric().id == genType.AsGeneric().id)
+						{
+							found = true;
 						}
 					}
-
-					if (!found)
-						gens.push_back(origGen);
 					
+					if (found)
+					{
+						gen.isSpecialized = true;
+						gen.type = genType;
+						break;
+					}
 				}
-				else
-				{
-					gens.push_back(origGen);
-				}
+				
+				gens.push_back(gen);
 			}
-
-			if (ifaceQualName->Base())
-				node.interface.first = ifaceQualName->Base()->Append(ifaceQualName->LastIden(), gens);
-			else
-				node.interface.first = QualName::Create(ifaceQualName->LastIden(), gens);
+			node.interface.first = ifaceQualName->WithGenerics(gens);
 		});
 	}
 
-	IdenGeneric InterfaceResolve::GetGeneric(ITrGenDeclSPtr genDecl, IdenGeneric origGeneric, StdUnorderedMap<StdString, TypeHandle>& genMapping)
+	IdenGeneric InterfaceResolve::GetGeneric(ITrGenDeclSPtr genDecl, IdenGeneric generic, StdUnorderedMap<StdString, TypeHandle>& genMapping)
 	{
-		IdenGeneric generic;
-		if (origGeneric.isSpecialized)
+		if (generic.isSpecialized)
 		{
 			// If specialized, check if the type is a generic defined in the generic decl, if so, set the type to a generic
 			if (!genDecl)
-				return origGeneric;
+				return generic;
 			
 			for (ITrGenParamSPtr genParam : genDecl->params)
 			{
-				if (origGeneric.isType && genParam->isType)
+				if (generic.isType && genParam->isType)
 				{
 					ITrGenTypeParam& genTypeParam = static_cast<ITrGenTypeParam&>(*genParam);
-					QualNameSPtr qualName = origGeneric.type.AsIden().qualName;
-					if (qualName->Depth() != 1)
+					QualNameSPtr qualName = generic.type.AsIden().qualName;
+					if (!qualName->IsBase())
 						continue;
 					
-					const StdString& genIden = origGeneric.type.AsIden().qualName->LastIden();
+					const StdString& genIden = generic.type.AsIden().qualName->LastIden();
 					TypeHandle genType = genMapping.at(genIden);
 					if (genIden == genTypeParam.iden)
-					{
-						generic.isSpecialized = true;
-						generic.isType = true;
 						generic.type = genType;
-					}
 				}
 				else
 				{
@@ -203,12 +175,9 @@ namespace Noctis
 		else
 		{
 			generic.isSpecialized = true;
-			generic.isType = origGeneric.isType;
-
-			TypeHandle genType = genMapping.at(origGeneric.iden);
 			if (generic.isType)
 			{
-				generic.type = genType;
+				generic.type = genMapping.at(generic.iden);
 			}
 			else
 			{
@@ -218,6 +187,5 @@ namespace Noctis
 
 		return generic;
 	}
-
 	
 }

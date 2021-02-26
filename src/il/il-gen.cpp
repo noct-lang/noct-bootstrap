@@ -556,28 +556,24 @@ namespace Noctis
 		}
 		else
 		{
+			ILVar dst = CreateDstVar(node.handle);
 			if (node.sym->kind == SymbolKind::ValEnumMember)
 			{
-				ILVar dst = CreateDstVar(node.handle);
 				AddElem(new ILValEnumInit{ dst, node.qualName->LastIden() });
-				m_TmpVars.push(dst);
 			}
 			else if (node.sym->kind == SymbolKind::AdtEnumMember)
 			{
-				ILVar dst = CreateDstVar(node.handle);
 				AddElem(new ILAdtEnumInit{ dst, node.qualName->LastIden(), {} });
-				m_TmpVars.push(dst);
 			}
 			else if (node.sym->kind == SymbolKind::GenVal)
 			{
-				ILVar dst = CreateDstVar(node.handle);
 				AddElem(new ILGenVal{ dst, node.qualName->LastIden() });
-				m_TmpVars.push(dst);
 			}
 			else
 			{
 				// TODO: Global var
 			}
+			m_TmpVars.push(dst);
 		}
 	}
 
@@ -585,23 +581,21 @@ namespace Noctis
 	{
 		Walk(node);
 
-		if (node.to)
+		ILVar idx = PopTmpVar();
+		ILVar src = PopTmpVar();
+
+		ILVar dst = CreateDstVar(node.handle);
+
+		if (node.operator_.isBuiltin)
 		{
-			// TODO
-		}
-		else if (node.explicitSlice)
-		{
-			// TODO
+			AddElem(new ILIndex{ dst, src, idx });
 		}
 		else
 		{
-			ILVar idx = PopTmpVar();
-			ILVar src = PopTmpVar();
-			
-			ILVar dst = CreateDstVar(node.handle);
-			AddElem(new ILIndex{ dst, src, idx });
-			m_TmpVars.push(dst);
+			AddElem(new ILStaticCall{ node.operator_.sym->qualName, { idx, src } });
 		}
+		
+		m_TmpVars.push(dst);
 	}
 
 	void ILGen::Visit(ITrFuncCall& node)

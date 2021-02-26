@@ -60,11 +60,11 @@ namespace Noctis
 	struct AstAssignExpr;
 	struct AstTernaryExpr;
 	struct AstBinaryExpr;
+	struct AstRangeExpr;
 	struct AstPostfixExpr;
 	struct AstPrefixExpr;
 	struct AstQualNameExpr;
 	struct AstIndexSliceExpr;
-	struct AstSliceExpr;
 	struct AstFuncCallExpr;
 	struct AstMemberAccessExpr;
 	struct AstMethodCallExpr;
@@ -207,11 +207,11 @@ namespace Noctis
 		virtual void Visit(AstAssignExpr& node);
 		virtual void Visit(AstTernaryExpr& node);
 		virtual void Visit(AstBinaryExpr& node);
+		virtual void Visit(AstRangeExpr& node);
 		virtual void Visit(AstPostfixExpr& node);
 		virtual void Visit(AstPrefixExpr& node);
 		virtual void Visit(AstQualNameExpr& node);
 		virtual void Visit(AstIndexSliceExpr& node);
-		virtual void Visit(AstSliceExpr& node);
 		virtual void Visit(AstFuncCallExpr& node);
 		virtual void Visit(AstMemberAccessExpr& node);
 		virtual void Visit(AstMethodCallExpr& node);
@@ -347,11 +347,11 @@ namespace Noctis
 		void Walk(AstAssignExpr& node);
 		void Walk(AstTernaryExpr& node);
 		void Walk(AstBinaryExpr& node);
+		void Walk(AstRangeExpr& node);
 		void Walk(AstPostfixExpr& node);
 		void Walk(AstPrefixExpr& node);
 		void Walk(AstQualNameExpr& node);
 		void Walk(AstIndexSliceExpr& node);
-		void Walk(AstSliceExpr& node);
 		void Walk(AstFuncCallExpr& node);
 		void Walk(AstMemberAccessExpr& node);
 		void Walk(AstMethodCallExpr& node);
@@ -426,5 +426,4 @@ namespace Noctis
 		void Walk(AstMacroInstExpr& node);
 		void Walk(AstMacroInstPattern& node);
 	};
-	
 }

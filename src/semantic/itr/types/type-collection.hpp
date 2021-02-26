@@ -36,14 +36,12 @@ namespace Noctis
 
 		StdStack<SymbolSPtr> m_Syms;
 
+		ITrDefSPtr m_Impl;
 		TypeHandle m_ImplType;
 
-		bool m_InImpl;
-		bool m_InInterface;
 		QualNameSPtr m_TypeQualName;
 		QualNameSPtr m_ImplQualName;
 
-		ITrDefSPtr m_Impl;
 	};
 	
 	class TypeCollection : public TypeCollectionCommon
@@ -64,8 +62,7 @@ namespace Noctis
 	private:
 		bool HandleImpls(SymbolSPtr sym) override;
 		
-		void CollectInterfaces(SymbolSPtr sym, QualNameSPtr nodeQualName, const StdPairVector<QualNameSPtr, SpanId>& implInterfaces);
-		void CollectInterfaces(SymbolSPtr sym, QualNameSPtr nodeQualName, const StdPair<QualNameSPtr, SpanId>& implInterface);
+		void CollectInterfaces(SymbolSPtr sym, QualNameSPtr nodeQualName, QualNameSPtr implIfaceQualName);
 		void CollectNeededChildren(SymbolInstSPtr ifaceInst);
 		void AddMissingChildrenWithDefImpl();
 
@@ -83,6 +80,5 @@ namespace Noctis
 
 	private:
 		void HandleGenerics(QualNameSPtr qualName, ITrGenDeclSPtr decl, ITrDef& def);
-		SymbolSPtr m_Sym;
 	};
 }

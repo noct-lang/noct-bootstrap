@@ -115,8 +115,5 @@ namespace Noctis
 		BoundsInfo* m_pBoundsInfo;
 
 		bool m_Prepass;
-
-		// Debug info
-		StdString m_DebugMethodName;
 	};
 }

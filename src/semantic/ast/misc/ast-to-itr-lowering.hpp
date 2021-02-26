@@ -84,11 +84,11 @@ namespace Noctis
 		void Visit(AstAssignExpr& node) override;
 		void Visit(AstTernaryExpr& node) override;
 		void Visit(AstBinaryExpr& node) override;
+		void Visit(AstRangeExpr& node) override;
 		void Visit(AstPostfixExpr& node) override;
 		void Visit(AstPrefixExpr& node) override;
 		void Visit(AstQualNameExpr& node) override;
 		void Visit(AstIndexSliceExpr& node) override;
-		void Visit(AstSliceExpr& node) override;
 		void Visit(AstFuncCallExpr& node) override;
 		void Visit(AstMemberAccessExpr& node) override;
 		void Visit(AstMethodCallExpr& node) override;

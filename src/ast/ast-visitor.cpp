@@ -266,6 +266,11 @@ namespace Noctis
 		Walk(node);
 	}
 
+	void AstVisitor::Visit(AstRangeExpr& node)
+	{
+		Walk(node);
+	}
+
 	void AstVisitor::Visit(AstPostfixExpr& node)
 	{
 		Walk(node);
@@ -282,11 +287,6 @@ namespace Noctis
 	}
 
 	void AstVisitor::Visit(AstIndexSliceExpr& node)
-	{
-		Walk(node);
-	}
-
-	void AstVisitor::Visit(AstSliceExpr& node)
 	{
 		Walk(node);
 	}
@@ -702,7 +702,6 @@ namespace Noctis
 		case AstExprKind::Prefix: Visit(*static_cast<AstPrefixExpr*>(node.get())); break;
 		case AstExprKind::QualName: Visit(*static_cast<AstQualNameExpr*>(node.get())); break;
 		case AstExprKind::IndexSlice: Visit(*static_cast<AstIndexSliceExpr*>(node.get())); break;
-		case AstExprKind::Slice: Visit(*static_cast<AstSliceExpr*>(node.get())); break;
 		case AstExprKind::FuncCall: Visit(*static_cast<AstFuncCallExpr*>(node.get())); break;
 		case AstExprKind::MemberAccess: Visit(*static_cast<AstMemberAccessExpr*>(node.get())); break;
 		case AstExprKind::MethodCall: Visit(*static_cast<AstMethodCallExpr*>(node.get())); break;
@@ -1191,6 +1190,14 @@ namespace Noctis
 		Visit(node.rExpr);
 	}
 
+	void AstVisitor::Walk(AstRangeExpr& node)
+	{
+		if (node.lExpr)
+			Visit(node.lExpr);
+		if (node.rExpr)
+			Visit(node.rExpr);
+	}
+
 	void AstVisitor::Walk(AstPostfixExpr& node)
 	{
 		Visit(node.expr);
@@ -1210,15 +1217,6 @@ namespace Noctis
 	{
 		Visit(node.expr);
 		Visit(node.index);
-	}
-
-	void AstVisitor::Walk(AstSliceExpr& node)
-	{
-		Visit(node.expr);
-		if (node.begin)
-			Visit(node.begin);
-		if (node.end)
-			Visit(node.end);
 	}
 
 	void AstVisitor::Walk(AstFuncCallExpr& node)

@@ -387,6 +387,12 @@ namespace Noctis
 		Walk(node);
 	}
 
+	void IdenScopePass::Visit(AstRangeExpr& node)
+	{
+		node.ctx->scope = m_CurScope;
+		Walk(node);
+	}
+
 	void IdenScopePass::Visit(AstPostfixExpr& node)
 	{
 		node.ctx->scope = m_CurScope;
@@ -407,12 +413,6 @@ namespace Noctis
 	}
 
 	void IdenScopePass::Visit(AstIndexSliceExpr& node)
-	{
-		node.ctx->scope = m_CurScope;
-		Walk(node);
-	}
-
-	void IdenScopePass::Visit(AstSliceExpr& node)
 	{
 		node.ctx->scope = m_CurScope;
 		Walk(node);

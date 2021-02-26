@@ -130,9 +130,6 @@ namespace Noctis
 
 	QualNameSPtr QualName::Append(const StdString& iden, const StdVector<IdenGeneric>& generics)
 	{
-		if (iden == "OpContains")
-			int br = 0;
-		
 		if (!m_Generics.empty())
 		{
 			QualNameSPtr qualName = m_NoGenSelf.lock();

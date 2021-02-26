@@ -226,6 +226,11 @@ namespace Noctis
 		Walk(node);
 	}
 
+	void ITrVisitor::Visit(ITrRange& node)
+	{
+		Walk(node);
+	}
+
 	void ITrVisitor::Visit(ITrUnary& node)
 	{
 		Walk(node);
@@ -846,6 +851,14 @@ namespace Noctis
 		Visit(node.rExpr);
 	}
 
+	void ITrVisitor::Walk(ITrRange& node)
+	{
+		if (node.lExpr)
+			Visit(node.lExpr);
+		if (node.rExpr)
+			Visit(node.rExpr);
+	}
+
 	void ITrVisitor::Walk(ITrUnary& node)
 	{
 		Visit(node.expr);
@@ -859,8 +872,6 @@ namespace Noctis
 	{
 		Visit(node.expr);
 		Visit(node.index);
-		if (node.to)
-			Visit(node.to);
 	}
 
 	void ITrVisitor::Walk(ITrAmbiguousCall& node)

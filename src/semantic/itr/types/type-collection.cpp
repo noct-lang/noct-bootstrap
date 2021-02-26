@@ -10,8 +10,6 @@ namespace Noctis
 {
 	TypeCollectionCommon::TypeCollectionCommon(const char* name)
 		: ITrSemanticPass(name)
-		, m_InImpl(false)
-		, m_InInterface(false)
 	{
 		m_VisitDefs = true;
 	}
@@ -93,14 +91,12 @@ namespace Noctis
 
 	void TypeCollectionCommon::Visit(ITrTypealias& node)
 	{
-		QualNameSPtr qualName = node.qualName;
 		if (m_ImplQualName)
 		{
-			QualNameSPtr subQualName = qualName->GetSubName(m_ImplQualName);
-			qualName = m_TypeQualName->Append(subQualName);
-			node.qualName = qualName;
+			QualNameSPtr subQualName = node.qualName->GetSubName(m_ImplQualName);
+			node.qualName = m_TypeQualName->Append(subQualName);
 		}
-		if (m_InInterface)
+		if (m_Syms.top()->IsInterface())
 		{
 			SymbolSPtr sym = CreateSymbol(SymbolKind::AssocType, node.qualName, node.ptr);
 			m_Syms.top()->children->Add(sym);
@@ -134,15 +130,13 @@ namespace Noctis
 			kind = SymbolKind::Closure; break;
 		}
 
-		QualNameSPtr qualName = node.qualName;
 		if (m_ImplQualName)
 		{
-			QualNameSPtr subQualName = qualName->GetSubName(m_ImplQualName);
-			qualName = m_TypeQualName->Append(subQualName);
-			node.qualName = qualName;
+			QualNameSPtr subQualName = node.qualName->GetSubName(m_ImplQualName);
+			node.qualName = m_TypeQualName->Append(subQualName);
 		}
 
-		SymbolSPtr sym = CreateSymbol(kind, qualName, node.ptr);
+		SymbolSPtr sym = CreateSymbol(kind, node.qualName, node.ptr);
 		if (!HandleImpls(sym))
 			m_Syms.top()->children->Add(sym);
 
@@ -153,11 +147,10 @@ namespace Noctis
 	{
 		Walk(node);
 
-		SymbolSPtr parent = m_Syms.top();
-
 		SymbolSPtr sym = CreateSymbol(SymbolKind::Var, node.qualName, node.ptr);
 		sym->type = node.type->handle;
 
+		SymbolSPtr parent = m_Syms.top();
 		parent->children->Add(sym);
 		parent->orderedVarChildren.push_back(sym);
 	}
@@ -248,13 +241,11 @@ namespace Noctis
 
 		Foreach(ITrVisitorDefKind::Module, [&, this](ITrWeakInterface& node)
 		{
-			m_InInterface = true;
-			
-			m_Impl = node.ptr.lock();
 			SymbolSPtr sym = CreateSymbol(SymbolKind::WeakInterface, node.qualName, node.ptr);
 			symTable.Add(sym);
 			m_Syms.push(sym);
 
+			m_Impl = node.ptr.lock();
 			m_TypeQualName = node.qualName;
 			m_ImplType = sym->type;
 
@@ -265,21 +256,14 @@ namespace Noctis
 			}
 
 			m_Syms.pop();
-
-			m_InInterface = false;
 		});
 
+		// Members collected in ImplCollection
 		Foreach(ITrVisitorDefKind::Module, [&, this](ITrStrongInterface& node)
 		{
-			m_InInterface = true;
-			
 			m_Impl = node.ptr.lock();
 			SymbolSPtr sym = CreateSymbol(SymbolKind::StrongInterface, node.qualName, node.ptr);
 			symTable.Add(sym);
-
-			m_InInterface = false;
-			
-			// Members collected in ImplCollection
 		});
 
 		Foreach(ITrVisitorDefKind::Module, [&, this](ITrTypealias& node)
@@ -312,14 +296,8 @@ namespace Noctis
 			SymbolSPtr sym = CreateSymbol(kind, node.qualName, node.ptr);
 			symTable.Add(sym);
 
-			if (kind == SymbolKind::Method)
-			{
-				SymbolSPtr parent = m_Syms.top();
-				if (parent->kind == SymbolKind::StrongInterface)
-				{
-					AddUnique(sym->ifaces, SymbolInstWPtr{ parent->baseInst });
-				}
-			}
+			if (kind == SymbolKind::Method && m_Syms.top()->kind == SymbolKind::StrongInterface)
+				AddUnique(sym->ifaces, SymbolInstWPtr{ m_Syms.top()->baseInst });
 
 			m_Syms.push(sym);
 			ITrBodySPtr body = mod.GetBody(node);
@@ -333,9 +311,7 @@ namespace Noctis
 		Foreach(ITrVisitorDefKind::Any, [&, this](ITrImpl& node)
 		{
 			TypeHandle handle = node.type->handle;
-			TypeSPtr type = handle.Type();
-			SymbolSPtr sym = symTable.Find(type);
-
+			SymbolSPtr sym = symTable.Find(handle.Type());
 			if (!sym)
 			{
 				sym = CreateSymbol(SymbolKind::Impl, node.qualName, node.ptr);
@@ -343,7 +319,6 @@ namespace Noctis
 				symTable.Add(sym);
 			}
 			node.sym = sym;
-			
 		});
 	}
 
@@ -360,11 +335,10 @@ namespace Noctis
 		{
 			m_Impl = node.ptr.lock();
 			m_ImplType = node.sym.lock()->type;
-			TypeSPtr type = m_ImplType.Type();
 
 			ModuleSymbolTable& symTable = g_Ctx.activeModule->symTable;
 
-			IdenType& idenType = type->AsIden();
+			IdenType& idenType = m_ImplType.AsIden();
 			SymbolSPtr sym = symTable.Find(node.qualName, idenType.qualName);
 			
 			if (sym->qualName->LastIden() != idenType.qualName->LastIden())
@@ -379,10 +353,11 @@ namespace Noctis
 			node.sym = sym;
 			sym->associatedITr = node.ptr;
 
-			CollectInterfaces(sym, node.qualName, node.implInterfaces);
+			for (StdPair<QualNameSPtr, u64>& implInterface : node.implInterfaces)
+			{
+				CollectInterfaces(sym, node.qualName, implInterface.first);
+			}
 
-			m_InImpl = true;
-			m_InInterface = true;
 			m_ImplQualName = node.qualName;
 			m_ImplSymbol = sym;
 			ITrBodySPtr body = mod.GetBody(node);
@@ -392,14 +367,11 @@ namespace Noctis
 			}
 			AddMissingChildrenWithDefImpl();
 
-			m_ImplSymbol = nullptr;
 			m_Interfaces.clear();
-			m_InInterface = false;
-			m_InImpl = false;
-
 			m_Syms.pop();
-			m_Impl = nullptr;
+			
 		});
+		m_ImplSymbol = nullptr;
 		
 		Foreach(ITrVisitorDefKind::Module, [&, this](ITrImpl& node)
 		{
@@ -422,11 +394,9 @@ namespace Noctis
 			}
 
 			m_ImplType = node.type->handle;
-			TypeSPtr type = m_ImplType.Type();
-
-			if (type->typeKind == TypeKind::Iden)
+			if (m_ImplType.Kind() == TypeKind::Iden)
 			{
-				IdenType& idenType = type->AsIden();
+				IdenType& idenType = m_ImplType.AsIden();
 				if (sym->qualName->LastIden() != idenType.qualName->LastIden())
 				{
 					SymbolSPtr typeSym = symTable.Find(node.qualName, idenType.qualName);
@@ -437,7 +407,7 @@ namespace Noctis
 			}
 			else
 			{
-				StdString typeName = NameMangling::Mangle(sym->type);// g_TypeReg.ToString(sym->type);
+				StdString typeName = NameMangling::Mangle(sym->type);
 				m_TypeQualName = QualName::Create(typeName);
 			}
 			
@@ -446,11 +416,8 @@ namespace Noctis
 			sym->associatedITr = node.ptr;
 
 			if (node.interface.first)
-			{
-				CollectInterfaces(sym, node.qualName, node.interface);
-			}
+				CollectInterfaces(sym, node.qualName, node.interface.first);
 
-			m_InImpl = true;
 			m_ImplQualName = node.qualName;
 			m_ImplSymbol = sym;
 			
@@ -460,14 +427,9 @@ namespace Noctis
 				ITrVisitor::Visit(def);
 			}
 			AddMissingChildrenWithDefImpl();
-
-			m_ImplSymbol = nullptr;
+			
 			m_Interfaces.clear();
-			m_InImpl = false;
-
 			m_Syms.pop();
-			m_Impl = nullptr;
-
 		});
 	}
 
@@ -476,15 +438,13 @@ namespace Noctis
 		bool res = false;
 		for (SymbolInstSPtr inst : m_Interfaces)
 		{
-			QualNameSPtr qualName = inst->qualName;
-			QualNameSPtr searchQualName = QualName::Create(sym->qualName->LastIden());
-			
+			QualNameSPtr searchQualName = QualName::Create(sym->qualName->LastIden());	
 			SymbolSPtr child = inst->sym.lock()->children->Find(searchQualName, 0, nullptr);
 			if (child)
 			{
 				AddUniquePair(sym->impls, { child }, { inst });
 				AddUnique(sym->ifaces, { inst });
-				m_ImplSymbol->children->Add(sym, qualName);
+				m_ImplSymbol->children->Add(sym, inst->qualName);
 				res = true;
 
 				// Remove from needed children
@@ -496,18 +456,10 @@ namespace Noctis
 		return res;
 	}
 
-	void ImplCollection::CollectInterfaces(SymbolSPtr sym, QualNameSPtr nodeQualName, const StdPairVector<QualNameSPtr, SpanId>& implInterfaces)
+	void ImplCollection::CollectInterfaces(SymbolSPtr sym, QualNameSPtr nodeQualName, QualNameSPtr implIfaceQualName)
 	{
-		for (StdPair<QualNameSPtr, SpanId> pair : implInterfaces)
-		{
-			CollectInterfaces(sym, nodeQualName, pair);
-		}
-	}
-
-	void ImplCollection::CollectInterfaces(SymbolSPtr sym, QualNameSPtr nodeQualName, const StdPair<QualNameSPtr, SpanId>& implInterface)
-	{
-		SymbolSPtr iface = g_Ctx.activeModule->symTable.Find(nodeQualName, implInterface.first);
-		QualNameSPtr instQualName = iface->qualName->Base()->AppendLastIden(implInterface.first);
+		SymbolSPtr iface = g_Ctx.activeModule->symTable.Find(nodeQualName, implIfaceQualName);
+		QualNameSPtr instQualName = iface->qualName->Base()->AppendLastIden(implIfaceQualName);
 		SymbolInstSPtr inst = iface->GetOrCreateInst(instQualName);
 
 		StdStack<SymbolInstSPtr> toProcess;
@@ -545,12 +497,7 @@ namespace Noctis
 				return;
 			
 			const StdString& iden = sym->qualName->LastIden();
-			auto it = m_NeededChildren.find(iden);
-
-			if (it == m_NeededChildren.end())
-			{
-				m_NeededChildren.try_emplace(iden, std::pair{ sym, ifaceInst });
-			}
+			m_NeededChildren.try_emplace(iden, std::pair{ sym, ifaceInst });
 		});
 	}
 
@@ -571,7 +518,7 @@ namespace Noctis
 				if (sym->qualName->Generics().empty() && sym->qualName->Generics().size() > m_TypeQualName->Generics().size())
 				{
 					usize numGens = sym->qualName->Generics().size() - m_TypeQualName->Generics().size();
-					generics.insert(generics.begin(), sym->qualName->Generics().end() - numGens, sym->qualName->Generics().end());
+					generics.assign(sym->qualName->Generics().end() - numGens, sym->qualName->Generics().end());
 				}
 				
 				QualNameSPtr qualName = m_TypeQualName->Append(pair.first, generics);
@@ -652,44 +599,36 @@ namespace Noctis
 
 		Foreach(ITrVisitorDefKind::Any, [this](ITrStruct& node)
 		{
-			m_Sym = node.sym.lock();
 			HandleGenerics(node.qualName, node.genDecl, node);
 		});
 
 		Foreach(ITrVisitorDefKind::Any, [this](ITrUnion& node)
 		{
-			m_Sym = node.sym.lock();
 			HandleGenerics(node.qualName, node.genDecl, node);
 		});
 
 		Foreach(ITrVisitorDefKind::Any, [this](ITrAdtEnum& node)
 		{
-			m_Sym = node.sym.lock();
 			HandleGenerics(node.qualName, node.genDecl, node);
 		});
 
 		Foreach(ITrVisitorDefKind::Any, [this](ITrWeakInterface& node)
 		{
-			m_Sym = node.sym.lock();
 			HandleGenerics(node.qualName, node.genDecl, node);
 		});
 
 		Foreach(ITrVisitorDefKind::Any, [this](ITrStrongInterface& node)
 		{
-			m_Sym = node.sym.lock();
 			HandleGenerics(node.qualName, node.genDecl, node);
 		});
 
 		Foreach(ITrVisitorDefKind::Any, [this](ITrTypedef& node)
 		{
-			m_Sym = node.sym.lock();
 			HandleGenerics(node.qualName, node.genDecl, node);
 		});
 
 		Foreach(ITrVisitorDefKind::Any, [this](ITrImpl& node)
 		{
-			m_Sym = node.sym.lock();
-
 			if (node.genDecl)
 			{
 				StdVector<TypeHandle> idenTypes = g_TypeReg.GetSubTypes(node.type->handle, TypeKind::Iden);
@@ -733,13 +672,11 @@ namespace Noctis
 
 		Foreach(ITrVisitorDefKind::Any, [this](ITrTypealias& node)
 		{
-			m_Sym = node.sym.lock();
 			HandleGenerics(node.qualName, node.genDecl, node);
 		});
 
 		Foreach(ITrVisitorDefKind::Any, [this](ITrFunc& node)
 		{
-			m_Sym = node.sym.lock();
 			HandleGenerics(node.qualName, node.genDecl, node);
 		});
 
@@ -752,7 +689,7 @@ namespace Noctis
 
 		if (!decl)
 			return;
-		
+
 		StdVector<IdenGeneric>& generics = qualName->Generics();
 		for (usize i = 0; i < decl->params.size(); ++i)
 		{
@@ -760,14 +697,13 @@ namespace Noctis
 			if (param->isType)
 			{
 				ITrGenTypeParam& typeParam = *reinterpret_cast<ITrGenTypeParam*>(param.get());
-				
-				u16 id = u16(def.genMapping.size());
-				TypeHandle type = g_TypeReg.Generic(TypeMod::None, id);
+				TypeHandle type = generics[i].type;
 				def.genMapping.try_emplace(typeParam.iden, type);
 			}
 			else
 			{
 				ITrGenValParam& valParam = *reinterpret_cast<ITrGenValParam*>(param.get());
+				// TODO
 			}
 		}
 	}

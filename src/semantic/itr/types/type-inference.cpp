@@ -183,9 +183,6 @@ namespace Noctis
 			m_GenDecl = node.genDecl;
 			m_GenMapping = node.genMapping;
 
-			if (node.funcKind == ITrFuncKind::Method)
-				m_DebugMethodName = node.qualName->LastIden();
-
 			if (m_Prepass)
 				HandleGenerics(node);
 
@@ -242,15 +239,13 @@ namespace Noctis
 					StdVector<IdenGeneric> idenGens;
 					idenGens.resize(2, IdenGeneric{});
 
-					idenGens[0].isType = true;
-					idenGens[0].isSpecialized = true;
+					idenGens[0].isType = idenGens[0].isSpecialized = true;
 					idenGens[0].type = retType;
-					idenGens[1].isType = true;
-					idenGens[1].isSpecialized = true;
+					idenGens[1].isType = idenGens[1].isSpecialized = true;
 					idenGens[1].type = errType;
 
 					QualNameSPtr qualName = baseQualName->Append("Result", idenGens);
-					errType = g_TypeReg.Iden(TypeMod::None, qualName);
+					retType = g_TypeReg.Iden(TypeMod::None, qualName);
 				}
 
 				TypeHandle type = g_TypeReg.Func(TypeMod::None, paramTypes, retType);
@@ -314,12 +309,10 @@ namespace Noctis
 		
 		QualNameSPtr toItQualName = QualName::Create({ "core", "iter", "ToIterator" });
 		SymbolSPtr itSym = typeSym->children->FindChild(toItQualName, "Iter");
-
 		SymbolSPtr itTypeSym = g_Ctx.activeModule->symTable.Find(itSym->type);
 
 		QualNameSPtr itQualName = QualName::Create({ "core", "iter", "Iterator" });
 		SymbolSPtr itemSym = itTypeSym->children->FindChild(itQualName, "Item");
-
 		TypeHandle itemType = itemSym->type;
 
 		if (node.idens.size() > 1)
@@ -333,7 +326,6 @@ namespace Noctis
 			}
 
 			TupleType& tupType = itemType.AsTuple();
-
 			if (tupType.subTypes.size() != node.idens.size())
 			{
 				Span span = g_SpanManager.GetSpan(node.startIdx);
@@ -401,16 +393,7 @@ namespace Noctis
 		{
 			if (idenCount == 1)
 			{
-				TypeHandle type = node.init->handle;
-				if (type.Kind() == TypeKind::Func)
-				{
-					// We don't need generic info for function returns
-					types.emplace_back(type.AsFunc().retType);
-				}
-				else
-				{
-					types.push_back(node.init->handle);
-				}
+				types.push_back(node.init->handle);
 			}
 			else
 			{
@@ -421,11 +404,7 @@ namespace Noctis
 					g_ErrorSystem.Error(span, "Cannot expand non-tuple type to multiple identifiers");
 					return;
 				}
-
-				for (TypeHandle subType : type.AsTuple().subTypes)
-				{
-					types.emplace_back(subType);
-				}
+				types = type.AsTuple().subTypes;
 			}
 		}
 
@@ -433,8 +412,7 @@ namespace Noctis
 		{
 			if (types.empty())
 			{
-				for (usize i = 0; i < idenCount; ++i)
-					types.push_back(node.type->handle);
+				types.assign(idenCount, node.type->handle);
 			}
 			else
 			{
@@ -452,13 +430,12 @@ namespace Noctis
 
 		for (usize i = 0; i < node.idens.size(); ++i)
 		{
-			LocalVarDataSPtr localVar = m_FuncCtx->localVars.ActivateNextVar(m_ScopeNames, node.idens[i]);
-
 			TypeMod mod = TypeMod::None;
 			if (node.attribs && ENUM_IS_SET(node.attribs->attribs, Attribute::Mut))
 				mod = TypeMod::Mut;
 			
 			TypeHandle type = g_TypeReg.Mod(mod, types[i]);
+			LocalVarDataSPtr localVar = m_FuncCtx->localVars.ActivateNextVar(m_ScopeNames, node.idens[i]);
 			localVar->type = type;
 		}
 	}
@@ -467,7 +444,7 @@ namespace Noctis
 	{
 		Walk(node);
 
-		if (!m_ExpectedHandle.IsValid())
+		if (!m_ErrorHandle.IsValid())
 		{
 			Span span = g_SpanManager.GetSpan(node.startIdx);
 			g_ErrorSystem.Error(span, "Cannot throw in a function that is not marked as 'throws'");
@@ -475,8 +452,8 @@ namespace Noctis
 		else if (node.expr->handle != m_ErrorHandle)
 		{
 			TypeHandle foundType = node.expr->handle;
-			bool found = false;
 			StdVector<SymbolInstWPtr>& ifaces = foundType.AsIden().sym.lock()->ifaces;
+			bool found = false;
 			for (SymbolInstWPtr& inst : ifaces)
 			{
 				if (inst.lock()->type == m_ErrorHandle)
@@ -587,6 +564,51 @@ namespace Noctis
 		TypeHandle lTypeHandle = node.lExpr->handle;
 		TypeHandle rTypeHandle = node.rExpr->handle;
 
+		if (node.op == OperatorKind::Range ||
+			node.op == OperatorKind::IncRange)
+		{
+			if (lTypeHandle.Kind() == TypeKind::Ref)
+				lTypeHandle = lTypeHandle.AsRef().subType;
+			if (rTypeHandle.Kind() == TypeKind::Ref)
+				rTypeHandle = rTypeHandle.AsRef().subType;
+
+			if (!lTypeHandle.IsValid())
+			{
+				IdenGeneric idenGen;
+				idenGen.isType = idenGen.isSpecialized = true;
+				idenGen.type = rTypeHandle;
+				StdString rangeName = node.op == OperatorKind::Range ? "RangeTo" : "RangeToInclusive";
+				QualNameSPtr rangeQualName = QualName::Create({ "core", "ops", rangeName }, { idenGen });
+				node.handle = g_TypeReg.Iden(TypeMod::None, rangeQualName);
+			}
+			else if (!rTypeHandle.IsValid())
+			{
+				IdenGeneric idenGen;
+				idenGen.isType = idenGen.isSpecialized = true;
+				idenGen.type = lTypeHandle;
+				QualNameSPtr rangeQualName = QualName::Create({ "core", "ops", "RangeFrom" }, { idenGen });
+			}
+			else
+			{
+				if (lTypeHandle != rTypeHandle)
+				{
+					Span span = g_SpanManager.GetSpan(node.startIdx);
+					StdString lTypeName = lTypeHandle.ToString();
+					StdString rTypeName = rTypeHandle.ToString();
+					g_ErrorSystem.Error(span, "Types of both sides of a range operator need to match, found '%s' and '%s'\n", lTypeName.c_str(), rTypeName.c_str());
+				}
+
+				IdenGeneric idenGen;
+				idenGen.isType = idenGen.isSpecialized = true;
+				idenGen.type = lTypeHandle;
+				StdString rangeName = node.op == OperatorKind::Range ? "Range" : "RangeInclusive";
+				QualNameSPtr rangeQualName = QualName::Create({ "core", "ops", rangeName }, { idenGen });
+				node.handle = g_TypeReg.Iden(TypeMod::None, rangeQualName);
+			}
+			
+			return;
+		}
+
 		Operator op = g_Ctx.activeModule->opTable.GetOperator(node.op, lTypeHandle, rTypeHandle, *m_pBoundsInfo);
 		if (!op.result.IsValid())
 		{
@@ -618,13 +640,6 @@ namespace Noctis
 			StdString lTypeName = lTypeHandle.ToString();
 			StdString rTypeName = rTypeHandle.ToString();
 			g_ErrorSystem.Error(span, "Binary operator '%s' not found for '%s' and '%s'\n", opName.data(), lTypeName.c_str(), rTypeName.c_str());
-		}
-
-		if (node.operator_.isInterfaceOp)
-		{
-			TypeHandle srcType = lTypeHandle;
-			if (srcType.Type()->typeKind == TypeKind::Ref)
-				srcType = srcType.AsRef().subType;
 		}
 	}
 
@@ -688,10 +703,6 @@ namespace Noctis
 	void TypeInference::Visit(ITrQualNameExpr& node)
 	{
 		QualNameSPtr qualName = node.qualName = InferQualNameGenerics(node.qualName);
-
-		if (qualName->LastIden() == "val")
-			int br = 0;
-
 		SymbolSPtr sym;
 		if (node.itrQualName->hasColonColon)
 		{
@@ -709,13 +720,6 @@ namespace Noctis
 					node.handle = local->type;
 					return;
 				}
-			}
-
-			if (qualName->Disambiguation())
-			{
-				// TODO
-
-				return;
 			}
 
 			if (m_Impl)
@@ -737,15 +741,16 @@ namespace Noctis
 			return;
 		}
 
-		QualNameSPtr baseQualName = sym->qualName->GetBaseName(sym->qualName->Depth() - qualName->Depth());
-		if (baseQualName)
-			qualName = baseQualName->Append(qualName->Idens(), qualName->Generics());
+		if (sym->qualName->Depth() > qualName->Depth())
+		{
+			QualNameSPtr baseQualName = sym->qualName->GetBaseName(sym->qualName->Depth() - qualName->Depth());
+			qualName = baseQualName->Append(qualName->Idens(), qualName->Generics());	
+		}
 		node.sym = sym;
 		
 		SymbolInstSPtr inst = sym->GetOrCreateInst(qualName);
 		node.handle = inst->type;
 
-		// TODO
 		switch (sym->kind)
 		{
 		case SymbolKind::Struct:
@@ -781,44 +786,40 @@ namespace Noctis
 		TypeHandle exprTypeHandle = node.expr->handle;
 		if (exprTypeHandle.Type()->typeKind == TypeKind::Ref)
 			exprTypeHandle = exprTypeHandle.AsRef().subType;
-		
-		if (node.to)
+
+		// First, try to get the mutable index
+		Operator op = g_Ctx.activeModule->opTable.GetOperator(OperatorKind::MutIndex, exprTypeHandle, *m_pBoundsInfo);
+		if (!op.result.IsValid())
 		{
-			
+			// Check if constraints allow the op
+			if (m_GenDecl)
+				op = g_Ctx.activeModule->opTable.GetConstriantOperator(OperatorKind::MutIndex, exprTypeHandle, m_Impl->genDecl, *m_pBoundsInfo);
+			if (!op.result.IsValid() && m_Impl && m_Impl->genDecl)
+				op = g_Ctx.activeModule->opTable.GetConstriantOperator(OperatorKind::MutIndex, exprTypeHandle, m_Impl->genDecl, *m_pBoundsInfo);
 		}
-		else if (node.explicitSlice)
+
+		// if not found, check for the normal index
+		if (!op.result.IsValid())
 		{
-			
+			Operator op = g_Ctx.activeModule->opTable.GetOperator(OperatorKind::Index, exprTypeHandle, *m_pBoundsInfo);
+			if (!op.result.IsValid())
+			{
+				// Check if constraints allow the op
+				if (m_GenDecl)
+					op = g_Ctx.activeModule->opTable.GetConstriantOperator(OperatorKind::Index, exprTypeHandle, m_Impl->genDecl, *m_pBoundsInfo);
+				if (!op.result.IsValid() && m_Impl && m_Impl->genDecl)
+					op = g_Ctx.activeModule->opTable.GetConstriantOperator(OperatorKind::Index, exprTypeHandle, m_Impl->genDecl, *m_pBoundsInfo);
+			}
 		}
-		else
+
+		node.handle = op.result;
+		node.operator_ = op;
+
+		if (!op.sym)
 		{
-			TypeHandle elemType = node.expr->handle;
-			if (elemType.Kind() == TypeKind::Ref)
-				elemType = elemType.AsRef().subType;
-
-			if (elemType.Kind() == TypeKind::Array)
-				elemType = elemType.AsArray().subType;
-			else
-				elemType = elemType.AsSlice().subType;
-			
-			OperatorKind opKind = elemType.Mod() == TypeMod::Mut ? OperatorKind::MutIndex : OperatorKind::Index;
-			Operator op = g_Ctx.activeModule->opTable.GetOperator(opKind, exprTypeHandle, node.index->handle, *m_pBoundsInfo);
-
-			if (opKind == OperatorKind::MutIndex && !op.sym)
-			{
-				op = g_Ctx.activeModule->opTable.GetOperator(OperatorKind::Index, exprTypeHandle, node.index->handle, *m_pBoundsInfo);
-			}
-			
-			node.handle = op.result;
-			node.operator_ = op;
-
-			if (!op.sym)
-			{
-				Span span = g_SpanManager.GetSpan(node.startIdx);
-				StdString typeName = exprTypeHandle.ToString();
-				const char* begin = opKind == OperatorKind::MutIndex ? "Mutable i" : "I";
-				g_ErrorSystem.Error(span, "%sndex operator not found for '%s'\n", begin, typeName.c_str());
-			}
+			Span span = g_SpanManager.GetSpan(node.startIdx);
+			StdString typeName = exprTypeHandle.ToString();
+			g_ErrorSystem.Error(span, "Index operator not found for '%s'\n", typeName.c_str());
 		}
 	}
 
@@ -1014,60 +1015,27 @@ namespace Noctis
 		{
 		case TokenType::True:
 		case TokenType::False:
-		{
-			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::Bool);
-			break;
-		}
+			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::Bool); break;
 		case TokenType::CharLit:
-		{
-			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::Char);
-			break;
-		}
+			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::Char); break;
 		case TokenType::F16Lit:
-		{
-			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::F16);
-			break;
-		}
+			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::F16); break;
 		case TokenType::F32Lit:
-		{
-			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::F32);
-			break;
-		}
+			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::F32); break;
 		case TokenType::F64Lit:
-		{
-			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::F64);
-			break;
-		}
+			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::F64); break;
 		case TokenType::F128Lit:
-		{
-			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::F128);
-			break;
-		}
+			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::F128); break;
 		case TokenType::I8Lit:
-		{
-			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::I8);
-			break;
-		}
+			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::I8); break;
 		case TokenType::I16Lit:
-		{
-			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::I16);
-			break;
-		}
+			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::I16); break;
 		case TokenType::I32Lit:
-		{
-			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::I32);
-			break;
-		}
+			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::I32); break;
 		case TokenType::I64Lit:
-		{
-			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::I64);
-			break;
-		}
+			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::I64); break;
 		case TokenType::I128Lit:
-		{
-			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::I128);
-			break;
-		}
+			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::I128); break;
 		case TokenType::StringLit:
 		{
 			TypeHandle charType = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::Char);
@@ -1075,31 +1043,16 @@ namespace Noctis
 			break;
 		}
 		case TokenType::U8Lit:
-		{
-			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::U8);
-			break;
-		}
+			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::U8); break;
 		case TokenType::U16Lit:
-		{
-			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::U16);
-			break;
-		}
+			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::U16); break;
 		case TokenType::U32Lit:
-		{
-			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::U32);
-			break;
-		}
+			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::U32); break;
 		case TokenType::U64Lit:
-		{
-			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::U64);
-			break;
-		}
+			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::U64); break;
 		case TokenType::U128Lit:
-		{
-			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::U128);
-			break;
-		}
-		default: ;
+			node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::U128); break;
+		default:;
 		}
 
 		if (m_ExpectedHandle.Kind() == TypeKind::Builtin)
@@ -1148,8 +1101,8 @@ namespace Noctis
 	{
 		Walk(node);
 
-		TypeSPtr objType = node.type->handle.Type();
-		if (objType->typeKind != TypeKind::Iden)
+		TypeHandle objType = node.type->handle;
+		if (objType.Kind() != TypeKind::Iden)
 		{
 			Span span = g_SpanManager.GetSpan(node.startIdx);
 			StdString typeName = g_TypeReg.ToString(objType);
@@ -1157,67 +1110,70 @@ namespace Noctis
 			return;
 		}
 
-		IdenType& idenType = objType->AsIden();
+		IdenType& idenType = objType.AsIden();
 		SymbolSPtr sym = g_Ctx.activeModule->symTable.Find(GetCurScope(), idenType.qualName);
 
-		bool checkAggrArgs = false;
-		if (sym->kind == SymbolKind::AdtEnumMember)
+		if (sym->kind == SymbolKind::AdtEnumMember ||
+			sym->kind == SymbolKind::Struct)
 		{
-			// TODO: member with tuple
-
-			TypeSPtr type = sym->type.Type();
-			if (type->typeKind == TypeKind::Tuple)
+			StdVector<ITrArgSPtr>* pArgs;
+			StdVector<u32>* pStructArgOrder = nullptr;
+			
+			if (sym->kind == SymbolKind::AdtEnumMember)
 			{
-				Span span = g_SpanManager.GetSpan(node.startIdx);
-				StdString typeName = g_TypeReg.ToString(objType);
-				g_ErrorSystem.Error(span, "'%s' needs to be initialized with parenthesis\n", node.args.size());
-				return;
+				if (sym->type.Kind() == TypeKind::Tuple)
+				{
+					Span span = g_SpanManager.GetSpan(node.startIdx);
+					StdString typeName = g_TypeReg.ToString(objType);
+					g_ErrorSystem.Error(span, "'%s' needs to be initialized with parenthesis\n", node.args.size());
+					return;
+				}
+
+				ptr.reset(new ITrAdtAggrEnumInit{ node.type, std::move(node.args), node.endIdx });
+				ptr->handle = sym->parent.lock()->SelfType();
+				ptr->sym = sym;
+				
+				ITrAdtAggrEnumInit& adtNode = *reinterpret_cast<ITrAdtAggrEnumInit*>(ptr.get());
+				pArgs = &adtNode.args;
+			}
+			else if (sym->kind == SymbolKind::Struct)
+			{
+				ptr.reset(new ITrStructInit{ node.type, std::move(node.args), false, nullptr, node.endIdx });
+				ptr->handle = sym->SelfType();
+				ptr->sym = sym;
+
+				ITrStructInit& structNode = *reinterpret_cast<ITrStructInit*>(ptr.get());
+				pArgs = &structNode.args;
+				pStructArgOrder = &structNode.argOrder;
 			}
 
-			ptr.reset(new ITrAdtAggrEnumInit{ node.type, std::move(node.args), node.endIdx });
-			ptr->handle = sym->parent.lock()->SelfType();
-			ptr->sym = sym;
-			checkAggrArgs = g_TypeReg.IsType(sym->type, TypeKind::Iden);
-
-			ITrAdtAggrEnumInit& adtNode = *reinterpret_cast<ITrAdtAggrEnumInit*>(ptr.get());
-
-			IdenType& idenType = type->AsIden();
-			SymbolSPtr structSym = idenType.sym.lock();
-
 			StdVector<SymbolSPtr> children;
-			children.reserve(structSym->orderedVarChildren.size());
 			StdUnorderedMap<StdString, u32> childrenNameMapping;
-
-			for (SymbolWPtr childW : structSym->orderedVarChildren)
+			children.reserve(sym->orderedVarChildren.size());
+			for (SymbolWPtr childW : sym->orderedVarChildren)
 			{
 				SymbolSPtr child = childW.lock();
-
 				childrenNameMapping.try_emplace(child->qualName->LastIden(), u32(children.size()));
 				children.push_back(child);
 			}
 
-			bool hasIden = false;
-
-			StdVector<TypeHandle> argTypes;
-			argTypes.resize(children.size(), TypeHandle{});
-
-			if (adtNode.args.size() > children.size())
+			if (pArgs->size() > children.size())
 			{
 				Span span = g_SpanManager.GetSpan(node.startIdx);
-				g_ErrorSystem.Error(span, "Found more arguments then expected, found %u, expected %u\n", adtNode.args.size(), children.size());
+				g_ErrorSystem.Error(span, "Found more arguments then expected, found %u, expected %u\n", pArgs->size(), children.size());
 				return;
 			}
 
-			for (usize i = 0; i < adtNode.args.size(); ++i)
+			bool hasIden = false;
+			StdVector<bool> argAssigned;
+			argAssigned.resize(children.size(), false);
+			for (usize i = 0; i < pArgs->size(); ++i)
 			{
-				ITrArgSPtr arg = adtNode.args[i];
+				ITrArgSPtr arg = (*pArgs)[i];
 				if (!arg->iden.empty())
 				{
-					if (i == 0)
-					{
-						hasIden = true;
-					}
-					else if (!hasIden)
+					hasIden |= i == 0;
+					if (!hasIden)
 					{
 						Span span = g_SpanManager.GetSpan(node.startIdx);
 						g_ErrorSystem.Error(span, "Cannot mix named and unnamed arguments when initializing an adt enum\n");
@@ -1228,12 +1184,13 @@ namespace Noctis
 					if (it == childrenNameMapping.end())
 					{
 						Span span = g_SpanManager.GetSpan(node.startIdx);
-						g_ErrorSystem.Error(span, "The adt enum does not contain any variable named '%s'\n", arg->iden.c_str());
+						const char* symKindName = sym->kind == SymbolKind::AdtEnumMember ? "adt enum" : "struct";
+							g_ErrorSystem.Error(span, "The %s does not contain any variable named '%s'\n", symKindName, arg->iden.c_str());
 						return;
 					}
 
 					u32 idx = it->second;
-					if (argTypes[idx].IsValid())
+					if (argAssigned[idx])
 					{
 						Span span = g_SpanManager.GetSpan(node.startIdx);
 						g_ErrorSystem.Error(span, "Variable '%s' has already been assigned\n", arg->iden.c_str());
@@ -1250,11 +1207,14 @@ namespace Noctis
 						g_ErrorSystem.Error(span, "Cannot pass '%s' to '%s'\n", argName.c_str(), expectedName.c_str());
 						return;
 					}
-					argTypes[idx] = arg->expr->handle;
+					argAssigned[idx] = true;
+
+					if (pStructArgOrder)
+						pStructArgOrder->push_back(idx);
 				}
 				else
 				{
-					if (hasIden && i != 0)
+					if (hasIden)
 					{
 						Span span = g_SpanManager.GetSpan(node.startIdx);
 						g_ErrorSystem.Error(span, "Cannot mix named and unnamed arguments when initializing an adt enum\n");
@@ -1273,22 +1233,8 @@ namespace Noctis
 					}
 				}
 			}
-
-			u32 argCount;
-			if (hasIden)
-			{
-				argCount = 0;
-				for (TypeHandle argType : argTypes)
-				{
-					argCount += u32(argType.IsValid());
-				}
-			}
-			else
-			{
-				argCount = u32(adtNode.args.size());
-			}
-
-			if (argCount < children.size())
+			
+			if (pArgs->size() < children.size())
 			{
 				if (node.hasDefInit)
 				{
@@ -1316,197 +1262,12 @@ namespace Noctis
 					TypeHandle defType = node.defExpr->handle;
 					defType = g_TypeReg.Mod(TypeMod::None, defType);
 
-					bool validDef = false;
-					if (defType != sym->type)
+					bool validDef = defType == sym->type;
+					if (!validDef && defType.Kind() == TypeKind::Ref)
 					{
-						TypeSPtr type = defType.Type();
-						if (type->typeKind == TypeKind::Ref)
-						{
-							defType = type->AsRef().subType;
-							defType = g_TypeReg.Mod(TypeMod::None, defType);
-
-							validDef = defType == sym->type;
-						}
-					}
-					else
-					{
-						validDef = true;
-					}
-
-					if (!validDef)
-					{
-						Span span = g_SpanManager.GetSpan(node.startIdx);
-						StdString typeName = defType.ToString();
-						g_ErrorSystem.Error(span, "cannot initialize unspecified members from an expression with type '%s'\n", typeName.c_str());
-					}
-
-				}
-				else
-				{
-					Span span = g_SpanManager.GetSpan(node.startIdx);
-					g_ErrorSystem.Error(span, "Not all arguments have been initialized\n");
-					return;
-				}
-			}
-		}
-		else if (sym->kind == SymbolKind::Struct)
-		{
-			ptr.reset(new ITrStructInit{ node.type, std::move(node.args), false, nullptr, node.endIdx });
-			ptr->handle = sym->SelfType();
-			ptr->sym = sym;
-			checkAggrArgs = true;
-
-			ITrStructInit& structNode = *reinterpret_cast<ITrStructInit*>(ptr.get());
-
-			StdVector<SymbolSPtr> children;
-			children.reserve(sym->orderedVarChildren.size());
-			StdUnorderedMap<StdString, u32> childrenNameMapping;
-
-			for (SymbolWPtr childW : sym->orderedVarChildren)
-			{
-				SymbolSPtr child = childW.lock();
-
-				childrenNameMapping.try_emplace(child->qualName->LastIden(), u32(children.size()));
-				children.push_back(child);
-			}
-
-			bool hasIden = false;
-
-			StdVector<TypeHandle> argTypes;
-			argTypes.resize(children.size(), TypeHandle{});
-
-			if (structNode.args.size() > children.size())
-			{
-				Span span = g_SpanManager.GetSpan(node.startIdx);
-				g_ErrorSystem.Error(span, "Found more arguments then expected, found %u, expected %u\n", structNode.args.size(), children.size());
-				return;
-			}
-
-			for (usize i = 0; i < structNode.args.size(); ++i)
-			{
-				ITrArgSPtr arg = structNode.args[i];
-				if (!arg->iden.empty())
-				{
-					if (i == 0)
-					{
-						hasIden = true;
-					}
-					else if (!hasIden)
-					{
-						Span span = g_SpanManager.GetSpan(node.startIdx);
-						g_ErrorSystem.Error(span, "Cannot mix named and unnamed arguments when initializing a structure\n");
-						return;
-					}
-
-					auto it = childrenNameMapping.find(arg->iden);
-					if (it == childrenNameMapping.end())
-					{
-						Span span = g_SpanManager.GetSpan(node.startIdx);
-						g_ErrorSystem.Error(span, "The structure does not contain any variable named '%s'\n", arg->iden.c_str());
-						return;
-					}
-
-					u32 idx = it->second;
-					if (argTypes[idx].IsValid())
-					{
-						Span span = g_SpanManager.GetSpan(node.startIdx);
-						g_ErrorSystem.Error(span, "Variable '%s' has already been assigned\n", arg->iden.c_str());
-						return;
-					}
-
-					TypeHandle expected = children[i]->type;
-					TypeHandle argType = arg->expr->handle;
-					if (!g_TypeReg.CanPassTo(expected, argType))
-					{
-						Span span = g_SpanManager.GetSpan(node.startIdx);
-						StdString expectedName = expected.ToString();
-						StdString argName = argType.ToString();
-						g_ErrorSystem.Error(span, "Cannot pass '%s' to '%s'\n", argName.c_str(), expectedName.c_str());
-						return;
-					}
-					argTypes[idx] = arg->expr->handle;
-
-					structNode.argOrder.push_back(idx);
-				}
-				else
-				{
-					if (hasIden && i != 0)
-					{
-						Span span = g_SpanManager.GetSpan(node.startIdx);
-						g_ErrorSystem.Error(span, "Cannot mix named and unnamed arguments when initializing a structure\n");
-						return;
-					}
-
-					TypeHandle expected = children[i]->type;
-					TypeHandle argType = arg->expr->handle;
-					if (!g_TypeReg.CanPassTo(expected, argType))
-					{
-						Span span = g_SpanManager.GetSpan(node.startIdx);
-						StdString expectedName = expected.ToString();
-						StdString argName = argType.ToString();
-						g_ErrorSystem.Error(span, "Cannot pass '%s' to '%s'\n", argName.c_str(), expectedName.c_str());
-						return;
-					}
-				}
-			}
-
-			u32 argCount;
-			if (hasIden)
-			{
-				argCount = 0;
-				for (TypeHandle argType : argTypes)
-				{
-					argCount += u32(argType.IsValid());
-				}
-			}
-			else
-			{
-				argCount = u32(structNode.args.size());
-			}
-
-			if (argCount < children.size())
-			{
-				if (node.hasDefInit)
-				{
-					QualNameSPtr defInterfaceQualName = QualName::Create(StdVector<StdString>{ "core", "default", "Default" });
-
-					bool implsDefault = false;
-					for (SymbolInstWPtr implSym : sym->ifaces)
-					{
-						if (implSym.lock()->qualName == defInterfaceQualName)
-						{
-							implsDefault = true;
-							break;
-						}
-					}
-
-					if (!implsDefault)
-					{
-						Span span = g_SpanManager.GetSpan(node.startIdx);
-						StdString symName = sym->qualName->ToString();
-						g_ErrorSystem.Error(span, "'%s' does not implement 'core.default.Default' or 'std.default.Default'\n", symName.c_str());
-					}
-				}
-				else if (node.defExpr)
-				{
-					TypeHandle defType = node.defExpr->handle;
-					defType = g_TypeReg.Mod(TypeMod::None, defType);
-
-					bool validDef = false;
-					if (defType != sym->type)
-					{
-						TypeSPtr type = defType.Type();
-						if (type->typeKind == TypeKind::Ref)
-						{
-							defType = type->AsRef().subType;
-							defType = g_TypeReg.Mod(TypeMod::None, defType);
-
-							validDef = defType == sym->type;
-						}
-					}
-					else
-					{
-						validDef = true;
+						defType = defType.AsRef().subType;
+						defType = g_TypeReg.Mod(TypeMod::None, defType);
+						validDef = defType == sym->type;
 					}
 
 					if (!validDef)
@@ -1547,58 +1308,51 @@ namespace Noctis
 			for (SymbolWPtr childW : sym->orderedVarChildren)
 			{
 				SymbolSPtr child = childW.lock();
-
 				childrenNameMapping.try_emplace(child->qualName->LastIden(), u32(children.size()));
 				children.push_back(child);
 			}
 
-			if (unionNode.arg)
+			if (!unionNode.arg)
 			{
-				ITrArgSPtr arg = unionNode.arg;
+				Span span = g_SpanManager.GetSpan(node.startIdx);
+				g_ErrorSystem.Error(span, "Cannot initialize a union without a member\n");
+				return;
+			}
 
-				if (arg->iden.empty())
+			if (unionNode.arg->iden.empty())
+			{
+				Span span = g_SpanManager.GetSpan(node.startIdx);
+				g_ErrorSystem.Error(span, "Argument used to initialize a union require an identifier\n");
+				return;
+			}
+
+			SymbolSPtr foundChild;
+			for (SymbolSPtr child : children)
+			{
+				const StdString& name = child->qualName->LastIden();
+				if (name == unionNode.arg->iden)
+				{
+					foundChild = child;
+					break;
+				}
+			}
+
+			if (foundChild)
+			{
+				TypeHandle expected = foundChild->type;
+				TypeHandle argType = unionNode.arg->expr->handle;
+				if (!g_TypeReg.CanPassTo(expected, argType))
 				{
 					Span span = g_SpanManager.GetSpan(node.startIdx);
-					g_ErrorSystem.Error(span, "Argument used to initialize a union require an identifier\n");
-					return;
-				}
-
-				SymbolSPtr foundChild;
-				for (SymbolSPtr child : children)
-				{
-					const StdString& name = child->qualName->LastIden();
-					if (name == arg->iden)
-					{
-						foundChild = child;
-						break;
-					}
-				}
-
-				if (foundChild)
-				{
-					TypeHandle expected = foundChild->type;
-					TypeHandle argType = arg->expr->handle;
-					if (!g_TypeReg.CanPassTo(expected, argType))
-					{
-						Span span = g_SpanManager.GetSpan(node.startIdx);
-						StdString expectedName = expected.ToString();
-						StdString argName = argType.ToString();
-						g_ErrorSystem.Error(span, "Cannot pass '%s' to '%s'\n", argName.c_str(), expectedName.c_str());
-						return;
-					}
-				}
-				else
-				{
-					Span span = g_SpanManager.GetSpan(node.startIdx);
-					g_ErrorSystem.Error(span, "No member with the name '%s' exists\n", arg->iden.c_str());
-					return;
+					StdString expectedName = expected.ToString();
+					StdString argName = argType.ToString();
+					g_ErrorSystem.Error(span, "Cannot pass '%s' to '%s'\n", argName.c_str(), expectedName.c_str());
 				}
 			}
 			else
 			{
 				Span span = g_SpanManager.GetSpan(node.startIdx);
-				g_ErrorSystem.Error(span, "Cannot initialize a union without a member\n");
-				return;
+				g_ErrorSystem.Error(span, "No member with the name '%s' exists\n", unionNode.arg->iden.c_str());
 			}
 		}
 		else
@@ -1606,7 +1360,6 @@ namespace Noctis
 			Span span = g_SpanManager.GetSpan(node.startIdx);
 			StdString typeName = g_TypeReg.ToString(objType);
 			g_ErrorSystem.Error(span, "'%s' is not an aggregate or a adt-enum\n", typeName.c_str());
-			return;
 		}
 	}
 
@@ -1619,7 +1372,6 @@ namespace Noctis
 		{
 			subTypes.push_back(expr->handle);
 		}
-
 		node.handle = g_TypeReg.Tuple(TypeMod::None, subTypes);
 	}
 
@@ -1642,7 +1394,6 @@ namespace Noctis
 				g_ErrorSystem.Error(span, "An array connot contain values of different types, found '%s' and '%s'", type0Name.c_str(), type1Name.c_str());
 			}
 		}
-
 		node.handle = type;
 	}
 
@@ -1716,15 +1467,13 @@ namespace Noctis
 
 	void TypeInference::Visit(ITrBlockExpr& node)
 	{
+		Walk(node);
+		// TODO
 	}
 
 	void TypeInference::Visit(ITrUnsafeExpr& node)
 	{
-		if (node.handle.IsValid())
-			return;
-
 		Walk(node);
-
 		node.handle = node.expr->handle;
 	}
 
@@ -1738,21 +1487,13 @@ namespace Noctis
 
 	void TypeInference::Visit(ITrMove& node)
 	{
-		if (node.handle.IsValid())
-			return;
-
 		Walk(node);
-		
 		node.handle = node.expr->handle;
 	}
 
 	void TypeInference::Visit(ITrIs& node)
 	{
-		if (node.handle.IsValid())
-			return;
-
 		Walk(node);
-
 		node.handle = g_TypeReg.Builtin(TypeMod::None, BuiltinTypeKind::Bool);
 	}
 
@@ -1781,9 +1522,6 @@ namespace Noctis
 
 	void TypeInference::Visit(ITrSpecKw& node)
 	{
-		if (node.handle.IsValid())
-			return;
-
 		switch (node.kw)
 		{
 		case TokenType::SLine:
@@ -1810,11 +1548,7 @@ namespace Noctis
 
 	void TypeInference::Visit(ITrCompRun& node)
 	{
-		if (node.handle.IsValid())
-			return;
-
 		Walk(node);
-
 		node.handle = node.expr->handle;
 	}
 
@@ -2571,7 +2305,6 @@ namespace Noctis
 			for (ITrGenTypeBoundSPtr bound : def.genDecl->bounds)
 			{
 				// TODO: Make sure that non-generic types can only be bound when they depend on a generic
-				
 				Visit(*bound->type);
 				Visit(*bound->bound->type);
 
@@ -2613,6 +2346,26 @@ namespace Noctis
 
 	void TypeInference::UpdateInstantiations(SymbolSPtr sym)
 	{
+		TypeHandle baseType = sym->type;
+		StdVector<IdenGeneric>& baseGens = sym->qualName->Generics();
+		
+		for (SymbolInstSPtr inst : sym->instantiations)
+		{
+			StdVector<IdenGeneric>& gens = inst->qualName->Generics();
+			TypeHandle type = baseType;
+			for (usize i = 0; i < gens.size(); ++i)
+			{
+				if (gens[i].isType)
+				{
+					type = g_TypeReg.ReplaceSubType(type, baseGens[i].type, gens[i].type);
+				}
+				else
+				{
+					// TODO
+				}
+			}
+			inst->type = type;
+		}
 	}
 
 	StdVector<TypeHandle> TypeInference::GetPossibleCallerType(TypeHandle type)

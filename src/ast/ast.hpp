@@ -72,6 +72,7 @@ namespace Noctis
 		Assign,
 		Ternary,
 		Binary,
+		Range,
 		Postfix,
 		Prefix,
 		QualName,
@@ -727,6 +728,15 @@ namespace Noctis
 		AstExprSPtr rExpr;
 	};
 
+	struct AstRangeExpr : public AstExpr
+	{
+		AstRangeExpr(u64 startIdx, AstExprSPtr lExpr, bool inclusive, AstExprSPtr rExpr, u64 endIdx);
+
+		AstExprSPtr lExpr;
+		AstExprSPtr rExpr;
+		bool inclusive;
+	};
+
 	struct AstPostfixExpr : public AstExpr
 	{
 		AstPostfixExpr(AstExprSPtr expr, Token op);
@@ -757,16 +767,6 @@ namespace Noctis
 		bool nullCoalesce;
 		AstExprSPtr expr;
 		AstExprSPtr index;
-	};
-
-	struct AstSliceExpr : public AstExpr
-	{
-		AstSliceExpr(AstExprSPtr expr, bool nullCoalesce, AstExprSPtr begin, AstExprSPtr end, 
-			u64 endIdx);
-		bool nullCoalesce;
-		AstExprSPtr expr;
-		AstExprSPtr begin;
-		AstExprSPtr end;
 	};
 
 	// can be func, ADT enum member

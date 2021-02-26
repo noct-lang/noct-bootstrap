@@ -1047,8 +1047,6 @@ namespace Noctis
 			case TokenType::GreaterGreaterAsterisk:
 			case TokenType::EqEq:
 			case TokenType::ExclaimEq:
-			case TokenType::DotDot:
-			case TokenType::DotDotEq:
 			case TokenType::QuestionQuestion:
 			case TokenType::QuestionColon:
 			case TokenType::In:
@@ -1064,6 +1062,12 @@ namespace Noctis
 					break;
 				}
 				expr = ParseBinaryExpr(expr);
+				break;
+			}
+			case TokenType::DotDot:
+			case TokenType::DotDotEq:
+			{
+				expr = ParseRangeExpr(expr);
 				break;
 			}
 			case TokenType::Less:
@@ -1468,6 +1472,21 @@ namespace Noctis
 		return AstExprSPtr{ new AstBinaryExpr{ lExpr, op, expr } };
 	}
 
+	AstExprSPtr Parser::ParseRangeExpr(AstExprSPtr lExpr)
+	{
+		Token& op = PeekToken();
+		if (op.Type() == TokenType::DotDotEq)
+			EatToken();
+		else
+			EatToken(TokenType::DotDot);
+
+		u64 startIdx = lExpr ? lExpr->ctx->startIdx : op.Idx();
+		AstExprSPtr rExpr = ParseOperand(nullptr);
+		u64 endIdx = rExpr ? rExpr->ctx->endIdx : op.Idx();
+
+		return AstExprSPtr{ new AstRangeExpr{ startIdx, lExpr, op.Type() == TokenType::DotDotEq, rExpr, endIdx } };
+	}
+
 	AstExprSPtr Parser::ParsePostfixExpr(AstExprSPtr expr)
 	{
 		Token& tok = EatToken();
@@ -1493,25 +1512,7 @@ namespace Noctis
 		if (!nullcoalesce)
 			EatToken(TokenType::LBracket);
 		
-		if (TryEatToken(TokenType::Colon))
-		{
-			AstExprSPtr end;
-			if (PeekToken().Type() != TokenType::RBracket)
-				end = ParseExpression();
-			u64 endIdx = EatToken(TokenType::RBracket).Idx();
-			return AstExprSPtr{ new AstSliceExpr{ expr, nullcoalesce, AstExprSPtr{}, end, endIdx } };
-		}
-		
 		AstExprSPtr index = ParseExpression();
-		if (TryEatToken(TokenType::Colon))
-		{
-			AstExprSPtr end;
-			if (PeekToken().Type() != TokenType::RBracket)
-				end = ParseExpression();
-			u64 endIdx = EatToken(TokenType::RBracket).Idx();
-			return AstExprSPtr{ new AstSliceExpr{ expr, nullcoalesce, index, end, endIdx } };
-		}
-
 		u64 endIdx = EatToken(TokenType::RBracket).Idx();
 		return AstExprSPtr{ new AstIndexSliceExpr{ expr, nullcoalesce, index, endIdx } };
 	}

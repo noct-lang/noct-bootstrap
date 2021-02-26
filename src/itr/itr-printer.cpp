@@ -385,6 +385,29 @@ namespace Noctis
 		--m_Indent;
 	}
 
+	void ITrPrinter::Visit(ITrRange& node)
+	{
+		PrintIndent();
+
+		const char* rangeType = "..";
+		if (node.lExpr)
+		{
+			if (node.rExpr)
+				rangeType = node.inclusive ? "a..=b" : "a..b";
+			else
+				rangeType = "a..";
+		}
+		else if (node.rExpr)
+		{
+			rangeType = node.inclusive ? "..=b" : "..b";
+		}
+
+		g_Logger.Log("(range %s)", rangeType);
+		++m_Indent;
+		Walk(node);
+		--m_Indent;
+	}
+
 	void ITrPrinter::Visit(ITrUnary& node)
 	{
 		PrintIndent();

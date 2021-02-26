@@ -43,7 +43,7 @@ namespace Noctis
 		{
 		case AstQualIdenKind::Identifier: Visit(*static_cast<AstIden*>(node.get())); break;
 		case AstQualIdenKind::TypeDisambiguation: Visit(*static_cast<AstTypeDisambiguation*>(node.get())); break;
-		default: ;
+		default: break;
 		}
 	}
 
@@ -730,6 +730,30 @@ namespace Noctis
 		--m_Indent;
 	}
 
+	void AstPrinter::Visit(AstRangeExpr& node)
+	{
+		PrintIndent();
+
+		const char* rangeType = "..";
+		if (node.lExpr)
+		{
+			if (node.rExpr)
+				rangeType = node.inclusive ? "a..=b" : "a..b";
+			else
+				rangeType = "a..";
+		}
+		else if (node.rExpr)
+		{
+			rangeType = node.inclusive ? "..=b" : "..b";
+		}
+		
+		g_Logger.Log("(range-expr %s", rangeType);
+		PrintContextAndClose(node.ctx);
+		++m_Indent;
+		Walk(node);
+		--m_Indent;
+	}
+
 	void AstPrinter::Visit(AstPostfixExpr& node)
 	{
 		PrintIndent();
@@ -764,18 +788,6 @@ namespace Noctis
 	{
 		PrintIndent();
 		g_Logger.Log("(index-slice-expr");
-		if (node.nullCoalesce)
-			g_Logger.Log(" null-coalescing");
-		PrintContextAndClose(node.ctx);
-		++m_Indent;
-		Walk(node);
-		--m_Indent;
-	}
-
-	void AstPrinter::Visit(AstSliceExpr& node)
-	{
-		PrintIndent();
-		g_Logger.Log("(slice-expr");
 		if (node.nullCoalesce)
 			g_Logger.Log(" null-coalescing");
 		PrintContextAndClose(node.ctx);

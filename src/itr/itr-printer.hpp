@@ -48,6 +48,7 @@ namespace Noctis
 		void Visit(ITrAssign& node) override;
 		void Visit(ITrTernary& node) override;
 		void Visit(ITrBinary& node) override;
+		void Visit(ITrRange& node) override;
 		void Visit(ITrUnary& node) override;
 		void Visit(ITrQualNameExpr& node) override;
 		void Visit(ITrIndexSlice& node) override;

@@ -845,6 +845,14 @@ namespace Noctis
 		m_Expr = expr;
 	}
 
+	void AstToITrLowering::Visit(AstRangeExpr& node)
+	{
+		ITrExprSPtr lExpr = VisitAndGetExpr(node.lExpr);
+		ITrExprSPtr rExpr = VisitAndGetExpr(node.rExpr);
+		ITrExprSPtr expr{ new ITrRange { node.ctx->startIdx, lExpr, node.inclusive, rExpr, node.ctx->endIdx } };
+		m_Expr = expr;
+	}
+
 	void AstToITrLowering::Visit(AstPostfixExpr& node)
 	{
 		OperatorKind op = TokenTypeToOperator(node.op, true, true);
@@ -873,15 +881,6 @@ namespace Noctis
 		ITrExprSPtr expr = VisitAndGetExpr(node.expr);
 		ITrExprSPtr index = VisitAndGetExpr(node.index);
 		expr = ITrExprSPtr{ new ITrIndexSlice{ expr, index, node.ctx->endIdx } };
-		m_Expr = expr;
-	}
-
-	void AstToITrLowering::Visit(AstSliceExpr& node)
-	{
-		ITrExprSPtr expr = VisitAndGetExpr(node.expr);
-		ITrExprSPtr from = VisitAndGetExpr(node.begin);
-		ITrExprSPtr to = VisitAndGetExpr(node.end);
-		expr = ITrExprSPtr{ new ITrIndexSlice{ expr, from, to, node.ctx->endIdx } };
 		m_Expr = expr;
 	}
 

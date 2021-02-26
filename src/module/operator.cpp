@@ -997,8 +997,8 @@ namespace Noctis
 				case OperatorKind::Le:					qualName = QualName::Create({ "core", "ops", "OpPartialOrd" }); break;
 				case OperatorKind::Gt:					qualName = QualName::Create({ "core", "ops", "OpPartialOrd" }); break;
 				case OperatorKind::Ge:					qualName = QualName::Create({ "core", "ops", "OpPartialOrd" }); break;
-				case OperatorKind::Range:				qualName = QualName::Create({ "core", "ops", "OpRange" }); break;
-				case OperatorKind::IncRange:			qualName = QualName::Create({ "core", "ops", "OpRange" }); break;
+				case OperatorKind::Range:				break; // special impl
+				case OperatorKind::IncRange:			break; // special impl
 				case OperatorKind::NullCoalesce:		break; // Not overloadable
 				case OperatorKind::Elvis:				break; // Not overloadable
 				case OperatorKind::In:					qualName = QualName::Create({ "core", "ops", "OpContains" }); break;
@@ -1084,8 +1084,8 @@ namespace Noctis
 				case OperatorKind::Le:					funcIden = "opLe"; break;
 				case OperatorKind::Gt:					funcIden = "opGt"; break;
 				case OperatorKind::Ge:					funcIden = "opGe"; break;
-				case OperatorKind::Range:				funcIden = "opRange"; break;
-				case OperatorKind::IncRange:			funcIden = "opRange"; break;
+				case OperatorKind::Range:				break; // special impl
+				case OperatorKind::IncRange:			break; // special impl
 				case OperatorKind::NullCoalesce:		break; // Not overloadable
 				case OperatorKind::Elvis:				break; // Not overloadable
 				case OperatorKind::In:					funcIden = "opContains"; break;
