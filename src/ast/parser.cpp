@@ -298,14 +298,12 @@ namespace Noctis
 		StdVector<AstIdentifierTypeSPtr> implInterfaces;
 		if (TryEatToken(TokenType::Colon))
 		{
-			AstTypeSPtr tmp = ParseCompoundInterfaceType();
-			AstCompoundInterfaceType& compound = *reinterpret_cast<AstCompoundInterfaceType*>(tmp.get());
-
-			implInterfaces.reserve(compound.interfaces.size());
-			for (AstIdentifierTypeSPtr interface : compound.interfaces)
+			do
 			{
-				implInterfaces.push_back(interface);
+				AstIdentifierTypeSPtr tmp = ParseIdentifierType();
+				implInterfaces.push_back(tmp);
 			}
+			while (TryEatToken(TokenType::Plus));
 		}
 
 		EatToken(TokenType::LBrace);
@@ -1760,12 +1758,7 @@ namespace Noctis
 			return AstTypeSPtr{ new AstBuiltinType{ attribs, tok } };
 		}
 		case TokenType::Iden:
-		{
-			AstIdentifierTypeSPtr idenType = ParseIdentifierType(attribs);
-			if (PeekToken().Type() == TokenType::Plus)
-				return ParseCompoundInterfaceType(idenType);
-			return idenType;
-		}
+			return ParseIdentifierType(attribs);
 		case TokenType::Asterisk:
 			return ParsePointerType(attribs);
 		case TokenType::And:
@@ -1956,22 +1949,6 @@ namespace Noctis
 		while (TryEatToken(TokenType::Comma));
 		u64 endIdx = EatToken(TokenType::RBrace).Idx();
 		return AstTypeSPtr{ new AstInlineEnumType{ startIdx, std::move(members), endIdx } };
-	}
-
-	AstTypeSPtr Parser::ParseCompoundInterfaceType()
-	{
-		return ParseCompoundInterfaceType(ParseIdentifierType());
-	}
-
-	AstTypeSPtr Parser::ParseCompoundInterfaceType(AstIdentifierTypeSPtr first)
-	{
-		StdVector<AstIdentifierTypeSPtr> interfaces;
-		interfaces.push_back(first);
-		while (TryEatToken(TokenType::Plus))
-		{
-			interfaces.push_back(ParseIdentifierType());
-		}
-		return AstTypeSPtr{ new AstCompoundInterfaceType{ std::move(interfaces) } };
 	}
 
 	AstPatternSPtr Parser::ParsePattern()

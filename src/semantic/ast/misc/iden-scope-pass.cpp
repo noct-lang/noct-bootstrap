@@ -605,12 +605,6 @@ namespace Noctis
 		m_CurScope = m_CurScope->Base();
 	}
 
-	void IdenScopePass::Visit(AstCompoundInterfaceType& node)
-	{
-		node.ctx->scope = m_CurScope;
-		Walk(node);
-	}
-
 	void IdenScopePass::Visit(AstPlaceholderPattern& node)
 	{
 		node.ctx->scope = m_CurScope;

@@ -262,12 +262,6 @@ namespace Noctis
 		return Type()->AsOpt();
 	}
 
-	CompoundType& TypeHandle::AsCompound()
-	{
-		assert(IsValid());
-		return Type()->AsCompound();
-	}
-
 	FuncType& TypeHandle::AsFunc()
 	{
 		assert(IsValid());
@@ -434,13 +428,6 @@ namespace Noctis
 		new (&this->opt) OptType(std::move(opt));
 	}
 
-	Type::Type(CompoundType compound)
-	{
-		memset(this, 0, sizeof(Type));
-		typeKind = TypeKind::Compound;
-		new (&this->compound) CompoundType(std::move(compound));
-	}
-
 	Type::Type(FuncType func)
 	{
 		memset(this, 0, sizeof(Type));
@@ -468,7 +455,6 @@ namespace Noctis
 		case TypeKind::Array: arr.~ArrayType(); break;
 		case TypeKind::Tuple: tup.~TupleType(); break;
 		case TypeKind::Opt: opt.~OptType(); break;
-		case TypeKind::Compound: compound.~CompoundType(); break;
 		case TypeKind::Func: func.~FuncType(); break;
 		case TypeKind::Generic: generic.~GenericType(); break;
 		default: ;
@@ -896,17 +882,6 @@ namespace Noctis
 			OptType& ptrType = orig.AsOpt();
 			TypeHandle subType = ReplaceSubType(ptrType.subType, toReplace, replacement);
 			return Ptr(orig.Mod(), subType);
-		}
-		case TypeKind::Compound:
-		{
-			CompoundType& compType = orig.AsCompound();
-			StdVector<TypeHandle> subTypes;
-			for (TypeHandle subType : compType.subTypes)
-			{
-				TypeHandle tmp = ReplaceSubType(subType, toReplace, replacement);
-				subTypes.push_back(tmp);
-			}
-			return Compound(orig.Mod(), subTypes);
 		}
 		case TypeKind::Func:
 		{
@@ -1408,59 +1383,6 @@ namespace Noctis
 		return handle;
 	}
 
-	TypeHandle TypeRegistry::Compound(TypeMod mod, const StdVector<TypeHandle>& subTypes)
-	{
-		u64 count = u64(subTypes.size());
-		auto it = m_CompoundMapping.find(count);
-		if (it == m_CompoundMapping.end())
-			it = m_CompoundMapping.try_emplace(count, StdUnorderedMap<TypeHandle, StdVector<StdArray<TypeHandle, m_ModCount>>>{}).first;
-
-		auto subIt = it->second.find(subTypes[0]);
-		if (subIt == it->second.end())
-			subIt = it->second.try_emplace(subTypes[0], StdVector<StdArray<TypeHandle, m_ModCount>>{}).first;
-
-		for (StdArray<TypeHandle, m_ModCount>& arr : subIt->second)
-		{
-			TypeHandle handle;
-			for (usize i = 0; i < m_ModCount; ++i)
-			{
-				handle = arr[i];
-				if (handle.IsValid())
-					break;
-			}
-			
-			CompoundType& compType = handle.AsCompound();
-
-			bool found = true;
-			for (usize i = 1; i < count; ++i)
-			{
-				if (subTypes[i] != compType.subTypes[i])
-				{
-					found = false;
-					break;
-				}
-			}
-
-			if (found)
-			{
-				TypeHandle& retHandle = arr[u8(mod)];
-				if (retHandle.IsValid())
-					return retHandle;
-
-				retHandle = CreateHandle(new Type{ CompoundType{ mod, subTypes } });
-				return retHandle;
-			}
-		}
-
-		TypeHandle handle = CreateHandle(new Type{ CompoundType{ mod, subTypes } });
-
-		subIt->second.push_back({});
-		subIt->second.back().fill(TypeHandle{});
-		subIt->second.back()[u8(mod)] = handle;
-
-		return handle;
-	}
-
 	TypeHandle TypeRegistry::Func(TypeMod mod, const StdVector<TypeHandle>& params, TypeHandle ret)
 	{
 		u64 count = u64(params.size());
@@ -1578,11 +1500,6 @@ namespace Noctis
 		{
 			OptType& opt = type->AsOpt();
 			return Opt(mod, opt.subType);
-		}
-		case TypeKind::Compound:
-		{
-			CompoundType& compound = type->AsCompound();
-			return Compound(mod, compound.subTypes);
 		}
 		case TypeKind::Func:
 		{

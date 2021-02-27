@@ -120,8 +120,6 @@ namespace Noctis
 		AstTypeSPtr ParseOptionalType(AstAttribsSPtr attribs);
 		AstTypeSPtr ParseInlineStructType(bool structKwOptional = false);
 		AstTypeSPtr ParseInlineEnumType();
-		AstTypeSPtr ParseCompoundInterfaceType();
-		AstTypeSPtr ParseCompoundInterfaceType(AstIdentifierTypeSPtr first);
 
 		AstPatternSPtr ParsePattern();
 		AstPatternSPtr ParseValueBindPattern(StdString&& iden);

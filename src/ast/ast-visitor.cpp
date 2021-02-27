@@ -446,11 +446,6 @@ namespace Noctis
 		Walk(node);
 	}
 
-	void AstVisitor::Visit(AstCompoundInterfaceType& node)
-	{
-		Walk(node);
-	}
-
 	void AstVisitor::Visit(AstPlaceholderPattern& node)
 	{
 		Walk(node);
@@ -740,7 +735,6 @@ namespace Noctis
 		case AstTypeKind::Optional: Visit(*static_cast<AstOptionalType*>(node.get())); break;
 		case AstTypeKind::InlineStruct: Visit(*static_cast<AstInlineStructType*>(node.get())); break;
 		case AstTypeKind::InlineEnum: Visit(*static_cast<AstInlineEnumType*>(node.get())); break;
-		case AstTypeKind::CompoundInterface: Visit(*static_cast<AstCompoundInterfaceType*>(node.get())); break;
 		default: ;
 		}
 	}
@@ -1426,14 +1420,6 @@ namespace Noctis
 
 	void AstVisitor::Walk(AstInlineEnumType& node)
 	{
-	}
-
-	void AstVisitor::Walk(AstCompoundInterfaceType& node)
-	{
-		for (AstIdentifierTypeSPtr interface : node.interfaces)
-		{
-			Walk(*interface);
-		}
 	}
 
 	void AstVisitor::Walk(AstPlaceholderPattern& node)

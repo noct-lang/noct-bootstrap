@@ -97,7 +97,6 @@ namespace Noctis
 	struct AstOptionalType;
 	struct AstInlineStructType;
 	struct AstInlineEnumType;
-	struct AstCompoundInterfaceType;
 
 	struct AstPlaceholderPattern;
 	struct AstWildcardPattern;
@@ -244,7 +243,6 @@ namespace Noctis
 		virtual void Visit(AstOptionalType& node);
 		virtual void Visit(AstInlineStructType& node);
 		virtual void Visit(AstInlineEnumType& node);
-		virtual void Visit(AstCompoundInterfaceType& node);
 		
 		virtual void Visit(AstPlaceholderPattern& node);
 		virtual void Visit(AstWildcardPattern& node);
@@ -384,7 +382,6 @@ namespace Noctis
 		void Walk(AstOptionalType& node);
 		void Walk(AstInlineStructType& node);
 		void Walk(AstInlineEnumType& node);
-		void Walk(AstCompoundInterfaceType& node);
 
 		void Walk(AstPlaceholderPattern& node);
 		void Walk(AstWildcardPattern& node);

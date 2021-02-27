@@ -1302,31 +1302,6 @@ namespace Noctis
 		m_Type = type;
 	}
 
-	void AstToITrLowering::Visit(AstCompoundInterfaceType& node)
-	{
-		ITrAttribsSPtr attribs = VisitAndGetAttribs(node.attribs);
-		
-		StdVector<TypeHandle> subTypesHandles;
-		StdVector<ITrTypeSPtr> subTypes;
-		usize size = node.interfaces.size();
-		subTypesHandles.reserve(size);
-		subTypes.reserve(size);
-		for (AstTypeSPtr astType : node.interfaces)
-		{
-			ITrTypeSPtr subType = VisitAndGetType(astType);
-			subTypes.push_back(subType);
-			subTypesHandles.push_back(subType->handle);
-		}
-
-		TypeHandle handle;
-		if (subTypesHandles.size() == 1)
-			handle = subTypesHandles[0];
-		else
-			handle = g_TypeReg.Compound(TypeMod::None, subTypesHandles);
-		ITrTypeSPtr type{ new ITrType{ attribs, handle, std::move(subTypes), nullptr, node.ctx->startIdx, node.ctx->endIdx } };
-		m_Type = type;
-	}
-
 	void AstToITrLowering::Visit(AstPlaceholderPattern& node)
 	{
 		ITrPatternSPtr pattern{ new ITrPlaceholderPattern{ false, node.ctx->startIdx } };

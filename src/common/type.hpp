@@ -80,7 +80,6 @@ namespace Noctis
 	struct ArrayType;
 	struct TupleType;
 	struct OptType;
-	struct CompoundType;
 	struct FuncType;
 	struct GenericType;
 
@@ -122,7 +121,6 @@ namespace Noctis
 		ArrayType& AsArray();
 		TupleType& AsTuple();
 		OptType& AsOpt();
-		CompoundType& AsCompound();
 		FuncType& AsFunc();
 		GenericType& AsGeneric();
 
@@ -312,27 +310,6 @@ namespace Noctis
 		TypeHandle subType;
 	};
 
-	struct CompoundType
-	{
-		CompoundType(TypeMod mod, const StdVector<TypeHandle>& subTypes)
-			: mod(mod)
-			, subTypes(subTypes)
-			, hasFuzzyCompare(false)
-		{
-			for (const TypeHandle& subType : subTypes)
-			{
-				if (subType.HasFuzzyCompare())
-				{
-					hasFuzzyCompare = true;
-					break;
-				}
-			}
-		}
-
-		TYPE_BASE_DATA;
-		StdVector<TypeHandle> subTypes;
-	};
-
 	struct FuncType
 	{
 		FuncType(TypeMod mod, const StdVector<TypeHandle>& paramTypes, TypeHandle retType)
@@ -383,7 +360,6 @@ namespace Noctis
 		Type(ArrayType arr);
 		Type(TupleType tup);
 		Type(OptType opt);
-		Type(CompoundType compound);
 		Type(FuncType func);
 		Type(GenericType generic);
 		
@@ -399,7 +375,6 @@ namespace Noctis
 		ArrayType& AsArray() { assert(typeKind == TypeKind::Array); return arr; }
 		TupleType& AsTuple() { assert(typeKind == TypeKind::Tuple); return tup; }
 		OptType& AsOpt() { assert(typeKind == TypeKind::Opt); return opt; }
-		CompoundType& AsCompound() { assert(typeKind == TypeKind::Compound); return compound; }
 		FuncType& AsFunc() { assert(typeKind == TypeKind::Func); return func; }
 		GenericType& AsGeneric() { assert(typeKind == TypeKind::Generic); return generic; }
 
@@ -421,7 +396,6 @@ namespace Noctis
 			ArrayType arr;
 			TupleType tup;
 			OptType opt;
-			CompoundType compound;
 			FuncType func;
 			GenericType generic;
 		};
@@ -474,7 +448,6 @@ namespace Noctis
 		TypeHandle Array(TypeMod mod, TypeHandle subType, ArrayExprType expr);
 
 		TypeHandle Tuple(TypeMod mod, const StdVector<TypeHandle>& subTypes);
-		TypeHandle Compound(TypeMod mod, const StdVector<TypeHandle>& subTypes);
 
 		TypeHandle Func(TypeMod mod, const StdVector<TypeHandle>& params, TypeHandle ret);
 
@@ -510,7 +483,6 @@ namespace Noctis
 
 		TypeHandle m_EmptyTupleHandle;
 		StdUnorderedMap<u64, StdUnorderedMap<TypeHandle, StdVector<StdArray<TypeHandle, m_ModCount>>>> m_TupleMapping;
-		StdUnorderedMap<u64, StdUnorderedMap<TypeHandle, StdVector<StdArray<TypeHandle, m_ModCount>>>> m_CompoundMapping;
 		StdUnorderedMap<u64, StdUnorderedMap<TypeHandle, StdVector<StdArray<TypeHandle, m_ModCount>>>> m_FuncMapping;
 
 		StdVector<StdArray<TypeHandle, m_ModCount>> m_GenericMapping;

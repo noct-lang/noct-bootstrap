@@ -224,16 +224,6 @@ namespace Noctis::NameMangling
 
 			return mod + mangled + "Z";
 		}
-		case TypeKind::Compound:
-		{
-			CompoundType& tupType = type->AsCompound();
-			StdString mangled;
-			for (TypeHandle subType : tupType.subTypes)
-			{
-				mangled += Mangle(subType);
-			}
-			return mangled;
-		}
 		case TypeKind::Generic:
 		{
 			// TODO: bounds

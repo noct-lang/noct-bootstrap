@@ -1139,16 +1139,6 @@ namespace Noctis
 		--m_Indent;
 	}
 
-	void AstPrinter::Visit(AstCompoundInterfaceType& node)
-	{
-		PrintIndent();
-		g_Logger.Log("(compound-interface-type");
-		PrintContextAndClose(node.ctx);
-		++m_Indent;
-		Walk(node);
-		--m_Indent;
-	}
-
 	void AstPrinter::Visit(AstPlaceholderPattern& node)
 	{
 		PrintIndent();

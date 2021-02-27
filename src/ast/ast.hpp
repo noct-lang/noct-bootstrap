@@ -1012,13 +1012,6 @@ namespace Noctis
 		StdPairVector<StdString, AstExprSPtr> members;
 	};
 
-	struct AstCompoundInterfaceType : public AstType
-	{
-		AstCompoundInterfaceType(StdVector<AstIdentifierTypeSPtr>&& interfaces);
-
-		StdVector<AstIdentifierTypeSPtr> interfaces;
-	};
-
 	// TODO: Function type
 
 	struct AstPattern

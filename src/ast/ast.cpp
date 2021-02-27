@@ -743,12 +743,6 @@ namespace Noctis
 	{
 	}
 
-	AstCompoundInterfaceType::AstCompoundInterfaceType(StdVector<AstIdentifierTypeSPtr>&& interfaces)
-		: AstType(nullptr, AstTypeKind::CompoundInterface, interfaces.front()->ctx->startIdx, interfaces.back()->ctx->endIdx)
-		, interfaces(std::move(interfaces))
-	{
-	}
-
 	AstPattern::AstPattern(AstPatternKind kind, u64 startIdx, u64 endIdx)
 		: patternKind(kind)
 		, ctx(new AstContext{})

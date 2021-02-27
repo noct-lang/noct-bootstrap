@@ -1648,26 +1648,6 @@ namespace Noctis
 				}
 				break;
 			}
-			case TypeKind::Compound:
-			{
-				if (node.subTypes.empty())
-					break;
-
-				if (node.subTypes.size() == 1)
-				{
-					node.handle = node.subTypes[0]->handle;
-					break;
-				}
-
-				StdVector<TypeHandle> subTypes;
-				for (ITrTypeSPtr subType : node.subTypes)
-				{
-					subTypes.push_back(subType->handle);
-				}
-
-				node.handle = g_TypeReg.Compound(TypeMod::None, subTypes);
-				break;
-			}
 			default:;
 			}
 		}

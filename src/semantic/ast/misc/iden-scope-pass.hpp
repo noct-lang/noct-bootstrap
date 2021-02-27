@@ -95,7 +95,6 @@ namespace Noctis
 		void Visit(AstOptionalType& node) override;
 		void Visit(AstInlineStructType& node) override;
 		void Visit(AstInlineEnumType& node) override;
-		void Visit(AstCompoundInterfaceType& node) override;
 
 		void Visit(AstPlaceholderPattern& node) override;
 		void Visit(AstWildcardPattern& node) override;
