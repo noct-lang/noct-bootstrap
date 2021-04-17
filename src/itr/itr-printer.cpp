@@ -246,6 +246,7 @@ namespace Noctis
 		ITrVisitor::Visit(node.expr);
 		for (ITrSwitchCase case_ : node.cases)
 		{
+			PrintIndent();
 			g_Logger.Log("(switch-case)\n");
 			++m_Indent;
 			ITrVisitor::Visit(case_.pattern);
@@ -525,14 +526,14 @@ namespace Noctis
 	{
 		PrintIndent();
 		Token& literal = node.lit;
-		switch (literal.Type())
+		switch (literal.type)
 		{
 		case TokenType::I8Lit:
 		case TokenType::I16Lit:
 		case TokenType::I32Lit:
 		case TokenType::I64Lit:
 		case TokenType::I128Lit:
-			g_Logger.Log("(literal %i %s)\n", literal.Signed(), GetTokenTypeName(literal.Type()).data());
+			g_Logger.Log("(literal %i %s)\n", literal.sval, GetTokenTypeName(literal.type).data());
 			break;
 		case TokenType::U8Lit:
 		case TokenType::U16Lit:
@@ -540,13 +541,13 @@ namespace Noctis
 		case TokenType::U64Lit:
 		case TokenType::U128Lit:
 		case TokenType::CharLit:
-			g_Logger.Log("(literal %u %s)\n", literal.Unsigned(), GetTokenTypeName(literal.Type()).data());
+			g_Logger.Log("(literal %u %s)\n", literal.uval, GetTokenTypeName(literal.type).data());
 			break;
 		case TokenType::F16Lit:
 		case TokenType::F32Lit:
 		case TokenType::F64Lit:
 		case TokenType::F128Lit:
-			g_Logger.Log("(literal %f %s)\n", literal.Fp(), GetTokenTypeName(literal.Type()).data());
+			g_Logger.Log("(literal %f %s)\n", literal.fval, GetTokenTypeName(literal.type).data());
 			break;
 		case TokenType::True:
 			g_Logger.Log("(literal true)\n");
@@ -555,7 +556,7 @@ namespace Noctis
 			g_Logger.Log("(literal false)\n");
 			break;
 		case TokenType::StringLit:
-			g_Logger.Log("(literal %s StringLit)\n", literal.Text().c_str());
+			g_Logger.Log("(literal %s StringLit)\n", literal.iden.c_str());
 			break;
 		case TokenType::Null:
 			g_Logger.Log("(literal null)\n");
@@ -753,14 +754,14 @@ namespace Noctis
 	{
 		PrintIndent();
 		Token& literal = node.lit;
-		switch (literal.Type())
+		switch (literal.type)
 		{
 		case TokenType::I8Lit:
 		case TokenType::I16Lit:
 		case TokenType::I32Lit:
 		case TokenType::I64Lit:
 		case TokenType::I128Lit:
-			g_Logger.Log("(literal-pattern %i %s)\n", literal.Signed(), GetTokenTypeName(literal.Type()).data());
+			g_Logger.Log("(literal-pattern %i %s)\n", literal.sval, GetTokenTypeName(literal.type).data());
 			break;
 		case TokenType::U8Lit:
 		case TokenType::U16Lit:
@@ -768,13 +769,13 @@ namespace Noctis
 		case TokenType::U64Lit:
 		case TokenType::U128Lit:
 		case TokenType::CharLit:
-			g_Logger.Log("(literal-pattern %u %s)\n", literal.Unsigned(), GetTokenTypeName(literal.Type()).data());
+			g_Logger.Log("(literal-pattern %u %s)\n", literal.uval, GetTokenTypeName(literal.type).data());
 			break;
 		case TokenType::F16Lit:
 		case TokenType::F32Lit:
 		case TokenType::F64Lit:
 		case TokenType::F128Lit:
-			g_Logger.Log("(literal-pattern %f %s)\n", literal.Fp(), GetTokenTypeName(literal.Type()).data());
+			g_Logger.Log("(literal-pattern %f %s)\n", literal.fval, GetTokenTypeName(literal.type).data());
 			break;
 		case TokenType::True:
 			g_Logger.Log("(literal-pattern true)\n");
@@ -783,7 +784,7 @@ namespace Noctis
 			g_Logger.Log("(literal-pattern false)\n");
 			break;
 		case TokenType::StringLit:
-			g_Logger.Log("(literal-pattern %s StringLit)\n", literal.Text().c_str());
+			g_Logger.Log("(literal-pattern %s StringLit)\n", literal.iden.c_str());
 			break;
 		case TokenType::Null:
 			g_Logger.Log("(literal-pattern null)\n");

@@ -29,7 +29,7 @@ namespace Noctis
 		};
 		
 	public:
-		Parser(const StdVector<Token>& tokens);
+		Parser(const TokenTree& tokTree);
 
 		StdVector<AstStmtSPtr> Parse();
 
@@ -53,7 +53,7 @@ namespace Noctis
 		AstDeclSPtr ParseImplDecl(AstAttribsSPtr attribs);
 
 		AstStmtSPtr ParseImport(AstAttribsSPtr attribs);
-		AstStmtSPtr ParseBlockStmt();
+		AstStmtSPtr ParseBlockStmt(bool funcsAreMethods = false);
 		AstStmtSPtr ParseIfStmt();
 		AstStmtSPtr ParseLoopStmt(AstLabelStmtSPtr label);
 		AstStmtSPtr ParseWhileStmt(AstLabelStmtSPtr label);
@@ -163,30 +163,18 @@ namespace Noctis
 		StdString ParseIden();
 		StdString ParseIden(u64& tokIdx);
 
-		bool HasParsedAllTokens() const { return m_TokIdx == m_Tokens.size(); }
+		bool HasParsedAllTokens() const { return m_TokTree.IsExhausted(); }
 		void SetMacroVarSolver(MacroVarSolver* pSolver) { m_pMacroSolver = pSolver; }
 
 	private:
-
 		StdVector<StdString> ParseIdenList(TokenType separator);
-		StdVector<StdString> ParseIdenList(TokenType separator, u64& startIdx, u64& endIdx);
+		StdVector<StdString> ParseIdenList(TokenType separator, u64& startIdx);
 
 		OpPrecedence GetPrecedence(TokenType op);
 
 		u64 EatStmtEndIdx();
 
-		Token& EatToken();
-		Token& EatToken(TokenType type);
-		Token& EatIdenToken(StdStringView text);
-		bool TryEatToken(TokenType type);
-		bool TryEatIdenToken(StdStringView text);
-		Token& PeekToken();
-		Token& PeekToken(u64 offset);
-
-		void InsertTreeIntoTokens(TokenTree& tree);
-
-		StdVector<Token> m_Tokens;
-		u64 m_TokIdx;
+		TokenTree m_TokTree;
 		MacroVarSolver* m_pMacroSolver;
 		
 		bool m_AllowAggrInit;

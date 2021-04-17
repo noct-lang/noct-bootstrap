@@ -804,8 +804,8 @@ namespace Noctis
 		ITrBlockSPtr tBlock = VisitAndGetBlock(node.body, baseScopeName + "__tblock");
 		ITrBlockSPtr fBlock = VisitAndGetBlock(node.elseBody, baseScopeName + "__fblock");
 		
-		OperatorKind op = TokenTypeToOperator(node.cmp.Type());
-		ITrStmtSPtr stmt{ new ITrCompCond{ false, node.cond.Text(), op, node.val.Unsigned(), tBlock, fBlock, node.ctx->startIdx } };
+		OperatorKind op = TokenTypeToOperator(node.cmp.type);
+		ITrStmtSPtr stmt{ new ITrCompCond{ false, node.cond.iden, op, node.val.uval, tBlock, fBlock, node.ctx->startIdx } };
 	}
 
 	void AstToITrLowering::Visit(AstCompDebugStmt& node)
@@ -814,8 +814,8 @@ namespace Noctis
 		ITrBlockSPtr tBlock = VisitAndGetBlock(node.body, baseScopeName + "__tblock");
 		ITrBlockSPtr fBlock = VisitAndGetBlock(node.elseBody, baseScopeName + "__fblock");
 
-		OperatorKind op = TokenTypeToOperator(node.cmp.Type());
-		ITrStmtSPtr stmt{ new ITrCompCond{ true, node.cond.Text(), op, node.val.Unsigned(), tBlock, fBlock, node.ctx->startIdx } };
+		OperatorKind op = TokenTypeToOperator(node.cmp.type);
+		ITrStmtSPtr stmt{ new ITrCompCond{ true, node.cond.iden, op, node.val.uval, tBlock, fBlock, node.ctx->startIdx } };
 	}
 
 	void AstToITrLowering::Visit(AstAssignExpr& node)

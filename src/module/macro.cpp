@@ -48,9 +48,7 @@ namespace Noctis
 		case MacroPatternKind::Tok: break;
 		case MacroPatternKind::Var:
 		{
-			StdVector<Token> toks;
-			tokTree.ToToks(toks);
-			Parser parser{ toks };
+			Parser parser{ tokTree };
 			switch (varKind)
 			{
 			case MacroVarKind::Stmt:
@@ -79,14 +77,14 @@ namespace Noctis
 			}
 			case MacroVarKind::Iden:
 			{
-				if (toks.size() != 1)
+				if (!tokTree.subToks.empty())
 				{
-					Span span = g_SpanManager.GetSpan(toks[0].Idx());
+					Span span = g_SpanManager.GetSpan(tokTree.subToks[0].tok.spanId);
 					g_ErrorSystem.Error(span, "expected a single identifier");
 					break;
 				}
 				
-				actIden = toks[0].Text();
+				actIden = tokTree.tok.iden;
 				break;
 			}
 			case MacroVarKind::Attr:
@@ -139,43 +137,32 @@ namespace Noctis
 
 	bool DeclMacro::MatchPatternAndExtract(TokenTree& toks, StdVector<MacroExtractedElem>& extracted)
 	{
-		usize tokIdx = 0;
 		for (usize i = 0; i < pattern.size(); ++i)
 		{
 			MacroPatternElem& elem = *pattern[i];
-			if (tokIdx >= toks.subToks.size())
+			if (toks.IsExhausted())
 				return false;
 
 			switch (elem.kind)
 			{
 			case MacroPatternKind::Tok:
 			{
-				if (elem.tok != toks.subToks[tokIdx].tok)
+				if (elem.tok != toks.Peek())
 					return false;
-				++tokIdx;
+				toks.Eat();
 				break;
 			}
 			case MacroPatternKind::Var:
 			{
 				if (i + 1 == pattern.size())
-				{
-					TokenTree tokTree{ toks.subToks.begin() + tokIdx, toks.subToks.end() };
-					extracted.push_back(MacroExtractedElem{ elem.var.first, tokTree, elem.var.second });
-					return true;
-				}
-
-				MacroPatternElem& next = *pattern[i + 1];
-				usize startIdx = tokIdx;
-				while (tokIdx < toks.subToks.size() && toks.subToks[tokIdx].tok != next.tok)
-					++tokIdx;
-
-				TokenTree tokTree{ toks.subToks.begin() + startIdx, toks.subToks.begin() + tokIdx };
-				extracted.push_back(MacroExtractedElem{ elem.var.first, tokTree, elem.var.second });
+					ExtractVariable(elem.var.first, elem.var.second, toks, TokenType::Unknown, extracted);
+				else
+					ExtractVariable(elem.var.first, elem.var.second, toks, pattern[i + 1]->tok.type, extracted);
 				break;
 			}
 			case MacroPatternKind::Fragment:
 			{
-				if (!MatchFragmentAndExtract(elem.fragment, toks, tokIdx, extracted))
+				if (!MatchFragmentAndExtract(elem.fragment, toks, extracted))
 					return false;
 				break;
 			}
@@ -186,55 +173,36 @@ namespace Noctis
 		return true;
 	}
 
-	bool DeclMacro::MatchFragmentAndExtract(const MacroFragment& fragment, TokenTree& toks, usize& tokIdx,
+	bool DeclMacro::MatchFragmentAndExtract(const MacroFragment& fragment, TokenTree& toks,
 		StdVector<MacroExtractedElem>& extracted)
 	{
 		StdVector<MacroExtractedElem> tmpExtracted;
 		StdVector<MacroExtractedElem> fragmentItContent;
 		bool res = true;
+		bool validRep = false;
 		bool firstPass = true;
 
 		do
 		{
-			if (!firstPass && fragment.repTok.Type() != TokenType::Unknown)
-				++tokIdx;
-
-			usize startIdx = tokIdx;
 			for (usize i = 0; i < fragment.elems.size(); ++i)
 			{
 				MacroPatternElem& elem = *fragment.elems[i];
-				if (tokIdx >= toks.subToks.size())
-				{
-					res = false;
-					break;
-				}
 
 				switch (elem.kind)
 				{
 				case MacroPatternKind::Tok:
 				{
-					if (elem.tok != toks.subToks[tokIdx].tok)
-						res = false;
-
-					++tokIdx;
+					if (elem.tok != toks.Peek())
+						return false;
+					toks.Eat();
 					break;
 				}
 				case MacroPatternKind::Var:
 				{
 					if (i + 1 == fragment.elems.size())
-					{
-						fragmentItContent.push_back(MacroExtractedElem{ elem.var.first, toks.subToks[tokIdx], elem.var.second });
 						res = true;
-						++tokIdx;
-						break;
-					}
 
-					MacroPatternElem& next = *fragment.elems[i + 1];
-					while (tokIdx < toks.subToks.size() && toks.subToks[tokIdx].tok != next.tok)
-						++tokIdx;
-
-					TokenTree tokTree{ toks.subToks.begin() + startIdx, toks.subToks.begin() + tokIdx };
-					fragmentItContent.push_back(MacroExtractedElem{ elem.var.first, tokTree, elem.var.second });
+					ExtractVariable(elem.var.first, elem.var.second, toks, fragment.repTok.type, fragmentItContent);
 					break;
 				}
 				case MacroPatternKind::Fragment:
@@ -242,10 +210,7 @@ namespace Noctis
 				}
 
 				if (!res)
-				{
-					tokIdx = startIdx;
 					break;
-				}
 			}
 
 			if (!res)
@@ -257,20 +222,35 @@ namespace Noctis
 				break;
 			}
 
+			validRep = toks.TryEat(fragment.repTok.type);
 			tmpExtracted.push_back(MacroExtractedElem{ fragmentItContent });
 			fragmentItContent.clear();
 
 			firstPass = false;
 		}
-		while (tokIdx < toks.subToks.size() && 
-			(toks.subToks[tokIdx].tok == fragment.repTok || fragment.repTok.Type() == TokenType::Unknown));
+		while (!toks.IsExhausted() && 
+			   (validRep || fragment.repTok.type == TokenType::Unknown));
 
 		if (res)
-		{
 			extracted.push_back(MacroExtractedElem{ tmpExtracted, fragment.rep });
-		}
 
 		return res || !fragmentItContent.empty();
+	}
+
+	void DeclMacro::ExtractVariable(const StdString& iden, MacroVarKind varKind, TokenTree& toks, TokenType separator, StdVector<MacroExtractedElem>& extracted)
+	{
+		TokenTree tokTree;
+		while (!toks.IsExhausted() && 
+			   (separator == TokenType::Unknown ||
+			    toks.Peek().type != separator))
+		{
+			tokTree.Append(toks.GetSubTree());
+		}
+
+		if (tokTree.subToks.size() == 1)
+			tokTree = tokTree.subToks[0];
+		
+		extracted.emplace_back(iden, tokTree, varKind);
 	}
 
 	bool MacroContext::AddMacro(QualNameSPtr scope, const StdString& iden, AstDeclMacroSPtr astMacro)
@@ -500,7 +480,7 @@ namespace Noctis
 			if (elem.elemKind == MacroPatternKind::Fragment)
 				CollectFragmentVars(elem);
 			else
-				m_CollectedVars.insert(std::pair{ elem.varIden, StdVector<MacroExtractedElem>{ elem } });
+				m_CollectedVars.try_emplace(elem.varIden, StdVector<MacroExtractedElem>{ elem });
 		}
 	}
 
@@ -569,7 +549,7 @@ namespace Noctis
 	{
 		for (StdPair<StdString, StdVector<MacroExtractedElem>> macorVar : m_CollectedVars)
 		{
-			if (macorVar.second.size() > 1 && macorVar.second[0].varKind == MacroVarKind::Toks)
+			if (macorVar.second.size() > 1)
 				return true;
 		}
 		return false;
@@ -584,7 +564,7 @@ namespace Noctis
 				auto varsIt = m_CollectedVars.find(elem.varIden);
 				if (varsIt == m_CollectedVars.end())
 				{
-					varsIt = m_CollectedVars.insert(std::pair{ elem.varIden, StdVector<MacroExtractedElem>{} }).first;
+					varsIt = m_CollectedVars.try_emplace(elem.varIden, StdVector<MacroExtractedElem>{}).first;
 				}
 				varsIt->second.push_back(elem);
 			}

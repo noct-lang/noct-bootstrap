@@ -16,29 +16,33 @@ namespace Noctis
 		void Reset();
 		void Lex(const StdString& filePath, const StdStringView& content);
 		
-		const StdVector<Token>& Tokens() const { return m_Tokens; };
-
+		const TokenTree& TokTree() const { return m_TokTree; }
+		
 		// Debug utils
 		void LogTokens();
 
 	private:
 
+		TokenTree LexTree();
+		Token LexToken();
+
 		StdUnorderedMap<StdStringView, TokenType>& GetKeywordMap();
 
-		void ParseLiteral();
+		Token ParseLiteral();
 		TokenType ParseLiteralType();
 
-		void ParseChar();
-		void ParseString();
-		void ParseWysiwygString();
+		Token ParseChar();
+		Token ParseString();
+		Token ParseWysiwygString();
 
 		u32 ParseEscapeCode(usize offset, usize& escapeSize);
 
 		void ParseSingleLineComment();
 		void ParseBlockComment();
-		
 
-		StdVector<Token> m_Tokens;
+
+		TokenTree m_TokTree;
+
 		u64 m_Index;
 		u64 m_Line;
 		u64 m_Column;

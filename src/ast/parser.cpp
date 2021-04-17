@@ -7,9 +7,8 @@
 
 namespace Noctis
 {
-	Parser::Parser(const StdVector<Token>& tokens)
-		: m_Tokens(tokens)
-		, m_TokIdx(0)
+	Parser::Parser(const TokenTree& tokTree)
+		: m_TokTree(tokTree)
 		, m_pMacroSolver(nullptr)
 		, m_AllowAggrInit(true)
 		, m_IsSwitchStmt(false)
@@ -19,75 +18,62 @@ namespace Noctis
 	StdVector<AstStmtSPtr> Parser::Parse()
 	{
 		StdVector<AstStmtSPtr> nodes;
-
-		while (m_TokIdx < m_Tokens.size())
+		while (!m_TokTree.IsExhausted())
 		{
-			Token& tok = PeekToken();
-			switch (tok.Type())
-			{
-			case TokenType::Module:
+			Token& tok = m_TokTree.Peek();
+			if (tok.type == TokenType::Module)
 				nodes.push_back(ParseModuleDecl());
-				break;
-			default:
+			else
 				nodes.push_back(ParseStatement());
-				break;
-			}
 		}
-
 		return nodes;
 	}
 
 	AstDeclSPtr Parser::ParseModuleDecl()
 	{
-		u64 startIdx = EatToken(TokenType::Module).Idx();
-		StdVector<StdString> idens;
-		do
-		{
-			idens.push_back(EatToken(TokenType::Iden).Text());
-		}
-		while (TryEatToken(TokenType::Dot));
-
-		u64 endIdx = EatToken(TokenType::Semicolon).Idx();
+		u64 startIdx = m_TokTree.Eat().spanId;
+		StdVector<StdString> idens = ParseIdenList(TokenType::Dot);
+		u64 endIdx = m_TokTree.Eat(TokenType::Semicolon).spanId;
 		return AstDeclSPtr{ new AstModuleDecl{ startIdx, std::move(idens), endIdx } };
 	}
 
 	AstDeclSPtr Parser::ParseUnittestDecl()
 	{
-		u64 startIdx = EatToken(TokenType::SUnittest).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::SUnittest).spanId;
 
 		StdString name;
-		if (PeekToken().Type() == TokenType::StringLit)
-			name = EatToken().Text();
+		if (m_TokTree.Peek().type == TokenType::StringLit)
+			name = m_TokTree.Eat().iden;
 
-		EatToken(TokenType::LBrace);
+		m_TokTree.Eat(TokenType::LBrace);
 		StdVector<AstStmtSPtr> stmts;
-		while (PeekToken().Type() != TokenType::RBrace)
+		while (m_TokTree.Peek().type != TokenType::RBrace)
 		{
 			stmts.push_back(ParseStatement());
 		}
-		u64 endIdx = EatToken(TokenType::RBrace).Idx();
+		u64 endIdx = m_TokTree.Eat(TokenType::RBrace).spanId;
 		return AstDeclSPtr{ new AstUnittestDecl{ startIdx, std::move(name), std::move(stmts), endIdx } };
 	}
 
 	AstDeclSPtr Parser::ParseBenchmarkDecl()
 	{
-		u64 startIdx = EatToken(TokenType::SBenchmark).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::SBenchmark).spanId;
 
 		StdString name;
-		if (PeekToken().Type() == TokenType::StringLit)
-			name = EatToken().Text();
+		if (m_TokTree.Peek().type == TokenType::StringLit)
+			name = m_TokTree.Eat().iden;
 
-		EatToken(TokenType::LParen);
-		StdString stateIden = EatToken(TokenType::Iden).Text();
-		EatToken(TokenType::RParen);
+		m_TokTree.Eat(TokenType::LParen);
+		StdString stateIden = m_TokTree.Eat(TokenType::Iden).iden;
+		m_TokTree.Eat(TokenType::RParen);
 
-		EatToken(TokenType::LBrace);
+		m_TokTree.Eat(TokenType::LBrace);
 		StdVector<AstStmtSPtr> stmts;
-		while (PeekToken().Type() != TokenType::RBrace)
+		while (m_TokTree.Peek().type != TokenType::RBrace)
 		{
 			stmts.push_back(ParseStatement());
 		}
-		u64 endIdx = EatToken(TokenType::RBrace).Idx();
+		u64 endIdx = m_TokTree.Eat(TokenType::RBrace).spanId;
 		return AstDeclSPtr{ new AstBenchmarkDecl{ startIdx, std::move(name), std::move(stateIden), std::move(stmts), endIdx } };
 	}
 
@@ -97,10 +83,21 @@ namespace Noctis
 			attribs = ParseAttributes();
 
 		AstLabelStmtSPtr label;
-		if (PeekToken().Type() == TokenType::Colon)
+		if (m_TokTree.Peek().type == TokenType::Colon)
+		{
 			label = ParseLabelStmt();
+			switch (m_TokTree.Peek().type)
+			{
+			case TokenType::Loop: return ParseLoopStmt(label);
+			case TokenType::While: return ParseWhileStmt(label);
+			case TokenType::Do: return ParseDoWhileStmt(label);
+			case TokenType::For: return ParseForStmt(label);
+			case TokenType::Switch: return ParseSwitch(label);
+			default: return label;
+			}
+		}
 		
-		switch (PeekToken().Type())
+		switch (m_TokTree.Peek().type)
 		{
 		case TokenType::Struct: return ParseStruct(attribs);
 		case TokenType::Union: return ParseUnion(attribs);
@@ -112,11 +109,11 @@ namespace Noctis
 		case TokenType::Impl: return ParseImplDecl(attribs);
 		case TokenType::Import: return ParseImport(attribs);
 		case TokenType::If: return ParseIfStmt();
-		case TokenType::Loop: return ParseLoopStmt(label);
-		case TokenType::While: return ParseWhileStmt(label);
-		case TokenType::Do: return ParseDoWhileStmt(label);
-		case TokenType::For: return ParseForStmt(label);
-		case TokenType::Switch: return ParseSwitch(label);
+		case TokenType::Loop: return ParseLoopStmt(nullptr);
+		case TokenType::While: return ParseWhileStmt(nullptr);
+		case TokenType::Do: return ParseDoWhileStmt(nullptr);
+		case TokenType::For: return ParseForStmt(nullptr);
+		case TokenType::Switch: return ParseSwitch(nullptr);
 		case TokenType::Break: return ParseBreakStmt();
 		case TokenType::Continue: return ParseContinueStmt();
 		case TokenType::Fallthrough: return ParseFallthroughStmt();
@@ -129,13 +126,13 @@ namespace Noctis
 		case TokenType::DollarBrace: return ParseMacroLoopStmt();
 		case TokenType::Unsafe:
 		{
-			if (PeekToken(1).Type() == TokenType::Func)
+			if (m_TokTree.Peek(1).type == TokenType::Func)
 				return ParseFuncDecl(attribs, funcAreMethods);
 			return ParseUnsafeStmt();
 		}
 		case TokenType::Macro:
 		{
-			if (PeekToken(1).Type() == TokenType::Func)
+			if (m_TokTree.Peek(1).type == TokenType::Func)
 				return ParseProcMacro();
 			return ParseDeclMacro();
 		}
@@ -147,82 +144,60 @@ namespace Noctis
 		case TokenType::SErrorHandler: return ParseErrorHandlerStmt();
 		case TokenType::Iden:
 		{
-			if (PeekToken().Text() == "weak" && PeekToken(1).Type() == TokenType::Interface)
+			if (m_TokTree.Peek().iden == "weak" && m_TokTree.Peek(1).type == TokenType::Interface)
 				return ParseWeakInterface(attribs);
-			
-			u64 startIdx, endIdx;
-			u64 begIdx = m_TokIdx;
-			StdVector<StdString> idens = ParseIdenList(TokenType::Comma, startIdx, endIdx);
 
-			Token& tok = PeekToken();
-			if (tok.Type() == TokenType::Colon || tok.Type() == TokenType::ColonEq)
-				return ParseVarDecl(attribs, startIdx, std::move(idens));
-
-			m_TokIdx = begIdx;
+			Token& nextTok = m_TokTree.Peek(1);
+			if (nextTok.type == TokenType::Comma || nextTok.type == TokenType::Colon || nextTok.type == TokenType::ColonEq)
+				return ParseVarDecl(attribs);
 			return ParseExprOrMacroStmt();
 		}
 		default:
-		{			
-			if (label)
-				return label;
 			return ParseExprOrMacroStmt();
-		}
 		}
 	}
 
 	AstDeclSPtr Parser::ParseStruct(AstAttribsSPtr attribs)
 	{
-		u64 startIdx = EatToken(TokenType::Struct).Idx();
-
+		u64 startIdx = m_TokTree.Eat(TokenType::Struct).spanId;
 		StdString iden = ParseIden();
 
 		AstGenericDeclSPtr generics = nullptr;
-		if (PeekToken().Type() == TokenType::Less)
+		if (m_TokTree.Peek().type == TokenType::Less)
 			generics = ParseGenericDecl();
 
-		StdVector<AstStmtSPtr> members;
-		EatToken(TokenType::LBrace);
-		while (PeekToken().Type() != TokenType::RBrace)
-		{
-			members.push_back(ParseStatement());
-		}
-		u64 endIdx = EatToken().Idx();
-		
-		return AstDeclSPtr{ new AstStructDecl{ attribs, startIdx, std::move(iden), generics, std::move(members), endIdx } };
+		AstStmtSPtr blockStmt = ParseBlockStmt();
+		AstBlockStmt& block = static_cast<AstBlockStmt&>(*blockStmt);
+		StdVector<AstStmtSPtr> members = std::move(block.stmts);
+		return AstDeclSPtr{ new AstStructDecl{ attribs, startIdx, std::move(iden), generics, std::move(members), block.ctx->endIdx } };
 	}
 
 	AstDeclSPtr Parser::ParseUnion(AstAttribsSPtr attribs)
 	{
-		u64 startIdx = EatToken(TokenType::Union).Idx();
-
+		u64 startIdx = m_TokTree.Eat(TokenType::Union).spanId;
 		StdString iden = ParseIden();
 
 		AstGenericDeclSPtr generics = nullptr;
-		if (PeekToken().Type() == TokenType::Less)
+		if (m_TokTree.Peek().type == TokenType::Less)
 			generics = ParseGenericDecl();
 
-		StdVector<AstStmtSPtr> members;
-		EatToken(TokenType::LBrace);
-		while (PeekToken().Type() != TokenType::RBrace)
-		{
-			members.push_back(ParseStatement());
-		}
-		u64 endIdx = EatToken().Idx();
-
-		return AstDeclSPtr{ new AstUnionDecl{ attribs, startIdx, std::move(iden), generics, std::move(members), endIdx } };
+		AstStmtSPtr blockStmt = ParseBlockStmt();
+		AstBlockStmt& block = static_cast<AstBlockStmt&>(*blockStmt);
+		StdVector<AstStmtSPtr> members = std::move(block.stmts);
+		return AstDeclSPtr{ new AstUnionDecl{ attribs, startIdx, std::move(iden), generics, std::move(members), block.ctx->endIdx } };
 	}
 
 	AstDeclSPtr Parser::ParseEnum(AstAttribsSPtr attribs)
 	{
-		u64 startIdx = EatToken(TokenType::Enum).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::Enum).spanId;
 		StdString iden = ParseIden();
 		
 		AstGenericDeclSPtr generics;
 		AstTypeSPtr baseType;
-		if (PeekToken().Type() == TokenType::Less)
+		if (m_TokTree.Peek().type == TokenType::Less)
 			generics = ParseGenericDecl();
 
-		if (TryEatToken(TokenType::Colon))
+		if (m_TokTree.TryEat(TokenType::Colon))
 			baseType = ParseType();
 
 		bool isAdt = !!generics;
@@ -230,14 +205,14 @@ namespace Noctis
 
 		StdPairVector<StdString, AstExprSPtr> valueMembers;
 		StdPairVector<StdString, AstTypeSPtr> adtMembers;
-		EatToken(TokenType::LBrace);
-		if (PeekToken().Type() != TokenType::RBrace)
+		m_TokTree.Eat(TokenType::LBrace);
+		if (m_TokTree.Peek().type != TokenType::RBrace)
 		{
 			do
 			{
-				StdString memberIden = EatToken(TokenType::Iden).Text();
+				StdString memberIden = m_TokTree.Eat(TokenType::Iden).iden;
 
-				if (TryEatToken(TokenType::Eq))
+				if (m_TokTree.TryEat(TokenType::Eq))
 				{
 					AstExprSPtr expr = ParseExpression();
 					isValue = true;
@@ -250,8 +225,8 @@ namespace Noctis
 					}
 					valueMembers.push_back(std::pair{ memberIden, expr });
 				}
-				else if (PeekToken().Type() == TokenType::LParen ||
-					PeekToken().Type() == TokenType::LBrace)
+				else if (m_TokTree.Peek().type == TokenType::LParen ||
+					m_TokTree.Peek().type == TokenType::LBrace)
 				{
 					AstTypeSPtr type = ParseType(true);
 					isAdt = true;
@@ -269,9 +244,9 @@ namespace Noctis
 					adtMembers.push_back(std::pair{ memberIden, nullptr });
 				}
 			}
-			while (TryEatToken(TokenType::Comma) && PeekToken().Type() != TokenType::RBrace);
+			while (m_TokTree.TryEat(TokenType::Comma) && m_TokTree.Peek().type != TokenType::RBrace);
 		}
-		u64 endIdx = EatToken(TokenType::RBrace).Idx();
+		u64 endIdx = m_TokTree.Eat(TokenType::RBrace).spanId;
 
 		if (isAdt)
 			return AstDeclSPtr{ new AstAdtEnumDecl{ attribs, startIdx, std::move(iden), generics,
@@ -282,103 +257,86 @@ namespace Noctis
 
 	AstDeclSPtr Parser::ParseInterface(AstAttribsSPtr attribs)
 	{
-		u64 startIdx = EatToken(TokenType::Interface).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::Interface).spanId;
 		StdString iden = ParseIden();
 
-		if (PeekToken().Type() == TokenType::Semicolon)
+		if (m_TokTree.Peek().type == TokenType::Semicolon)
 		{
-			u64 endIdx = EatToken().Idx();
+			u64 endIdx = m_TokTree.Eat().spanId;
 			return AstDeclSPtr{ new AstMarkerInterfaceDecl{ attribs, startIdx, std::move(iden), endIdx } };
 		}
 
 		AstGenericDeclSPtr generics;
-		if (PeekToken().Type() == TokenType::Less)
+		if (m_TokTree.Peek().type == TokenType::Less)
 			generics = ParseGenericDecl();
 
 		StdVector<AstIdentifierTypeSPtr> implInterfaces;
-		if (TryEatToken(TokenType::Colon))
+		if (m_TokTree.TryEat(TokenType::Colon))
 		{
 			do
 			{
 				AstIdentifierTypeSPtr tmp = ParseIdentifierType();
 				implInterfaces.push_back(tmp);
 			}
-			while (TryEatToken(TokenType::Plus));
+			while (m_TokTree.TryEat(TokenType::Plus));
 		}
 
-		EatToken(TokenType::LBrace);
-		StdVector<AstStmtSPtr> stmts;
-		while (PeekToken().Type() != TokenType::RBrace)
-		{
-			stmts.push_back(ParseStatement(nullptr, true));
-		}
-		u64 endIdx = EatToken(TokenType::RBrace).Idx();
-
-		return AstDeclSPtr{ new AstStrongInterfaceDecl{ attribs, startIdx, std::move(iden), generics, std::move(implInterfaces), std::move(stmts), endIdx } };
+		AstStmtSPtr blockStmt = ParseBlockStmt(true);
+		AstBlockStmt& block = static_cast<AstBlockStmt&>(*blockStmt);
+		StdVector<AstStmtSPtr> members = std::move(block.stmts);
+		return AstDeclSPtr{ new AstStrongInterfaceDecl{ attribs, startIdx, std::move(iden), generics, std::move(implInterfaces), std::move(members), block.ctx->endIdx } };
 	}
 
 	AstDeclSPtr Parser::ParseWeakInterface(AstAttribsSPtr attribs)
 	{
-		u64 weakIdx = EatIdenToken("weak").Idx();
-		EatToken(TokenType::Interface);
+		u64 weakIdx = m_TokTree.EatIden("weak").spanId;
+		m_TokTree.Eat(TokenType::Interface);
 		StdString iden = ParseIden();
 
-		EatToken(TokenType::LBrace);
-		StdVector<AstStmtSPtr> stmts;
-		while (PeekToken().Type() != TokenType::RBrace)
-		{
-			stmts.push_back(ParseStatement(nullptr, true));
-		}
-		u64 endIdx = EatToken(TokenType::RBrace).Idx();
-
-		return AstDeclSPtr{ new AstWeakInterfaceDecl{ attribs, weakIdx, std::move(iden), std::move(stmts), endIdx } };
+		AstStmtSPtr blockStmt = ParseBlockStmt(true);
+		AstBlockStmt& block = static_cast<AstBlockStmt&>(*blockStmt);
+		StdVector<AstStmtSPtr> members = std::move(block.stmts);
+		return AstDeclSPtr{ new AstWeakInterfaceDecl{ attribs, weakIdx, std::move(iden), std::move(members), block.ctx->endIdx } };
 	}
 
 	AstDeclSPtr Parser::ParseTypealias(AstAttribsSPtr attribs)
 	{
-		u64 startIdx = EatToken(TokenType::Typealias).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::Typealias).spanId;
 		StdString iden = ParseIden();
 
 		AstGenericDeclSPtr generics;
-		if (PeekToken().Type() == TokenType::Less)
+		if (m_TokTree.Peek().type == TokenType::Less)
 			generics = ParseGenericDecl();
 		
 		AstTypeSPtr type;
-		if (TryEatToken(TokenType::Eq))
-		{
+		if (m_TokTree.TryEat(TokenType::Eq))
 			type = ParseType();
-		}
-		u64 endIdx = EatToken(TokenType::Semicolon).Idx();
+		u64 endIdx = m_TokTree.Eat(TokenType::Semicolon).spanId;
 
 		return AstDeclSPtr{ new AstTypeAliasDecl{ attribs, startIdx, std::move(iden), generics, type, endIdx } };
 	}
 
 	AstDeclSPtr Parser::ParseTypedef(AstAttribsSPtr attribs)
 	{
-		u64 startIdx = EatToken(TokenType::Typedef).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::Typedef).spanId;
 		StdString iden = ParseIden();
 
 		AstGenericDeclSPtr generics;
-		if (PeekToken().Type() == TokenType::Less)
+		if (m_TokTree.Peek().type == TokenType::Less)
 			generics = ParseGenericDecl();
 
-		EatToken(TokenType::Eq);
+		m_TokTree.Eat(TokenType::Eq);
 		AstTypeSPtr type = ParseType();
-		u64 endIdx = EatToken(TokenType::Semicolon).Idx();
+		u64 endIdx = m_TokTree.Eat(TokenType::Semicolon).spanId;
 
 		return AstDeclSPtr{ new AstTypeDefDecl{ attribs, startIdx, std::move(iden), generics, type, endIdx } };
 	}
 
 	AstVarDeclSPtr Parser::ParseVarDecl(AstAttribsSPtr attribs)
 	{
-		StdVector<StdString> idens;
-		Token& tok = PeekToken();
-		u64 startIdx = tok.Idx();
-		idens.push_back(ParseIden());
-
-		while (TryEatToken(TokenType::Comma))
-			idens.push_back(ParseIden());
-
+		Token& tok = m_TokTree.Peek();
+		u64 startIdx = tok.spanId;
+		StdVector<StdString> idens = ParseIdenList(TokenType::Comma);
 		return ParseVarDecl(attribs, startIdx, std::move(idens));
 	}
 
@@ -386,52 +344,52 @@ namespace Noctis
 	{
 		AstTypeSPtr type;
 		AstExprSPtr expr;
-		if (TryEatToken(TokenType::Colon))
+		if (m_TokTree.TryEat(TokenType::Colon))
 		{
 			type = ParseType();
-			if (TryEatToken(TokenType::Eq))
+			if (m_TokTree.TryEat(TokenType::Eq))
 				expr = ParseCommaExpression();
 		}
 		else
 		{
-			EatToken(TokenType::ColonEq);
+			m_TokTree.Eat(TokenType::ColonEq);
 			expr = ParseCommaExpression();
 		}
 		
 		u64 endIdx = 0;
-		if (PeekToken().Type() == TokenType::Comma)
-			endIdx = EatToken(TokenType::Comma).Idx();
-		else if (PeekToken().Type() == TokenType::Semicolon)
-			endIdx = EatToken(TokenType::Semicolon).Idx();
+		if (m_TokTree.Peek().type == TokenType::Comma)
+			endIdx = m_TokTree.Eat(TokenType::Comma).spanId;
+		else if (m_TokTree.Peek().type == TokenType::Semicolon)
+			endIdx = m_TokTree.Eat(TokenType::Semicolon).spanId;
 		return AstVarDeclSPtr{ new AstVarDecl{ attribs, startIdx, std::move(idens), type, expr, endIdx } };
 	}
 
 	AstDeclSPtr Parser::ParseFuncDecl(AstAttribsSPtr attribs, bool asMethod)
 	{
 		u64 startIdx;
-		bool isUnsafe = PeekToken().Type() == TokenType::Unsafe;
+		bool isUnsafe = m_TokTree.Peek().type == TokenType::Unsafe;
 		if (isUnsafe)
 		{
-			Token& tok = EatToken();
-			startIdx = tok.Idx();
+			Token& tok = m_TokTree.Eat();
+			startIdx = tok.spanId;
 			attribs->simpleAttribs.emplace_back(new AstSimpleAttrib{ tok });
-			EatToken(TokenType::Func);
+			m_TokTree.Eat(TokenType::Func);
 		}
 		else
 		{
-			startIdx = EatToken(TokenType::Func).Idx();
+			startIdx = m_TokTree.Eat(TokenType::Func).spanId;
 		}
 		
 		AstMethodReceiverKind recKind = AstMethodReceiverKind::None;
-		if (asMethod && TryEatToken(TokenType::LParen))
+		if (asMethod && m_TokTree.TryEat(TokenType::LParen))
 		{
-			if (TryEatToken(TokenType::Move))
+			if (m_TokTree.TryEat(TokenType::Move))
 			{
 				recKind = AstMethodReceiverKind::Move;
 			}
-			else if (TryEatToken(TokenType::And))
+			else if (m_TokTree.TryEat(TokenType::And))
 			{
-				if (TryEatToken(TokenType::Mut))
+				if (m_TokTree.TryEat(TokenType::Mut))
 					recKind = AstMethodReceiverKind::MutRef;
 				else
 					recKind = AstMethodReceiverKind::Ref;
@@ -440,53 +398,45 @@ namespace Noctis
 			{
 				recKind = AstMethodReceiverKind::Value;
 			}
-			EatIdenToken("self");
-			EatToken(TokenType::RParen);
+			m_TokTree.EatIden("self");
+			m_TokTree.Eat(TokenType::RParen);
 		}
-
 		
 		StdString iden = ParseIden();
 
 		AstGenericDeclSPtr generics;
-		if (PeekToken().Type() == TokenType::Less)
+		if (m_TokTree.Peek().type == TokenType::Less)
 			generics = ParseGenericDecl();
 
-		EatToken(TokenType::LParen);
+		m_TokTree.Eat(TokenType::LParen);
 		StdVector<AstParamSPtr> params;
-		if (PeekToken().Type() != TokenType::RParen)
+		if (m_TokTree.Peek().type != TokenType::RParen)
 			params = ParseParams(false);
-		EatToken(TokenType::RParen);
+		m_TokTree.Eat(TokenType::RParen);
 
 		AstTypeSPtr errorType;
-		if (TryEatIdenToken("throws"))
+		if (m_TokTree.TryEatIden("throws"))
 		{
-			EatToken(TokenType::LParen);
+			m_TokTree.Eat(TokenType::LParen);
 			errorType = ParseType();
-			EatToken(TokenType::RParen);
+			m_TokTree.Eat(TokenType::RParen);
 		}
 		
 		AstTypeSPtr retType;
 		StdPairVector<StdVector<StdString>, AstTypeSPtr> namedRets;
-		if (TryEatToken(TokenType::Arrow))
+		if (m_TokTree.TryEat(TokenType::Arrow))
 		{
-			if (PeekToken().Type() == TokenType::LBrace)
+			if (m_TokTree.TryEat(TokenType::LBrace))
 			{
-				EatToken(TokenType::LBrace);
 				do
 				{
-					StdVector<StdString> retNames;
-					do
-					{
-						retNames.push_back(ParseIden());
-					}
-					while (TryEatToken(TokenType::Comma));
-					EatToken(TokenType::Colon);
+					StdVector<StdString> retNames = ParseIdenList(TokenType::Comma);
+					m_TokTree.Eat(TokenType::Colon);
 					AstTypeSPtr type = ParseType();
 					namedRets.push_back(std::pair{ std::move(retNames), type });
 				}
-				while (TryEatToken(TokenType::Comma));
-				
-				EatToken(TokenType::RBrace);
+				while (m_TokTree.TryEat(TokenType::Comma));
+				m_TokTree.Eat(TokenType::RBrace);
 			}
 			else
 			{	
@@ -495,10 +445,10 @@ namespace Noctis
 		}
 
 		AstGenericWhereClauseSPtr whereClause;
-		if (PeekToken().Text() == "where")
+		if (m_TokTree.Peek().iden == "where")
 			whereClause = ParseGenericWhereClause();
 
-		if (PeekToken().Type() == TokenType::Semicolon)
+		if (m_TokTree.Peek().type == TokenType::Semicolon)
 		{
 			if (whereClause)
 			{
@@ -506,7 +456,7 @@ namespace Noctis
 				g_ErrorSystem.Error(span, "An empty method declaration cannot have a where clause");
 			}
 
-			u64 endIdx = EatToken(TokenType::Semicolon).Idx();
+			u64 endIdx = m_TokTree.Eat(TokenType::Semicolon).spanId;
 			if (asMethod)
 				return AstDeclSPtr{ new AstMethodDecl { attribs, startIdx, recKind, std::move(iden), generics, std::move(params), errorType, retType, {}, nullptr, {}, isUnsafe, true, endIdx } };
 			else
@@ -514,208 +464,180 @@ namespace Noctis
 					retType, std::move(namedRets), whereClause, {}, isUnsafe, endIdx } };
 		}
 
-		StdVector<AstStmtSPtr> stmts;
-		EatToken(TokenType::LBrace);
-		while (PeekToken().Type() != TokenType::RBrace)
-		{
-			stmts.push_back(ParseStatement());
-		}
-		u64 endIdx = EatToken().Idx();
+		AstStmtSPtr blockStmt = ParseBlockStmt();
+		AstBlockStmt& block = static_cast<AstBlockStmt&>(*blockStmt);
+		StdVector<AstStmtSPtr> stmts = std::move(block.stmts);
 
 		if (asMethod)
 			return AstDeclSPtr{ new AstMethodDecl { attribs, startIdx, recKind, std::move(iden), generics, std::move(params),
-				errorType, retType, std::move(namedRets), whereClause, std::move(stmts), isUnsafe, false, endIdx } };
+				errorType, retType, std::move(namedRets), whereClause, std::move(stmts), isUnsafe, false, block.ctx->endIdx } };
 		
 		return AstDeclSPtr{ new AstFuncDecl { attribs, startIdx, std::move(iden), generics, std::move(params),
-			errorType, retType, std::move(namedRets), whereClause, std::move(stmts), isUnsafe, endIdx } };
+			errorType, retType, std::move(namedRets), whereClause, std::move(stmts), isUnsafe, block.ctx->endIdx } };
 	}
 
 	AstDeclSPtr Parser::ParseImplDecl(AstAttribsSPtr attribs)
 	{
-		u64 implIdx = EatToken(TokenType::Impl).Idx();
+		u64 implIdx = m_TokTree.Eat(TokenType::Impl).spanId;
 		AstGenericDeclSPtr generics;
-		if (PeekToken().Type() == TokenType::Less)
+		if (m_TokTree.Peek().type == TokenType::Less)
 			generics = ParseGenericDecl();
 		
 		AstTypeSPtr type = ParseType();
 
 		AstIdentifierTypeSPtr interface;
-		if (TryEatToken(TokenType::Colon))
-		{
+		if (m_TokTree.TryEat(TokenType::Colon))
 			interface = ParseIdentifierType();
-			if (PeekToken().Type() == TokenType::Plus)
-			{
-				// TODO
-			}
-		}
 
-		
 		AstGenericWhereClauseSPtr whereClause;
-		if (PeekToken().Text() == "where")
+		if (m_TokTree.Peek().iden == "where")
 			whereClause = ParseGenericWhereClause();
 		
-		EatToken(TokenType::LBrace);
-		StdVector<AstStmtSPtr> stmts;
-		while (PeekToken().Type() != TokenType::RBrace)
-		{
-			stmts.push_back(ParseStatement(nullptr, true));
-		}
-
-		u64 endIdx = EatToken().Idx();
-
-		return AstDeclSPtr{ new AstImplDecl{ attribs, implIdx, generics, type, interface, whereClause, std::move(stmts), endIdx } };
+		AstStmtSPtr blockStmt = ParseBlockStmt(true);
+		AstBlockStmt& block = static_cast<AstBlockStmt&>(*blockStmt);
+		StdVector<AstStmtSPtr> stmts = std::move(block.stmts);
+		return AstDeclSPtr{ new AstImplDecl{ attribs, implIdx, generics, type, interface, whereClause, std::move(stmts), block.ctx->endIdx } };
 	}
 
 	AstStmtSPtr Parser::ParseImport(AstAttribsSPtr attribs)
 	{
-		u64 importIdx = EatToken(TokenType::Import).Idx();
+		u64 importIdx = m_TokTree.Eat(TokenType::Import).spanId;
 		StdVector<StdString> modIdens = ParseIdenList(TokenType::Dot);
 
 		StdPairVector<StdVector<StdString>, StdString> symbols;
-		if (TryEatToken(TokenType::Colon))
+		if (m_TokTree.TryEat(TokenType::Colon))
 		{
 			do	
 			{
 				StdVector<StdString> symIdens = ParseIdenList(TokenType::ColonColon);
 				StdString symAlias;
-				if (TryEatToken(TokenType::As))
-					symAlias = EatToken(TokenType::Iden).Text();
+				if (m_TokTree.TryEat(TokenType::As))
+					symAlias = m_TokTree.Eat(TokenType::Iden).iden;
 				symbols.push_back(std::pair{ std::move(symIdens), std::move(symAlias) });
 			}
-			while (TryEatToken(TokenType::Comma));
+			while (m_TokTree.TryEat(TokenType::Comma));
 		}
 
-		u64 endIdx = EatToken(TokenType::Semicolon).Idx();
+		u64 endIdx = m_TokTree.Eat(TokenType::Semicolon).spanId;
 		return AstStmtSPtr{ new AstImportStmt{ attribs, importIdx, std::move(modIdens), std::move(symbols), endIdx } };
 	}
 
-	AstStmtSPtr Parser::ParseBlockStmt()
+	AstStmtSPtr Parser::ParseBlockStmt(bool funcsAreMethods)
 	{
-		u64 startIdx = EatToken(TokenType::LBrace).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::LBrace).spanId;
 		StdVector<AstStmtSPtr> stmts;
-		while (PeekToken().Type() != TokenType::RBrace)
+		while (m_TokTree.Peek().type != TokenType::RBrace)
 		{
-			stmts.push_back(ParseStatement());
+			stmts.push_back(ParseStatement(nullptr, funcsAreMethods));
 		}
-		u64 endIdx = EatToken(TokenType::RBrace).Idx();
+		u64 endIdx = m_TokTree.Eat(TokenType::RBrace).spanId;
 		return AstStmtSPtr{ new AstBlockStmt{ startIdx, std::move(stmts), endIdx } };
 	}
 
 	AstStmtSPtr Parser::ParseIfStmt()
 	{
-		u64 ifIdx = EatToken(TokenType::If).Idx();
+		u64 ifIdx = m_TokTree.Eat(TokenType::If).spanId;
 
-		u64 predeclIdx = m_TokIdx;
-		(void)ParseIdenList(TokenType::Comma);
-		Token& tok = PeekToken();
 		AstVarDeclSPtr varDecl;
-		m_TokIdx = predeclIdx;
-		if (tok.Type() == TokenType::Comma || tok.Type() == TokenType::Colon || tok.Type() == TokenType::ColonEq)
-		{
+		Token& nextTok = m_TokTree.Peek(1);
+		if (nextTok.type == TokenType::Comma || nextTok.type == TokenType::Colon || nextTok.type == TokenType::ColonEq)
 			varDecl = ParseVarDecl(nullptr);
-		}
 
-		bool prevAllowAggrInit = m_AllowAggrInit;
-		m_AllowAggrInit = false;
-		AstExprSPtr cond = ParseExpression(nullptr, true);
-		m_AllowAggrInit = prevAllowAggrInit;
+		AstExprSPtr cond;
+		{
+			SaveRestore allowAggrInit{ m_AllowAggrInit, false };
+			cond = ParseExpression(nullptr, true);
+		}
 
 		AstStmtSPtr body;
-		if (TryEatToken(TokenType::Do))
-		{
+		if (m_TokTree.TryEat(TokenType::Do))
 			body = ParseStatement(nullptr, false);
-		}
 		else
-		{
 			body = ParseBlockStmt();
-		}
 		
 		AstStmtSPtr elseBody;
-		if (TryEatToken(TokenType::Else))
+		if (m_TokTree.TryEat(TokenType::Else))
 		{
-			if (TryEatToken(TokenType::Do))
-			{
-				AstExprSPtr expr = ParseExpression();
-				u64 endIdx = EatToken(TokenType::Semicolon).Idx();
-				body.reset(new AstExprStmt{ expr, endIdx });
-			}
-			else if (PeekToken().Type() == TokenType::If)
-			{
+			if (m_TokTree.TryEat(TokenType::Do))
+				body = ParseStatement(nullptr, false);
+			else if (m_TokTree.Peek().type == TokenType::If)
 				elseBody = ParseIfStmt();	
-			}
 			else
-			{
 				elseBody = ParseBlockStmt();
-			}
 		}
-
 		return AstStmtSPtr{ new AstIfStmt{ ifIdx, varDecl, cond, body, elseBody } };
 	}
 
 	AstStmtSPtr Parser::ParseLoopStmt(AstLabelStmtSPtr label)
 	{
-		u64 loopIdx = EatToken(TokenType::Loop).Idx();
+		u64 loopIdx = m_TokTree.Eat(TokenType::Loop).spanId;
 		AstStmtSPtr body = ParseStatement();
 		return AstStmtSPtr{ new AstLoopStmt{ label, loopIdx, body } };
 	}
 
 	AstStmtSPtr Parser::ParseWhileStmt(AstLabelStmtSPtr label)
 	{
-		u64 whileIdx = EatToken(TokenType::While).Idx();
-		bool prevAllowAggrInit = m_AllowAggrInit;
-		m_AllowAggrInit = false;
-		AstExprSPtr cond = ParseExpression(nullptr, true);
-		m_AllowAggrInit = prevAllowAggrInit;
+		u64 whileIdx = m_TokTree.Eat(TokenType::While).spanId;
+		AstExprSPtr cond;
+		{
+			SaveRestore allowAggrInit{ m_AllowAggrInit, false };
+			cond = ParseExpression(nullptr, true);
+		}
 		AstStmtSPtr body = ParseBlockStmt();
 		return AstStmtSPtr{ new AstWhileStmt{ label, whileIdx, cond, body } };
 	}
 
 	AstStmtSPtr Parser::ParseDoWhileStmt(AstLabelStmtSPtr label)
 	{
-		u64 doIdx = EatToken(TokenType::Do).Idx();
+		u64 doIdx = m_TokTree.Eat(TokenType::Do).spanId;
 		AstStmtSPtr body = ParseBlockStmt();
-		EatToken(TokenType::While);
-		bool prevAllowAggrInit = m_AllowAggrInit;
-		m_AllowAggrInit = false;
-		AstExprSPtr cond = ParseExpression(nullptr, true);
-		m_AllowAggrInit = prevAllowAggrInit;
-		u64 endIdx = EatToken(TokenType::Semicolon).Idx();
+		m_TokTree.Eat(TokenType::While);
+		AstExprSPtr cond;
+		{
+			SaveRestore allowAggrInit{ m_AllowAggrInit, false };
+			cond = ParseExpression(nullptr, true);
+		}
+		u64 endIdx = m_TokTree.Eat(TokenType::Semicolon).spanId;
 		return AstStmtSPtr{ new AstDoWhileStmt{ label, doIdx, body, cond, endIdx } };
 	}
 
 	AstStmtSPtr Parser::ParseForStmt(AstLabelStmtSPtr label)
 	{
-		u64 forTokIdx = EatToken(TokenType::For).Idx();
+		u64 forTokIdx = m_TokTree.Eat(TokenType::For).spanId;
+
 		StdVector<StdString> idens = ParseIdenList(TokenType::Comma);
-		EatToken(TokenType::In);
-		bool prevAllowAggrInit = m_AllowAggrInit;
-		m_AllowAggrInit = false;
-		AstExprSPtr range = ParseExpression(nullptr, true);
-		m_AllowAggrInit = prevAllowAggrInit;
+		m_TokTree.Eat(TokenType::In);
+		AstExprSPtr range;
+		{
+			SaveRestore allowAggrInit{ m_AllowAggrInit, false };
+			range = ParseExpression(nullptr, true);
+		}
 		AstStmtSPtr body = ParseBlockStmt();
 		return AstStmtSPtr{ new AstForStmt{ label, forTokIdx, std::move(idens), range, body } };
 	}
 
 	AstStmtSPtr Parser::ParseSwitch(AstLabelStmtSPtr label)
 	{
-		u64 switchIdx = EatToken(TokenType::Switch).Idx();
-		bool prevAllowAggrInit = m_AllowAggrInit;
-		m_AllowAggrInit = false;
-		AstExprSPtr cond = ParseExpression(nullptr, true);
-		m_AllowAggrInit = prevAllowAggrInit;
-		EatToken(TokenType::LBrace);
+		u64 switchIdx = m_TokTree.Eat(TokenType::Switch).spanId;
 
+		AstExprSPtr cond;
+		{
+			SaveRestore allowAggrInit{ m_AllowAggrInit, false };
+			cond = ParseExpression(nullptr, true);
+		}
+
+		m_TokTree.Eat(TokenType::LBrace);
 		StdVector<AstSwitchCase> cases;
 		do
 		{
-			if (PeekToken().Type() == TokenType::RBrace)
+			if (m_TokTree.Peek().type == TokenType::RBrace)
 				break;
 			
 			AstPatternSPtr pattern = ParsePattern();
 			AstExprSPtr expr;
-			if (TryEatIdenToken("where"))
+			if (m_TokTree.TryEatIden("where"))
 				expr = ParseExpression();
-			EatToken(TokenType::DblArrow);
+			m_TokTree.Eat(TokenType::DblArrow);
 			m_IsSwitchStmt = true;
 			AstStmtSPtr body = ParseStatement();
 			m_IsSwitchStmt = false;
@@ -725,26 +647,26 @@ namespace Noctis
 
 			cases.push_back(AstSwitchCase{ pattern, expr, body });
 		}
-		while (TryEatToken(TokenType::Comma));
+		while (m_TokTree.TryEat(TokenType::Comma));
+		u64 endIdx = m_TokTree.Eat(TokenType::RBrace).spanId;
 
-		u64 endIdx = EatToken(TokenType::RBrace).Idx();
 		return AstStmtSPtr{ new AstSwitchStmt{ label, switchIdx, cond, std::move(cases) , endIdx } };
 	}
 
 	AstLabelStmtSPtr Parser::ParseLabelStmt()
 	{
-		u64 startIdx = EatToken(TokenType::Colon).Idx();
-		StdString label = EatToken(TokenType::Iden).Text();
-		u64 endIdx = EatToken(TokenType::Colon).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::Colon).spanId;
+		StdString label = m_TokTree.Eat(TokenType::Iden).iden;
+		u64 endIdx = m_TokTree.Eat(TokenType::Colon).spanId;
 		return AstLabelStmtSPtr{ new AstLabelStmt{ startIdx, std::move(label), endIdx } };
 	}
 
 	AstStmtSPtr Parser::ParseBreakStmt()
 	{
-		u64 startIdx = EatToken(TokenType::Break).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::Break).spanId;
 		StdString label;
-		if (PeekToken().Type() == TokenType::Iden)
-			label = EatToken().Text();
+		if (m_TokTree.Peek().type == TokenType::Iden)
+			label = m_TokTree.Eat().iden;
 		
 		u64 endIdx = EatStmtEndIdx();
 		return AstStmtSPtr{ new AstBreakStmt{ startIdx, std::move(label), endIdx } };
@@ -752,10 +674,10 @@ namespace Noctis
 
 	AstStmtSPtr Parser::ParseContinueStmt()
 	{
-		u64 startIdx = EatToken(TokenType::Continue).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::Continue).spanId;
 		StdString label;
-		if (PeekToken().Type() == TokenType::Iden)
-			label = EatToken().Text();
+		if (m_TokTree.Peek().type == TokenType::Iden)
+			label = m_TokTree.Eat().iden;
 		
 		u64 endIdx = EatStmtEndIdx();
 		return AstStmtSPtr{ new AstContinueStmt{ startIdx, std::move(label), endIdx } };
@@ -763,24 +685,24 @@ namespace Noctis
 
 	AstStmtSPtr Parser::ParseFallthroughStmt()
 	{
-		u64 startIdx = EatToken(TokenType::Fallthrough).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::Fallthrough).spanId;
 		u64 endIdx = EatStmtEndIdx();
 		return AstStmtSPtr{ new AstFallthroughStmt{ startIdx, endIdx } };
 	}
 
 	AstStmtSPtr Parser::ParseGotoStmt()
 	{
-		u64 startIdx = EatToken(TokenType::Goto).Idx();
-		StdString label = EatToken(TokenType::Iden).Text();
+		u64 startIdx = m_TokTree.Eat(TokenType::Goto).spanId;
+		StdString label = m_TokTree.Eat(TokenType::Iden).iden;
 		u64 endIdx = EatStmtEndIdx();
 		return AstStmtSPtr{ new AstGotoStmt{ startIdx, std::move(label), endIdx } };
 	}
 
 	AstStmtSPtr Parser::ParseReturnStmt()
 	{
-		u64 startIdx = EatToken(TokenType::Return).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::Return).spanId;
 		AstExprSPtr expr;
-		if (PeekToken().Type() != TokenType::Semicolon)
+		if (m_TokTree.Peek().type != TokenType::Semicolon)
 			expr = m_IsSwitchStmt ? ParseExpression() : ParseCommaExpression();
 		u64 endIdx = EatStmtEndIdx();
 		return AstStmtSPtr{ new AstReturnStmt{ startIdx, expr, endIdx } };
@@ -789,9 +711,8 @@ namespace Noctis
 
 	AstStmtSPtr Parser::ParseThrowStmt()
 	{
-		u64 startIdx = EatToken(TokenType::Throw).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::Throw).spanId;
 		AstExprSPtr expr = ParseOperand(nullptr);
-
 		u64 endIdx = EatStmtEndIdx();
 		return AstStmtSPtr{ new AstThrowStmt{ startIdx, expr, endIdx } };
 	}
@@ -802,133 +723,129 @@ namespace Noctis
 		AstExprSPtr expr = ParseExpression();
 
 		if (expr->exprKind == AstExprKind::MacroInst &&
-			PeekToken().Type() != TokenType::Semicolon)
+			m_TokTree.Peek().type != TokenType::Semicolon)
 		{
 			AstMacroInstExpr* pMacroInst = static_cast<AstMacroInstExpr*>(expr.get());
 			return AstStmtSPtr{ new AstMacroInstStmt{ pMacroInst->qualName, std::move(pMacroInst->toks), pMacroInst->ctx->endIdx } };
 		}
 		
-		u64 endIdx = EatToken(TokenType::Semicolon).Idx();
+		u64 endIdx = m_TokTree.Eat(TokenType::Semicolon).spanId;
 		return AstStmtSPtr{ new AstExprStmt{ expr, endIdx } };
 	}
 
 	AstStmtSPtr Parser::ParseDeferStmt()
 	{
-		u64 startIdx = EatToken(TokenType::Defer).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::Defer).spanId;
 		AstExprSPtr expr = ParseExpression(nullptr, true);
-		u64 endIdx = EatToken(TokenType::Semicolon).Idx();
+		u64 endIdx = m_TokTree.Eat(TokenType::Semicolon).spanId;
 		return AstStmtSPtr{ new AstDeferStmt{ startIdx, expr, endIdx } };
 	}
 
 	AstStmtSPtr Parser::ParseErrDeferStmt()
 	{
-		u64 startIdx = EatToken(TokenType::ErrDefer).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::ErrDefer).spanId;
 		AstExprSPtr expr = ParseExpression(nullptr, true);
-		u64 endIdx = EatToken(TokenType::Semicolon).Idx();
+		u64 endIdx = m_TokTree.Eat(TokenType::Semicolon).spanId;
 		return AstStmtSPtr{ new AstErrDeferStmt{ startIdx, expr, endIdx } };
 	}
 
 	AstStmtSPtr Parser::ParseUnsafeStmt()
 	{
-		u64 startIdx = EatToken(TokenType::Unsafe).Idx();
-		EatToken(TokenType::LBrace);
-		StdVector<AstStmtSPtr> stmts;
-		while (PeekToken().Type() != TokenType::RBrace)
-		{
-			stmts.push_back(ParseStatement());
-		}
-		u64 endIdx = EatToken(TokenType::RBrace).Idx();
-		return AstStmtSPtr{ new AstUnsafeStmt{ startIdx, std::move(stmts), endIdx } };
+		u64 startIdx = m_TokTree.Eat(TokenType::Unsafe).spanId;
+		AstStmtSPtr blockStmt = ParseBlockStmt();
+		AstBlockStmt& block = static_cast<AstBlockStmt&>(*blockStmt);
+		StdVector<AstStmtSPtr> stmts = std::move(block.stmts);
+		return AstStmtSPtr{ new AstUnsafeStmt{ startIdx, std::move(block.stmts), block.ctx->endIdx } };
 	}
 
 	AstStmtSPtr Parser::ParseErrorHandlerStmt()
 	{
-		u64 startIdx = EatToken(TokenType::SErrorHandler).Idx();
-		EatToken(TokenType::LParen);
-		StdString iden = EatToken(TokenType::Iden).Text();
+		u64 startIdx = m_TokTree.Eat(TokenType::SErrorHandler).spanId;
+		m_TokTree.Eat(TokenType::LParen);
+		StdString iden = m_TokTree.Eat(TokenType::Iden).iden;
 		AstTypeSPtr type;
-		if (TryEatToken(TokenType::Colon))
+		if (m_TokTree.TryEat(TokenType::Colon))
 			type = ParseType();
-		EatToken(TokenType::RParen);
+		m_TokTree.Eat(TokenType::RParen);
 		AstStmtSPtr block = ParseBlockStmt();
 		return AstStmtSPtr{ new AstErrHandler{ startIdx, std::move(iden), type, block } };
 	}
 
 	AstStmtSPtr Parser::ParseCompIfStmt()
 	{
-		u64 startIdx = EatToken(TokenType::SIf).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::SIf).spanId;
 
-		EatToken(TokenType::LParen);
-		Token& tok = PeekToken();
+		m_TokTree.Eat(TokenType::LParen);
+		Token& tok = m_TokTree.Peek();
 		AstVarDeclSPtr varDecl;
-		if (tok.Type() == TokenType::Comma || tok.Type() == TokenType::Colon || tok.Type() == TokenType::ColonEq)
+		if (tok.type == TokenType::Comma || tok.type == TokenType::Colon || tok.type == TokenType::ColonEq)
 		{
 			varDecl = ParseVarDecl(nullptr);
 		}
 
 		AstExprSPtr cond = ParseExpression(nullptr, true);
-		EatToken(TokenType::RParen);
+		m_TokTree.Eat(TokenType::RParen);
 
 		AstStmtSPtr body = ParseBlockStmt();
 		AstStmtSPtr elseBody;
-		if (TryEatToken(TokenType::Else))
+		if (m_TokTree.TryEat(TokenType::Else))
 			elseBody = ParseStatement();
 
 		return AstStmtSPtr{ new AstCompIfStmt{ startIdx, varDecl, cond, body, elseBody } };
 	}
 
+	// TODO: version triplets
 	AstStmtSPtr Parser::ParseCompCondStmt()
 	{
-		u64 startIdx = EatToken(TokenType::SConditional).Idx();
-		Token& cond = EatToken(TokenType::Iden);
+		u64 startIdx = m_TokTree.Eat(TokenType::SConditional).spanId;
+		Token& cond = m_TokTree.Eat(TokenType::Iden);
 
 		Token cmp{ TokenType::Unknown, u64(-1) },
 			  val{ TokenType::Unknown, u64(-1) };
-		if (PeekToken().Type() != TokenType::LBrace)
+		if (m_TokTree.Peek().type != TokenType::LBrace)
 		{
-			cmp = EatToken();
-			val = EatToken();
+			cmp = m_TokTree.Eat();
+			val = m_TokTree.Eat();
 		}
 
 		AstStmtSPtr body = ParseBlockStmt();
 		AstStmtSPtr elseBody;
-		if (TryEatToken(TokenType::Else))
+		if (m_TokTree.TryEat(TokenType::Else))
 			elseBody = ParseStatement();
 		return AstStmtSPtr{ new AstCompCondStmt{ startIdx, cond, cmp, val, body, elseBody } };
 	}
 
+	// TODO: version triplets
 	AstStmtSPtr Parser::ParseCompDebugStmt()
 	{
-		u64 startIdx = EatToken(TokenType::SDebug).Idx();
-		Token& cond = EatToken(TokenType::Iden);
+		u64 startIdx = m_TokTree.Eat(TokenType::SDebug).spanId;
+		Token& cond = m_TokTree.Eat(TokenType::Iden);
 
 		Token cmp{ TokenType::Unknown, u64(-1) },
 			  val{ TokenType::Unknown, u64(-1) };
-		if (PeekToken().Type() != TokenType::LBrace)
+		if (m_TokTree.Peek().type != TokenType::LBrace)
 		{
-			cmp = EatToken();
-			val = EatToken();
+			cmp = m_TokTree.Eat();
+			val = m_TokTree.Eat();
 		}
 
 		AstStmtSPtr body = ParseBlockStmt();
 		AstStmtSPtr elseBody;
-		if (TryEatToken(TokenType::Else))
+		if (m_TokTree.TryEat(TokenType::Else))
 			elseBody = ParseStatement();
 		return AstStmtSPtr{ new AstCompDebugStmt{ startIdx, cond, cmp, val, body, elseBody } };
 	}
 
 	AstStmtSPtr Parser::ParseMacroLoopStmt()
 	{
-		TokenTree tokTree = ParseTokenTree();
-		u64 startIdx = tokTree.subToks[0].tok.Idx();
-		u64 endIdx = tokTree.subToks.back().tok.Idx();
+		TokenTree tokTree = m_TokTree.GetSubTree();
+		u64 startIdx = tokTree.subToks.front().tok.spanId;
+		u64 endIdx = tokTree.subToks.back().tok.spanId;
 
 		tokTree.subToks.erase(tokTree.subToks.begin());
 		tokTree.subToks.erase(tokTree.subToks.end() - 1);
 		
-		StdVector<Token> subToks;
-		tokTree.ToToks(subToks);
-		Parser subParser = Parser{ subToks };
+		Parser subParser = Parser{ tokTree };
 		subParser.SetMacroVarSolver(m_pMacroSolver);
 
 		bool hasLoopedToks = m_pMacroSolver->HasLoopedToks();
@@ -937,10 +854,9 @@ namespace Noctis
 		do
 		{
 			if (hasLoopedToks)
-				subParser.m_Tokens = subToks;
+				subParser.m_TokTree.ResetIdx();
 			
-			subParser.m_TokIdx = 0;
-			while (subParser.m_TokIdx < subParser.m_Tokens.size())
+			while (!subParser.m_TokTree.IsExhausted())
 			{
 				stmts.push_back(subParser.ParseStatement());
 			}
@@ -958,7 +874,7 @@ namespace Noctis
 		{
 			exprs.push_back(ParseExpression());
 		}
-		while (TryEatToken(TokenType::Comma));
+		while (m_TokTree.TryEat(TokenType::Comma));
 		if (exprs.size() == 1)
 			return exprs[0];
 		return AstExprSPtr{ new AstCommaExpr{ std::move(exprs) } };
@@ -969,37 +885,36 @@ namespace Noctis
 		AstExprSPtr expr = prev;
 		while (true)
 		{
-			Token tok = PeekToken();
-
-			if (PeekToken().Type() == TokenType::MacroIden)
+			Token tok = m_TokTree.Peek();
+			if (m_TokTree.Peek().type == TokenType::MacroIden)
 			{
-				MacroExtractedElem& elem = m_pMacroSolver->GetElem(tok.Text());
+				MacroExtractedElem& elem = m_pMacroSolver->GetElem(tok.iden);
 				switch (elem.varKind)
 				{
 				case MacroVarKind::Expr:
 				{
-					EatToken();
+					m_TokTree.Eat();
 					elem.Parse();
 					return elem.GetExpr();
 				}
 				case MacroVarKind::Toks:
 				{
-					InsertTreeIntoTokens(elem.tokTree);
-					tok = PeekToken();
+					m_TokTree.InsertAtCur(elem.tokTree);
+					tok = m_TokTree.Peek();
 					break;
 				}
 				case MacroVarKind::Stmt:
 				{
-					Span span = g_SpanManager.GetSpan(tok.Idx());
-					const char* pName = tok.Text().c_str();
+					Span span = g_SpanManager.GetSpan(tok.spanId);
+					const char* pName = tok.iden.c_str();
 					g_ErrorSystem.Error(span, "macro variable '$%s' cannot be 'stmt' when an expression is expected", pName);
 					return nullptr;
 				}
-				default:;
+				default: break;
 				}
 			}
 			
-			switch (tok.Type())
+			switch (tok.type)
 			{
 			case TokenType::Plus:
 			case TokenType::Minus:
@@ -1053,10 +968,10 @@ namespace Noctis
 			{
 				if (!expr)
 				{
-					Span span = g_SpanManager.GetSpan(tok.Idx());
-					const char* pTokName = GetTokenTypeName(tok.Type()).data();
+					Span span = g_SpanManager.GetSpan(tok.spanId);
+					const char* pTokName = GetTokenTypeName(tok.type).data();
 					g_ErrorSystem.Error(span, "Expected Expression before '%s'", pTokName);
-					EatToken();
+					m_TokTree.Eat();
 					break;
 				}
 				expr = ParseBinaryExpr(expr);
@@ -1104,10 +1019,10 @@ namespace Noctis
 			{
 				if (!expr)
 				{
-					Span span = g_SpanManager.GetSpan(tok.Idx());
-					const char* pTokName = GetTokenTypeName(tok.Type()).data();
+					Span span = g_SpanManager.GetSpan(tok.spanId);
+					const char* pTokName = GetTokenTypeName(tok.type).data();
 					g_ErrorSystem.Error(span, "Expected Expression before '%s'", pTokName);
-					EatToken();
+					m_TokTree.Eat();
 					break;
 				}
 				expr = ParseAssignmentExpr(expr);
@@ -1117,10 +1032,10 @@ namespace Noctis
 			{
 				if (!expr)
 				{
-					Span span = g_SpanManager.GetSpan(tok.Idx());
-					const char* pTokName = GetTokenTypeName(tok.Type()).data();
+					Span span = g_SpanManager.GetSpan(tok.spanId);
+					const char* pTokName = GetTokenTypeName(tok.type).data();
 					g_ErrorSystem.Error(span, "Expected Expression before '%s'", pTokName);
-					EatToken();
+					m_TokTree.Eat();
 					break;
 				}
 				expr = ParseTernaryExpr(expr);
@@ -1128,8 +1043,8 @@ namespace Noctis
 			}
 			case TokenType::MacroIden:
 			{
-				EatToken();
-				MacroExtractedElem& elem = m_pMacroSolver->GetElem(tok.Text());
+				m_TokTree.Eat();
+				MacroExtractedElem& elem = m_pMacroSolver->GetElem(tok.iden);
 
 				switch (elem.varKind)
 				{
@@ -1147,11 +1062,11 @@ namespace Noctis
 				case MacroVarKind::Iden:
 				{
 					AstQualIdenSPtr qualIden = *reinterpret_cast<AstQualIdenSPtr*>(&elem.node);
-					AstQualNameSPtr qualName{ new AstQualName{ m_TokIdx, false, StdVector<AstQualIdenSPtr>{ qualIden } } };
+					AstQualNameSPtr qualName{ new AstQualName{ qualIden->ctx->startIdx, false, StdVector<AstQualIdenSPtr>{ qualIden } } };
 					expr = AstExprSPtr{ new AstQualNameExpr{ qualName } };
 					break;
 				}
-				default:;
+				default: break;
 				}
 				break;
 			}
@@ -1162,9 +1077,9 @@ namespace Noctis
 			}
 			case TokenType::LBrace:
 			{
-				if (!m_AllowAggrInit && expr)
+				if (!allowBlockExpr && expr)
 					return expr;
-				// fallthrough
+				[[fallthrough]];
 			}	
 			default:
 				AstExprSPtr tmp = ParseOperand(expr);
@@ -1179,29 +1094,33 @@ namespace Noctis
 	AstExprSPtr Parser::ParseOperand(AstExprSPtr prev)
 	{
 		AstExprSPtr expr = ParseOperandImpl(prev);
+		if (expr == prev)
+			return nullptr;
+		
 		while (true)
 		{
-			Token& tok = PeekToken();
+			Token& tok = m_TokTree.Peek();
 			bool run = false;
-			switch (tok.Type())
+			switch (tok.type)
 			{
 			case TokenType::Dot:
 			case TokenType::QuestionDot:
 			case TokenType::LBracket:
 			case TokenType::QuestionBracket:
 			case TokenType::LParen:
+			case TokenType::LBrace:
 			{
 				run = true;
 				break;
 			}
-			default: ;
+			default: break;
 			}
 
 			if (!run)
 				return expr;
 			
 			AstExprSPtr tmp = ParseOperandImpl(expr);
-			if (!tmp)
+			if (!tmp || tmp == expr)
 				return expr;
 			
 			expr = tmp;
@@ -1212,8 +1131,8 @@ namespace Noctis
 	{
 		while (true)
 		{
-			Token& tok = PeekToken();
-			switch (tok.Type())
+			Token& tok = m_TokTree.Peek();
+			switch (tok.type)
 			{
 			case TokenType::Less:
 			{
@@ -1225,7 +1144,7 @@ namespace Noctis
 			{
 				if (prev)
 					return nullptr;
-				if (tok.Text() == "_")
+				if (tok.iden == "_")
 					return ParseLiteralExpr();
 				return ParseQualNameExpr();
 			}
@@ -1236,18 +1155,16 @@ namespace Noctis
 			{
 				if (!prev)
 				{
-					if (tok.Type() == TokenType::LBracket)
+					if (tok.type == TokenType::LBracket)
 					{
 						return  ParseArrayInitExpr();
 					}
-					else
-					{
-						Span span = g_SpanManager.GetSpan(tok.Idx());
-						const char* pTokName = GetTokenTypeName(tok.Type()).data();
-						g_ErrorSystem.Error(span, "Expected Expression before '%s'", pTokName);
-						EatToken();
-						return nullptr;
-					}
+					
+					Span span = g_SpanManager.GetSpan(tok.spanId);
+					const char* pTokName = GetTokenTypeName(tok.type).data();
+					g_ErrorSystem.Error(span, "Expected expression before '%s'", pTokName);
+					m_TokTree.Eat();
+					return nullptr;
 				}
 				return  ParseIndexSlicExpr(prev);
 			}
@@ -1262,16 +1179,16 @@ namespace Noctis
 			{
 				if (!prev)
 				{
-					Span span = g_SpanManager.GetSpan(tok.Idx());
-					const char* pTokName = GetTokenTypeName(tok.Type()).data();
-					g_ErrorSystem.Error(span, "Expected Expression before '%s'", pTokName);
-					EatToken();
+					Span span = g_SpanManager.GetSpan(tok.spanId);
+					const char* pTokName = GetTokenTypeName(tok.type).data();
+					g_ErrorSystem.Error(span, "Expected expression before '%s'", pTokName);
+					m_TokTree.Eat();
 					break;
 				}
 
-				if (PeekToken(1).Type() == TokenType::I32Lit)
+				if (m_TokTree.Peek(1).type == TokenType::I32Lit)
 					return ParseTupleAccessExpr(prev);
-				if (PeekToken(2).Type() == TokenType::LParen)
+				if (m_TokTree.Peek(2).type == TokenType::LParen)
 					return ParseMethodcallExpr(prev);
 				return ParseMemberAccessExpr(prev);
 			}
@@ -1297,10 +1214,10 @@ namespace Noctis
 			{
 				if (prev)
 				{
-					Span span = g_SpanManager.GetSpan(tok.Idx());
-					const char* pTokName = GetTokenTypeName(tok.Type()).data();
-					g_ErrorSystem.Error(span, "Unexpected Expression before '%s'", pTokName);
-					EatToken();
+					Span span = g_SpanManager.GetSpan(tok.spanId);
+					const char* pTokName = GetTokenTypeName(tok.type).data();
+					g_ErrorSystem.Error(span, "Unexpected expression before '%s'", pTokName);
+					m_TokTree.Eat();
 					return nullptr;
 				}
 				return ParseLiteralExpr();
@@ -1319,10 +1236,10 @@ namespace Noctis
 					}
 					else
 					{
-						Span span = g_SpanManager.GetSpan(tok.Idx());
-						const char* pTokName = GetTokenTypeName(tok.Type()).data();
-						g_ErrorSystem.Error(span, "Unexpected Expression before '%s'", pTokName);
-						EatToken();
+						Span span = g_SpanManager.GetSpan(tok.spanId);
+						const char* pTokName = GetTokenTypeName(tok.type).data();
+						g_ErrorSystem.Error(span, "Unexpected expression before '%s'", pTokName);
+						m_TokTree.Eat();
 						return nullptr;
 					}
 				}
@@ -1334,10 +1251,10 @@ namespace Noctis
 			{
 				if (!prev)
 				{
-					Span span = g_SpanManager.GetSpan(tok.Idx());
-					const char* pTokName = GetTokenTypeName(tok.Type()).data();
-					g_ErrorSystem.Error(span, "Unexpected Expression before '%s'", pTokName);
-					EatToken();
+					Span span = g_SpanManager.GetSpan(tok.spanId);
+					const char* pTokName = GetTokenTypeName(tok.type).data();
+					g_ErrorSystem.Error(span, "Unexpected expression before '%s'", pTokName);
+					m_TokTree.Eat();
 					break;
 				}
 				return ParseCastExpr(prev);
@@ -1346,10 +1263,10 @@ namespace Noctis
 			{
 				if (!prev)
 				{
-					Span span = g_SpanManager.GetSpan(tok.Idx());
-					const char* pTokName = GetTokenTypeName(tok.Type()).data();
-					g_ErrorSystem.Error(span, "Unexpected Expression before '%s'", pTokName);
-					EatToken();
+					Span span = g_SpanManager.GetSpan(tok.spanId);
+					const char* pTokName = GetTokenTypeName(tok.type).data();
+					g_ErrorSystem.Error(span, "Unexpected expression before '%s'", pTokName);
+					m_TokTree.Eat();
 					break;
 				}
 				return ParseTransmuteExpr(prev);
@@ -1358,10 +1275,10 @@ namespace Noctis
 			{
 				if (prev)
 				{
-					Span span = g_SpanManager.GetSpan(tok.Idx());
-					const char* pTokName = GetTokenTypeName(tok.Type()).data();
+					Span span = g_SpanManager.GetSpan(tok.spanId);
+					const char* pTokName = GetTokenTypeName(tok.type).data();
 					g_ErrorSystem.Error(span, "Unexpected Expression before '%s'", pTokName);
-					EatToken();
+					m_TokTree.Eat();
 					break;
 				}
 				return ParseMoveExpr();
@@ -1370,10 +1287,10 @@ namespace Noctis
 			{
 				if (prev)
 				{
-					Span span = g_SpanManager.GetSpan(tok.Idx());
-					const char* pTokName = GetTokenTypeName(tok.Type()).data();
-					g_ErrorSystem.Error(span, "Unexpected Expression before '%s'", pTokName);
-					EatToken();
+					Span span = g_SpanManager.GetSpan(tok.spanId);
+					const char* pTokName = GetTokenTypeName(tok.type).data();
+					g_ErrorSystem.Error(span, "Unexpected expression before '%s'", pTokName);
+					m_TokTree.Eat();
 					break;
 				}
 				return ParseUnsafeExpr();
@@ -1385,11 +1302,11 @@ namespace Noctis
 			{
 				if (prev)
 				{
-					Span span = g_SpanManager.GetSpan(tok.Idx());
-					const char* pTokName = GetTokenTypeName(tok.Type()).data();
-					g_ErrorSystem.Error(span, "Unexpected Expression before '%s'", pTokName);
-					EatToken();
-					EatToken();
+					Span span = g_SpanManager.GetSpan(tok.spanId);
+					const char* pTokName = GetTokenTypeName(tok.type).data();
+					g_ErrorSystem.Error(span, "Unexpected expression before '%s'", pTokName);
+					m_TokTree.Eat();
+					m_TokTree.Eat();
 					break;
 				}
 
@@ -1400,20 +1317,17 @@ namespace Noctis
 			case TokenType::DollarParen:
 			
 			{
-				if (prev)
+				if (!prev)
 				{
-					AstQualNameSPtr qualName = static_cast<AstQualNameExpr*>(prev.get())->qualName;
-					return ParseMacroInstExpr(qualName);
+					Span span = g_SpanManager.GetSpan(tok.spanId);
+					const char* pTokName = GetTokenTypeName(tok.type).data();
+					g_ErrorSystem.Error(span, "Expected expression before '%s'", pTokName);
+					m_TokTree.Eat();
+					break;
 				}
-
-				u64 tmpIdx = m_TokIdx;
-				Token tmpTok = m_Tokens[tmpIdx];
-				m_Tokens[tmpIdx] = Token{ TokenType::LParen, m_TokIdx };
-				AstExprSPtr subExpr = ParseOperandImpl(nullptr);
-
-				m_Tokens[tmpIdx] = tmpTok;
 				
-				return AstExprSPtr{ new AstPrefixExpr{ Token{ TokenType::Exclaim, m_TokIdx }, subExpr } };
+				AstQualNameSPtr qualName = static_cast<AstQualNameExpr*>(prev.get())->qualName;
+				return ParseMacroInstExpr(qualName);
 			}
 			case TokenType::DollarBracket:
 			case TokenType::DollarBrace:
@@ -1431,23 +1345,23 @@ namespace Noctis
 
 	AstExprSPtr Parser::ParseAssignmentExpr(AstExprSPtr lExpr)
 	{
-		TokenType op = EatToken().Type();
+		TokenType op = m_TokTree.Eat().type;
 		AstExprSPtr rExpr = ParseExpression();
 		return AstExprSPtr{ new AstAssignExpr{ lExpr, op, rExpr } };
 	}
 
 	AstExprSPtr Parser::ParseTernaryExpr(AstExprSPtr cond)
 	{
-		EatToken(TokenType::Question);
+		m_TokTree.Eat(TokenType::Question);
 		AstExprSPtr trueExpr = ParseExpression();
-		EatToken(TokenType::Colon);
+		m_TokTree.Eat(TokenType::Colon);
 		AstExprSPtr falseExpr = ParseExpression();
 		return AstExprSPtr{ new AstTernaryExpr{ cond, trueExpr, falseExpr } };
 	}
 
 	AstExprSPtr Parser::ParseBinaryExpr(AstExprSPtr lExpr)
 	{
-		TokenType op = EatToken().Type();
+		TokenType op = m_TokTree.Eat().type;
 		AstExprSPtr expr = ParseOperand(nullptr);
 
 		if (lExpr->exprKind == AstExprKind::Binary)
@@ -1472,28 +1386,28 @@ namespace Noctis
 
 	AstExprSPtr Parser::ParseRangeExpr(AstExprSPtr lExpr)
 	{
-		Token& op = PeekToken();
-		if (op.Type() == TokenType::DotDotEq)
-			EatToken();
+		Token& op = m_TokTree.Peek();
+		if (op.type == TokenType::DotDotEq)
+			m_TokTree.Eat();
 		else
-			EatToken(TokenType::DotDot);
+			m_TokTree.Eat(TokenType::DotDot);
 
-		u64 startIdx = lExpr ? lExpr->ctx->startIdx : op.Idx();
+		u64 startIdx = lExpr ? lExpr->ctx->startIdx : op.spanId;
 		AstExprSPtr rExpr = ParseOperand(nullptr);
-		u64 endIdx = rExpr ? rExpr->ctx->endIdx : op.Idx();
+		u64 endIdx = rExpr ? rExpr->ctx->endIdx : op.spanId;
 
-		return AstExprSPtr{ new AstRangeExpr{ startIdx, lExpr, op.Type() == TokenType::DotDotEq, rExpr, endIdx } };
+		return AstExprSPtr{ new AstRangeExpr{ startIdx, lExpr, op.type == TokenType::DotDotEq, rExpr, endIdx } };
 	}
 
 	AstExprSPtr Parser::ParsePostfixExpr(AstExprSPtr expr)
 	{
-		Token& tok = EatToken();
+		Token& tok = m_TokTree.Eat();
 		return AstExprSPtr{ new AstPostfixExpr{ expr, tok } };
 	}
 
 	AstExprSPtr Parser::ParsePrefixExpr()
 	{
-		Token& tok = EatToken();
+		Token& tok = m_TokTree.Eat();
 		AstExprSPtr expr = ParseOperand(nullptr);
 		return AstExprSPtr{ new AstPrefixExpr{ tok, expr } };
 	}
@@ -1506,39 +1420,39 @@ namespace Noctis
 
 	AstExprSPtr Parser::ParseIndexSlicExpr(AstExprSPtr expr)
 	{
-		bool nullcoalesce = TryEatToken(TokenType::QuestionBracket);
+		bool nullcoalesce = m_TokTree.TryEat(TokenType::QuestionBracket);
 		if (!nullcoalesce)
-			EatToken(TokenType::LBracket);
+			m_TokTree.Eat(TokenType::LBracket);
 		
 		AstExprSPtr index = ParseExpression();
-		u64 endIdx = EatToken(TokenType::RBracket).Idx();
+		u64 endIdx = m_TokTree.Eat(TokenType::RBracket).spanId;
 		return AstExprSPtr{ new AstIndexSliceExpr{ expr, nullcoalesce, index, endIdx } };
 	}
 
 	AstExprSPtr Parser::ParseFuncCallExpr(AstExprSPtr expr)
 	{
-		EatToken(TokenType::LParen);
+		m_TokTree.Eat(TokenType::LParen);
 		StdVector<AstArgSPtr> args = ParseArgs();
-		u64 endIdx = EatToken(TokenType::RParen).Idx();
+		u64 endIdx = m_TokTree.Eat(TokenType::RParen).spanId;
 		return AstExprSPtr{ new AstFuncCallExpr{ expr, std::move(args), endIdx } };
 	}
 
 	AstExprSPtr Parser::ParseMemberAccessExpr(AstExprSPtr expr)
 	{
-		bool nullcoalesce = TryEatToken(TokenType::QuestionDot);
+		bool nullcoalesce = m_TokTree.TryEat(TokenType::QuestionDot);
 		if (!nullcoalesce)
-			EatToken(TokenType::Dot);
+			m_TokTree.Eat(TokenType::Dot);
 		
-		Token& tok = EatToken(TokenType::Iden);
-		StdString iden = tok.Text();
-		return AstExprSPtr{ new AstMemberAccessExpr{ expr, nullcoalesce, std::move(iden), tok.Idx() } };
+		Token& tok = m_TokTree.Eat(TokenType::Iden);
+		StdString iden = tok.iden;
+		return AstExprSPtr{ new AstMemberAccessExpr{ expr, nullcoalesce, std::move(iden), tok.spanId } };
 	}
 
 	AstExprSPtr Parser::ParseMethodcallExpr(AstExprSPtr expr)
 	{
-		bool nullcoalesce = TryEatToken(TokenType::QuestionDot);
+		bool nullcoalesce = m_TokTree.TryEat(TokenType::QuestionDot);
 		if (!nullcoalesce)
-			EatToken(TokenType::Dot);
+			m_TokTree.Eat(TokenType::Dot);
 
 		AstQualIdenSPtr qualIden = ParseQualIden(false);
 		AstIden& qualIdenRef = static_cast<AstIden&>(*qualIden);
@@ -1548,74 +1462,74 @@ namespace Noctis
 		// Make sure that when the AstQualIdenSPtr is destroyed, that we are not trying to delete invalid data (i.e. use after move)
 		new (&qualIdenRef.args) StdVector<AstGenericArg>{};
 
-		EatToken(TokenType::LParen);
+		m_TokTree.Eat(TokenType::LParen);
 		StdVector<AstArgSPtr> args = ParseArgs();
-		u64 endIdx = EatToken(TokenType::RParen).Idx();
+		u64 endIdx = m_TokTree.Eat(TokenType::RParen).spanId;
 		
 		return AstExprSPtr{ new AstMethodCallExpr{ expr, nullcoalesce, iden, std::move(args), endIdx } };
 	}
 
 	AstExprSPtr Parser::ParseTupleAccessExpr(AstExprSPtr expr)
 	{
-		bool nullcoalesce = TryEatToken(TokenType::QuestionDot);
+		bool nullcoalesce = m_TokTree.TryEat(TokenType::QuestionDot);
 		if (!nullcoalesce)
-			EatToken(TokenType::Dot);
+			m_TokTree.Eat(TokenType::Dot);
 		
-		Token& tok = EatToken(TokenType::I32Lit);
-		return AstExprSPtr{ new AstTupleAccessExpr{ expr, nullcoalesce, u16(tok.Signed()), tok.Idx() } };
+		Token& tok = m_TokTree.Eat(TokenType::I32Lit);
+		return AstExprSPtr{ new AstTupleAccessExpr{ expr, nullcoalesce, u16(tok.sval), tok.spanId } };
 	}
 
 	AstExprSPtr Parser::ParseLiteralExpr()
 	{
-		Token& tok = EatToken();
+		Token& tok = m_TokTree.Eat();
 		return AstExprSPtr{ new AstLiteralExpr{ tok } };
 	}
 
 	AstExprSPtr Parser::ParseAggrInitExpr(AstQualNameExpr* qualName)
 	{
 		AstTypeSPtr type = AstTypeSPtr{ new AstIdentifierType{ nullptr, qualName->qualName } };
-		EatToken(TokenType::LBrace);
+		m_TokTree.Eat(TokenType::LBrace);
 		StdVector<AstArgSPtr> args;
 		do
 		{
 			args.push_back(ParseArg());
-		} while (PeekToken(1).Type() != TokenType::DotDot && TryEatToken(TokenType::Comma));
+		} while (m_TokTree.Peek(1).type != TokenType::DotDot && m_TokTree.TryEat(TokenType::Comma));
 
 		bool hasDefInit = false;
 		AstExprSPtr defExpr;
-		if (TryEatToken(TokenType::Comma))
+		if (m_TokTree.TryEat(TokenType::Comma))
 		{
-			EatToken(TokenType::DotDot);
-			hasDefInit = PeekToken().Type() == TokenType::RBrace;
+			m_TokTree.Eat(TokenType::DotDot);
+			hasDefInit = m_TokTree.Peek().type == TokenType::RBrace;
 			if (!hasDefInit)
 				defExpr = ParseExpression();
 		}
 		
-		u64 endIdx = EatToken(TokenType::RBrace).Idx();
+		u64 endIdx = m_TokTree.Eat(TokenType::RBrace).spanId;
 		return AstExprSPtr{ new AstAggrInitExpr{ qualName->ctx->startIdx, type, std::move(args), hasDefInit, defExpr, endIdx } };
 	}
 
 	AstExprSPtr Parser::ParseArrayInitExpr()
 	{
-		u64 startIdx = EatToken(TokenType::LBracket).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::LBracket).spanId;
 		StdVector<AstExprSPtr> exprs;
 		do
 		{
 			exprs.push_back(ParseExpression());
 		}
-		while (TryEatToken(TokenType::Comma));
-		u64 endIdx = EatToken(TokenType::RBracket).Idx();
+		while (m_TokTree.TryEat(TokenType::Comma));
+		u64 endIdx = m_TokTree.Eat(TokenType::RBracket).spanId;
 		return AstExprSPtr{ new AstArrayInitExpr{ startIdx, std::move(exprs), endIdx } };
 	}
 
 	AstExprSPtr Parser::ParseCastExpr(AstExprSPtr expr)
 	{
-		TokenType tokType = PeekToken().Type();
+		TokenType tokType = m_TokTree.Peek().type;
 		if (tokType == TokenType::AsQuestion ||
 			tokType == TokenType::AsExclaim)
-			EatToken();
+			m_TokTree.Eat();
 		else
-			EatToken(TokenType::As);
+			m_TokTree.Eat(TokenType::As);
 		
 		AstTypeSPtr type = ParseType();
 		return AstExprSPtr{ new AstCastExpr{ expr, tokType, type } };
@@ -1623,24 +1537,24 @@ namespace Noctis
 
 	AstExprSPtr Parser::ParseTransmuteExpr(AstExprSPtr expr)
 	{
-		EatToken(TokenType::Transmute);
+		m_TokTree.Eat(TokenType::Transmute);
 		AstTypeSPtr type = ParseType();
 		return AstExprSPtr{ new AstTransmuteExpr{ expr, type } };
 	}
 
 	AstExprSPtr Parser::ParseMoveExpr()
 	{
-		u64 startIdx = EatToken(TokenType::Move).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::Move).spanId;
 		AstExprSPtr expr = ParseOperand(nullptr);
 		return AstExprSPtr{ new AstMoveExpr{ startIdx, expr } };
 	}
 
 	AstExprSPtr Parser::ParseBracketExpr()
 	{
-		u64 startIdx = EatToken(TokenType::LParen).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::LParen).spanId;
 		AstExprSPtr expr = ParseExpression();
 
-		if (TryEatToken(TokenType::Comma))
+		if (m_TokTree.TryEat(TokenType::Comma))
 		{
 			StdVector<AstExprSPtr> exprs;
 			exprs.push_back(expr);
@@ -1648,44 +1562,44 @@ namespace Noctis
 			{
 				exprs.push_back(ParseExpression());
 			}
-			while (TryEatToken(TokenType::Comma));
+			while (m_TokTree.TryEat(TokenType::Comma));
 			
-			u64 endIdx = EatToken(TokenType::RParen).Idx();
+			u64 endIdx = m_TokTree.Eat(TokenType::RParen).spanId;
 			return AstExprSPtr{ new AstTupleInitExpr{ startIdx, std::move(exprs), endIdx } };
 		}
 
-		u64 endIdx = EatToken(TokenType::RParen).Idx();
+		u64 endIdx = m_TokTree.Eat(TokenType::RParen).spanId;
 		return AstExprSPtr{ new AstBracketExpr{ startIdx, expr, endIdx } };
 	}
 
 	AstExprSPtr Parser::ParseBlockExpr()
 	{
-		u64 startIdx = EatToken(TokenType::LBrace).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::LBrace).spanId;
 		StdVector<AstStmtSPtr> stmts;
-		while (PeekToken().Type() != TokenType::RBrace)
+		while (m_TokTree.Peek().type != TokenType::RBrace)
 		{
 			stmts.push_back(ParseStatement());
 		}
-		u64 endIdx = EatToken().Idx();
+		u64 endIdx = m_TokTree.Eat().spanId;
 		return AstExprSPtr{ new AstBlockExpr{ startIdx, std::move(stmts), endIdx } };
 	}
 
 	AstExprSPtr Parser::ParseUnsafeExpr()
 	{
-		u64 startIdx = EatToken(TokenType::Unsafe).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::Unsafe).spanId;
 		AstExprSPtr expr = ParseOperand(nullptr);
 		return AstExprSPtr{ new AstUnsafeExpr{ startIdx, expr } };
 	}
 
 	AstExprSPtr Parser::ParseClosureExpr()
 	{
-		u64 startIdx = EatToken(TokenType::Or).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::Or).spanId;
 
 		StdVector<AstParamSPtr> params = ParseParams(true);
-		EatToken(TokenType::Or);
+		m_TokTree.Eat(TokenType::Or);
 
 		AstTypeSPtr retType;
-		if (TryEatToken(TokenType::Arrow))
+		if (m_TokTree.TryEat(TokenType::Arrow))
 			retType = ParseType();
 
 		AstExprSPtr expr = ParseExpression();
@@ -1695,45 +1609,45 @@ namespace Noctis
 
 	AstExprSPtr Parser::ParseIsExpr(AstExprSPtr expr)
 	{
-		u64 isIdx = EatToken().Idx();
+		u64 isIdx = m_TokTree.Eat().spanId;
 		AstTypeSPtr type = ParseType();
 		return AstExprSPtr{ new AstIsExpr{ expr, isIdx, type } };
 	}
 
 	AstExprSPtr Parser::ParseTryExpr()
 	{
-		Token& tok = EatToken();
+		Token& tok = m_TokTree.Eat();
 		AstExprSPtr	expr = ParseOperand(nullptr);
 		return AstExprSPtr{ new AstTryExpr{ tok, expr } };
 	}
 
 	AstExprSPtr Parser::ParseSpecKwExpr()
 	{
-		Token& tok = EatToken();
+		Token& tok = m_TokTree.Eat();
 		return AstExprSPtr{ new AstSpecKwExpr{ tok } };
 	}
 
 	AstExprSPtr Parser::ParseCompRunExpr()
 	{
-		u64 startIdx = EatToken(TokenType::SRun).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::SRun).spanId;
 		AstExprSPtr expr = ParseOperand(nullptr);
 		return AstExprSPtr{ new AstCompRunExpr{ startIdx, expr } };
 	}
 
 	AstExprSPtr Parser::ParseMacroVarExpr()
 	{
-		u64 dollarIdx = EatToken(TokenType::MacroIden).Idx();
-		Token& tok = EatToken(TokenType::Iden);
-		StdString iden = tok.Text();
-		return AstExprSPtr{ new AstMacroVarExpr{ dollarIdx, std::move(iden), tok.Idx() } };
+		u64 dollarIdx = m_TokTree.Eat(TokenType::MacroIden).spanId;
+		Token& tok = m_TokTree.Eat(TokenType::Iden);
+		StdString iden = tok.iden;
+		return AstExprSPtr{ new AstMacroVarExpr{ dollarIdx, std::move(iden), tok.spanId } };
 	}
 
 	AstTypeSPtr Parser::ParseType(bool structKwOptional)
 	{
 		AstAttribsSPtr attribs = ParseAttributes();
 		
-		Token& tok = PeekToken();
-		switch (tok.Type())
+		Token& tok = m_TokTree.Peek();
+		switch (tok.type)
 		{
 		case TokenType::Bool:
 		case TokenType::Char:
@@ -1754,7 +1668,7 @@ namespace Noctis
 		case TokenType::F64:
 		case TokenType::F128:
 		{
-			EatToken();
+			m_TokTree.Eat();
 			return AstTypeSPtr{ new AstBuiltinType{ attribs, tok } };
 		}
 		case TokenType::Iden:
@@ -1777,7 +1691,7 @@ namespace Noctis
 		{
 			if (!structKwOptional)
 			{
-				Span span = g_SpanManager.GetSpan(tok.Idx());
+				Span span = g_SpanManager.GetSpan(tok.spanId);
 				g_ErrorSystem.Error(span, "Found '{' while parsing type\n");
 				return nullptr;
 			}
@@ -1785,12 +1699,12 @@ namespace Noctis
 		}
 		case TokenType::MacroIden:
 		{
-			MacroExtractedElem& elem = m_pMacroSolver->GetElem(tok.Text());
+			MacroExtractedElem& elem = m_pMacroSolver->GetElem(tok.iden);
 			switch (elem.varKind)
 			{
 			case MacroVarKind::Type:
 			{
-				EatToken();
+				m_TokTree.Eat();
 				elem.Parse();
 				AstTypeSPtr type = elem.GetType();
 				if (attribs)
@@ -1816,13 +1730,13 @@ namespace Noctis
 			}
 			case MacroVarKind::Toks:
 			{
-				InsertTreeIntoTokens(elem.tokTree);
+				m_TokTree.InsertAtCur(elem.tokTree);
 				return ParseType(structKwOptional);
 			}
 			default:
 			{
-				Span span = g_SpanManager.GetSpan(tok.Idx());
-				const char* pName = tok.Text().c_str();
+				Span span = g_SpanManager.GetSpan(tok.spanId);
+				const char* pName = tok.iden.c_str();
 				g_ErrorSystem.Error(span, "macro variable '$%s' is not 'type', 'iden', 'qual' or 'toks'", pName);
 				return nullptr;
 			}
@@ -1841,53 +1755,53 @@ namespace Noctis
 
 	AstTypeSPtr Parser::ParsePointerType(AstAttribsSPtr attribs)
 	{
-		u64 startIdx = EatToken(TokenType::Asterisk).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::Asterisk).spanId;
 		AstTypeSPtr type = ParseType();
 		return AstTypeSPtr{ new AstPointerType{ attribs, startIdx, type } };
 	}
 
 	AstTypeSPtr Parser::ParseReferenceType(AstAttribsSPtr attribs)
 	{
-		u64 startIdx = EatToken(TokenType::And).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::And).spanId;
 		AstTypeSPtr type = ParseType();
 		return AstTypeSPtr{ new AstReferenceType{ attribs, startIdx, type } };
 	}
 
 	AstTypeSPtr Parser::ParseArraySliceType(AstAttribsSPtr attribs)
 	{
-		u64 startIdx = EatToken(TokenType::LBracket).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::LBracket).spanId;
 
-		if (TryEatToken(TokenType::RBracket))
+		if (m_TokTree.TryEat(TokenType::RBracket))
 		{
 			AstTypeSPtr type = ParseType();
 			return AstTypeSPtr{ new AstSliceType{ attribs, startIdx, type } };
 		}
 
 		AstExprSPtr expr = ParseExpression();
-		EatToken(TokenType::RBracket);
+		m_TokTree.Eat(TokenType::RBracket);
 		AstTypeSPtr type = ParseType();
 		return AstTypeSPtr{ new AstArrayType{ attribs, startIdx, expr, type } };
 	}
 
 	AstTypeSPtr Parser::ParseTupleType(AstAttribsSPtr attribs)
 	{
-		u64 startIdx = EatToken(TokenType::LParen).Idx();
-		if (PeekToken().Type() == TokenType::RParen)
+		u64 startIdx = m_TokTree.Eat(TokenType::LParen).spanId;
+		if (m_TokTree.Peek().type == TokenType::RParen)
 		{
-			u64 endIdx = EatToken().Idx();
+			u64 endIdx = m_TokTree.Eat().spanId;
 			return AstTypeSPtr{ new AstTupleType{ attribs, startIdx, {}, endIdx} };
 		}
 		
 		StdVector<AstTypeSPtr> types;
 		do { types.push_back(ParseType()); }
-			while (TryEatToken(TokenType::Comma));
-		u64 endIdx = EatToken().Idx();
+			while (m_TokTree.TryEat(TokenType::Comma));
+		u64 endIdx = m_TokTree.Eat().spanId;
 		return AstTypeSPtr{ new AstTupleType{ attribs, startIdx, std::move(types), endIdx } };
 	}
 
 	AstTypeSPtr Parser::ParseOptionalType(AstAttribsSPtr attribs)
 	{
-		u64 startIdx = EatToken(TokenType::Question).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::Question).spanId;
 		AstTypeSPtr type = ParseType();
 		return AstTypeSPtr{ new AstOptionalType{ attribs, startIdx, type } };
 	}
@@ -1895,14 +1809,14 @@ namespace Noctis
 	AstTypeSPtr Parser::ParseInlineStructType(bool structKwOptional)
 	{
 		u64 startIdx;
-		if (structKwOptional && PeekToken().Type() != TokenType::Struct)
+		if (structKwOptional && m_TokTree.Peek().type != TokenType::Struct)
 		{
-			startIdx = EatToken(TokenType::LBrace).Idx();
+			startIdx = m_TokTree.Eat(TokenType::LBrace).spanId;
 		}
 		else
 		{
-			startIdx = EatToken(TokenType::Struct).Idx();
-			EatToken(TokenType::LBrace);
+			startIdx = m_TokTree.Eat(TokenType::Struct).spanId;
+			m_TokTree.Eat(TokenType::LBrace);
 		}
 
 		StdPairVector<StdVector<StdString>, AstTypeSPtr> members;
@@ -1911,53 +1825,53 @@ namespace Noctis
 			StdVector<StdString> idens;
 			do
 			{
-				idens.push_back(EatToken(TokenType::Iden).Text());
+				idens.push_back(m_TokTree.Eat(TokenType::Iden).iden);
 			}
-			while (TryEatToken(TokenType::Comma));
-			EatToken(TokenType::Colon);
+			while (m_TokTree.TryEat(TokenType::Comma));
+			m_TokTree.Eat(TokenType::Colon);
 			AstTypeSPtr type = ParseType();
 			AstExprSPtr bitfield;
-			if (TryEatToken(TokenType::Colon))
+			if (m_TokTree.TryEat(TokenType::Colon))
 			{
 				bitfield = ParseCommaExpression();
 			}
 			
 			members.emplace_back(std::move(idens), type);
 		}
-		while(TryEatToken(TokenType::Comma));
-		u64 endIdx = EatToken(TokenType::RBrace).Idx();
+		while(m_TokTree.TryEat(TokenType::Comma));
+		u64 endIdx = m_TokTree.Eat(TokenType::RBrace).spanId;
 		return AstTypeSPtr{ new AstInlineStructType{ startIdx, std::move(members), endIdx } };
 	}
 
 	AstTypeSPtr Parser::ParseInlineEnumType()
 	{
-		u64 startIdx = EatToken(TokenType::Enum).Idx();
-		EatToken(TokenType::LBrace);
+		u64 startIdx = m_TokTree.Eat(TokenType::Enum).spanId;
+		m_TokTree.Eat(TokenType::LBrace);
 		StdPairVector<StdString, AstExprSPtr> members;
 		do
 		{
 			StdPair<StdString, AstExprSPtr> member;
-			member.first = EatToken(TokenType::Iden).Text();
-			if (PeekToken().Type() == TokenType::Eq)
+			member.first = m_TokTree.Eat(TokenType::Iden).iden;
+			if (m_TokTree.Peek().type == TokenType::Eq)
 			{
-				EatToken();
+				m_TokTree.Eat();
 				member.second = ParseExpression();
 			}
 			
 			members.push_back(member);
 		}
-		while (TryEatToken(TokenType::Comma));
-		u64 endIdx = EatToken(TokenType::RBrace).Idx();
+		while (m_TokTree.TryEat(TokenType::Comma));
+		u64 endIdx = m_TokTree.Eat(TokenType::RBrace).spanId;
 		return AstTypeSPtr{ new AstInlineEnumType{ startIdx, std::move(members), endIdx } };
 	}
 
 	AstPatternSPtr Parser::ParsePattern()
 	{
-		Token tok = PeekToken();
+		Token tok = m_TokTree.Peek();
 		AstPatternSPtr pattern;
-		if (tok.Type() == TokenType::MacroIden)
+		if (tok.type == TokenType::MacroIden)
 		{
-			MacroExtractedElem& elem = m_pMacroSolver->GetElem(tok.Text());
+			MacroExtractedElem& elem = m_pMacroSolver->GetElem(tok.iden);
 			switch (elem.varKind)
 			{
 			case MacroVarKind::Patr:
@@ -1968,43 +1882,43 @@ namespace Noctis
 			}
 			case MacroVarKind::Toks:
 			{
-				InsertTreeIntoTokens(elem.tokTree);
-				tok = PeekToken();
+				m_TokTree.InsertAtCur(elem.tokTree);
+				tok = m_TokTree.Peek();
 				break;
 			}
 			default:
 			{
-				Span span = g_SpanManager.GetSpan(tok.Idx());
-				const char* pName = tok.Text().c_str();
+				Span span = g_SpanManager.GetSpan(tok.spanId);
+				const char* pName = tok.iden.c_str();
 				g_ErrorSystem.Error(span, "macro variable '$%s' is not 'patr' or 'toks'", pName);
 				return nullptr;
 			}
 			}
 		}
 		
-		switch (tok.Type())
+		switch (tok.type)
 		{
 		case TokenType::DotDotDot:
 		{
-			EatToken();
-			pattern = AstPatternSPtr{ new AstWildcardPattern{ tok.Idx() } };
+			m_TokTree.Eat();
+			pattern = AstPatternSPtr{ new AstWildcardPattern{ tok.spanId } };
 			break;
 		}
 		case TokenType::ColonColon:
 		case TokenType::Iden:
 		{
-			if (tok.Text() == "_")
+			if (tok.iden == "_")
 			{
-				EatToken();
-				pattern = AstPatternSPtr{ new AstPlaceholderPattern{ tok.Idx() } };
+				m_TokTree.Eat();
+				pattern = AstPatternSPtr{ new AstPlaceholderPattern{ tok.spanId } };
 				break;
 			}
 
 			AstQualNameSPtr qualName = ParseQualName(false);
-			Token& curTok = PeekToken();
-			if (curTok.Type() == TokenType::DollarParen ||
-				curTok.Type() == TokenType::DollarBracket ||
-				curTok.Type() == TokenType::DollarBrace)
+			Token& curTok = m_TokTree.Peek();
+			if (curTok.type == TokenType::DollarParen ||
+				curTok.type == TokenType::DollarBracket ||
+				curTok.type == TokenType::DollarBrace)
 			{
 				pattern = ParseMacroInstPattern(qualName);
 				break;
@@ -2018,7 +1932,7 @@ namespace Noctis
 				break;
 			}
 
-			if (PeekToken().Type() == TokenType::LBrace)
+			if (m_TokTree.Peek().type == TokenType::LBrace)
 			{
 				pattern = ParseAggrPattern(qualName);
 				break;
@@ -2063,8 +1977,8 @@ namespace Noctis
 		case TokenType::F128Lit:
 		case TokenType::StringLit:
 		{
-			EatToken();
-			TokenType nextType = PeekToken().Type();
+			m_TokTree.Eat();
+			TokenType nextType = m_TokTree.Peek().type;
 			if (nextType == TokenType::DotDot ||
 				nextType == TokenType::DotDotEq)
 			{
@@ -2078,15 +1992,15 @@ namespace Noctis
 		}
 		default:
 		{
-			Span span = g_SpanManager.GetSpan(tok.Idx());
-			const char* pTokName = GetTokenTypeName(tok.Type()).data();
+			Span span = g_SpanManager.GetSpan(tok.spanId);
+			const char* pTokName = GetTokenTypeName(tok.type).data();
 			g_ErrorSystem.Error(span, "Unexpected token '%s' during pattern parsing", pTokName);
-			EatToken();
+			m_TokTree.Eat();
 			break;
 		}
 		}
 
-		switch (PeekToken().Type())
+		switch (m_TokTree.Peek().type)
 		{
 		case TokenType::Or:
 			return ParseEitherPattern(pattern);
@@ -2097,10 +2011,10 @@ namespace Noctis
 
 	AstPatternSPtr Parser::ParseValueBindPattern(StdString&& iden)
 	{
-		u64 startIdx = m_TokIdx - 1;
+		u64 startIdx = m_TokTree.Peek().spanId;
 		u64 endIdx = startIdx;
 		AstPatternSPtr subPattern;
-		if (TryEatToken(TokenType::Arrow))
+		if (m_TokTree.TryEat(TokenType::Arrow))
 		{
 			subPattern = ParsePattern();
 			endIdx = subPattern->ctx->endIdx;
@@ -2110,22 +2024,22 @@ namespace Noctis
 
 	AstPatternSPtr Parser::ParseRangePattern(Token from)
 	{
-		bool inclusive = EatToken().Type() == TokenType::DotDotEq;
-		Token to = EatToken();
+		bool inclusive = m_TokTree.Eat().type == TokenType::DotDotEq;
+		Token to = m_TokTree.Eat();
 		return AstPatternSPtr{ new AstRangePattern{ from, inclusive, to } };
 	}
 
 	AstPatternSPtr Parser::ParseTuplePattern()
 	{
-		u64 startIdx = EatToken().Idx();
+		u64 startIdx = m_TokTree.Eat().spanId;
 		StdVector<AstPatternSPtr> subPatterns;
 		do
 		{
 			AstPatternSPtr pattern = ParsePattern();
 			subPatterns.push_back(pattern);
 		}
-		while (TryEatToken(TokenType::Comma));
-		u64 endIdx = EatToken(TokenType::RParen).Idx();
+		while (m_TokTree.TryEat(TokenType::Comma));
+		u64 endIdx = m_TokTree.Eat(TokenType::RParen).spanId;
 		return AstPatternSPtr{ new AstTuplePattern{ startIdx, std::move(subPatterns), endIdx } };
 	}
 
@@ -2134,45 +2048,45 @@ namespace Noctis
 		u64 startIdx = iden->ctx->startIdx;
 		u64 endIdx = startIdx;
 		StdVector<AstPatternSPtr> subPatterns;
-		if (TryEatToken(TokenType::LParen))
+		if (m_TokTree.TryEat(TokenType::LParen))
 		{
 			do
 			{
 				AstPatternSPtr pattern = ParsePattern();
 				subPatterns.push_back(pattern);
-			} while (TryEatToken(TokenType::Comma));
-			endIdx = EatToken(TokenType::RParen).Idx();
+			} while (m_TokTree.TryEat(TokenType::Comma));
+			endIdx = m_TokTree.Eat(TokenType::RParen).spanId;
 		}
 		return AstPatternSPtr{ new AstEnumPattern{ startIdx, iden, std::move(subPatterns), endIdx } };
 	}
 
 	AstPatternSPtr Parser::ParseAggrPattern(AstQualNameSPtr qualName)
 	{
-		EatToken();
+		m_TokTree.Eat();
 		StdPairVector<StdString, AstPatternSPtr> subPatterns;
 		do
 		{
 			StdString iden;
-			iden = EatToken(TokenType::Iden).Text();
-			EatToken(TokenType::Colon);
+			iden = m_TokTree.Eat(TokenType::Iden).iden;
+			m_TokTree.Eat(TokenType::Colon);
 			AstPatternSPtr pattern = ParsePattern();
 			subPatterns.emplace_back(std::move(iden), pattern);
-		} while (TryEatToken(TokenType::Comma));
-		u64 endIdx = EatToken(TokenType::RBrace).Idx();
+		} while (m_TokTree.TryEat(TokenType::Comma));
+		u64 endIdx = m_TokTree.Eat(TokenType::RBrace).spanId;
 		return AstPatternSPtr{ new AstAggrPattern{ qualName, std::move(subPatterns), endIdx } };
 	}
 
 	AstPatternSPtr Parser::ParseSlicePattern()
 	{
-		u64 startIdx = EatToken().Idx();
+		u64 startIdx = m_TokTree.Eat().spanId;
 		StdVector<AstPatternSPtr> subPatterns;
 		do
 		{
 			AstPatternSPtr pattern = ParsePattern();
 			subPatterns.push_back(pattern);
 		}
-		while (TryEatToken(TokenType::Comma));
-		u64 endIdx = EatToken(TokenType::RBracket).Idx();
+		while (m_TokTree.TryEat(TokenType::Comma));
+		u64 endIdx = m_TokTree.Eat(TokenType::RBracket).spanId;
 		return AstPatternSPtr{ new AstSlicePattern{ startIdx, std::move(subPatterns), endIdx } };
 	}
 
@@ -2181,7 +2095,7 @@ namespace Noctis
 		u64 startIdx = pattern->ctx->startIdx;
 		StdVector<AstPatternSPtr> subPatterns;
 		subPatterns.push_back(pattern);
-		while (TryEatToken(TokenType::Or))
+		while (m_TokTree.TryEat(TokenType::Or))
 		{
 			pattern = ParsePattern();
 			subPatterns.push_back(pattern);
@@ -2191,7 +2105,7 @@ namespace Noctis
 
 	AstPatternSPtr Parser::ParseTypePattern()
 	{
-		u64 startIdx = EatToken().Idx();
+		u64 startIdx = m_TokTree.Eat().spanId;
 		AstTypeSPtr type = ParseType();
 		return AstPatternSPtr{ new AstTypePattern{ startIdx, type } };
 	}
@@ -2208,7 +2122,7 @@ namespace Noctis
 		bool run = true;
 		while (run)
 		{
-			switch (PeekToken().Type())
+			switch (m_TokTree.Peek().type)
 			{
 			case TokenType::Comptime:
 			case TokenType::Const:
@@ -2217,7 +2131,7 @@ namespace Noctis
 			case TokenType::Static:
 			case TokenType::Mut:
 			{
-				Token& tok = EatToken();
+				Token& tok = m_TokTree.Eat();
 				simpleAttribs.push_back(AstSimpleAttribSPtr{ new AstSimpleAttrib{ tok } });
 				break;
 			}
@@ -2247,16 +2161,16 @@ namespace Noctis
 
 	AstCompAttribSPtr Parser::ParseCompAttribute()
 	{
-		u64 startIdx = EatToken(TokenType::AtColon).Idx();
-		Token idenTok = EatToken(TokenType::Iden);
-		StdString iden = idenTok.Text();
-		u64 endIdx = idenTok.Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::AtColon).spanId;
+		Token idenTok = m_TokTree.Eat(TokenType::Iden);
+		StdString iden = idenTok.iden;
+		u64 endIdx = idenTok.spanId;
 
 		StdVector<AstArgSPtr> args;
-		if (TryEatToken(TokenType::LParen))
+		if (m_TokTree.TryEat(TokenType::LParen))
 		{
 			args = ParseArgs();
-			endIdx = EatToken(TokenType::RParen).Idx();
+			endIdx = m_TokTree.Eat(TokenType::RParen).spanId;
 		}
 
 		return AstCompAttribSPtr{ new AstCompAttrib{ startIdx, std::move(iden), std::move(args), endIdx } };
@@ -2264,16 +2178,16 @@ namespace Noctis
 
 	AstUserAttribSPtr Parser::ParseUserAttribute()
 	{
-		u64 startIdx = EatToken(TokenType::AtColon).Idx();
-		Token idenTok = EatToken(TokenType::Iden);
-		StdString iden = idenTok.Text();
-		u64 endIdx = idenTok.Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::AtColon).spanId;
+		Token idenTok = m_TokTree.Eat(TokenType::Iden);
+		StdString iden = idenTok.iden;
+		u64 endIdx = idenTok.spanId;
 
 		StdVector<AstArgSPtr> args;
-		if (TryEatToken(TokenType::LParen))
+		if (m_TokTree.TryEat(TokenType::LParen))
 		{
 			args = ParseArgs();
-			endIdx = EatToken(TokenType::RParen).Idx();
+			endIdx = m_TokTree.Eat(TokenType::RParen).spanId;
 		}
 
 		return AstUserAttribSPtr{ new AstUserAttrib{ startIdx, std::move(iden), std::move(args), endIdx } };
@@ -2281,28 +2195,28 @@ namespace Noctis
 
 	AstVisibilityAttribSPtr Parser::ParseVisibilityAttribute()
 	{
-		u64 startIdx = EatToken().Idx();
+		u64 startIdx = m_TokTree.Eat().spanId;
 		u64 endIdx = startIdx;
 
 		StdString kind;
-		if (TryEatToken(TokenType::LParen))
+		if (m_TokTree.TryEat(TokenType::LParen))
 		{
-			Token& tok = EatToken();
+			Token& tok = m_TokTree.Eat();
 
-			if (tok.Text() != "module" &&
-				tok.Text() != "package" &&
-				tok.Text() != "dynlib")
+			if (tok.iden != "module" &&
+				tok.iden != "package" &&
+				tok.iden != "dynlib")
 			{
-				Span span = g_SpanManager.GetSpan(tok.Idx());
-				const char* pFound = tok.Text().c_str();
+				Span span = g_SpanManager.GetSpan(tok.spanId);
+				const char* pFound = tok.iden.c_str();
 				g_ErrorSystem.Error(span, "Found '%', expected 'module', 'package' or 'dynlib'", pFound);
 			}
 			else
 			{
-				kind = tok.Text();
+				kind = tok.iden;
 			}
 			
-			endIdx = EatToken(TokenType::RParen).Idx();
+			endIdx = m_TokTree.Eat(TokenType::RParen).spanId;
 		}
 
 		return AstVisibilityAttribSPtr{ new AstVisibilityAttrib{ startIdx, std::move(kind), endIdx } };
@@ -2310,56 +2224,56 @@ namespace Noctis
 
 	AstGenericDeclSPtr Parser::ParseGenericDecl()
 	{
-		u64 startIdx = EatToken(TokenType::Less).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::Less).spanId;
 		StdVector<AstGenericParam> params;
 		do
 		{
 			params.push_back(ParseGenericParam());
 		}
-		while (TryEatToken(TokenType::Comma));
-		u64 endIdx = EatToken(TokenType::Greater).Idx();
+		while (m_TokTree.TryEat(TokenType::Comma));
+		u64 endIdx = m_TokTree.Eat(TokenType::Greater).spanId;
 		return AstGenericDeclSPtr{ new AstGenericDecl{ startIdx, std::move(params), endIdx } };
 	}
 
 	AstGenericParam Parser::ParseGenericParam()
 	{
-		if (TryEatToken(TokenType::Colon))
+		if (m_TokTree.TryEat(TokenType::Colon))
 		{
-			if (TryEatToken(TokenType::LBrace))
+			if (m_TokTree.TryEat(TokenType::LBrace))
 			{
 				AstExprSPtr expr = ParseExpression();
-				EatToken(TokenType::RBrace);
+				m_TokTree.Eat(TokenType::RBrace);
 				return AstGenericParam{ expr };
 			}
 			return AstGenericParam{ ParseType() };
 		}
 
-		Token& tok = EatToken(TokenType::Iden);
-		u64 startIdx = tok.Idx();
-		StdString iden = tok.Text();
+		Token& tok = m_TokTree.Eat(TokenType::Iden);
+		u64 startIdx = tok.spanId;
+		StdString iden = tok.iden;
 
-		if (TryEatToken(TokenType::Colon))
+		if (m_TokTree.TryEat(TokenType::Colon))
 		{
 			AstTypeSPtr type = ParseType();
 			AstExprSPtr def;
-			if (TryEatToken(TokenType::Eq))
+			if (m_TokTree.TryEat(TokenType::Eq))
 				def = ParseExpression(nullptr, true);
 
 			return AstGenericParam{ AstGenericValueParamSPtr{ new AstGenericValueParam{ startIdx, std::move(iden), type, def } } };
 		}
 
 		StdVector<AstIdentifierTypeSPtr> interfaces;
-		if (TryEatToken(TokenType::Is))
+		if (m_TokTree.TryEat(TokenType::Is))
 		{
 			do
 			{
 				interfaces.push_back(ParseIdentifierType());
 			}
-			while (TryEatToken(TokenType::Plus));
+			while (m_TokTree.TryEat(TokenType::Plus));
 		}
 
 		AstTypeSPtr def;
-		if (TryEatToken(TokenType::Eq))
+		if (m_TokTree.TryEat(TokenType::Eq))
 			def = ParseType();
 		return AstGenericParam{ AstGenericTypeParamSPtr{ new AstGenericTypeParam{ startIdx, std::move(iden), std::move(interfaces), def } } };
 	}
@@ -2367,7 +2281,7 @@ namespace Noctis
 	AstGenericTypeBoundSPtr Parser::ParseGenericTypeBound()
 	{
 		AstTypeSPtr type = ParseType();
-		EatToken(TokenType::Is);
+		m_TokTree.Eat(TokenType::Is);
 		AstGenericBoundTypeSPtr bound = ParseGenericBoundType();
 		return AstGenericTypeBoundSPtr{ new AstGenericTypeBound{ type, bound } };
 	}
@@ -2377,15 +2291,15 @@ namespace Noctis
 		AstTypeSPtr type = ParseType();
 
 		StdVector<AstGenericAssocTypeBound> bounds;
-		if (TryEatIdenToken("with"))
+		if (m_TokTree.TryEatIden("with"))
 		{
-			EatToken(TokenType::LParen);
-			while (!TryEatToken(TokenType::RParen))
+			m_TokTree.Eat(TokenType::LParen);
+			while (!m_TokTree.TryEat(TokenType::RParen))
 			{
 				AstGenericAssocTypeBound assocBound = ParseAssocBounds();
 				bounds.push_back(std::move(assocBound));
 
-				TryEatToken(TokenType::Comma);
+				m_TokTree.TryEat(TokenType::Comma);
 			}
 		}
 
@@ -2395,122 +2309,122 @@ namespace Noctis
 	AstGenericAssocTypeBound Parser::ParseAssocBounds()
 	{
 		StdString iden = ParseIden();
-		EatToken(TokenType::Is);
+		m_TokTree.Eat(TokenType::Is);
 		AstGenericBoundTypeSPtr type = ParseGenericBoundType();
 		return AstGenericAssocTypeBound{ std::move(iden), type };
 	}
 
 	AstGenericWhereClauseSPtr Parser::ParseGenericWhereClause()
 	{
-		u64 startIdx = EatToken().Idx();
+		u64 startIdx = m_TokTree.Eat().spanId;
 		StdVector<AstGenericTypeBoundSPtr> bounds;
 		do
 		{
 			bounds.push_back(ParseGenericTypeBound());
 		}
-		while (TryEatToken(TokenType::Comma));
+		while (m_TokTree.TryEat(TokenType::Comma));
 		
 		return AstGenericWhereClauseSPtr{ new AstGenericWhereClause{ startIdx, std::move(bounds) } };
 	}
 
 	AstMacroPatternElemSPtr Parser::ParseMacroVar()
 	{
-		Token& tok = EatToken(TokenType::MacroIden);
-		StdString iden = tok.Text();
-		EatToken(TokenType::Colon);
-		Token& typeTok = EatToken(TokenType::Iden);
+		Token& tok = m_TokTree.Eat(TokenType::MacroIden);
+		StdString iden = tok.iden;
+		m_TokTree.Eat(TokenType::Colon);
+		Token& typeTok = m_TokTree.Eat(TokenType::Iden);
 
 		AstMacroVarKind kind = AstMacroVarKind::Unknown;
-		if (typeTok.Text() == "stmt")
+		if (typeTok.iden == "stmt")
 			kind = AstMacroVarKind::Stmt;
-		else if (typeTok.Text() == "expr")
+		else if (typeTok.iden == "expr")
 			kind = AstMacroVarKind::Expr;
-		else if (typeTok.Text() == "type")
+		else if (typeTok.iden == "type")
 			kind = AstMacroVarKind::Type;
-		else if (typeTok.Text() == "qual")
+		else if (typeTok.iden == "qual")
 			kind = AstMacroVarKind::Qual;
-		else if (typeTok.Text() == "iden")
+		else if (typeTok.iden == "iden")
 			kind = AstMacroVarKind::Iden;
-		else if (typeTok.Text() == "attr")
+		else if (typeTok.iden == "attr")
 			kind = AstMacroVarKind::Attr;
-		else if (typeTok.Text() == "toks")
+		else if (typeTok.iden == "toks")
 			kind = AstMacroVarKind::Toks;
-		else if (typeTok.Text() == "patr")
+		else if (typeTok.iden == "patr")
 			kind = AstMacroVarKind::Toks;
 
 		if (kind == AstMacroVarKind::Unknown)
 		{
-			Span span = g_SpanManager.GetSpan(typeTok.Idx());
-			const char* pKind = typeTok.Text().c_str();
+			Span span = g_SpanManager.GetSpan(typeTok.spanId);
+			const char* pKind = typeTok.iden.c_str();
 			g_ErrorSystem.Error(span, "Unknown macro variable kind: '%s'", pKind);
 		}
 		
-		return AstMacroPatternElemSPtr{ new AstMacroVar{ tok.Idx(), std::move(iden), kind, typeTok.Idx() } };
+		return AstMacroPatternElemSPtr{ new AstMacroVar{ tok.spanId, std::move(iden), kind, typeTok.spanId } };
 	}
 
 	AstMacroPatternElemSPtr Parser::ParseMacroSeparator()
 	{
 		StdVector<Token> toks;
-		Token tok = PeekToken();
+		Token tok = m_TokTree.Peek();
 		do
 		{
 			toks.push_back(std::move(tok));
-			EatToken();
-			tok = PeekToken();
+			m_TokTree.Eat();
+			tok = m_TokTree.Peek();
 		}
-		while (tok.Type() != TokenType::RParen && 
-			   tok.Type() != TokenType::MacroIden &&
-			   tok.Type() != TokenType::DollarParen);
+		while (tok.type != TokenType::RParen && 
+			   tok.type != TokenType::MacroIden &&
+			   tok.type != TokenType::DollarParen);
 
 		return AstMacroPatternElemSPtr{ new AstMacroSeparator{ std::move(toks) } };
 	}
 
 	AstMacroPatternElemSPtr Parser::ParseMacroFragment()
 	{
-		u64 startIdx = EatToken(TokenType::DollarParen).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::DollarParen).spanId;
 		AstMacroPatternSPtr pattern = ParseMacroPattern(true);
-		u64 endIdx = EatToken(TokenType::RParen).Idx();
+		u64 endIdx = m_TokTree.Eat(TokenType::RParen).spanId;
 		Token repTok = Token{ TokenType::Unknown, "", u64(-1) };
-		Token rep = PeekToken();
-		if (rep.Type() == TokenType::Question ||
-			rep.Type() == TokenType::Plus ||
-			rep.Type() == TokenType::Asterisk)
+		Token rep = m_TokTree.Peek();
+		if (rep.type == TokenType::Question ||
+			rep.type == TokenType::Plus ||
+			rep.type == TokenType::Asterisk)
 		{
-			 endIdx = EatToken().Idx();
+			 endIdx = m_TokTree.Eat().spanId;
 		}
 		else
 		{
 			repTok = rep;
-			rep = PeekToken(1);
-			if (rep.Type() == TokenType::Question ||
-				rep.Type() == TokenType::Plus ||
-				rep.Type() == TokenType::Asterisk)
+			rep = m_TokTree.Peek(1);
+			if (rep.type == TokenType::Question ||
+				rep.type == TokenType::Plus ||
+				rep.type == TokenType::Asterisk)
 			{
-				EatToken();
-				endIdx = EatToken().Idx();
+				m_TokTree.Eat();
+				endIdx = m_TokTree.Eat().spanId;
 			}
 			else
 			{
 				repTok = rep = Token{ TokenType::Unknown, "", u64(-1) };
 			}
 		}
-		return AstMacroPatternElemSPtr{ new AstMacroFragment{ startIdx, pattern, repTok, rep.Type(), endIdx } };
+		return AstMacroPatternElemSPtr{ new AstMacroFragment{ startIdx, pattern, repTok, rep.type, endIdx } };
 	}
 
 	AstMacroPatternSPtr Parser::ParseMacroPattern(bool inFragment)
 	{
 		StdVector<AstMacroPatternElemSPtr> elems;
-		while (PeekToken().Type() != TokenType::RParen)
+		while (m_TokTree.Peek().type != TokenType::RParen)
 		{
-			if (PeekToken().Type() == TokenType::MacroIden)
+			if (m_TokTree.Peek().type == TokenType::MacroIden)
 			{
 				elems.push_back(ParseMacroVar());
 			}
-			else if (PeekToken().Type() == TokenType::DollarParen)
+			else if (m_TokTree.Peek().type == TokenType::DollarParen)
 			{
 				if (inFragment)
 				{
-					Span span = g_SpanManager.GetSpan(PeekToken().Idx());
+					Span span = g_SpanManager.GetSpan(m_TokTree.Peek().spanId);
 					g_ErrorSystem.Error(span, "Cannot have nested macro pattern fragments");
 				}
 				else
@@ -2531,76 +2445,76 @@ namespace Noctis
 
 	AstMacroRuleSPtr Parser::ParseMacroRule()
 	{
-		u64 startIdx = EatToken(TokenType::LParen).Idx();
+		u64 startIdx = m_TokTree.Eat(TokenType::LParen).spanId;
 		AstMacroPatternSPtr pattern = ParseMacroPattern();
-		EatToken(TokenType::RParen);
-		EatToken(TokenType::DblArrow);
-		EatToken(TokenType::LBrace);
+		m_TokTree.Eat(TokenType::RParen);
+		m_TokTree.Eat(TokenType::DblArrow);
+		m_TokTree.Eat(TokenType::LBrace);
 		TokenTree body = ParseTokenTree();
-		u64 endIdx = EatToken(TokenType::RBrace).Idx();
+		u64 endIdx = m_TokTree.Eat(TokenType::RBrace).spanId;
 		return AstMacroRuleSPtr{ new AstMacroRule{ startIdx, pattern, std::move(body), endIdx } };
 	}
 
 	AstDeclSPtr Parser::ParseDeclMacro()
 	{
-		u64 startIdx = EatToken(TokenType::Macro).Idx();
-		StdString iden = EatToken(TokenType::Iden).Text();
+		u64 startIdx = m_TokTree.Eat(TokenType::Macro).spanId;
+		StdString iden = m_TokTree.Eat(TokenType::Iden).iden;
 
-		if (TryEatToken(TokenType::LParen))
+		if (m_TokTree.TryEat(TokenType::LParen))
 		{
 			AstMacroPatternSPtr pattern = ParseMacroPattern();
-			EatToken(TokenType::RParen);
+			m_TokTree.Eat(TokenType::RParen);
 			TokenTree body = ParseTokenTree();
-			u64 endIdx = body.subToks.back().tok.Idx();
+			u64 endIdx = body.subToks.back().tok.spanId;
 			return AstDeclSPtr{ new AstDeclMacro{ startIdx, std::move(iden), pattern, std::move(body), endIdx } };
 		}
 
-		EatToken(TokenType::LBrace);
+		m_TokTree.Eat(TokenType::LBrace);
 		StdVector<AstMacroRuleSPtr> rules;
 		rules.push_back(ParseMacroRule());
-		while (TryEatToken(TokenType::Comma))
+		while (m_TokTree.TryEat(TokenType::Comma))
 			rules.push_back(ParseMacroRule());
 
-		u64 endIdx = EatToken(TokenType::RBrace).Idx();
+		u64 endIdx = m_TokTree.Eat(TokenType::RBrace).spanId;
 		return AstDeclSPtr{ new AstRulesDeclMacro{ startIdx, std::move(iden), std::move(rules), endIdx } };
 	}
 
 	AstDeclSPtr Parser::ParseProcMacro()
 	{
-		u64 startIdx = EatToken(TokenType::Macro).Idx();
-		EatToken(TokenType::Func);
-		StdString iden = EatToken(TokenType::Iden).Text();
-		EatToken(TokenType::LParen);
-		StdString toksIden = EatToken(TokenType::Iden).Text();
-		EatToken(TokenType::RParen);
+		u64 startIdx = m_TokTree.Eat(TokenType::Macro).spanId;
+		m_TokTree.Eat(TokenType::Func);
+		StdString iden = m_TokTree.Eat(TokenType::Iden).iden;
+		m_TokTree.Eat(TokenType::LParen);
+		StdString toksIden = m_TokTree.Eat(TokenType::Iden).iden;
+		m_TokTree.Eat(TokenType::RParen);
 
-		if (TryEatToken(TokenType::LParen))
+		if (m_TokTree.TryEat(TokenType::LParen))
 		{
 			AstMacroPatternSPtr pattern = ParseMacroPattern();
-			EatToken(TokenType::RParen);
-			EatToken(TokenType::LBrace);
+			m_TokTree.Eat(TokenType::RParen);
+			m_TokTree.Eat(TokenType::LBrace);
 			TokenTree body = ParseTokenTree();
-			u64 endIdx = EatToken(TokenType::RBrace).Idx();
+			u64 endIdx = m_TokTree.Eat(TokenType::RBrace).spanId;
 			return AstDeclSPtr{ new AstProcMacro{ startIdx, std::move(iden), std::move(toksIden), pattern, std::move(body), endIdx } };
 		}
 
-		EatToken(TokenType::LBrace);
+		m_TokTree.Eat(TokenType::LBrace);
 		StdVector<AstMacroRuleSPtr> rules;
 		rules.push_back(ParseMacroRule());
-		while (TryEatToken(TokenType::Comma))
+		while (m_TokTree.TryEat(TokenType::Comma))
 			rules.push_back(ParseMacroRule());
 
-		u64 endIdx = EatToken(TokenType::RBrace).Idx();
+		u64 endIdx = m_TokTree.Eat(TokenType::RBrace).spanId;
 		return AstDeclSPtr{ new AstRulesProcMacro{ startIdx, std::move(iden), std::move(toksIden), std::move(rules), endIdx } };
 	}
 
 	TokenTree Parser::ParseTokenTree(Token firstTok)
 	{
-		if (firstTok.Type() == TokenType::Unknown)
-			firstTok = EatToken();
+		if (firstTok.type == TokenType::Unknown)
+			firstTok = m_TokTree.Eat();
 
 		TokenType closeType;
-		switch (firstTok.Type())
+		switch (firstTok.type)
 		{
 		case TokenType::LParen:
 		case TokenType::DollarParen:
@@ -2626,13 +2540,13 @@ namespace Noctis
 		
 		StdVector<TokenTree> subTrees;
 
-		if (firstTok.Type() != TokenType::Unknown)
+		if (firstTok.type != TokenType::Unknown)
 			subTrees.push_back(TokenTree{ firstTok });
 		
-		Token tok = PeekToken();
-		while (tok.Type() != closeType)
+		Token tok = m_TokTree.Peek();
+		while (tok.type != closeType)
 		{
-			switch (tok.Type())
+			switch (tok.type)
 			{
 			case TokenType::LParen:
 			case TokenType::DollarParen:
@@ -2640,27 +2554,27 @@ namespace Noctis
 			case TokenType::LBrace:
 			case TokenType::DollarBrace:
 			{
-				EatToken();
+				m_TokTree.Eat();
 				subTrees.push_back(ParseTokenTree(tok));
 				break;
 			}
 			default:
 			{
-				subTrees.push_back(TokenTree{ EatToken() });
+				subTrees.push_back(TokenTree{ m_TokTree.Eat() });
 				break;
 			}
 			}
-			tok = PeekToken();
+			tok = m_TokTree.Peek();
 		}
 
-		subTrees.push_back(TokenTree{ EatToken() });
+		subTrees.push_back(TokenTree{ m_TokTree.Eat() });
 		return TokenTree{ std::move(subTrees) };
 	}
 
 	AstExprSPtr Parser::ParseMacroInstExpr(AstQualNameSPtr qualName)
 	{
 		TokenTree tokTree = ParseTokenTree();
-		u64 endIdx = tokTree.subToks.back().tok.Idx();
+		u64 endIdx = tokTree.subToks.back().tok.spanId;
 
 		// Trim first and last tokens, i.e. '!(' '![' '!{' and '}' ']' ')'
 		tokTree.subToks.erase(tokTree.subToks.begin());
@@ -2671,22 +2585,22 @@ namespace Noctis
 
 	AstPatternSPtr Parser::ParseMacroInstPattern(AstQualNameSPtr qualName)
 	{
-		if (TryEatToken(TokenType::DollarBrace))
+		if (m_TokTree.TryEat(TokenType::DollarBrace))
 		{
 			TokenTree tokTree = ParseTokenTree();
-			u64 endIdx = EatToken(TokenType::RBrace).Idx();
+			u64 endIdx = m_TokTree.Eat(TokenType::RBrace).spanId;
 			return AstPatternSPtr{ new AstMacroInstPattern{ std::move(qualName), std::move(tokTree), endIdx } };
 		}
-		if (TryEatToken(TokenType::DollarBracket))
+		if (m_TokTree.TryEat(TokenType::DollarBracket))
 		{
 			TokenTree tokTree = ParseTokenTree();
-			u64 endIdx = EatToken(TokenType::RBracket).Idx();
+			u64 endIdx = m_TokTree.Eat(TokenType::RBracket).spanId;
 			return AstPatternSPtr{ new AstMacroInstPattern{ std::move(qualName), std::move(tokTree), endIdx } };
 		}
 
-		EatToken(TokenType::DollarParen);
+		m_TokTree.Eat(TokenType::DollarParen);
 		TokenTree tokTree = ParseTokenTree();
-		u64 endIdx = EatToken(TokenType::RParen).Idx();
+		u64 endIdx = m_TokTree.Eat(TokenType::RParen).spanId;
 		return AstPatternSPtr{ new AstMacroInstPattern{ std::move(qualName), std::move(tokTree), endIdx } };
 	}
 
@@ -2694,21 +2608,21 @@ namespace Noctis
 	{
 		u64 startIdx = u64(-1);
 		bool global = false;
-		if (PeekToken().Type() == TokenType::ColonColon)
+		if (m_TokTree.Peek().type == TokenType::ColonColon)
 		{
-			startIdx = EatToken().Idx();
+			startIdx = m_TokTree.Eat().spanId;
 			global = true;
 		}
 
-		Token tok = PeekToken();
-		if (tok.Type() == TokenType::MacroIden)
+		Token tok = m_TokTree.Peek();
+		if (tok.type == TokenType::MacroIden)
 		{
-			MacroExtractedElem& elem = m_pMacroSolver->GetElem(tok.Text());
+			MacroExtractedElem& elem = m_pMacroSolver->GetElem(tok.iden);
 			switch (elem.varKind)
 			{
 			case MacroVarKind::Qual:
 			{
-				EatToken();
+				m_TokTree.Eat();
 				elem.Parse();
 				return elem.GetQualName();
 			}
@@ -2716,14 +2630,14 @@ namespace Noctis
 				break;
 			case MacroVarKind::Toks:
 			{
-				InsertTreeIntoTokens(elem.tokTree);
-				tok = PeekToken();
+				m_TokTree.InsertAtCur(elem.tokTree);
+				tok = m_TokTree.Peek();
 				break;
 			}
 			default:
 			{
-				Span span = g_SpanManager.GetSpan(tok.Idx());
-				const char* pName = tok.Text().c_str();
+				Span span = g_SpanManager.GetSpan(tok.spanId);
+				const char* pName = tok.iden.c_str();
 				g_ErrorSystem.Error(span, "macro variable '$%s' is not 'qual', 'iden' or 'toks'", pName);
 				return nullptr;
 			}
@@ -2735,74 +2649,74 @@ namespace Noctis
 		{
 			qualIdens.push_back(ParseQualIden(genericInstWithLess));
 		}
-		while (TryEatToken(TokenType::ColonColon));
+		while (m_TokTree.TryEat(TokenType::ColonColon));
 
 		return AstQualNameSPtr{ new AstQualName{ startIdx, global, std::move(qualIdens) } };
 	}
 
 	AstQualIdenSPtr Parser::ParseQualIden(bool genericInstWithLess)
 	{
-		Token tok = PeekToken();
-		u64 endIdx = tok.Idx();
+		Token tok = m_TokTree.Peek();
+		u64 endIdx = tok.spanId;
 
-		if (tok.Type() == TokenType::MacroIden)
+		if (tok.type == TokenType::MacroIden)
 		{
-			MacroExtractedElem& elem = m_pMacroSolver->GetElem(tok.Text());
+			MacroExtractedElem& elem = m_pMacroSolver->GetElem(tok.iden);
 			if (elem.varKind == MacroVarKind::Toks)
 			{
-				tok = PeekToken();
-				InsertTreeIntoTokens(elem.tokTree);
+				tok = m_TokTree.Peek();
+				m_TokTree.InsertAtCur(elem.tokTree);
 			}
 		}
 		
-		if (tok.Type() == TokenType::Less)
+		if (tok.type == TokenType::Less)
 		{
-			u64 tmpIdx = EatToken(TokenType::Less).Idx();
+			u64 tmpIdx = m_TokTree.Eat(TokenType::Less).spanId;
 			AstTypeSPtr type = ParseType();
-			EatToken(TokenType::As);
+			m_TokTree.Eat(TokenType::As);
 			AstIdentifierTypeSPtr interface = ParseIdentifierType();
-			endIdx = EatToken(TokenType::Greater).Idx();
+			endIdx = m_TokTree.Eat(TokenType::Greater).spanId;
 			return AstQualIdenSPtr{ new AstTypeDisambiguation{ tmpIdx, type, interface, endIdx } };
 		}
 		else
 		{
 			StdString iden = ParseIden();
 			StdVector<AstGenericArg> args;
-			if (genericInstWithLess && TryEatToken(TokenType::Less) ||
-				!genericInstWithLess && TryEatToken(TokenType::ExclaimLess))
+			if (genericInstWithLess && m_TokTree.TryEat(TokenType::Less) ||
+				!genericInstWithLess && m_TokTree.TryEat(TokenType::ExclaimLess))
 			{
 				do
 				{
-					if (PeekToken().Type() == TokenType::LBrace)
+					if (m_TokTree.Peek().type == TokenType::LBrace)
 					{
-						EatToken(TokenType::LBrace);
+						m_TokTree.Eat(TokenType::LBrace);
 						args.push_back(AstGenericArg{ ParseExpression() });
-						EatToken(TokenType::RBrace);
+						m_TokTree.Eat(TokenType::RBrace);
 					}
 					else
 					{
 						args.push_back(AstGenericArg{ ParseType() });
 					}
-				} while (TryEatToken(TokenType::Comma));
-				endIdx = EatToken(TokenType::Greater).Idx();
+				} while (m_TokTree.TryEat(TokenType::Comma));
+				endIdx = m_TokTree.Eat(TokenType::Greater).spanId;
 			}
 
-			return AstQualIdenSPtr{ new AstIden{ tok.Idx(), std::move(iden), std::move(args), endIdx } };
+			return AstQualIdenSPtr{ new AstIden{ tok.spanId, std::move(iden), std::move(args), endIdx } };
 		}
 	}
 
 	StdVector<AstParamSPtr> Parser::ParseParams(bool allowNoType)
 	{
 		StdVector<AstParamSPtr> params;
-		if (PeekToken().Type() == TokenType::LParen ||
-			PeekToken().Type() == TokenType::Or)
+		if (m_TokTree.Peek().type == TokenType::LParen ||
+			m_TokTree.Peek().type == TokenType::Or)
 			return params;
 		
 		do
 		{
 			params.push_back(ParseParam(allowNoType));
 		}
-		while (TryEatToken(TokenType::Comma));
+		while (m_TokTree.TryEat(TokenType::Comma));
 		return params;
 	}
 
@@ -2811,38 +2725,36 @@ namespace Noctis
 		u64 startIdx, endIdx;
 		StdVector<AstParamVarSPtr> vars;
 
-		startIdx = m_TokIdx;
+		startIdx = m_TokTree.Peek().spanId;
 		do
 		{
 			AstAttribsSPtr attribs;
-			if (PeekToken().Type() != TokenType::Iden)
+			if (m_TokTree.Peek().type != TokenType::Iden)
 				attribs = ParseAttributes();
-			u64 tmpIdx = m_TokIdx;
-			StdString iden = ParseIden();
-			endIdx = m_TokIdx - 1;
-			vars.emplace_back(new AstParamVar{ attribs, tmpIdx, std::move(iden), endIdx });
+			StdString iden = ParseIden(endIdx);
+			vars.emplace_back(new AstParamVar{ attribs, startIdx, std::move(iden), endIdx });
 		}
-		while (TryEatToken(TokenType::Comma));
+		while (m_TokTree.TryEat(TokenType::Comma));
 
-		if (PeekToken().Type() != TokenType::Colon && allowNoType)
+		if (m_TokTree.Peek().type != TokenType::Colon && allowNoType)
 			return AstParamSPtr{ new AstParam{ startIdx, std::move(vars), nullptr, false, endIdx } };
 		
 		AstTypeSPtr type;
 		bool isVariadic = false;
-		if (PeekToken().Type() == TokenType::DotDotDot)
+		if (m_TokTree.Peek().type == TokenType::DotDotDot)
 		{
-			endIdx = EatToken().Idx();
+			endIdx = m_TokTree.Eat().spanId;
 			isVariadic = true;
 		}
-		else if (PeekToken().Type() == TokenType::Colon)
+		else if (m_TokTree.Peek().type == TokenType::Colon)
 		{
-			EatToken(TokenType::Colon);
+			m_TokTree.Eat(TokenType::Colon);
 			type = ParseType();
 			endIdx = type->ctx->endIdx;
 			
-			if (PeekToken().Type() == TokenType::DotDotDot)
+			if (m_TokTree.Peek().type == TokenType::DotDotDot)
 			{
-				endIdx = EatToken().Idx();
+				endIdx = m_TokTree.Eat().spanId;
 				isVariadic = true;
 			}
 		}
@@ -2853,14 +2765,14 @@ namespace Noctis
 	StdVector<AstArgSPtr> Parser::ParseArgs()
 	{
 		StdVector<AstArgSPtr> args;
-		if (PeekToken().Type() == TokenType::RParen)
+		if (m_TokTree.Peek().type == TokenType::RParen)
 			return args;
 		
 		do
 		{
 			args.push_back(ParseArg());
 		}
-		while (TryEatToken(TokenType::Comma));
+		while (m_TokTree.TryEat(TokenType::Comma));
 		return args;
 	}
 
@@ -2869,12 +2781,12 @@ namespace Noctis
 		u64 startIdx;
 		StdString iden;
 		AstExprSPtr expr;
-		if (PeekToken().Type() == TokenType::Iden && PeekToken(1).Type() == TokenType::Colon)
+		if (m_TokTree.Peek().type == TokenType::Iden && m_TokTree.Peek(1).type == TokenType::Colon)
 		{
-			Token& tok = EatToken();
-			startIdx = tok.Idx();
-			iden = tok.Text();
-			EatToken(TokenType::Colon);
+			Token& tok = m_TokTree.Eat();
+			startIdx = tok.spanId;
+			iden = tok.iden;
+			m_TokTree.Eat(TokenType::Colon);
 			expr = ParseExpression();
 		}
 		else
@@ -2894,65 +2806,64 @@ namespace Noctis
 
 	StdString Parser::ParseIden(u64& tokIdx)
 	{
-		Token& tok = PeekToken();
-		tokIdx = tok.Idx();
-		if (tok.Type() == TokenType::MacroIden)
+		Token& tok = m_TokTree.Peek();
+		tokIdx = tok.spanId;
+		if (tok.type == TokenType::MacroIden)
 		{
-			MacroExtractedElem& elem = m_pMacroSolver->GetElem(tok.Text());
+			MacroExtractedElem& elem = m_pMacroSolver->GetElem(tok.iden);
 			switch (elem.varKind)
 			{
 			case MacroVarKind::Iden:
 			{
-				EatToken();
+				m_TokTree.Eat();
 				return elem.actIden;
 			}
 			case MacroVarKind::Toks:
 			{
 				if (elem.tokTree.subToks.size() != 1)
 				{
-					Span span = g_SpanManager.GetSpan(tok.Idx());
-					const char* pName = tok.Text().c_str();
+					Span span = g_SpanManager.GetSpan(tok.spanId);
+					const char* pName = tok.iden.c_str();
 					g_ErrorSystem.Error("macro variable '$%s' contains more than 1 token when parsed as identifier");
 					return "";
 				}
-				return elem.tokTree.subToks[0].tok.Text();
+				return elem.tokTree.subToks[0].tok.iden;
 			}
 			default:
 			{
-				Span span = g_SpanManager.GetSpan(tok.Idx());
-				const char* pName = tok.Text().c_str();
+				Span span = g_SpanManager.GetSpan(tok.spanId);
+				const char* pName = tok.iden.c_str();
 				g_ErrorSystem.Error(span, "macro variable '$%s' is not 'iden' or 'toks'", pName);
 				return "";
 			}
 			}
 		}
 
-		return EatToken(TokenType::Iden).Text();
+		return m_TokTree.Eat(TokenType::Iden).iden;
 	}
 
 	StdVector<StdString> Parser::ParseIdenList(TokenType separator)
 	{
-		u64 start, end;
-		return ParseIdenList(separator, start, end);
+		u64 start;
+		return ParseIdenList(separator, start);
 	}
 
-	StdVector<StdString> Parser::ParseIdenList(TokenType separator, u64& startIdx, u64& endIdx)
+	StdVector<StdString> Parser::ParseIdenList(TokenType separator, u64& startIdx)
 	{
-		Token& startTok = PeekToken();
-		startIdx = endIdx = startTok.Idx();
+		Token& startTok = m_TokTree.Peek();
+		startIdx = startTok.spanId;
 
 		StdVector<StdString> idens;
-		if (startTok.Type() != TokenType::Iden)
+		if (startTok.type != TokenType::Iden)
 			return idens;
 		
-		idens.push_back(startTok.Text());
-		EatToken();
+		idens.push_back(startTok.iden);
+		m_TokTree.Eat();
 		
-		while (TryEatToken(separator))
+		while (m_TokTree.TryEat(separator))
 		{
-			Token& tok = EatToken(TokenType::Iden);
-			endIdx = tok.Idx();
-			idens.push_back(tok.Text());
+			Token& tok = m_TokTree.Eat(TokenType::Iden);
+			idens.push_back(tok.iden);
 		}
 
 		return idens;
@@ -3010,126 +2921,11 @@ namespace Noctis
 	u64 Parser::EatStmtEndIdx()
 	{
 		if (!m_IsSwitchStmt)
-			return EatToken(TokenType::Semicolon).Idx();
+			return m_TokTree.Eat(TokenType::Semicolon).spanId;
 
-		Token& tok = PeekToken();
-		if (tok.Type() == TokenType::Comma)
-			return m_Tokens[m_TokIdx].Idx();
-		return m_Tokens[m_TokIdx - 1].Idx();
-	}
-
-	Token& Parser::EatToken()
-	{
-		static Token emptyTok{ TokenType::Unknown, "", u64(-1) };
-		if (m_TokIdx >= m_Tokens.size())
-		{
-			g_ErrorSystem.Error("Reached end of token stream");
-			return emptyTok;
-		}
-		return m_Tokens[m_TokIdx++];
-	}
-
-	Token& Parser::EatToken(TokenType type)
-	{
-		static Token emptyTok{ TokenType::Unknown, "", u64(-1) };
-
-		if (m_TokIdx >= m_Tokens.size())
-		{
-			g_ErrorSystem.Error("Reached end of token stream");
-			return emptyTok;
-		}
-		
-		Token& tok = m_Tokens[m_TokIdx];
-		if (tok.Type() != type)
-		{
-			Span span = g_SpanManager.GetSpan(tok.Idx());
-			const char* pFoundName = GetTokenTypeName(tok.Type()).data();
-			const char* pExpectedName = GetTokenTypeName(type).data();
-			g_ErrorSystem.Error(span, "Found '%s', expected '%s'", pFoundName, pExpectedName);
-			++m_TokIdx;
-			return emptyTok;
-		}
-
-		++m_TokIdx;
-		return tok;
-	}
-
-	Token& Parser::EatIdenToken(StdStringView text)
-	{
-		static Token emptyTok{ TokenType::Unknown, "", u64(-1) };
-		if (m_TokIdx >= m_Tokens.size())
-		{
-			g_ErrorSystem.Error("Reached end of token stream");
-			return emptyTok;
-		}
-
-		Token& tok = m_Tokens[m_TokIdx];
-		if (tok.Type() != TokenType::Iden || tok.Text() != text)
-		{
-			Span span = g_SpanManager.GetSpan(tok.Idx());
-			const char* pFoundName = GetTokenTypeName(tok.Type()).data();
-			const char* pExpectedName = text.data();
-			g_ErrorSystem.Error(span, "Found '%s', expected '%s'", pFoundName, pExpectedName);
-			++m_TokIdx;
-			return emptyTok;
-		}
-
-		++m_TokIdx;
-		return tok;
-	}
-
-	bool Parser::TryEatToken(TokenType type)
-	{
-		if (m_TokIdx >= m_Tokens.size())
-			return false;
-		
-		Token& tok = m_Tokens[m_TokIdx];
-		if (tok.Type() != type)
-			return false;
-
-		++m_TokIdx;
-		return true;
-	}
-
-	bool Parser::TryEatIdenToken(StdStringView text)
-	{
-		if (m_TokIdx >= m_Tokens.size())
-		{
-			g_ErrorSystem.Error("Reached end of token stream");
-			return false;
-		}
-
-		Token& tok = m_Tokens[m_TokIdx];
-		if (tok.Type() != TokenType::Iden || tok.Text() != text)
-			return false;
-
-		++m_TokIdx;
-		return true;
-	}
-
-	Token& Parser::PeekToken()
-	{
-		static Token emptyTok{ TokenType::Unknown, "", u64(-1) };
-
-		if (m_TokIdx >= m_Tokens.size())
-			return emptyTok;
-		return m_Tokens[m_TokIdx];
-	}
-
-	Token& Parser::PeekToken(u64 offset)
-	{
-		static Token emptyTok{ TokenType::Unknown, "", u64(-1) };
-
-		if (m_TokIdx + offset >= m_Tokens.size())
-			return emptyTok;
-		return m_Tokens[m_TokIdx + offset];
-	}
-
-	void Parser::InsertTreeIntoTokens(TokenTree& tree)
-	{
-		StdVector<Token> toks;
-		tree.ToToks(toks);
-		m_Tokens.erase(m_Tokens.begin() + m_TokIdx);
-		m_Tokens.insert(m_Tokens.begin() + m_TokIdx, toks.begin(), toks.end());
+		Token& tok = m_TokTree.Peek();
+		if (tok.type == TokenType::Comma)
+			return tok.spanId;
+		return u64(-1);
 	}
 }

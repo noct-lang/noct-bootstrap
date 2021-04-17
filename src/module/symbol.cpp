@@ -452,14 +452,9 @@ namespace Noctis
 		sym->parent = m_Parent;
 		if (interfaceQualName)
 		{
-			// Further overlapping is processed later on, after generic value parameters and types are processed
-			for (StdPair<const QualNameSPtr, StdUnorderedMap<StdString, SymbolSPtr>>& pair : m_ImplSubtables)
-			{
-				if (pair.first == interfaceQualName)
-					return pair.second.try_emplace(sym->qualName->LastIden(), sym).second;
-			}
-
-			auto it = m_ImplSubtables.try_emplace(interfaceQualName, StdUnorderedMap<StdString, SymbolSPtr>{}).first;
+			auto it = m_ImplSubtables.find(interfaceQualName);
+			if (it == m_ImplSubtables.end())
+				it = m_ImplSubtables.try_emplace(interfaceQualName, StdUnorderedMap<StdString, SymbolSPtr>{}).first;
 			return it->second.try_emplace(sym->qualName->LastIden(), sym).second;
 		}
 		else

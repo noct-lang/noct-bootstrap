@@ -143,7 +143,7 @@ namespace Noctis
 
 					if (atAttrib->iden == "compintrin")
 					{
-						StdString intrinName = static_cast<ITrLiteral&>(*atAttrib->args[0]->expr).lit.Text();
+						StdString intrinName = static_cast<ITrLiteral&>(*atAttrib->args[0]->expr).lit.iden;
 						intrinName.erase(intrinName.begin());
 						intrinName.erase(intrinName.end() - 1);
 						ImplementCompilerIntrin(intrinName);
@@ -1188,7 +1188,7 @@ namespace Noctis
 		default: ;
 		}
 		
-		switch (lit.Type())
+		switch (lit.type)
 		{
 		case TokenType::False:
 			return { ILLitType::False };
@@ -1199,44 +1199,44 @@ namespace Noctis
 		case TokenType::CharLit:
 		{
 			// TODO: UTF-8
-			return { ILLitType::Char, lit.Unsigned() };
+			return { ILLitType::Char, lit.uval };
 		}
 		case TokenType::F16Lit:
 			// TODO
 			return { litType, 0.0 };
 		case TokenType::F32Lit:
-			return { litType, lit.Fp() };
+			return { litType, lit.fval };
 		case TokenType::F64Lit:
-			return { litType, lit.Fp() };
+			return { litType, lit.fval };
 		case TokenType::F128Lit:
 			// TODO
 			return { litType, 0.0 };
 		case TokenType::I8Lit:
-			return { litType, lit.Signed() };
+			return { litType, lit.sval };
 		case TokenType::I16Lit:
-			return { litType, lit.Signed() };
+			return { litType, lit.sval };
 		case TokenType::I32Lit:
-			return { litType, lit.Signed() };
+			return { litType, lit.sval };
 		case TokenType::I64Lit:
-			return { litType, lit.Signed() };
+			return { litType, lit.sval };
 		case TokenType::I128Lit:
 			// TODO
 			return { ILLitType::I64, 0ll };
 		case TokenType::StringLit:
 		{
-			const StdString& text = lit.Text();
+			const StdString& text = lit.iden;
 			StdVector<u8> data{ text.begin() + 1, text.end() - 1 }; // trim begin and end "
 			data.push_back(0);
 			return { ILLitType::String, data };
 		}
 		case TokenType::U8Lit:
-			return { litType, lit.Unsigned() };
+			return { litType, lit.uval };
 		case TokenType::U16Lit:
-			return { litType, lit.Unsigned() };
+			return { litType, lit.uval };
 		case TokenType::U32Lit:
-			return { litType, lit.Unsigned() };
+			return { litType, lit.uval };
 		case TokenType::U64Lit:
-			return { litType, lit.Unsigned() };
+			return { litType, lit.uval };
 		case TokenType::U128Lit:
 			// TODO
 			return { litType, 0ull };

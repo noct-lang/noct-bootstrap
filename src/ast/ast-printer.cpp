@@ -673,7 +673,7 @@ namespace Noctis
 	void AstPrinter::Visit(AstCompCondStmt& node)
 	{
 		PrintIndent();
-		g_Logger.Log("(comp-cond-stmt '%s'", node.cond.Text().c_str());
+		g_Logger.Log("(comp-cond-stmt '%s'", node.cond.iden.c_str());
 		PrintContextAndClose(node.ctx);
 		++m_Indent;
 		Walk(node);
@@ -683,7 +683,7 @@ namespace Noctis
 	void AstPrinter::Visit(AstCompDebugStmt& node)
 	{
 		PrintIndent();
-		g_Logger.Log("(comp-debug-stmt '%s'", node.cond.Text().c_str());
+		g_Logger.Log("(comp-debug-stmt '%s'", node.cond.iden.c_str());
 		PrintContextAndClose(node.ctx);
 		++m_Indent;
 		Walk(node);
@@ -846,14 +846,14 @@ namespace Noctis
 	{
 		PrintIndent();
 		Token& literal = node.literal;
-		switch (literal.Type())
+		switch (literal.type)
 		{
 		case TokenType::I8Lit:
 		case TokenType::I16Lit:
 		case TokenType::I32Lit:
 		case TokenType::I64Lit:
 		case TokenType::I128Lit:
-			g_Logger.Log("(literal-expr %i %s", literal.Signed(), GetTokenTypeName(literal.Type()).data());
+			g_Logger.Log("(literal-expr %i %s", literal.sval, GetTokenTypeName(literal.type).data());
 			break;
 		case TokenType::U8Lit:
 		case TokenType::U16Lit:
@@ -861,13 +861,13 @@ namespace Noctis
 		case TokenType::U64Lit:
 		case TokenType::U128Lit:
 		case TokenType::CharLit:
-			g_Logger.Log("(literal-expr %u %s", literal.Unsigned(), GetTokenTypeName(literal.Type()).data());
+			g_Logger.Log("(literal-expr %u %s", literal.uval, GetTokenTypeName(literal.type).data());
 			break;
 		case TokenType::F16Lit:
 		case TokenType::F32Lit:
 		case TokenType::F64Lit:
 		case TokenType::F128Lit:
-			g_Logger.Log("(literal-expr %f %s", literal.Fp(), GetTokenTypeName(literal.Type()).data());
+			g_Logger.Log("(literal-expr %f %s", literal.fval, GetTokenTypeName(literal.type).data());
 			break;
 		case TokenType::True:
 			g_Logger.Log("(literal-expr true");
@@ -876,7 +876,7 @@ namespace Noctis
 			g_Logger.Log("(literal-expr false");
 			break;
 		case TokenType::StringLit:
-			g_Logger.Log("(literal-expr %s StringLit", literal.Text().c_str());
+			g_Logger.Log("(literal-expr %s StringLit", literal.iden.c_str());
 			break;
 		case TokenType::Null:
 			g_Logger.Log("(literal-expr null");
@@ -1167,14 +1167,14 @@ namespace Noctis
 	{
 		PrintIndent();
 		Token& literal = node.literal;
-		switch (literal.Type())
+		switch (literal.type)
 		{
 		case TokenType::I8Lit:
 		case TokenType::I16Lit:
 		case TokenType::I32Lit:
 		case TokenType::I64Lit:
 		case TokenType::I128Lit:
-			g_Logger.Log("(literal-pattern %i %s", literal.Signed(), GetTokenTypeName(literal.Type()).data());
+			g_Logger.Log("(literal-pattern %i %s", literal.sval, GetTokenTypeName(literal.type).data());
 			break;
 		case TokenType::U8Lit:
 		case TokenType::U16Lit:
@@ -1182,13 +1182,13 @@ namespace Noctis
 		case TokenType::U64Lit:
 		case TokenType::U128Lit:
 		case TokenType::CharLit:
-			g_Logger.Log("(literal-pattern %u %s", literal.Unsigned(), GetTokenTypeName(literal.Type()).data());
+			g_Logger.Log("(literal-pattern %u %s", literal.uval, GetTokenTypeName(literal.type).data());
 			break;
 		case TokenType::F16Lit:
 		case TokenType::F32Lit:
 		case TokenType::F64Lit:
 		case TokenType::F128Lit:
-			g_Logger.Log("(literal-pattern %f %s", literal.Fp(), GetTokenTypeName(literal.Type()).data());
+			g_Logger.Log("(literal-pattern %f %s", literal.fval, GetTokenTypeName(literal.type).data());
 			break;
 		case TokenType::True:
 			g_Logger.Log("(literal-pattern true");
@@ -1197,7 +1197,7 @@ namespace Noctis
 			g_Logger.Log("(literal-pattern false");
 			break;
 		case TokenType::StringLit:
-			g_Logger.Log("(literal-pattern %s StringLit", literal.Text().c_str());
+			g_Logger.Log("(literal-pattern %s StringLit", literal.iden.c_str());
 			break;
 		case TokenType::Null:
 			g_Logger.Log("(literal-pattern null");
@@ -1435,10 +1435,10 @@ namespace Noctis
 		g_Logger.Log("(macro-separator '");
 		for (Token& tok : node.toks)
 		{
-			if (!tok.Text().empty())
-				g_Logger.Log(tok.Text());
+			if (!tok.iden.empty())
+				g_Logger.Log(tok.iden);
 			else
-				g_Logger.Log(GetTokenTypeName(tok.Type()));
+				g_Logger.Log(GetTokenTypeName(tok.type));
 		}
 		g_Logger.Log("'");
 		PrintContextAndClose(node.ctx);
@@ -1576,10 +1576,10 @@ namespace Noctis
 				g_Logger.Log("(token '");
 				
 				Token& tok = subTok.tok;
-				if (!tok.Text().empty())
-					g_Logger.Log(tok.Text());
+				if (!tok.iden.empty())
+					g_Logger.Log(tok.iden);
 				else
-					g_Logger.Log(GetTokenTypeName(tok.Type()));
+					g_Logger.Log(GetTokenTypeName(tok.type));
 
 				g_Logger.Log("')\n");
 			}

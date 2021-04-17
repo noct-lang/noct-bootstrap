@@ -658,7 +658,7 @@ namespace Noctis
 			if (m_ExpectedHandle.Kind() == TypeKind::Ref)
 			{
 				TypeHandle subHandle = m_ExpectedHandle.AsRef().subType;
-				if (subHandle.Type()->Mod() == TypeMod::Mut)
+				if (subHandle.Mod() == TypeMod::Mut)
 					opKind = OperatorKind::MutDeref;
 			}
 			else if (m_ExpectedHandle.Mod() == TypeMod::Mut)
@@ -784,7 +784,7 @@ namespace Noctis
 		Walk(node);
 
 		TypeHandle exprTypeHandle = node.expr->handle;
-		if (exprTypeHandle.Type()->typeKind == TypeKind::Ref)
+		if (exprTypeHandle.Kind() == TypeKind::Ref)
 			exprTypeHandle = exprTypeHandle.AsRef().subType;
 
 		// First, try to get the mutable index
@@ -937,17 +937,17 @@ namespace Noctis
 	{
 		Walk(node);
 
-		TypeSPtr type = node.expr->handle.Type();
-		if (type->typeKind == TypeKind::Ref)
+		TypeHandle type = node.expr->handle;
+		if (type.Kind() == TypeKind::Ref)
 		{
-			type = type->AsRef().subType.Type();
+			type = type.AsRef().subType;
 		}
-		else if (type->typeKind == TypeKind::Ptr)
+		else if (type.Kind() == TypeKind::Ptr)
 		{
 			// TODO
 		}
 
-		if (type->typeKind != TypeKind::Iden)
+		if (type.Kind() != TypeKind::Iden)
 		{
 			MultiSpan span = g_SpanManager.GetSpan(node.startIdx, node.endIdx);
 			StdString typeName = g_TypeReg.ToString(type);
@@ -955,7 +955,7 @@ namespace Noctis
 			return;
 		}
 
-		SymbolSPtr sym = g_Ctx.activeModule->symTable.Find(GetCurScope(), type->AsIden().qualName);
+		SymbolSPtr sym = g_Ctx.activeModule->symTable.Find(GetCurScope(), type.AsIden().qualName);
 		if (!sym)
 		{
 			MultiSpan span = g_SpanManager.GetSpan(node.startIdx, node.endIdx);
@@ -980,17 +980,17 @@ namespace Noctis
 	{
 		Walk(node);
 		
-		TypeSPtr type = node.expr->handle.Type();
-		if (type->typeKind == TypeKind::Ref)
+		TypeHandle type = node.expr->handle;
+		if (type.Kind() == TypeKind::Ref)
 		{
-			type = type->AsRef().subType.Type();
+			type = type.AsRef().subType;
 		}
-		else if (type->typeKind == TypeKind::Ptr)
+		else if (type.Kind() == TypeKind::Ptr)
 		{
 			// TODO
 		}
 
-		if (type->typeKind != TypeKind::Tuple)
+		if (type.Kind() != TypeKind::Tuple)
 		{
 			MultiSpan span = g_SpanManager.GetSpan(node.startIdx, node.endIdx);
 			StdString typeName = node.expr->handle.ToString();
@@ -998,7 +998,7 @@ namespace Noctis
 			return;
 		}
 
-		TupleType& tupType = type->AsTuple();
+		TupleType& tupType = type.AsTuple();
 		if (node.index >= tupType.subTypes.size())
 		{
 			MultiSpan span = g_SpanManager.GetSpan(node.startIdx, node.endIdx);
@@ -1011,7 +1011,7 @@ namespace Noctis
 
 	void TypeInference::Visit(ITrLiteral& node)
 	{
-		switch (node.lit.Type())
+		switch (node.lit.type)
 		{
 		case TokenType::True:
 		case TokenType::False:
@@ -1076,7 +1076,7 @@ namespace Noctis
 				return;
 			}
 
-			switch (node.lit.Type())
+			switch (node.lit.type)
 			{
 			case TokenType::F16Lit:
 			case TokenType::F32Lit:
@@ -1446,8 +1446,8 @@ namespace Noctis
 		}
 		case ITrCastKind::Transmute:
 		{
-			u64 fromSize = fromType.Type()->Size();
-			u64 toSize = toType.Type()->Size();
+			u64 fromSize = fromType.Size();
+			u64 toSize = toType.Size();
 
 			if (fromSize != toSize)
 			{
@@ -1894,7 +1894,7 @@ namespace Noctis
 	void TypeInference::Visit(ITrLiteralPattern& node)
 	{
 		bool doesMatch;
-		switch (node.lit.Type())
+		switch (node.lit.type)
 		{
 		case TokenType::False:
 		case TokenType::True:

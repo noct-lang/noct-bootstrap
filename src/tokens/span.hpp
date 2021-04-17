@@ -8,11 +8,11 @@ namespace Noctis
 	struct Span
 	{
 		Span(u64 startChar, u64 endChar, u64 line, u64 column);
-
-		const u64 startChar;
-		const u64 endChar;
-		const u64 line;
-		const u64 column;
+		
+		u64 startChar;
+		u64 endChar;
+		u64 line;
+		u64 column;
 		StdStringView filePath;
 	};
 
@@ -31,6 +31,7 @@ namespace Noctis
 		SpanManager();
 
 		SpanId AddSpan(const StdString& filepath, Span span);
+		void UpdateSpan(u64 spanId, Span span);
 		Span GetSpan(u64 id) const;
 		MultiSpan GetSpan(u64 startId, u64 endId) const;
 

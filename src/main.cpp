@@ -33,7 +33,7 @@
 // 
 // build "../noct/src/core/iter.nx"
 //
-// build "../noct/src/core/ptr.nx" -I "./"
+// build "../noct/src/core/ptr.nx"
 // build "../noct/src/core/array.nx" -I "./"
 // build "../noct/src/core/slice.nx" -I "./"
 // build "../noct/src/core/mem.nx" -I "./"
@@ -88,7 +88,7 @@ void ProcessBuild()
 		g_Logger.Log("%16s : lexer\n", timer.GetSMSFormat().c_str());
 
 		timer.Start();
-		Noctis::Parser parser{ lexer.Tokens() };
+		Noctis::Parser parser{ lexer.TokTree() };
 
 		Noctis::AstTree astTree;
 		astTree.filepath = filepath;

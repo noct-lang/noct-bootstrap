@@ -417,7 +417,7 @@ namespace Noctis
 	}
 
 	ITrLiteral::ITrLiteral(Token lit)
-		: ITrExpr(ITrExprKind::Literal, lit.Idx(), lit.Idx())
+		: ITrExpr(ITrExprKind::Literal, lit.spanId, lit.spanId)
 		, lit(lit)
 	{
 	}
@@ -563,13 +563,13 @@ namespace Noctis
 	}
 
 	ITrLiteralPattern::ITrLiteralPattern(Token lit)
-		: ITrPattern(ITrPatternKind::Literal, lit.Idx(), lit.Idx())
+		: ITrPattern(ITrPatternKind::Literal, lit.spanId, lit.spanId)
 		, lit(lit)
 	{
 	}
 
 	ITrRangePattern::ITrRangePattern(bool isInclusive, Token from, Token to)
-		: ITrPattern(ITrPatternKind::Range, from.Idx(), to.Idx())
+		: ITrPattern(ITrPatternKind::Range, from.spanId, to.spanId)
 		, isInclusive(isInclusive)
 		, from(std::move(from))
 		, to(std::move(to))

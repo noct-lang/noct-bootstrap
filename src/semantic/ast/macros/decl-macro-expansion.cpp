@@ -20,17 +20,14 @@ namespace Noctis
 
 		for (DeclMacro& macro : macros)
 		{
+			node.toks.ResetIdx();
+			
 			StdVector<MacroExtractedElem> extractedElems;
 			if (!macro.MatchPatternAndExtract(node.toks, extractedElems))
 				continue;
 
 			// Expand the actual macro
-			StdVector<Token> toks;
-			toks.push_back(Token{ TokenType::LBrace, u64(-1) });
-			macro.body.ToToks(toks);
-			toks.push_back(Token{ TokenType::RBrace, u64(-1) });
-
-			Parser parser{ toks };
+			Parser parser{ macro.body };
 			MacroVarSolver solver{ std::move(extractedElems) };
 			solver.PreparseMacroVars();
 			solver.CollectMacroVarsForParsing();
@@ -58,12 +55,7 @@ namespace Noctis
 				continue;
 
 			// Expand the actual macro
-			StdVector<Token> toks;
-			toks.push_back(Token{ TokenType::LBrace, u64(-1) });
-			macro.body.ToToks(toks);
-			toks.push_back(Token{ TokenType::RBrace, u64(-1) });
-			
-			Parser parser{ toks };
+			Parser parser{ macro.body };
 			MacroVarSolver solver{ std::move(extractedElems) };
 			solver.PreparseMacroVars();
 			parser.SetMacroVarSolver(&solver);

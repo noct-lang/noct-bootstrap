@@ -21,782 +21,684 @@ namespace Noctis
 		m_Index = 0;
 		m_Line = 1;
 		m_Column = 1;
-		m_Tokens.clear();
 	}
 
 	void Lexer::Lex(const StdString& filePath, const StdStringView& content)
 	{
 		m_FilePath = filePath;
 		m_Content = content;
-		
-		usize size = m_Content.size();
-		
-		while (m_Index < size)
+
+		while (m_Index < m_Content.size())
 		{
-			usize start = m_Index;
-			switch (m_Content[m_Index])
-			{
-			case '=':
-			{
-				++m_Index;
-				if (m_Index < size)
-				{
-					if (m_Content[m_Index] == '=')
-					{
-						++m_Index;
-						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-						m_Tokens.push_back({ TokenType::EqEq, spanId });
-						break;
-					}
-					if (m_Content[m_Index] == '>')
-					{
-						++m_Index;
-						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-						m_Tokens.push_back({ TokenType::DblArrow, spanId });
-						break;
-					}
-				}
-
-				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-				m_Tokens.push_back({ TokenType::Eq, spanId });
+			TokenTree tmp = LexTree();
+			if (tmp.tok.type == TokenType::EoF)
 				break;
-			}
-			case '+':
-			{
-				++m_Index;
-				if (m_Index < size)
-				{
-					if (m_Content[m_Index] == '+')
-					{
-						++m_Index;
-						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-						m_Tokens.push_back({ TokenType::PlusPlus, spanId });
-						break;
-					}
-					if (m_Content[m_Index] == '=')
-					{
-						++m_Index;
-						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-						m_Tokens.push_back({ TokenType::PlusEq, spanId });
-						break;
-					}
-				}
-
-				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-				m_Tokens.push_back({ TokenType::Plus, spanId });
-				break;
-			}
-			case '-':
-			{
-				++m_Index;
-				if (m_Index < size)
-				{
-					if (m_Content[m_Index] == '-')
-					{
-						++m_Index;
-						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-						m_Tokens.push_back({ TokenType::MinusMinus, spanId });
-						break;
-					}
-					if (m_Content[m_Index] == '=')
-					{
-						++m_Index;
-						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-						m_Tokens.push_back({ TokenType::MinusEq, spanId });
-						break;
-					}
-					if (m_Content[m_Index] == '>')
-					{
-						++m_Index;
-						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-						m_Tokens.push_back({ TokenType::Arrow, spanId });
-						break;
-					}
-					if (isdigit(m_Content[m_Index]))
-					{
-						--m_Index;
-						ParseLiteral();
-						break;
-					}
-				}
-
-				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-				m_Tokens.push_back({ TokenType::Minus, spanId });
-				break;
-			}
-			case '*':
-			{
-				++m_Index;
-				if (m_Index < size && m_Content[m_Index] == '=')
-				{
-					++m_Index;
-					u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-					m_Tokens.push_back({ TokenType::AsteriskEq, spanId });
-					break;
-				}
-
-				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-				m_Tokens.push_back({ TokenType::Asterisk, spanId });
-				break;
-			}
-			case '/':
-			{
-				if (m_Index + 1 < size)
-				{
-					if (m_Content[m_Index + 1] == '=')
-					{
-						m_Index += 2;
-						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-						m_Tokens.push_back({ TokenType::SlashEq, spanId });
-						break;
-					}
-					if (m_Content[m_Index + 1] == '/')
-					{
-						ParseSingleLineComment();
-						start = m_Index;
-						break;
-					}
-					if (m_Content[m_Index + 1] == '*')
-					{
-						ParseBlockComment();
-						start = m_Index;
-						break;
-					}
-				}
-
-				++m_Index;
-				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-				m_Tokens.push_back({ TokenType::Slash, spanId });
-				break;
-			}
-			case '%':
-			{
-				++m_Index;
-				if (m_Index < size && m_Content[m_Index] == '=')
-				{
-					++m_Index;
-					u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-					m_Tokens.push_back({ TokenType::PercentEq, spanId });
-					break;
-				}
-
-				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-				m_Tokens.push_back({ TokenType::Percent, spanId });
-				break;
-			}
-			case '~':
-			{
-				++m_Index;
-				if (m_Index < size && m_Content[m_Index] == '=')
-				{
-					++m_Index;
-					u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-					m_Tokens.push_back({ TokenType::TildeEq, spanId });
-					break;
-				}
-
-				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-				m_Tokens.push_back({ TokenType::Tilde, spanId });
-				break;
-			}
-			case '&':
-			{
-				++m_Index;
-				if (m_Index < size)
-				{
-					if (m_Content[m_Index] == '&')
-					{
-						++m_Index;
-						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-						m_Tokens.push_back({ TokenType::AndAnd, spanId });
-						break;
-					}
-					if (m_Content[m_Index] == '=')
-					{
-						++m_Index;
-						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-						m_Tokens.push_back({ TokenType::AndEq, spanId });
-						break;
-					}
-				}
-
-				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-				m_Tokens.push_back({ TokenType::And, spanId });
-				break;
-			}
-			case '|':
-			{
-				++m_Index;
-				if (m_Index < size)
-				{
-					if (m_Content[m_Index] == '|')
-					{
-						++m_Index;
-						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-						m_Tokens.push_back({ TokenType::OrOr, spanId });
-						break;
-					}
-					if (m_Content[m_Index] == '=')
-					{
-						++m_Index;
-						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-						m_Tokens.push_back({ TokenType::OrEq, spanId });
-						break;
-					}
-				}
-
-				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-				m_Tokens.push_back({ TokenType::Or, spanId });
-				break;
-			}
-			case '^':
-			{
-				++m_Index;
-				if (m_Index + 1 < size && m_Content[m_Index] == '=')
-				{
-					++m_Index;
-					u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-					m_Tokens.push_back({ TokenType::CaretEq, spanId });
-					break;
-				}
-
-				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-				m_Tokens.push_back({ TokenType::Caret, spanId });
-				break;
-			}
-			case '<':
-			{
-				++m_Index;
-				if (m_Index < size)
-				{
-					if (m_Content[m_Index] == '<')
-					{
-						if (m_Index + 1 < size)
-						{
-							if (m_Content[m_Index + 1] == '<')
-							{
-								if (m_Index + 2 < size && m_Content[m_Index + 2] == '=')
-								{
-									m_Index += 3;
-									u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-									m_Tokens.push_back({ TokenType::LessLessLessEq, spanId });
-									break;
-								}
-
-								m_Index += 2;
-								u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-								m_Tokens.push_back({ TokenType::LessLessLess, spanId });
-								break;
-							}
-							if (m_Content[m_Index + 1] == '*')
-							{
-								if (m_Index + 2 < size && m_Content[m_Index + 2] == '=')
-								{
-									m_Index += 3;
-									u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-									m_Tokens.push_back({ TokenType::LessLessAsteriskEq, spanId });
-									break;
-								}
-
-								m_Index += 2;
-								u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-								m_Tokens.push_back({ TokenType::LessLessAsterisk, spanId });
-								break;
-							}
-							if (m_Content[m_Index + 1] == '=')
-							{
-								m_Index += 2;
-								u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-								m_Tokens.push_back({ TokenType::LessLessEq, spanId });
-								break;
-							}
-						}
-						
-						++m_Index;
-						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-						m_Tokens.push_back({ TokenType::LessLess, spanId });
-						break;
-					}
-					if (m_Content[m_Index] == '=')
-					{
-						++m_Index;
-						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-						m_Tokens.push_back({ TokenType::LessEq, spanId });
-						break;
-					}
-				}
-
-				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-				m_Tokens.push_back({ TokenType::Less, spanId });
-				break;
-			}
-			case '>':
-			{
-				++m_Index;
-				if (m_Index < size)
-				{
-					if (m_Content[m_Index] == '>')
-					{
-						if (m_Index + 1 < size)
-						{
-							if (m_Content[m_Index + 1] == '>')
-							{
-								if (m_Index + 2 < size && m_Content[m_Index + 2] == '=')
-								{
-									m_Index += 3;
-									u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-									m_Tokens.push_back({ TokenType::GreaterGreaterGreaterEq, spanId });
-									break;
-								}
-
-								m_Index += 2;
-								u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-								m_Tokens.push_back({ TokenType::GreaterGreaterGreater, spanId });
-								break;
-							}
-							if (m_Content[m_Index + 1] == '*')
-							{
-								if (m_Index + 2 < size && m_Content[m_Index + 2] == '=')
-								{
-									m_Index += 3;
-									u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-									m_Tokens.push_back({ TokenType::GreaterGreaterAsteriskEq, spanId });
-									break;
-								}
-
-								m_Index += 2;
-								u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-								m_Tokens.push_back({ TokenType::GreaterGreaterAsterisk, spanId });
-								break;
-							}
-							if (m_Content[m_Index + 1] == '=')
-							{
-								m_Index += 2;
-								u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-								m_Tokens.push_back({ TokenType::GreaterGreaterEq, spanId });
-								break;
-							}
-						}
-
-						++m_Index;
-						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-						m_Tokens.push_back({ TokenType::GreaterGreater, spanId });
-						break;
-					}
-					if (m_Content[m_Index] == '=')
-					{
-						++m_Index;
-						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-						m_Tokens.push_back({ TokenType::GreaterEq, spanId });
-						break;
-					}
-				}
-
-				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-				m_Tokens.push_back({ TokenType::Greater, ">", spanId });
-				break;
-			}
-			case '!':
-			{
-				++m_Index;
-				if (m_Index < size)
-				{
-					if (m_Content[m_Index] == '=')
-					{
-						++m_Index;
-						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-						m_Tokens.push_back({ TokenType::ExclaimEq, spanId });
-						break;
-					}
-					if (m_Content[m_Index] == '<')
-					{
-						++m_Index;
-						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-						m_Tokens.push_back({ TokenType::ExclaimLess, spanId });
-						break;
-					}
-				}
-
-				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-				m_Tokens.push_back({ TokenType::Exclaim, spanId });
-				break;
-			}
-			case '(':
-			{
-				++m_Index;
-				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-				m_Tokens.push_back({ TokenType::LParen, spanId });
-				break;
-			}
-			case ')':
-			{
-				++m_Index;
-				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-				m_Tokens.push_back({ TokenType::RParen, spanId });
-				break;
-			}
-			case '{':
-			{
-				++m_Index;
-				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-				m_Tokens.push_back({ TokenType::LBrace, spanId });
-				break;
-			}
-			case '}':
-			{
-				++m_Index;
-				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-				m_Tokens.push_back({ TokenType::RBrace, spanId });
-				break;
-			}
-			case '[':
-			{
-				++m_Index;
-				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-				m_Tokens.push_back({ TokenType::LBracket, spanId });
-				break;
-			}
-			case ']':
-			{
-				++m_Index;
-				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-				m_Tokens.push_back({ TokenType::RBracket, spanId });
-				break;
-			}
-			case ',':
-			{
-				++m_Index;
-				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-				m_Tokens.push_back({ TokenType::Comma, spanId });
-				break;
-			}
-			case ';':
-			{
-				++m_Index;
-				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-				m_Tokens.push_back({ TokenType::Semicolon, spanId });
-				break;
-			}
-			case ':':
-			{
-				++m_Index;
-				if (m_Index < size)
-				{
-					if (m_Content[m_Index] == ':')
-					{
-						++m_Index;
-						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-						m_Tokens.push_back({ TokenType::ColonColon, spanId });
-						break;
-					}
-					if (m_Content[m_Index] == '=')
-					{
-						++m_Index;
-						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-						m_Tokens.push_back({ TokenType::ColonEq, spanId });
-						break;
-					}
-				}
-
-				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-				m_Tokens.push_back({ TokenType::Colon, ":", spanId });
-				break;
-			}
-			case '.':
-			{
-				++m_Index;
-				if (m_Index < size && m_Content[m_Index] == '.')
-				{
-					if (m_Index + 1 < size)
-					{
-						if (m_Content[m_Index + 1] == '.')
-						{
-							m_Index += 2;
-							u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-							m_Tokens.push_back({ TokenType::DotDotDot, spanId });
-							break;
-						}
-						if (m_Content[m_Index + 1] == '=')
-						{
-							m_Index += 2;
-							u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-							m_Tokens.push_back({ TokenType::DotDotEq, spanId });
-							break;
-						}
-					}
-
-					++m_Index;
-					u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-					m_Tokens.push_back({ TokenType::DotDot, spanId });
-					break;
-				}
-				if (isdigit(m_Content[m_Index + 1]))
-				{
-					--m_Index;
-					ParseLiteral();
-					break;
-				}
-
-				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-				m_Tokens.push_back({ TokenType::Dot, spanId });
-				break;
-			}
-			case '@':
-			{
-				++m_Index;
-				if (m_Index < size && m_Content[m_Index] == ':')
-				{
-					++m_Index;
-					u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-					m_Tokens.push_back({ TokenType::AtColon, spanId });
-					break;
-				}
-
-				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-				m_Tokens.push_back({ TokenType::At, spanId });
-				break;
-			}
-			case '?':
-			{
-				++m_Index;
-				if (m_Index < size)
-				{
-					if (m_Content[m_Index] == '?')
-					{
-						if (m_Index + 1 < size && m_Content[m_Index + 1] == '=')
-						{
-							m_Index += 2;
-							u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-							m_Tokens.push_back({ TokenType::QuestionQuestionEq, spanId });
-							break;
-						}
-						
-						++m_Index;
-						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-						m_Tokens.push_back({ TokenType::QuestionQuestion, spanId });
-						break;
-					}
-					if (m_Content[m_Index] == ':')
-					{
-						++m_Index;
-						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-						m_Tokens.push_back({ TokenType::QuestionColon, spanId });
-						break;
-					}
-					if (m_Content[m_Index] == '.')
-					{
-						++m_Index;
-						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-						m_Tokens.push_back({ TokenType::QuestionDot, spanId });
-						break;
-					}
-					if (m_Content[m_Index] == '[')
-					{
-						++m_Index;
-						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-						m_Tokens.push_back({ TokenType::QuestionBracket, spanId });
-						break;
-					}
-				}
-
-				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-				m_Tokens.push_back({ TokenType::Question, spanId });
-				break;
-			}
-			case '$':
-			{
-				++m_Index;
-
-				if (m_Content[m_Index] == '(')
-				{
-					++m_Index;
-					u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-					m_Tokens.push_back({ TokenType::DollarParen, spanId });
-					break;
-				}
-				else if (m_Content[m_Index] == '[')
-				{
-					++m_Index;
-					u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-					m_Tokens.push_back({ TokenType::DollarBracket, spanId });
-					break;
-				}
-				else if (m_Content[m_Index] == '{')
-				{
-					++m_Index;
-					u64 spanId = g_SpanManager.AddSpan(m_FilePath, { size, m_Index, m_Line, m_Column });
-					m_Tokens.push_back({ TokenType::DollarBrace, spanId });
-					break;
-				}
-
-				usize searchStart = m_Index + 1;
-				usize end = m_Content.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDDEFGHIJKLMNOPQRSTUVWXYZ1234567890_", searchStart);
-				StdStringView iden = m_Content.substr(m_Index, end - m_Index);
-
-				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { m_Index, end, m_Line, m_Column });
-				m_Tokens.push_back({ TokenType::MacroIden, StdString{ iden }, spanId });
-				m_Index = end;
-				break;
-			}
-			case '0':
-			case '1':
-			case '2':
-			case '3':
-			case '4':
-			case '5':
-			case '6':
-			case '7':
-			case '8':
-			case '9':
-				ParseLiteral();
-				break;
-
-			case ' ':
-			{
-				++m_Index;
-				break;
-			}
-			case '\t':
-			{
-				m_Index += g_Ctx.options.TabWidth();
-			}
-			case '\r':
-			{
-				++m_Index;
-				if (m_Index < size && m_Content[m_Index] != '\n')
-					break;
-				
-				// fallthrough
-			}
-			case '\n':
-			{
-				++m_Index;
-				start = m_Index;
-				++m_Line;
-				m_Column = 1;
-				break;
-			}
-			case '\'':
-			{
-				ParseChar();
-				break;
-			}
-			case '"':
-			{
-				ParseString();
-				break;
-			}
-			case '\0':
-				return;
-
-			case 'r':
-			{
-				if (m_Index + 1 < size && m_Content[m_Index + 1] == '"')
-				{
-					ParseWysiwygString();
-					break;
-				}
-				
-				// fallthrough
-			}
-			default:
-			{
-				usize searchStart = m_Index;
-				if (searchStart + 1 < size && m_Content[searchStart] == '#')
-					++searchStart;
-				
-				usize end = m_Content.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDDEFGHIJKLMNOPQRSTUVWXYZ1234567890_", searchStart);
-				StdStringView iden = m_Content.substr(m_Index, end - m_Index);
-				
-				StdUnorderedMap<StdStringView, TokenType>& keywords = GetKeywordMap();
-				auto it = keywords.find(iden);
-				if (it != keywords.end())
-				{
-					if (it->second == TokenType::In &&
-						!m_Tokens.empty() && m_Tokens.back().Type() == TokenType::Exclaim)
-					{
-						m_Tokens.back() = Token{ TokenType::NotIn, m_Tokens.back().Idx() };
-					}
-					else if (it->second == TokenType::Is &&
-						!m_Tokens.empty() && m_Tokens.back().Type() == TokenType::Exclaim)
-					{
-						m_Tokens.back() = Token{ TokenType::NotIs, m_Tokens.back().Idx() };
-					}
-					else if (it->second == TokenType::Try && m_Content.size() > m_Index + 1)
-					{
-						if (m_Content[m_Index] == '?')
-						{
-							u64 spanId = g_SpanManager.AddSpan(m_FilePath, { m_Index, end, m_Line, m_Column });
-							m_Tokens.emplace_back(TokenType::TryNullable, spanId);
-							++m_Index;
-						}
-						else if (m_Content[m_Index] == '!')
-						{
-							u64 spanId = g_SpanManager.AddSpan(m_FilePath, { m_Index, end, m_Line, m_Column });
-							m_Tokens.emplace_back(TokenType::TryPanic, spanId);
-							++m_Index;
-						}
-						else
-						{
-							u64 spanId = g_SpanManager.AddSpan(m_FilePath, { m_Index, end, m_Line, m_Column });
-							m_Tokens.emplace_back(TokenType::Try, spanId);
-						}
-					}
-					else
-					{
-						u64 spanId = g_SpanManager.AddSpan(m_FilePath, { m_Index, end, m_Line, m_Column });
-						m_Tokens.emplace_back(it->second, StdString{ iden }, spanId);
-					}
-				}
-				else
-				{
-					u64 spanId = g_SpanManager.AddSpan(m_FilePath, { m_Index, end, m_Line, m_Column });
-					m_Tokens.emplace_back(TokenType::Iden, StdString{ iden }, spanId);
-				}
-
-				m_Index = end;
-			}
-			}
-
-			m_Column += (m_Index - start);
+			m_TokTree.Append(tmp);
 		}
-
 	}
 
 	void Lexer::LogTokens()
 	{
-		for (usize i = 0; i < m_Tokens.size(); ++i)
+		m_TokTree.LogTokens();
+	}
+
+	TokenTree Lexer::LexTree()
+	{
+		TokenTree tree;
+
+		Token startTok = LexToken();
+		while (startTok.type == TokenType::Skip)
 		{
-			const Token& tok = m_Tokens[i];
-			std::stringstream ss;
+			startTok = LexToken();
+		}
+		
+		tree.Append(startTok);
 
-			Span span = g_SpanManager.GetSpan(tok.Idx());
+		TokenType endType = TokenType::Unknown;
+		switch (startTok.type)
+		{
+		case TokenType::LParen:
+		case TokenType::DollarParen:
+			endType = TokenType::RParen;
+			break;
+		case TokenType::LBrace:
+		case TokenType::DollarBrace:
+			endType = TokenType::RBrace;
+			break;
+		case TokenType::LBracket:
+		case TokenType::QuestionBracket:
+		case TokenType::DollarBracket:
+			endType = TokenType::RBracket;
+			break;
+		case TokenType::ExclaimLess:
+			endType = TokenType::Greater;
+			break;
+		default: break;
+		}
 
-			ss << '[' << span.line << ':' << span.column << ']';
-			ss << ", ";
-			ss << GetTokenTypeName(tok.Type());
-
-			if (tok.Type() == TokenType::Iden)
+		if (endType == TokenType::Unknown || endType == TokenType::EoF)
+			return TokenTree{ startTok };
+		
+		while (m_Index < m_Content.size())
+		{
+			TokenTree tokTree = LexTree();
+			while (tokTree.tok.type == TokenType::Skip)
 			{
-				ss << ", ";
-				ss << tok.Text();
+				tokTree = LexTree();
+			}
+			
+			if (!tokTree.subToks.empty())
+			{
+				tree.Append(tokTree);
+			}
+			else
+			{
+				Token& tok = tokTree.tok;
+				if (tok.type == TokenType::Skip)
+					continue;
+
+				if (tok.type == TokenType::Unknown)
+				{
+					Span span = g_SpanManager.GetSpan(tok.spanId);
+					g_ErrorSystem.Error(span, "Unknown token");
+					continue;
+				}
+
+				if (tok.type != TokenType::EoF)
+					tree.Append(tok);
+				
+				if (tok.type == endType || tok.type == TokenType::EoF)
+					break;
+			}
+		}
+
+		if (tree.subToks.back().tok.type != endType)
+		{
+			Span span = g_SpanManager.GetSpan(tree.subToks.front().tok.spanId);
+			StdStringView closingChar = GetTokenTypeName(endType);
+			g_ErrorSystem.Error(span, "Did not find closing character '%s'", closingChar.data());
+		}
+
+		return tree;
+	}
+
+	Token Lexer::LexToken()
+	{
+		u64 spanId = g_SpanManager.AddSpan(m_FilePath, { m_Index, m_Index, m_Line, m_Column });
+		++m_Index;
+		++m_Column;
+		
+		switch (m_Content[m_Index - 1])
+		{
+		case '=':
+		{
+			if (m_Index < m_Content.size() && m_Content[m_Index] == '=')
+			{
+				++m_Index; ++m_Column;
+				g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+				return { TokenType::EqEq, spanId };
+			}
+			if (m_Index < m_Content.size())
+			{
+				if (m_Content[m_Index] == '=')
+				{
+					++m_Index; ++m_Column;
+					g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+					return { TokenType::EqEq, spanId };
+				}
+				if (m_Content[m_Index] == '>')
+				{
+					++m_Index; ++m_Column;
+					g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+					return { TokenType::DblArrow, spanId };
+				}
+			}
+			return { TokenType::Eq, spanId };
+		}
+		case '+':
+		{
+			if (m_Index < m_Content.size())
+			{
+				if (m_Content[m_Index] == '=')
+				{
+					++m_Index; ++m_Column;
+					g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+					return { TokenType::PlusEq, spanId };
+				}
+				if (m_Content[m_Index] == '+')
+				{
+					++m_Index; ++m_Column;
+					g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+					return { TokenType::PlusPlus, spanId };
+				}
+			}
+			return { TokenType::Plus, spanId };
+		}
+		case '-':
+		{
+			if (m_Index < m_Content.size())
+			{
+				if (m_Content[m_Index] == '=')
+				{
+					++m_Index; ++m_Column;
+					g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+					return { TokenType::MinusEq, spanId };
+				}
+				if (m_Content[m_Index] == '-')
+				{
+					++m_Index; ++m_Column;
+					g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+					return { TokenType::MinusMinus, spanId };
+				}
+				if (m_Content[m_Index] == '>')
+				{
+					++m_Index; ++m_Column;
+					g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+					return { TokenType::Arrow, spanId };
+				}
+				if (isdigit(m_Content[m_Index]))
+				{
+					--m_Index;
+					return ParseLiteral();
+				}
+			}
+			return { TokenType::Minus, spanId };
+		}
+		case '*':
+		{
+			if (m_Index < m_Content.size() && m_Content[m_Index] == '=')
+			{
+				++m_Index; ++m_Column;
+				g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+				return { TokenType::AsteriskEq, spanId };
+			}
+			return { TokenType::Asterisk, spanId };
+		}
+		case '/':
+		{
+			if (m_Index < m_Content.size())
+			{
+				if (m_Content[m_Index] == '=')
+				{
+					++m_Index; ++m_Column;
+					g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+					return { TokenType::SlashEq, spanId };
+				}
+				if (m_Content[m_Index] == '/')
+				{
+					--m_Index;
+					ParseSingleLineComment();
+					return LexToken();
+				}
+				if (m_Content[m_Index] == '*')
+				{
+					--m_Index;
+					ParseBlockComment();
+					return LexToken();
+				}
+			}
+			return { TokenType::Slash, spanId };
+		}
+		case '%':
+		{
+			if (m_Index < m_Content.size() && m_Content[m_Index] == '=')
+			{
+				++m_Index; ++m_Column;
+				g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+				return { TokenType::PercentEq, spanId };
+			}
+			return { TokenType::Percent, spanId };
+		}
+		case '~':
+		{
+			if (m_Index < m_Content.size() && m_Content[m_Index] == '=')
+			{
+				++m_Index; ++m_Column;
+				g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+				return { TokenType::TildeEq, spanId };
+			}
+			return { TokenType::Tilde, spanId };
+		}
+		case '&':
+		{
+			if (m_Index < m_Content.size())
+			{
+				if (m_Content[m_Index] == '=')
+				{
+					++m_Index; ++m_Column;
+					g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+					return { TokenType::AndEq, spanId };
+				}
+				if (m_Content[m_Index] == '&')
+				{
+					++m_Index; ++m_Column;
+					g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+					return { TokenType::AndAnd, spanId };
+				}
+			}
+			return { TokenType::And, spanId };
+		}
+		case '|':
+		{
+			if (m_Index < m_Content.size())
+			{
+				if (m_Content[m_Index] == '=')
+				{
+					++m_Index; ++m_Column;
+					g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+					return { TokenType::OrEq, spanId };
+				}
+				if (m_Content[m_Index] == '|')
+				{
+					++m_Index; ++m_Column;
+					g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+					return { TokenType::OrOr, spanId };
+				}
+			}
+			return { TokenType::Or, spanId };
+		}
+		case '^':
+		{
+			if (m_Index < m_Content.size() && m_Content[m_Index] == '=')
+			{
+				++m_Index; ++m_Column;
+				g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+				return { TokenType::CaretEq, spanId };
+			}
+			return { TokenType::Caret, spanId };
+		}
+		case '<':
+		{
+			if (m_Index < m_Content.size())
+			{
+				if (m_Content[m_Index] == '=')
+				{
+					++m_Index; ++m_Column;
+					g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+					return { TokenType::LessEq, spanId };
+				}
+				if (m_Content[m_Index] == '<')
+				{
+					if (m_Index + 1 < m_Content.size())
+					{
+						if (m_Content[m_Index + 1] == '=')
+						{
+							m_Index += 2; ++m_Column;
+							g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+							return { TokenType::LessLessEq, spanId };
+						}
+						if (m_Content[m_Index + 1] == '<')
+						{
+							if (m_Index + 2 < m_Content.size() && m_Content[m_Index + 2] == '=')
+							{
+								m_Index += 3; ++m_Column;
+								g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+								return { TokenType::LessLessLessEq, spanId };
+							}
+							m_Index += 2; ++m_Column;
+							g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+							return { TokenType::LessLessLess, spanId };
+						}
+						if (m_Content[m_Index + 1] == '*')
+						{
+							if (m_Index + 2 < m_Content.size() && m_Content[m_Index + 2] == '=')
+							{
+								m_Index += 3; ++m_Column;
+								g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+								return { TokenType::LessLessAsteriskEq, spanId };
+							}
+							m_Index += 2; ++m_Column;
+							g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+							return { TokenType::LessLessAsterisk, spanId };
+						}
+					}
+					++m_Index; ++m_Column;
+					g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+					return { TokenType::LessLess, spanId };
+				}
+			}
+			return { TokenType::Less, spanId };
+		}
+		case '>':
+		{
+			if (m_Index < m_Content.size())
+			{
+				if (m_Content[m_Index] == '=')
+				{
+					++m_Index; ++m_Column;
+					g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+					return { TokenType::GreaterEq, spanId };
+				}
+				if (m_Content[m_Index] == '>')
+				{
+					if (m_Index + 1 < m_Content.size())
+					{
+						if (m_Content[m_Index + 1] == '=')
+						{
+							m_Index += 2; ++m_Column;
+							g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+							return { TokenType::GreaterGreaterEq, spanId };
+						}
+						if (m_Content[m_Index + 1] == '>')
+						{
+							if (m_Index + 2 < m_Content.size() && m_Content[m_Index + 2] == '=')
+							{
+								m_Index += 3; ++m_Column;
+								g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+								return { TokenType::GreaterGreaterGreaterEq, spanId };
+							}
+							m_Index += 2; ++m_Column;
+							g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+							return { TokenType::GreaterGreaterGreater, spanId };
+						}
+						if (m_Content[m_Index + 1] == '*')
+						{
+							if (m_Index + 2 < m_Content.size() && m_Content[m_Index + 2] == '=')
+							{
+								m_Index += 3; ++m_Column;
+								g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+								return { TokenType::GreaterGreaterAsteriskEq, spanId };
+							}
+							m_Index += 2; ++m_Column;
+							g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+							return { TokenType::GreaterGreaterAsterisk, spanId };
+						}
+					}
+					++m_Index; ++m_Column;
+					g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+					return { TokenType::GreaterGreater, spanId };
+				}
+			}
+			return { TokenType::Greater, spanId };
+		}
+		case '!':
+		{
+			if (m_Index < m_Content.size())
+			{
+				if (m_Content[m_Index] == '=')
+				{
+					++m_Index; ++m_Column;
+					g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+					return { TokenType::ExclaimEq, spanId };
+				}
+				if (m_Content[m_Index] == '<')
+				{
+					++m_Index; ++m_Column;
+					g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+					return { TokenType::ExclaimLess, spanId };
+				}
+			}
+			return { TokenType::Exclaim, spanId };
+		}
+		case '(': return { TokenType::LParen, spanId };
+		case ')': return { TokenType::RParen, spanId };
+		case '{': return { TokenType::LBrace, spanId };
+		case '}': return { TokenType::RBrace, spanId };
+		case '[': return { TokenType::LBracket, spanId };
+		case ']': return { TokenType::RBracket, spanId };
+		case ',': return { TokenType::Comma, spanId };
+		case ';': return { TokenType::Semicolon, spanId };
+		case ':':
+		{
+			if (m_Index < m_Content.size())
+			{
+				if (m_Content[m_Index] == '=')
+				{
+					++m_Index; ++m_Column;
+					g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+					return { TokenType::ColonEq, spanId };
+				}
+				if (m_Content[m_Index] == ':')
+				{
+					++m_Index; ++m_Column;
+					g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+					return { TokenType::ColonColon, spanId };
+				}
+			}
+			return { TokenType::Colon, spanId };
+		}
+		case '.':
+		{
+			if (m_Index < m_Content.size())
+			{
+				if (m_Content[m_Index] == '.')
+				{
+					if (m_Index + 1 < m_Content.size())
+					{
+						if (m_Content[m_Index + 1] == '=')
+						{
+							m_Index += 2; ++m_Column;
+							g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+							return { TokenType::DotDotEq, spanId };
+						}
+						if (m_Content[m_Index + 1] == '.')
+						{
+							m_Index += 2; ++m_Column;
+							g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+							return { TokenType::DotDotDot, spanId };
+						}
+					}
+					++m_Index; ++m_Column;
+					g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+					return { TokenType::DotDot, spanId };
+				}
+				if (isdigit(m_Content[m_Index]))
+				{
+					--m_Index;
+					return ParseLiteral();
+				}
+			}
+			return { TokenType::Dot, spanId };
+		}
+		case '@':
+		{
+			if (m_Index < m_Content.size() && m_Content[m_Index] == ':')
+			{
+				++m_Index; ++m_Column;
+				g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+				return { TokenType::AtColon, spanId };
+			}
+			return { TokenType::At, spanId };
+		}
+		case '?':
+		{
+			if (m_Index < m_Content.size())
+			{
+				if (m_Content[m_Index] == '?')
+				{
+					if (m_Index + 1 < m_Content.size() && m_Content[m_Index + 1] == '=')
+					{
+						m_Index += 2; ++m_Column;
+						g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+						return { TokenType::QuestionQuestionEq, spanId };
+					}
+					++m_Index; ++m_Column;
+					g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+					return { TokenType::QuestionQuestion, spanId };
+				}
+				if (m_Content[m_Index] == ':')
+				{
+					++m_Index; ++m_Column;
+					g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+					return { TokenType::QuestionColon, spanId };
+				}
+				if (m_Content[m_Index] == '.')
+				{
+					++m_Index; ++m_Column;
+					g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+					return { TokenType::QuestionDot, spanId };
+				}
+				if (m_Content[m_Index] == '[')
+				{
+					++m_Index; ++m_Column;
+					g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+					return { TokenType::QuestionBracket, spanId };
+				}
+			}
+			return { TokenType::Question, spanId };
+		}
+		case '$':
+		{
+			if (m_Index < m_Content.size())
+			{
+				if (m_Content[m_Index] == '(')
+				{
+					++m_Index; ++m_Column;
+					g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+					return { TokenType::DollarParen, spanId };
+				}
+				if (m_Content[m_Index] == '[')
+				{
+					++m_Index; ++m_Column;
+					g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+					return { TokenType::DollarBracket, spanId };
+				}
+				if (m_Content[m_Index] == '{')
+				{
+					++m_Index; ++m_Column;
+					g_SpanManager.UpdateSpan(spanId, { m_Index - 2, m_Index, m_Line, m_Column - 2 });
+					return { TokenType::DollarBrace, spanId };
+				}
 			}
 
-			if (IsTokenTypeSignedLiteral(tok.Type()))
-				ss << ", " << tok.Signed();
-			if (IsTokenTypeUnsignedLiteral(tok.Type()))
-				ss << ", " << tok.Unsigned();
-			if (IsTokenTypeFpLiteral(tok.Type()))
-				ss << ", " << tok.Fp();
-			if (tok.Type() == TokenType::CharLit)
-				ss << ", " << tok.Signed();
-			if (tok.Type() == TokenType::True || tok.Type() == TokenType::False)
-				ss << ", " << tok.Bool();
 
-			ss << "\n";
+			usize end = m_Content.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDDEFGHIJKLMNOPQRSTUVWXYZ1234567890_", m_Index);
+			StdStringView iden = m_Content.substr(m_Index, end - m_Index);
 
-			g_Logger.Log(ss.str());
+			usize start = m_Index - 1;
+			m_Index += iden.size();
+			g_SpanManager.UpdateSpan(spanId, { start, m_Index, m_Line, m_Column - 2 });
+			return { TokenType::MacroIden, StdString{ iden }, spanId };
 		}
+		case '0':
+		case '1':
+		case '2':
+		case '3':
+		case '4':
+		case '5':
+		case '6':
+		case '7':
+		case '8':
+		case '9':
+			return ParseLiteral();
+		case ' ':
+		{
+			return { TokenType::Skip, u64(-1) };
+		}
+		case '\t':
+		{
+			m_Index += g_Ctx.options.TabWidth() - 1;
+			return { TokenType::Skip, u64(-1) };
+		}
+		case '\r':
+		{
+			if (m_Index < m_Content.size() && m_Content[m_Index] != '\n')
+				return { TokenType::Skip, u64(-1) };
+			++m_Index;
+			[[fallthrough]];
+		}
+		case '\n':
+		{
+			++m_Line;
+			m_Column = 1;
+			return { TokenType::Skip, u64(-1) };
+		}
+		case '\'': return ParseChar();
+		case '"': return ParseString();
+		case '\0':
+			--m_Index;
+			return { TokenType::EoF, spanId };
+
+		case 'r':
+		{
+			if (m_Index < m_Content.size() && m_Content[m_Index] == '"')
+				return ParseWysiwygString();
+			[[fallthrough]];
+		}
+		default:
+		{
+			--m_Index;
+			usize searchStart = m_Index;
+			if (searchStart + 1 < m_Content.size() && m_Content[searchStart] == '#')
+				++searchStart;
+
+			usize end = m_Content.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDDEFGHIJKLMNOPQRSTUVWXYZ1234567890_", searchStart);
+			StdStringView iden = m_Content.substr(m_Index, end - m_Index);
+
+			StdUnorderedMap<StdStringView, TokenType>& keywords = GetKeywordMap();
+			auto it = keywords.find(iden);
+			if (it == keywords.end())
+			{
+				Span span{ m_Index, end, m_Line, m_Column };
+				g_SpanManager.UpdateSpan(spanId, span);
+				m_Column += end - m_Index - 1;
+				m_Index = end;
+				return { TokenType::Iden, StdString{ iden }, spanId };
+			}
+
+			if (!m_TokTree.subToks.empty())
+			{
+				Token& prevTok = m_TokTree.subToks.back().tok;
+				switch (it->second)
+				{
+				case TokenType::In:
+				{
+					if (prevTok.type == TokenType::Exclaim)
+					{
+						g_SpanManager.UpdateSpan(spanId, { m_Index - 1, end, m_Line, m_Column - 1 });
+						prevTok = Token{ TokenType::NotIn, prevTok.spanId };
+						m_Column += end - m_Index - 1;
+						m_Index = end;
+						return { TokenType::Skip, u64(-1) };
+					}
+					break;
+				}
+				case TokenType::Is:
+				{
+					if (prevTok.type == TokenType::Exclaim)
+					{
+						g_SpanManager.UpdateSpan(spanId, { m_Index - 1, end, m_Line, m_Column - 1 });
+						prevTok = Token{ TokenType::NotIs, prevTok.spanId };
+						m_Column += end - m_Index - 1;
+						m_Index = end;
+						return { TokenType::Skip, u64(-1) };
+					}
+					break;
+				}
+				case TokenType::Try:
+				{
+					if (end < m_Content.size())
+					{
+						if (m_Content[end] == '?')
+						{
+							Span span{ m_Index, end + 1, m_Line, m_Column };
+							g_SpanManager.UpdateSpan(spanId, span);
+							m_Column += end - m_Index - 1;
+							m_Index = end + 1;
+							return { TokenType::TryNullable, spanId };
+						}
+						if (m_Content[end] == '!')
+						{
+							Span span{ m_Index, end + 1, m_Line, m_Column };
+							g_SpanManager.UpdateSpan(spanId, span);
+							m_Column += end - m_Index - 1;
+							m_Index = end + 1;
+							return { TokenType::TryPanic, spanId };
+						}
+					}
+				}
+				default: break;
+				}
+			}
+
+			Span span{ m_Index, end, m_Line, m_Column };
+			g_SpanManager.UpdateSpan(spanId, span);
+			m_Column += end - m_Index - 1;
+			m_Index = end;
+			return { it->second, StdString{ iden }, spanId };
+		}
+		}
+
 	}
 
 	StdUnorderedMap<StdStringView, TokenType>& Lexer::GetKeywordMap()
@@ -894,7 +796,7 @@ namespace Noctis
 		return keywords;
 	}
 
-	void Lexer::ParseLiteral()
+	Token Lexer::ParseLiteral()
 	{
 		usize size = m_Content.size();
 		usize start = m_Index;
@@ -930,9 +832,7 @@ namespace Noctis
 
 				StdString text = StdString(m_Content.substr(start, m_Index - start));
 				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-				m_Tokens.push_back({ litType, value, spanId });
-
-				return;
+				return{ litType, value, spanId };
 			}
 			case 'o':
 			case 'O':
@@ -961,9 +861,7 @@ namespace Noctis
 
 				StdString text = StdString(m_Content.substr(start, m_Index - start));
 				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-				m_Tokens.push_back({ litType, value, spanId });
-				
-				return;
+				return{ litType, value, spanId };
 			}
 			case 'x':
 			case 'X':
@@ -992,9 +890,7 @@ namespace Noctis
 
 				StdString text = StdString(m_Content.substr(start, m_Index - start));
 				u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-				m_Tokens.push_back({ litType, value, spanId });
-
-				return;
+				return{ litType, value, spanId };
 			}
 
 			default:
@@ -1091,7 +987,7 @@ namespace Noctis
 
 			StdString text = StdString{ m_Content.substr(start, m_Index - start) };
 			u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-			m_Tokens.push_back({ litType, val, spanId });
+			return { litType, val, spanId };
 		}
 		else
 		{
@@ -1104,8 +1000,7 @@ namespace Noctis
 				u64 val;
 				std::from_chars(digits.data(), digits.data() + digits.size(), val);
 
-				m_Tokens.push_back({ litType, val, spanId });
-				StdString text = StdString{ m_Content.substr(start, m_Index - start) };
+				return { litType, val, spanId };
 			}
 			else
 			{
@@ -1120,10 +1015,8 @@ namespace Noctis
 						litType = val >= std::numeric_limits<i32>::max() ? TokenType::I64Lit : TokenType::I32Lit;
 				}
 
-				StdString text = StdString{ m_Content.substr(start, m_Index - start) };
-				m_Tokens.push_back({ litType, val, spanId });
+				return { litType, val, spanId };
 			}
-
 		}
 	}
 
@@ -1248,7 +1141,7 @@ namespace Noctis
 		return TokenType::Unknown;
 	}
 
-	void Lexer::ParseChar()
+	Token Lexer::ParseChar()
 	{
 		usize size = m_Content.size();
 		usize start = m_Index;
@@ -1256,7 +1149,8 @@ namespace Noctis
 		if (m_Index + 1 >= size)
 		{
 			g_ErrorSystem.Error(m_Line, m_Column, "Character literal is not closed");
-			return;
+			u64 spanId = g_SpanManager.AddSpan(m_FilePath, { m_Index, m_Index + 1, m_Line, m_Column });
+			return { TokenType::Unknown, spanId };
 		}
 
 		usize charSize = 1;
@@ -1274,16 +1168,17 @@ namespace Noctis
 		if (m_Index >= size || m_Content[m_Index] != '\'')
 		{
 			g_ErrorSystem.Error(m_Line, m_Column, "Character literal is not closed");
-			return;
+			u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index + 1, m_Line, m_Column });
+			return { TokenType::Unknown, spanId };
 		}
 		++m_Index;
 		
 		StdString text = StdString{ m_Content.substr(start, m_Index - start) };
 		u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-		m_Tokens.push_back({ TokenType::CharLit, u64(val), spanId });
+		return { TokenType::CharLit, u64(val), spanId };
 	}
 
-	void Lexer::ParseString()
+	Token Lexer::ParseString()
 	{
 		usize start = m_Index;
 		m_Index = m_Content.find('"', m_Index + 1);
@@ -1300,7 +1195,8 @@ namespace Noctis
 		if (m_Index == StdString::npos)
 		{
 			g_ErrorSystem.Error(m_Line, m_Column, "string literal isn't closed");
-			return;
+			u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+			return { TokenType::Unknown, spanId };
 		}
 
 		++m_Index;
@@ -1309,15 +1205,16 @@ namespace Noctis
 		if (nl != StdString::npos && nl < m_Index)
 		{
 			g_ErrorSystem.Error(m_Line, m_Column, "A string literal should be contained on 1 line!");
-			return;
+			u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
+			return { TokenType::Unknown, spanId };
 		}
 
 		StdString text = StdString{ string };
 		u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-		m_Tokens.push_back({ TokenType::StringLit, text, spanId });
+		return { TokenType::StringLit, text, spanId };
 	}
 
-	void Lexer::ParseWysiwygString()
+	Token Lexer::ParseWysiwygString()
 	{
 		usize start = m_Index;
 		m_Index = m_Content.find('"', m_Index + 2);
@@ -1329,7 +1226,8 @@ namespace Noctis
 		if (m_Index == StdString::npos)
 		{
 			g_ErrorSystem.Error(m_Line, m_Column, "wysiwyg string literal isn't closed");
-			return;
+			u64 spanId = g_SpanManager.AddSpan(m_FilePath, { m_Index, m_Index + 1, m_Line, m_Column });
+			return { TokenType::Unknown, spanId };
 		}
 
 		usize nl = m_Content.find('\n', start + 2);
@@ -1342,7 +1240,7 @@ namespace Noctis
 		++m_Index;
 		StdString text = StdString{ m_Content.substr(start, m_Index - start) };
 		u64 spanId = g_SpanManager.AddSpan(m_FilePath, { start, m_Index, m_Line, m_Column });
-		m_Tokens.push_back({ TokenType::StringLit, text, spanId });
+		return { TokenType::StringLit, text, spanId };
 	}
 
 	u32 Lexer::ParseEscapeCode(usize offset, usize& escapeSize)

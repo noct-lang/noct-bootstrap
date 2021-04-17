@@ -508,15 +508,15 @@ namespace Noctis
 	}
 
 	AstPostfixExpr::AstPostfixExpr(AstExprSPtr expr, Token op)
-		: AstExpr(AstExprKind::Postfix, expr->ctx->startIdx, op.Idx())
+		: AstExpr(AstExprKind::Postfix, expr->ctx->startIdx, op.spanId)
 		, expr(expr)
-		, op(op.Type())
+		, op(op.type)
 	{
 	}
 
 	AstPrefixExpr::AstPrefixExpr(Token op, AstExprSPtr expr)
-		: AstExpr(AstExprKind::Prefix, op.Idx(), expr->ctx->endIdx)
-		, op(op.Type())
+		: AstExpr(AstExprKind::Prefix, op.spanId, expr->ctx->endIdx)
+		, op(op.type)
 		, expr(expr)
 	{
 	}
@@ -568,7 +568,7 @@ namespace Noctis
 	{
 	}
 	AstLiteralExpr::AstLiteralExpr(Token literal)
-		: AstExpr(AstExprKind::Literal, literal.Idx(), literal.Idx())
+		: AstExpr(AstExprKind::Literal, literal.spanId, literal.spanId)
 		, literal(literal)
 	{
 	}
@@ -656,15 +656,15 @@ namespace Noctis
 	}
 
 	AstTryExpr::AstTryExpr(Token& tok, AstExprSPtr call)
-		: AstExpr(AstExprKind::Try, tok.Idx(), call->ctx->endIdx)
-		, tryKind(tok.Type())
+		: AstExpr(AstExprKind::Try, tok.spanId, call->ctx->endIdx)
+		, tryKind(tok.type)
 		, call(call)
 	{
 	}
 
 	AstSpecKwExpr::AstSpecKwExpr(Token& tok)
-		: AstExpr(AstExprKind::SpecKw, tok.Idx(), tok.Idx())
-		, specKw(tok.Type())
+		: AstExpr(AstExprKind::SpecKw, tok.spanId, tok.spanId)
+		, specKw(tok.type)
 	{
 	}
 
@@ -681,8 +681,8 @@ namespace Noctis
 	}
 
 	AstBuiltinType::AstBuiltinType(AstAttribsSPtr attribs, const Token& tok)
-		: AstType(attribs, AstTypeKind::Builtin, tok.Idx(), tok.Idx())
-		, type(tok.Type())
+		: AstType(attribs, AstTypeKind::Builtin, tok.spanId, tok.spanId)
+		, type(tok.type)
 	{
 	}
 
@@ -769,13 +769,13 @@ namespace Noctis
 	}
 
 	AstLiteralPattern::AstLiteralPattern(Token& tok)
-		: AstPattern(AstPatternKind::Literal, tok.Idx(), tok.Idx())
+		: AstPattern(AstPatternKind::Literal, tok.spanId, tok.spanId)
 		, literal(tok)
 	{
 	}
 
 	AstRangePattern::AstRangePattern(Token from, bool inclusive, Token to)
-		: AstPattern(AstPatternKind::Range, from.Idx(), to.Idx())
+		: AstPattern(AstPatternKind::Range, from.spanId, to.spanId)
 		, from(std::move(from))
 		, inclusive(inclusive)
 		, to(std::move(to))
@@ -861,10 +861,10 @@ namespace Noctis
 	}
 
 	AstSimpleAttrib::AstSimpleAttrib(Token attrib)
-		: attrib(attrib.Type())
+		: attrib(attrib.type)
 		, ctx(new AstContext{})
 	{
-		ctx->startIdx = ctx->endIdx = attrib.Idx();
+		ctx->startIdx = ctx->endIdx = attrib.spanId;
 	}
 
 	AstGenericParam::AstGenericParam(AstGenericTypeParamSPtr typeParam)
@@ -998,7 +998,7 @@ namespace Noctis
 	}
 
 	AstMacroSeparator::AstMacroSeparator(StdVector<Token>&& toks)
-		: AstMacroPatternElem(AstMacroPatternElemKind::Separator, toks.front().Idx(), toks.back().Idx())
+		: AstMacroPatternElem(AstMacroPatternElemKind::Separator, toks.front().spanId, toks.back().spanId)
 		, toks(std::move(toks))
 	{
 	}

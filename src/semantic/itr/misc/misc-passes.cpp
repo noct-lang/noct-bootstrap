@@ -773,7 +773,7 @@ namespace Noctis
 
 	u64 SwitchProcessPass::GetLitVal(Token& tok)
 	{
-		switch (tok.Type())
+		switch (tok.type)
 		{
 		case TokenType::False: return 0;
 		case TokenType::True: return 1;
@@ -784,25 +784,25 @@ namespace Noctis
 		case TokenType::U32Lit:
 		case TokenType::U64Lit:
 		case TokenType::U128Lit:
-			return tok.Unsigned();
+			return tok.uval;
 		case TokenType::I8Lit:
 		case TokenType::I16Lit:
 		case TokenType::I32Lit:
 		case TokenType::I64Lit:
 		case TokenType::I128Lit:
-			return tok.Signed();
+			return tok.sval;
 		case TokenType::F16Lit:
 		case TokenType::F32Lit:
 		case TokenType::F64Lit:
 		case TokenType::F128Lit:
 		{
-			Span span = g_SpanManager.GetSpan(tok.Idx());
+			Span span = g_SpanManager.GetSpan(tok.spanId);
 			g_ErrorSystem.Error(span, "float literal patterns are not allowed");
 			return 0;
 		}
 		default:
 		{
-			Span span = g_SpanManager.GetSpan(tok.Idx());
+			Span span = g_SpanManager.GetSpan(tok.spanId);
 			g_ErrorSystem.Error(span, "Unknown literal pattern");
 			return 0;
 		}

@@ -8,6 +8,7 @@ namespace Noctis
 	enum class TokenType : u8
 	{
 		Unknown,
+		Skip,
 		
 		// Keywords
 		As,
@@ -200,7 +201,7 @@ namespace Noctis
 		// Other
 		Iden,
 		MacroIden,
-		EoL
+		EoF,
 		
 	};
 
@@ -209,52 +210,43 @@ namespace Noctis
 	bool IsTokenTypeSignedLiteral(TokenType type);
 	bool IsTokenTypeUnsignedLiteral(TokenType type);
 	bool IsTokenTypeFpLiteral(TokenType type);
-	
-	class Token
-	{
-	public:
 
+	bool IsTreeStartTokenType(TokenType type);
+	
+	struct Token
+	{
 		Token(TokenType type, u64 spanIdx);
 		Token(TokenType type, StdString text, u64 spanIdx);
 		Token(TokenType type, i64 val, u64 spanIdx);
 		Token(TokenType type, u64 val, u64 spanIdx);
 		Token(TokenType type, f64 val, u64 spanIdx);
 
-		TokenType Type() const { return m_Type; }
-		const StdString& Text() const { return m_Iden; }
-		u64 Idx() const { return m_SpanIdx; }
-		
-		i64 Signed() const { return m_Signed; }
-		u64 Unsigned() const { return m_Unsigned; }
-		f64 Fp() const { return m_Fp; }
-		bool Bool() const { return m_Bool; }
-
 		bool Token::operator==(const Token& other) const;
 		bool Token::operator!=(const Token& other) const;
-		
-	private:
 
-		TokenType m_Type;
-		u64 m_SpanIdx;
+		TokenType type;
+		u64 spanId;
 		
 		union 
 		{
-			i64 m_Signed;
-			u64 m_Unsigned;
-			f64 m_Fp;
-			bool m_Bool;
+			i64 sval;
+			u64 uval;
+			f64 fval;
+			bool bval;
 		};
-		StdString m_Iden;
+		StdString iden;
 	};
 
-	struct TokenTree
+	class TokenTree
 	{
+	public:
 		TokenTree();
-		TokenTree(Token& tok);
+		TokenTree(const Token& tok);
 		TokenTree(StdVector<TokenTree>&& subToks);
 		template<typename It>
 		TokenTree(It&& begin, It&& end)
 			: tok(TokenType::Unknown, u64(-1))
+			, m_LocalIdx(0)
 		{
 			subToks.insert(subToks.end(), begin, end);
 		}
@@ -262,13 +254,31 @@ namespace Noctis
 		Token tok;
 		StdVector<TokenTree> subToks;
 
-		void Append(Token& tok);
-		void Append(TokenTree& subTree);
+		void Append(const Token& tok);
+		void Append(const TokenTree& subTree);
+		void InsertAtCur(const TokenTree& subTree);
+
+		Token& Peek(usize offset = 0);
+		Token& Eat(TokenType type = TokenType::Skip);
+		bool TryEat(TokenType type);
+		Token& EatIden(const StdString& iden);
+		bool TryEatIden(const StdString& iden);
+
+		TokenTree& GetSubTree(bool isBase = true);
+
+		void ResetIdx();
+
+		bool IsExhausted() const { return m_LocalIdx >= subToks.size(); }
 
 		void ToToks(StdVector<Token>& toks);
 
 		// Debug utils
-		void LogTokens(SpanManager& spanManager, usize indent = 0) const;
+		void LogTokens(usize indent = 0) const;
+
+	private:
+		Token& PeekInternal(usize& offset);
+
+		usize m_LocalIdx;
 	};
 	
 }

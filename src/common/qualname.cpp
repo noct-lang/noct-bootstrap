@@ -31,6 +31,11 @@ namespace Noctis
 		return td;
 	}
 
+	StdString TypeDisambiguation::ToString()
+	{
+		return "<" + m_Type.ToString() + " as " + m_QualName->ToString() + ">";
+	}
+
 	TypeDisambiguation::TypeDisambiguation(TypeHandle type, QualNameSPtr qualName)
 		: m_Type(type)
 		, m_QualName(qualName)
@@ -59,7 +64,7 @@ namespace Noctis
 	{
 		if (idens.empty())
 			return nullptr;
-		
+
 		auto it = s_BaseNames.find(idens[0]);
 		if (it == s_BaseNames.end())
 			it = s_BaseNames.try_emplace(idens[0], StdVector<QualNameSPtr>{}).first;
@@ -212,19 +217,13 @@ namespace Noctis
 	{
 		StdString name;
 
-		// TODO
-		//if (m_Disambiguation)
-		//	name += m_Disambiguation->To
+		if (m_Disambiguation)
+			name += m_Disambiguation->ToString();
 
 		if (m_Base)
-		{
-			name += m_Base->ToString();
-			name += "::" + m_Idens.back();
-		}
-		else
-		{
+			name += m_Base->ToString() + "::";
+		if (!m_Idens.empty())
 			name += m_Idens.back();
-		}
 
 		if (!m_Generics.empty())
 		{
@@ -418,6 +417,9 @@ namespace Noctis
 				if (idenGen.isSpecialized)
 				{
 					// TODO: need access to context
+					IdenGeneric tmp = idenGen;
+					tmp.type = g_TypeReg.Fuzzy(idenGen.type);
+					fuzzyGenerics.push_back(tmp);
 				}
 				else
 				{
@@ -433,7 +435,7 @@ namespace Noctis
 		}
 
 		if (disambig)
-			return Create(disambig)->Append(idens, generics);
-		return Create(idens, generics);
+			return Create(disambig)->Append(idens, fuzzyGenerics);
+		return Create(idens, fuzzyGenerics);
 	}
 }

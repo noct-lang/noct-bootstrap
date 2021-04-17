@@ -27,6 +27,7 @@ namespace Noctis
 
 		TypeHandle Type() { return m_Type; }
 		QualNameSPtr IfaceQualName() { return m_QualName; }
+		StdString ToString();
 
 	private:
 		TypeDisambiguation(TypeHandle type, QualNameSPtr qualName);

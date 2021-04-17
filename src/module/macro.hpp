@@ -131,8 +131,9 @@ namespace Noctis
 		TokenTree body;
 
 		bool MatchPatternAndExtract(TokenTree& toks, StdVector<MacroExtractedElem>& extracted);
-		bool MatchFragmentAndExtract(const MacroFragment& fragment, TokenTree& toks, usize& tokIdx,
+		bool MatchFragmentAndExtract(const MacroFragment& fragment, TokenTree& toks,
 			StdVector<MacroExtractedElem>& extracted);
+		void ExtractVariable(const StdString& iden, MacroVarKind varKind, TokenTree& toks, TokenType separator, StdVector<MacroExtractedElem>& extracted);
 	};
 
 	class MacroContext

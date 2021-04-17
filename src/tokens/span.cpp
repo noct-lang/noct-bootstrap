@@ -28,6 +28,13 @@ namespace Noctis
 		m_Spans.push_back(std::move(span));
 		return id;
 	}
+
+	void SpanManager::UpdateSpan(u64 spanId, Span span)
+	{
+		span.filePath = m_Spans[spanId].filePath;
+		m_Spans[spanId] = span;
+	}
+
 	Span SpanManager::GetSpan(u64 id) const
 	{
 		if (id >= m_Spans.size())

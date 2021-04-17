@@ -27,7 +27,6 @@
       <ExpandedItem Condition="typeKind==Noctis::TypeKind::Array">arr</ExpandedItem>
       <ExpandedItem Condition="typeKind==Noctis::TypeKind::Tuple">tup</ExpandedItem>
       <ExpandedItem Condition="typeKind==Noctis::TypeKind::Opt">opt</ExpandedItem>
-      <ExpandedItem Condition="typeKind==Noctis::TypeKind::Compound">compound</ExpandedItem>
       <ExpandedItem Condition="typeKind==Noctis::TypeKind::Func">func</ExpandedItem>
       <ExpandedItem Condition="typeKind==Noctis::TypeKind::Generic">generic</ExpandedItem>
     </Expand>
